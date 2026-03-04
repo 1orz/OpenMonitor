@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CloudMonitor</string>
+    <string name="tab_features">功能</string>
+    <string name="tab_overview">概览</string>
+    <string name="tab_control">调节</string>
+    <string name="tab_user">用户</string>
+</resources>
