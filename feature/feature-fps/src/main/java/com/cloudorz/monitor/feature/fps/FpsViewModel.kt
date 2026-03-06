@@ -1,10 +1,14 @@
 package com.cloudorz.monitor.feature.fps
 
 import android.app.Application
+import android.content.Intent
+import android.net.Uri
+import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cloudorz.monitor.core.common.PermissionManager
 import com.cloudorz.monitor.core.common.PrivilegeMode
+import com.cloudorz.monitor.core.data.CsvExporter
 import com.cloudorz.monitor.core.data.repository.BatteryRepository
 import com.cloudorz.monitor.core.data.repository.CpuRepository
 import com.cloudorz.monitor.core.data.repository.FpsRepository
@@ -21,6 +25,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.File
 import javax.inject.Inject
 
 data class FpsUiState(
@@ -46,6 +51,7 @@ class FpsViewModel @Inject constructor(
     private val cpuRepository: CpuRepository,
     private val batteryRepository: BatteryRepository,
     private val permissionManager: PermissionManager,
+    private val csvExporter: CsvExporter,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FpsUiState())
@@ -273,6 +279,26 @@ class FpsViewModel @Inject constructor(
                         it.copy(batteryLevel = batteryStatus.capacity)
                     }
                 }
+        }
+    }
+
+    fun getExportIntent(sessionId: Long, onReady: (Intent) -> Unit) {
+        viewModelScope.launch {
+            val context = application.applicationContext
+            val exportDir = File(context.cacheDir, "export").apply { mkdirs() }
+            val file = File(exportDir, "fps_session_${sessionId}.csv")
+            file.outputStream().use { csvExporter.exportFpsSession(sessionId, it) }
+            val uri: Uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file,
+            )
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/csv"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            onReady(Intent.createChooser(intent, null))
         }
     }
 

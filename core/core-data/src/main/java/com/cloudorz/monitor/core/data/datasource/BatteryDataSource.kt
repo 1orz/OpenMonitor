@@ -4,7 +4,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
+import android.util.Log
 import com.cloudorz.monitor.core.common.SysfsReader
+import com.cloudorz.monitor.core.data.util.MonitorParser
 import com.cloudorz.monitor.core.model.battery.BatteryChargingStatus
 import com.cloudorz.monitor.core.model.battery.BatteryStatus
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -18,7 +20,35 @@ class BatteryDataSource @Inject constructor(
     private val sysfsReader: SysfsReader,
     @ApplicationContext private val context: Context
 ) {
+    companion object {
+        private const val TAG = "BatteryDataSource"
+
+        // Comprehensive sysfs paths for battery current (from DevCheck/Scene)
+        private val CURRENT_SYSFS_PATHS = arrayOf(
+            "/sys/class/power_supply/battery/current_now",
+            "/sys/class/power_supply/battery/batt_current_now",
+            "/sys/class/power_supply/battery/batt_current_ua_now",
+            "/sys/class/power_supply/bms/current_now",
+            "/sys/class/power_supply/battery/batt_current",
+            "/sys/class/power_supply/battery/batt_chg_current",
+            "/sys/class/power_supply/max77843-fuelgauge/current_now",
+            "/sys/class/power_supply/max170xx_battery/current_now",
+            "/sys/class/power_supply/max77693-fuelgauge/current_now",
+            "/sys/class/power_supply/sec-fuelgauge/current_now",
+            "/sys/class/power_supply/sec-charger/current_now",
+            "/sys/class/power_supply/mtp-fuelgauge/current_now",
+            "/sys/devices/platform/htc_battery/power_supply/battery/batt_current_now",
+            "/sys/devices/platform/sec-battery/power_supply/battery/current_now",
+            "/sys/devices/platform/battery/power_supply/battery/current_now",
+            "/sys/devices/platform/ds2784-battery/getcurrent",
+        )
+
+        private const val UEVENT_PATH = "/sys/class/power_supply/battery/uevent"
+    }
     private val batteryPath = "/sys/class/power_supply/battery"
+
+    // Cached working sysfs path: null=not probed, ""=none found
+    @Volatile private var resolvedCurrentPath: String? = null
 
     private val capacityMah: Double by lazy { readDesignCapacity() }
     private val batteryManager: BatteryManager by lazy {
@@ -88,15 +118,8 @@ class BatteryDataSource @Inject constructor(
             health = "Unavailable"
         }
 
-        // current_now: prefer BatteryManager API (no root needed, API 21+)
-        val currentUa = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
-        val currentMa = if (currentUa != Int.MIN_VALUE) {
-            (currentUa / 1000).toLong()
-        } else {
-            // API failed, try sysfs (may need root)
-            val raw = sysfsReader.readLong("$batteryPath/current_now") ?: 0L
-            raw / 1000
-        }
+        // current_now: multi-tier fallback (sysfs paths → API → uevent → intent)
+        val currentMa = readBatteryCurrent(batteryIntent).toLong()
 
         val chargeType = sysfsReader.readString("$batteryPath/charge_type") ?: ""
         val powerW = Math.abs(currentMa / 1000.0 * voltageV)
@@ -125,33 +148,68 @@ class BatteryDataSource @Inject constructor(
             val powerProfile = constructor.newInstance(context)
             val method = powerProfileClass.getMethod("getBatteryCapacity")
             (method.invoke(powerProfile) as? Double) ?: 0.0
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.d(TAG, "readDesignCapacity via PowerProfile failed", e)
             0.0
         }
     }
 
-    suspend fun setChargingEnabled(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
-        val paths = listOf(
-            "$batteryPath/battery_charging_enabled" to if (enabled) "1" else "0",
-            "$batteryPath/input_suspend" to if (enabled) "0" else "1",
-            "$batteryPath/charging_enabled" to if (enabled) "1" else "0"
-        )
-        for ((path, value) in paths) {
-            if (sysfsReader.writeValue(path, value)) return@withContext true
+    /**
+     * Multi-tier battery current reading:
+     * 1. Probe sysfs paths (cached after first success)
+     * 2. BatteryManager API
+     * 3. Parse uevent file
+     * 4. Intent broadcast extra
+     */
+    private suspend fun readBatteryCurrent(batteryIntent: Intent?): Int {
+        // Tier 1: Sysfs paths with probing and caching
+        val sysfsValue = readCurrentFromSysfs()
+        if (sysfsValue != null && sysfsValue != 0) return sysfsValue
+
+        // Tier 2: BatteryManager API
+        val apiValue = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
+        if (apiValue != Int.MIN_VALUE && apiValue != 0) {
+            return MonitorParser.normalizeCurrentToMa(apiValue.toLong())
         }
-        false
+
+        // Tier 3: Parse uevent file
+        val ueventValue = readCurrentFromUevent()
+        if (ueventValue != null && ueventValue != 0) return ueventValue
+
+        // Tier 4: Intent broadcast extra
+        if (batteryIntent != null) {
+            val intentValue = batteryIntent.getIntExtra("current_now", 0)
+            if (intentValue != 0) return MonitorParser.normalizeCurrentToMa(intentValue.toLong())
+        }
+
+        return 0
     }
 
-    suspend fun setChargeCurrentLimit(limitMa: Int): Boolean = withContext(Dispatchers.IO) {
-        val limitUa = limitMa * 1000
-        sysfsReader.writeValue("$batteryPath/constant_charge_current_max", limitUa.toString())
+    private suspend fun readCurrentFromSysfs(): Int? {
+        val cached = resolvedCurrentPath
+        if (cached != null) {
+            if (cached.isEmpty()) return null // already probed, none found
+            val raw = sysfsReader.readLong(cached) ?: return null
+            return MonitorParser.normalizeCurrentToMa(raw)
+        }
+
+        // Probe all paths to find the first readable one
+        for (path in CURRENT_SYSFS_PATHS) {
+            val raw = sysfsReader.readLong(path)
+            if (raw != null) {
+                resolvedCurrentPath = path
+                Log.d(TAG, "Battery current sysfs path resolved: $path")
+                return MonitorParser.normalizeCurrentToMa(raw)
+            }
+        }
+        resolvedCurrentPath = "" // mark as probed, none found
+        Log.d(TAG, "No readable sysfs path found for battery current")
+        return null
     }
 
-    suspend fun getNightChargingEnabled(): Boolean? = withContext(Dispatchers.IO) {
-        sysfsReader.readInt("$batteryPath/night_charging")?.let { it == 1 }
+    private suspend fun readCurrentFromUevent(): Int? {
+        val content = sysfsReader.readString(UEVENT_PATH) ?: return null
+        return MonitorParser.parseBatteryCurrentFromUevent(content)
     }
 
-    suspend fun setNightCharging(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
-        sysfsReader.writeValue("$batteryPath/night_charging", if (enabled) "1" else "0")
-    }
 }

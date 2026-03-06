@@ -1,8 +1,79 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">CloudMonitor</string>
-    <string name="tab_features">功能</string>
-    <string name="tab_overview">概览</string>
-    <string name="tab_control">调节</string>
-    <string name="tab_user">用户</string>
+    <string name="tab_features">Features</string>
+    <string name="tab_overview">Overview</string>
+    <string name="tab_control">Control</string>
+    <string name="tab_user">User</string>
+
+    <!-- Permission Guide Screen -->
+    <string name="guide_subtitle">Select Running Mode</string>
+    <string name="guide_auto_detect">Auto-Detect Best Mode</string>
+    <string name="guide_manual_hint">Or manually select a mode above</string>
+    <string name="guide_confirm">Enter %1$s Mode</string>
+    <string name="guide_detecting_title">Detecting Permissions</string>
+    <string name="guide_detecting_desc">Checking available privilege levels...</string>
+
+    <string name="mode_root_title">ROOT Mode</string>
+    <string name="mode_root_desc">Full access. Requires KernelSU / Magisk / APatch</string>
+    <string name="mode_root_tag">All features available</string>
+
+    <string name="mode_shizuku_title">Shizuku Mode</string>
+    <string name="mode_shizuku_desc">Most features. No root required</string>
+    <string name="mode_shizuku_tag">FPS / Process etc. available</string>
+
+    <string name="mode_basic_title">Basic Mode</string>
+    <string name="mode_basic_desc">Basic monitoring. No special permissions needed</string>
+    <string name="mode_basic_tag">Basic monitoring available</string>
+
+    <!-- Quick Settings Tile -->
+    <string name="tile_label">System Monitor</string>
+    <string name="tile_label_format">CPU %1$d%% · %2$s°C</string>
+
+    <!-- Alert Notifications -->
+    <string name="alert_channel_name">Monitor Alerts</string>
+    <string name="alert_channel_desc">Notifications for high CPU temperature, load, or memory usage</string>
+    <string name="alert_cpu_temp_title">CPU Temperature Alert</string>
+    <string name="alert_cpu_temp_body">CPU temperature has reached %1$d°C</string>
+    <string name="alert_cpu_load_title">CPU Load Alert</string>
+    <string name="alert_cpu_load_body">CPU load has reached %1$d%%</string>
+    <string name="alert_memory_title">Memory Alert</string>
+    <string name="alert_memory_body">Memory usage has reached %1$d%%</string>
+    <string name="alert_battery_temp_title">Battery Temperature Alert</string>
+    <string name="alert_battery_temp_body">Battery temperature has reached %1$d°C</string>
+
+    <!-- Storage Screen -->
+    <string name="storage_title">Storage Info</string>
+    <string name="internal_storage">Internal Storage</string>
+    <string name="external_storage">External Storage</string>
+    <string name="partitions">Partitions</string>
+    <string name="used">Used</string>
+    <string name="available">Available</string>
+    <string name="total">Total</string>
+
+    <!-- Sensor Screen -->
+    <string name="sensor_title">Sensors</string>
+    <string name="sensor_count_format">%1$d sensors detected</string>
+    <string name="sensor_vendor">Vendor</string>
+    <string name="sensor_resolution">Resolution</string>
+    <string name="sensor_max_range">Max Range</string>
+    <string name="sensor_power">Power</string>
+    <string name="sensor_min_delay">Min Delay</string>
+    <string name="sensor_version">Version</string>
+
+    <!-- Network Screen -->
+    <string name="network_title">Network Monitor</string>
+    <string name="network_connected">Connected</string>
+    <string name="network_disconnected">Disconnected</string>
+    <string name="realtime_speed">Real-time Speed</string>
+    <string name="download">Download</string>
+    <string name="upload">Upload</string>
+    <string name="total_traffic">Total Traffic</string>
+    <string name="total_received">Total Received</string>
+    <string name="total_sent">Total Sent</string>
+    <string name="wifi_details">WiFi Details</string>
+    <string name="signal_strength">Signal Strength</string>
+    <string name="link_speed">Link Speed</string>
+    <string name="frequency">Frequency</string>
+    <string name="ip_address">IP Address</string>
 </resources>

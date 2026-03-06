@@ -27,6 +27,8 @@ data class CpuGlobalStatus(
     val cores: List<CpuCoreInfo> = emptyList(),
     val clusters: List<CpuClusterStatus> = emptyList(),
     val cpuStatus: CpuStatus = CpuStatus(),
+    val cacheInfo: CpuCacheInfo = CpuCacheInfo(),
+    val hasArmNeon: Boolean? = null,
 ) {
     val coreCount: Int
         get() = cores.size

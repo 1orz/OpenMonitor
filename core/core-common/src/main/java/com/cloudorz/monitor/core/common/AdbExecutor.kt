@@ -1,5 +1,6 @@
 package com.cloudorz.monitor.core.common
 
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -18,6 +19,7 @@ class AdbExecutor @Inject constructor() : ShellExecutor {
     override val mode: PrivilegeMode = PrivilegeMode.ADB
 
     companion object {
+        private const val TAG = "AdbExecutor"
         private const val PROCESS_TIMEOUT_SECONDS = 30L
     }
 
@@ -54,7 +56,8 @@ class AdbExecutor @Inject constructor() : ShellExecutor {
             if (file.exists() && file.canRead()) {
                 return@withContext file.readText()
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.d(TAG, "readFile direct IO failed: $path", e)
             // Fall through to shell-based read.
         }
 
@@ -69,27 +72,10 @@ class AdbExecutor @Inject constructor() : ShellExecutor {
             }
             if (process.exitValue() == 0) output else null
         } catch (e: Exception) {
+            Log.d(TAG, "readFile shell fallback failed: $path", e)
             null
         }
     }
-
-    override suspend fun writeFile(path: String, value: String): Boolean =
-        withContext(Dispatchers.IO) {
-            try {
-                val sanitizedValue = value.replace("'", "'\\''")
-                val process = Runtime.getRuntime()
-                    .exec(arrayOf("sh", "-c", "echo '$sanitizedValue' > '$path'"))
-                val completed = process.waitFor(PROCESS_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                if (!completed) {
-                    process.destroyForcibly()
-                    false
-                } else {
-                    process.exitValue() == 0
-                }
-            } catch (e: Exception) {
-                false
-            }
-        }
 
     override suspend fun isAvailable(): Boolean = true
 }

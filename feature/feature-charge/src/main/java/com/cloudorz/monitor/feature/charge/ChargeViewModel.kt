@@ -1,62 +1,68 @@
 package com.cloudorz.monitor.feature.charge
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.cloudorz.monitor.core.data.CsvExporter
 import com.cloudorz.monitor.core.data.repository.BatteryRepository
+import com.cloudorz.monitor.core.data.repository.ChargeRepository
 import com.cloudorz.monitor.core.model.battery.BatteryStatus
+import com.cloudorz.monitor.core.model.battery.ChargeStatRecord
 import com.cloudorz.monitor.core.model.battery.ChargeStatSession
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.File
 import javax.inject.Inject
+import kotlin.math.abs
 
 data class ChargeUiState(
     val currentBattery: BatteryStatus = BatteryStatus(),
     val sessions: List<ChargeStatSession> = emptyList(),
-    val chargingEnabled: Boolean = true,
-    val currentLimit: Int = 0, // mA, 0 = no limit
-    val nightChargingEnabled: Boolean = false,
-    val temperatureProtection: Boolean = true,
-    val maxTemperature: Float = 40f,
+    val currentRecords: List<ChargeChartPoint> = emptyList(),
+    val isChargeTracking: Boolean = false,
 )
 
 @HiltViewModel
 class ChargeViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val batteryRepository: BatteryRepository,
+    private val chargeRepository: ChargeRepository,
+    private val csvExporter: CsvExporter,
 ) : ViewModel() {
 
     private val batteryFlow = batteryRepository.observeBatteryStatus(2000L)
     private val sessions = MutableStateFlow<List<ChargeStatSession>>(emptyList())
-    private val chargingEnabled = MutableStateFlow(true)
-    private val currentLimit = MutableStateFlow(0)
-    private val nightChargingEnabled = MutableStateFlow(false)
-    private val temperatureProtection = MutableStateFlow(true)
-    private val maxTemperature = MutableStateFlow(40f)
+    private val currentRecords = MutableStateFlow<List<ChargeChartPoint>>(emptyList())
+    private val isChargeTracking = MutableStateFlow(false)
+
+    private var activeSessionId: Long? = null
+    private var startCapacity: Int = 0
+    private var samplingJob: Job? = null
+    private var recordsCollectionJob: Job? = null
+    private var wasCharging: Boolean = false
 
     val uiState: StateFlow<ChargeUiState> = combine(
         batteryFlow,
         sessions,
-        combine(
-            chargingEnabled,
-            currentLimit,
-            nightChargingEnabled,
-            combine(temperatureProtection, maxTemperature) { tp, mt -> tp to mt },
-        ) { ce, cl, nc, (tp, mt) ->
-            ChargeControlState(ce, cl, nc, tp, mt)
-        },
-    ) { battery, sessionList, controlState ->
+        currentRecords,
+        isChargeTracking,
+    ) { battery, sessionList, records, tracking ->
         ChargeUiState(
             currentBattery = battery,
             sessions = sessionList,
-            chargingEnabled = controlState.chargingEnabled,
-            currentLimit = controlState.currentLimit,
-            nightChargingEnabled = controlState.nightChargingEnabled,
-            temperatureProtection = controlState.temperatureProtection,
-            maxTemperature = controlState.maxTemperature,
+            currentRecords = records,
+            isChargeTracking = tracking,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -64,50 +70,141 @@ class ChargeViewModel @Inject constructor(
         initialValue = ChargeUiState(),
     )
 
-    fun onChargingEnabledChanged(enabled: Boolean) {
-        chargingEnabled.value = enabled
+    init {
+        observeSessions()
+        observeChargingState()
+    }
+
+    private fun observeSessions() {
         viewModelScope.launch {
-            val success = batteryRepository.setChargingEnabled(enabled)
-            if (!success) {
-                // Revert on failure
-                chargingEnabled.value = !enabled
+            chargeRepository.getAllSessions().collect { list ->
+                sessions.value = list
             }
         }
     }
 
-    fun onCurrentLimitChanged(limitMa: Int) {
-        currentLimit.value = limitMa
+    private fun observeChargingState() {
         viewModelScope.launch {
-            val success = batteryRepository.setChargeCurrentLimit(limitMa)
-            if (!success) {
-                currentLimit.value = 0
+            batteryFlow.collect { battery ->
+                val isNowCharging = battery.isCharging
+                if (isNowCharging && !wasCharging) {
+                    startChargeSession(battery)
+                } else if (!isNowCharging && wasCharging) {
+                    stopChargeSession(battery)
+                }
+                wasCharging = isNowCharging
             }
         }
     }
 
-    fun onNightChargingChanged(enabled: Boolean) {
-        nightChargingEnabled.value = enabled
+    private fun startChargeSession(battery: BatteryStatus) {
+        if (activeSessionId != null) return
+
         viewModelScope.launch {
-            val success = batteryRepository.setNightCharging(enabled)
-            if (!success) {
-                nightChargingEnabled.value = !enabled
+            startCapacity = battery.capacity
+            val sessionId = chargeRepository.startSession(battery.capacity)
+            activeSessionId = sessionId
+            isChargeTracking.value = true
+
+            // Record initial data point
+            recordDataPoint(battery)
+
+            // Start observing records from DB
+            startRecordsCollection(sessionId)
+
+            // Start periodic sampling
+            samplingJob = viewModelScope.launch {
+                while (true) {
+                    delay(SAMPLING_INTERVAL_MS)
+                    val currentBattery = batteryRepository.getBatteryStatus()
+                    recordDataPoint(currentBattery)
+                }
             }
         }
     }
 
-    fun onTemperatureProtectionChanged(enabled: Boolean) {
-        temperatureProtection.value = enabled
+    private suspend fun recordDataPoint(battery: BatteryStatus) {
+        val sessionId = activeSessionId ?: return
+        chargeRepository.insertRecord(
+            sessionId = sessionId,
+            capacity = battery.capacity,
+            currentMa = abs(battery.currentMa).toLong(),
+            temperature = battery.temperatureCelsius.toFloat(),
+            powerW = abs(battery.powerW),
+        )
     }
 
-    fun onMaxTemperatureChanged(temperature: Float) {
-        maxTemperature.value = temperature
+    private fun startRecordsCollection(sessionId: Long) {
+        recordsCollectionJob?.cancel()
+        recordsCollectionJob = viewModelScope.launch {
+            chargeRepository.getRecordsBySession(sessionId).collect { entities ->
+                currentRecords.value = entities.map { it.toChartPoint() }
+            }
+        }
+    }
+
+    private fun stopChargeSession(battery: BatteryStatus) {
+        val sessionId = activeSessionId ?: return
+        activeSessionId = null
+        isChargeTracking.value = false
+
+        samplingJob?.cancel()
+        samplingJob = null
+        recordsCollectionJob?.cancel()
+        recordsCollectionJob = null
+
+        viewModelScope.launch {
+            // Record final data point
+            chargeRepository.insertRecord(
+                sessionId = sessionId,
+                capacity = battery.capacity,
+                currentMa = abs(battery.currentMa).toLong(),
+                temperature = battery.temperatureCelsius.toFloat(),
+                powerW = abs(battery.powerW),
+            )
+            val capacityDelta = battery.capacity - startCapacity
+            chargeRepository.endSession(
+                sessionId = sessionId,
+                capacityRatio = capacityDelta,
+                capacityWh = 0.0,
+            )
+            currentRecords.value = emptyList()
+        }
+    }
+
+    fun getExportIntent(sessionId: Long, onReady: (Intent) -> Unit) {
+        viewModelScope.launch {
+            val exportDir = File(context.cacheDir, "export").apply { mkdirs() }
+            val file = File(exportDir, "charge_session_${sessionId}.csv")
+            file.outputStream().use { csvExporter.exportChargeSession(sessionId, it) }
+            val uri: Uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file,
+            )
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/csv"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            onReady(Intent.createChooser(intent, null))
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        samplingJob?.cancel()
+        recordsCollectionJob?.cancel()
+    }
+
+    companion object {
+        private const val SAMPLING_INTERVAL_MS = 30_000L
     }
 }
 
-private data class ChargeControlState(
-    val chargingEnabled: Boolean,
-    val currentLimit: Int,
-    val nightChargingEnabled: Boolean,
-    val temperatureProtection: Boolean,
-    val maxTemperature: Float,
+private fun ChargeStatRecord.toChartPoint() = ChargeChartPoint(
+    timestamp = timestamp,
+    capacity = capacity,
+    currentMa = currentMa.toLong(),
+    temperature = temperatureCelsius.toFloat(),
 )

@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "ceee578d7d1df475f7927ac245b91ca3",
+    "identityHash": "a57520fa20bb831c5406f4e63c4e4e66",
     "entities": [
       {
         "tableName": "power_stat_sessions",
@@ -429,80 +429,12 @@
             ]
           }
         ]
-      },
-      {
-        "tableName": "app_configs",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`packageName` TEXT NOT NULL, `aloneLight` INTEGER NOT NULL, `aloneLightValue` INTEGER NOT NULL, `disNotice` INTEGER NOT NULL, `disButton` INTEGER NOT NULL, `gpsOn` INTEGER NOT NULL, `freeze` INTEGER NOT NULL, `screenOrientation` INTEGER NOT NULL, `showMonitor` INTEGER NOT NULL, PRIMARY KEY(`packageName`))",
-        "fields": [
-          {
-            "fieldPath": "packageName",
-            "columnName": "packageName",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "aloneLight",
-            "columnName": "aloneLight",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "aloneLightValue",
-            "columnName": "aloneLightValue",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "disNotice",
-            "columnName": "disNotice",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "disButton",
-            "columnName": "disButton",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "gpsOn",
-            "columnName": "gpsOn",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "freeze",
-            "columnName": "freeze",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "screenOrientation",
-            "columnName": "screenOrientation",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "showMonitor",
-            "columnName": "showMonitor",
-            "affinity": "INTEGER",
-            "notNull": true
-          }
-        ],
-        "primaryKey": {
-          "autoGenerate": false,
-          "columnNames": [
-            "packageName"
-          ]
-        },
-        "indices": [],
-        "foreignKeys": []
       }
     ],
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ceee578d7d1df475f7927ac245b91ca3')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'a57520fa20bb831c5406f4e63c4e4e66')"
     ]
   }
 }

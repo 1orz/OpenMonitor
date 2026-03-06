@@ -1,12 +1,14 @@
 package com.cloudorz.monitor.core.common
 
 import android.content.Context
+import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -18,6 +20,10 @@ class PermissionManager @Inject constructor(
     private val adbExecutor: AdbExecutor,
     private val basicExecutor: BasicExecutor,
 ) {
+    companion object {
+        private const val TAG = "PermissionManager"
+    }
+
     private val prefs = context.getSharedPreferences("monitor_settings", Context.MODE_PRIVATE)
 
     private val _currentMode = MutableStateFlow(PrivilegeMode.BASIC)
@@ -43,8 +49,11 @@ class PermissionManager @Inject constructor(
     }
 
     suspend fun detectBestMode(): PrivilegeMode = withContext(Dispatchers.IO) {
+        val rootAvailable = withTimeoutOrNull(5000L) {
+            rootExecutor.isAvailable()
+        } ?: false
         val detected = when {
-            rootExecutor.isAvailable() -> PrivilegeMode.ROOT
+            rootAvailable -> PrivilegeMode.ROOT
             shizukuExecutor.isAvailable() -> PrivilegeMode.SHIZUKU
             hasElevatedShellAccess() -> PrivilegeMode.ADB
             else -> PrivilegeMode.BASIC
@@ -97,6 +106,7 @@ class PermissionManager @Inject constructor(
             val result = adbExecutor.execute("cat /data/system/packages.xml | head -c 1")
             result.isSuccess && result.stdout.isNotEmpty()
         } catch (e: Exception) {
+            Log.d(TAG, "hasElevatedShellAccess check failed", e)
             false
         }
     }

@@ -21,5 +21,4 @@ class ProcessRepository @Inject constructor(
     suspend fun getProcessList(): List<ProcessInfo> = processDataSource.getProcessList()
     suspend fun getProcessDetail(pid: Int): ProcessInfo? = processDataSource.getProcessDetail(pid)
     suspend fun getThreads(pid: Int): List<ThreadInfo> = processDataSource.getThreads(pid)
-    suspend fun killProcess(pid: Int): Boolean = processDataSource.killProcess(pid)
 }

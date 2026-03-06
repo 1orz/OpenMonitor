@@ -2,7 +2,6 @@ package com.cloudorz.monitor.service
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,7 +32,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.cloudorz.monitor.core.model.fps.FpsMethod
 import kotlin.math.abs
 
 private val BG = Color(0xCC000000)
@@ -44,8 +43,6 @@ private val GpuColor = Color(0xFFAB47BC)
 private val MemColor = Color(0xFF66BB6A)
 private val BatColor = Color(0xFFFFA726)
 private val CurrentColor = Color(0xFF29B6F6)
-private val ChipBg = Color(0xFF333333)
-private val ChipSelectedBg = Color(0xFF1976D2)
 
 private val MonoStyle = TextStyle(
     fontFamily = FontFamily.Monospace,
@@ -148,13 +145,13 @@ fun FloatMiniMonitorContent(service: FloatMonitorService) {
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            MiniIconLabel(R.drawable.ic_cpu, "%3d%%".format(cpu.toInt()), CpuColor)
-            MiniIconLabel(R.drawable.ic_gpu, "%3d%%".format(gpu.toInt()), GpuColor)
-            MiniIconLabel(R.drawable.ic_temperature, "%3.0f\u00B0".format(temp), tempColor(temp))
+            MiniIconLabel(R.drawable.ic_cpu, "%3d%%".format(cpu.toInt()), Color.White)
+            MiniIconLabel(R.drawable.ic_gpu, "%3d%%".format(gpu.toInt()), Color.White)
+            MiniIconLabel(R.drawable.ic_temperature, "%3.0f\u00B0".format(temp), Color.White)
             val fpsBase = if (fps > 0) "%3d".format(fps.toInt()) else if (hasShell) "  0" else " --"
-            val fpsText = if (jank > 0 && fps > 0) "$fpsBase J$jank" else fpsBase
-            MiniIconLabel(R.drawable.ic_frame, fpsText, if (hasShell) fpsColor(fps) else TextSecondary)
-            MiniIconLabel(R.drawable.ic_current, "${abs(mA)}mA", currentColor(mA))
+            val fpsText = if (jank > 0 && fps > 0) "$fpsBase J%d".format(jank) else fpsBase
+            MiniIconLabel(R.drawable.ic_frame, fpsText, Color.White)
+            MiniIconLabel(R.drawable.ic_current, "%4dmA".format(abs(mA)), Color.White)
         }
     }
 }
@@ -178,6 +175,8 @@ private fun MiniIconLabel(iconRes: Int, value: String, color: Color) {
                 color = color,
                 letterSpacing = 0.sp,
             ),
+            maxLines = 1,
+            softWrap = false,
         )
     }
 }
@@ -185,82 +184,15 @@ private fun MiniIconLabel(iconRes: Int, value: String, color: Color) {
 @Composable
 fun FloatFpsContent(service: FloatMonitorService) {
     val fps by service.currentFps.collectAsState()
-    val jank by service.currentJank.collectAsState()
-    val currentMethod by service.currentFpsMethod.collectAsState()
-    val availableMethods by service.availableFpsMethods.collectAsState()
-    val hasShell by service.hasShellAccess.collectAsState()
 
-    Box(
-        modifier = Modifier
-            .background(BG, RoundedCornerShape(4.dp))
-            .padding(horizontal = 6.dp, vertical = 4.dp),
-    ) {
-        if (!hasShell) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("FPS", style = MonoStyle.copy(fontSize = 10.sp, color = TextSecondary))
-                Text(
-                    text = "需要 Shell 权限",
-                    style = TextStyle(fontSize = 8.sp, color = Color(0xFFFFC107), fontFamily = FontFamily.Monospace),
-                )
-                Text(
-                    text = "Root/ADB/Shizuku",
-                    style = TextStyle(fontSize = 7.sp, color = Color(0x80FFFFFF), fontFamily = FontFamily.Monospace),
-                )
-            }
-        } else {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "${fps.toInt()}",
-                        style = MonoStyle.copy(fontSize = 18.sp, color = fpsColor(fps), lineHeight = 20.sp),
-                    )
-                    Text(
-                        text = if (jank > 0) "J:$jank" else "FPS",
-                        style = TextStyle(
-                            fontSize = 7.sp,
-                            color = if (jank > 0) Color(0xFFFFC107) else TextSecondary,
-                            fontFamily = FontFamily.Monospace,
-                            lineHeight = 8.sp,
-                        ),
-                    )
-                }
-                if (availableMethods.size > 1) {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(1.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        availableMethods.forEach { method ->
-                            val isSelected = method == currentMethod
-                            Text(
-                                text = methodShortName(method),
-                                style = TextStyle(
-                                    fontSize = 7.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (isSelected) Color.White else Color(0x80FFFFFF),
-                                    fontFamily = FontFamily.Monospace,
-                                    lineHeight = 8.sp,
-                                ),
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(2.dp))
-                                    .background(if (isSelected) ChipSelectedBg else ChipBg)
-                                    .clickable { service.switchFpsMethod(method) }
-                                    .padding(horizontal = 3.dp, vertical = 1.dp),
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-private fun methodShortName(method: FpsMethod): String = when (method) {
-    FpsMethod.SURFACE_FLINGER -> "SF"
-    FpsMethod.FRAME_METRICS -> "FM"
-    FpsMethod.CHOREOGRAPHER -> "CH"
+    Text(
+        text = "%d".format(fps.toInt()),
+        style = MonoStyle.copy(
+            fontSize = 18.sp,
+            color = fpsColor(fps),
+        ),
+        textAlign = TextAlign.End,
+    )
 }
 
 @Composable
@@ -442,6 +374,18 @@ fun FloatThreadContent(service: FloatMonitorService) {
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
+                            text = "%4.1f%%".format(thread.cpuLoadPercent),
+                            style = MonoStyle.copy(
+                                fontSize = 9.sp,
+                                color = when {
+                                    thread.cpuLoadPercent >= 20 -> Color(0xFFF44336)
+                                    thread.cpuLoadPercent >= 5 -> Color(0xFFFFC107)
+                                    else -> Color(0xFF4CAF50)
+                                },
+                            ),
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
                             text = thread.tid.toString(),
                             style = MonoStyle.copy(fontSize = 8.sp, color = TextSecondary),
                         )
@@ -453,9 +397,11 @@ fun FloatThreadContent(service: FloatMonitorService) {
 }
 
 private fun fpsColor(fps: Double): Color = when {
-    fps >= 55.0 -> Color(0xFF4CAF50)
-    fps >= 30.0 -> Color(0xFFFFC107)
-    else -> Color(0xFFF44336)
+    fps >= 120.0 -> Color(0xFF00E676) // bright green
+    fps >= 90.0 -> Color(0xFF66BB6A)  // green
+    fps >= 60.0 -> Color(0xFFFFC107)  // amber
+    fps >= 30.0 -> Color(0xFFFF9800)  // orange
+    else -> Color(0xFFF44336)          // red
 }
 
 private fun tempColor(celsius: Double): Color = when {

@@ -1,22 +1,65 @@
 package com.cloudorz.monitor
 
 import android.app.Application
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.cloudorz.monitor.worker.DatabaseCleanupWorker
+import com.cloudorz.monitor.worker.MonitorAlertWorker
 import com.topjohnwu.superuser.Shell
 import dagger.hilt.android.HiltAndroidApp
+import java.util.concurrent.TimeUnit
+import javax.inject.Inject
 
 @HiltAndroidApp
-class MonitorApp : Application() {
+class MonitorApp : Application(), Configuration.Provider {
+
+    @Inject
+    lateinit var workerFactory: HiltWorkerFactory
+
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setWorkerFactory(workerFactory)
+            .build()
+
+    override fun onCreate() {
+        super.onCreate()
+        scheduleDatabaseCleanup()
+        scheduleMonitorAlerts()
+    }
+
+    private fun scheduleDatabaseCleanup() {
+        val cleanupRequest = PeriodicWorkRequestBuilder<DatabaseCleanupWorker>(
+            1, TimeUnit.DAYS,
+        ).build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            DatabaseCleanupWorker.WORK_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            cleanupRequest,
+        )
+    }
+
+    private fun scheduleMonitorAlerts() {
+        val alertRequest = PeriodicWorkRequestBuilder<MonitorAlertWorker>(
+            15, TimeUnit.MINUTES,
+        ).build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            MonitorAlertWorker.WORK_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            alertRequest,
+        )
+    }
 
     companion object {
         init {
-            // Configure libsu Shell.Builder before any Shell usage.
-            // This sets up the su binary lookup and shell flags.
-            // KernelSU / Magisk / APatch all provide a `su` binary —
-            // Shell.Builder will try `su --mount-master` first, then `su`, then `sh`.
             Shell.setDefaultBuilder(
                 Shell.Builder.create()
                     .setFlags(Shell.FLAG_MOUNT_MASTER or Shell.FLAG_REDIRECT_STDERR)
-                    .setTimeout(15) // 15 second timeout for su grant dialog
+                    .setTimeout(15)
             )
         }
     }

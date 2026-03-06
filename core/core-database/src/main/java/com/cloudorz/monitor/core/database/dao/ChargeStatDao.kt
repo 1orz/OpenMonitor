@@ -3,6 +3,7 @@ package com.cloudorz.monitor.core.database.dao
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
+import androidx.room.Transaction
 import com.cloudorz.monitor.core.database.entity.ChargeStatRecordEntity
 import com.cloudorz.monitor.core.database.entity.ChargeStatSessionEntity
 import kotlinx.coroutines.flow.Flow
@@ -41,4 +42,11 @@ interface ChargeStatDao {
         capacityRatio: Int,
         capacityWh: Double,
     )
+
+    @Transaction
+    @Query("DELETE FROM charge_stat_sessions WHERE beginTime < :cutoffTimestamp")
+    suspend fun deleteSessionsOlderThan(cutoffTimestamp: Long)
+
+    @Query("SELECT * FROM charge_stat_records WHERE sessionId = :sessionId ORDER BY timestamp ASC")
+    suspend fun getRecordsBySessionOnce(sessionId: Long): List<ChargeStatRecordEntity>
 }

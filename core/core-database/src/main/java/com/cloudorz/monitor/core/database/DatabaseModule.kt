@@ -2,7 +2,6 @@ package com.cloudorz.monitor.core.database
 
 import android.content.Context
 import androidx.room.Room
-import com.cloudorz.monitor.core.database.dao.AppConfigDao
 import com.cloudorz.monitor.core.database.dao.ChargeStatDao
 import com.cloudorz.monitor.core.database.dao.FpsSessionDao
 import com.cloudorz.monitor.core.database.dao.PowerStatDao
@@ -24,7 +23,8 @@ object DatabaseModule {
             context,
             MonitorDatabase::class.java,
             "cloud_monitor.db",
-        ).build()
+        ).fallbackToDestructiveMigration()
+            .build()
     }
 
     @Provides
@@ -42,8 +42,4 @@ object DatabaseModule {
         return db.fpsSessionDao()
     }
 
-    @Provides
-    fun provideAppConfigDao(db: MonitorDatabase): AppConfigDao {
-        return db.appConfigDao()
-    }
 }

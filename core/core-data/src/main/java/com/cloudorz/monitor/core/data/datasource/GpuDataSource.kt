@@ -3,6 +3,7 @@ package com.cloudorz.monitor.core.data.datasource
 import android.app.ActivityManager
 import android.content.Context
 import android.content.pm.PackageManager
+import android.util.Log
 import com.cloudorz.monitor.core.common.PlatformDetector
 import com.cloudorz.monitor.core.common.SysfsReader
 import com.cloudorz.monitor.core.model.gpu.GpuInfo
@@ -19,6 +20,10 @@ class GpuDataSource @Inject constructor(
     private val platformDetector: PlatformDetector,
     @ApplicationContext private val context: Context
 ) {
+    companion object {
+        private const val TAG = "GpuDataSource"
+    }
+
     // Qualcomm Adreno paths
     private val adrenoBasePath = "/sys/class/kgsl/kgsl-3d0"
 
@@ -97,7 +102,8 @@ class GpuDataSource @Inject constructor(
             val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
             val configInfo = am?.deviceConfigurationInfo
             configInfo?.glEsVersion ?: ""
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.d(TAG, "readGlesVersion failed", e)
             ""
         }
     }
@@ -120,7 +126,8 @@ class GpuDataSource @Inject constructor(
             } else {
                 ""
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.d(TAG, "readVulkanVersion failed", e)
             ""
         }
     }

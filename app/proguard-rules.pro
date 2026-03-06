@@ -12,3 +12,8 @@
 
 # Keep libsu
 -keep class com.topjohnwu.superuser.** { *; }
+
+# Keep JNI native methods (cpuinfo bridge)
+-keep class com.cloudorz.monitor.core.common.CpuNativeInfo {
+    native <methods>;
+}

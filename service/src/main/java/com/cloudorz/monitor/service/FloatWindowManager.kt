@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.graphics.PixelFormat
 import android.os.Build
+import android.util.Log
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -22,6 +23,10 @@ import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 
 class FloatWindowManager(private val context: Context) {
+
+    companion object {
+        private const val TAG = "FloatWindowManager"
+    }
 
     private val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private val activeWindows = mutableMapOf<String, FloatWindow>()
@@ -124,7 +129,9 @@ class FloatWindowManager(private val context: Context) {
         activeWindows.remove(id)?.let { window ->
             try {
                 windowManager.removeView(window.view)
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                Log.d(TAG, "removeWindow($id) failed", e)
+            }
         }
     }
 
@@ -184,7 +191,9 @@ class FloatWindowManager(private val context: Context) {
                         .coerceIn(0, (screenHeight - h).coerceAtLeast(0))
                     try {
                         windowMgr?.updateViewLayout(this, params)
-                    } catch (_: Exception) {}
+                    } catch (e: Exception) {
+                        Log.d(TAG, "DraggableFrameLayout: updateViewLayout failed", e)
+                    }
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     isDragging = false

@@ -21,9 +21,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -40,12 +43,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
+import com.cloudorz.monitor.core.model.fps.FpsMethod
+import com.cloudorz.monitor.core.ui.R
 
 @Composable
 fun FloatMonitorScreen(
@@ -67,7 +73,11 @@ fun FloatMonitorScreen(
             hasOverlayPermission = uiState.hasOverlayPermission,
             hasAccessibilityService = uiState.hasAccessibilityService,
             enabledMonitors = uiState.enabledMonitors,
+            fpsMethod = uiState.fpsMethod,
+            fpsIntervalMs = uiState.fpsIntervalMs,
             onToggleMonitor = viewModel::onToggleMonitor,
+            onFpsMethodSelected = viewModel::setFpsMethod,
+            onFpsIntervalSelected = viewModel::setFpsInterval,
             onRequestOverlayPermission = {
                 val intent = Intent(
                     Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
@@ -89,7 +99,11 @@ private fun FloatMonitorScreenContent(
     hasOverlayPermission: Boolean,
     hasAccessibilityService: Boolean,
     enabledMonitors: Set<FloatMonitorType>,
+    fpsMethod: FpsMethod,
+    fpsIntervalMs: Long,
     onToggleMonitor: (FloatMonitorType, Boolean) -> Unit,
+    onFpsMethodSelected: (FpsMethod) -> Unit,
+    onFpsIntervalSelected: (Long) -> Unit,
     onRequestOverlayPermission: () -> Unit,
     onRequestAccessibility: () -> Unit,
     modifier: Modifier = Modifier,
@@ -117,7 +131,7 @@ private fun FloatMonitorScreenContent(
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
-                    text = "悬浮监视器",
+                    text = stringResource(R.string.float_monitor_title),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground,
@@ -144,11 +158,25 @@ private fun FloatMonitorScreenContent(
             )
         }
 
+        // FPS settings section
+        item {
+            Spacer(modifier = Modifier.height(4.dp))
+            HorizontalDivider()
+            Spacer(modifier = Modifier.height(8.dp))
+
+            FpsSettingsSection(
+                fpsMethod = fpsMethod,
+                fpsIntervalMs = fpsIntervalMs,
+                onMethodSelected = onFpsMethodSelected,
+                onIntervalSelected = onFpsIntervalSelected,
+            )
+        }
+
         // Permission section
         item {
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             HorizontalDivider()
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             PermissionSection(
                 hasOverlayPermission = hasOverlayPermission,
@@ -187,13 +215,13 @@ private fun MonitorTypeCard(
                     modifier = Modifier.weight(1f),
                 ) {
                     Text(
-                        text = monitorType.displayName,
+                        text = stringResource(monitorType.displayNameRes),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
-                        text = monitorType.description,
+                        text = stringResource(monitorType.descriptionRes),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -202,7 +230,7 @@ private fun MonitorTypeCard(
                 IconButton(onClick = onInfoClick) {
                     Icon(
                         imageVector = Icons.Default.Info,
-                        contentDescription = "详细信息",
+                        contentDescription = stringResource(R.string.detail_info),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -216,7 +244,7 @@ private fun MonitorTypeCard(
             if (isExpanded) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = monitorTypeInfo(monitorType),
+                    text = stringResource(monitorType.infoRes),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
@@ -227,6 +255,89 @@ private fun MonitorTypeCard(
                         )
                         .padding(12.dp),
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FpsSettingsSection(
+    fpsMethod: FpsMethod,
+    fpsIntervalMs: Long,
+    onMethodSelected: (FpsMethod) -> Unit,
+    onIntervalSelected: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = MaterialTheme.shapes.medium,
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Speed,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.fps_settings_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // FPS method
+            Text(
+                text = stringResource(R.string.fps_method_label),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = fpsMethod == FpsMethod.SURFACE_FLINGER,
+                    onClick = { onMethodSelected(FpsMethod.SURFACE_FLINGER) },
+                    label = { Text(stringResource(R.string.fps_method_sf)) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    ),
+                )
+                FilterChip(
+                    selected = fpsMethod == FpsMethod.CHOREOGRAPHER,
+                    onClick = { onMethodSelected(FpsMethod.CHOREOGRAPHER) },
+                    label = { Text(stringResource(R.string.fps_method_ch)) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    ),
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Update interval
+            Text(
+                text = stringResource(R.string.fps_interval_label),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(200L, 500L, 1000L, 2000L).forEach { interval ->
+                    val label = if (interval < 1000) "${interval}ms" else "${interval / 1000}s"
+                    FilterChip(
+                        selected = fpsIntervalMs == interval,
+                        onClick = { onIntervalSelected(interval) },
+                        label = { Text(label) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        ),
+                    )
+                }
             }
         }
     }
@@ -271,7 +382,7 @@ private fun PermissionSection(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "权限说明",
+                    text = stringResource(R.string.permission_desc_title),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -281,9 +392,7 @@ private fun PermissionSection(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "悬浮窗显示支持两种方式：\n" +
-                    "1. 无障碍服务（推荐）— 无需悬浮窗权限，同时提供前台应用检测\n" +
-                    "2. 悬浮窗权限 — 传统方式，需手动授权",
+                text = stringResource(R.string.permission_desc_body),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -296,7 +405,7 @@ private fun PermissionSection(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = if (hasAccessibilityService) "无障碍服务已开启" else "无障碍服务未开启",
+                    text = if (hasAccessibilityService) stringResource(R.string.accessibility_enabled) else stringResource(R.string.accessibility_disabled),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                     color = if (hasAccessibilityService) {
@@ -308,7 +417,7 @@ private fun PermissionSection(
                 )
                 if (!hasAccessibilityService) {
                     Button(onClick = onRequestAccessibility) {
-                        Text(text = "去开启")
+                        Text(text = stringResource(R.string.go_enable))
                     }
                 }
             }
@@ -321,7 +430,7 @@ private fun PermissionSection(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = if (hasOverlayPermission) "悬浮窗权限已授予" else "悬浮窗权限未授予",
+                    text = if (hasOverlayPermission) stringResource(R.string.overlay_granted) else stringResource(R.string.overlay_not_granted),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                     color = if (hasOverlayPermission) {
@@ -333,7 +442,7 @@ private fun PermissionSection(
                 )
                 if (!hasOverlayPermission) {
                     Button(onClick = onRequestOverlayPermission) {
-                        Text(text = "去授权")
+                        Text(text = stringResource(R.string.go_authorize))
                     }
                 }
             }
@@ -341,22 +450,3 @@ private fun PermissionSection(
     }
 }
 
-private fun monitorTypeInfo(type: FloatMonitorType): String = when (type) {
-    FloatMonitorType.LOAD_MONITOR ->
-        "显示 CPU、GPU、内存、电池的实时负载仪表盘。以 2x2 网格形式呈现四个圆弧仪表，直观展示系统资源使用情况。"
-
-    FloatMonitorType.PROCESS_MONITOR ->
-        "显示当前 CPU 占用率最高的 5 个进程列表，包含进程名称和 CPU 使用百分比。帮助快速定位高负载进程。"
-
-    FloatMonitorType.THREAD_MONITOR ->
-        "显示当前前台应用中 CPU 占用率最高的线程列表。用于深入分析应用性能瓶颈。"
-
-    FloatMonitorType.MINI_MONITOR ->
-        "极简单行模式，显示 CPU%/GPU%/温度/FPS/实时电流。占用屏幕空间最小，适合日常监控。"
-
-    FloatMonitorType.FPS_RECORDER ->
-        "实时帧率计数器，大字体显示当前 FPS 值，并统计卡顿 (Jank) 次数。适合游戏和动画性能测试。"
-
-    FloatMonitorType.TEMPERATURE_MONITOR ->
-        "显示设备多个温度传感器的实时读数，包括 CPU、GPU、电池等区域温度。用于监控设备散热状况。"
-}

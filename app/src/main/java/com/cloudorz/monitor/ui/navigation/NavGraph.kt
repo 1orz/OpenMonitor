@@ -14,7 +14,7 @@ sealed class Route(
 ) {
     data object Features : Route("features", "功能", Icons.Outlined.Dashboard)
     data object Overview : Route("overview", "概览", Icons.Outlined.Monitor)
-    data object Control : Route("control", "调节", Icons.Outlined.Tune)
+    data object Control : Route("control", "CPU", Icons.Outlined.Tune)
     data object User : Route("user", "用户", Icons.Outlined.Person)
 
     companion object {
@@ -28,6 +28,8 @@ object FeatureRoute {
     const val CHARGE = "features/charge"
     const val FPS = "features/fps"
     const val PROCESS = "features/process"
-    const val APPBIAS = "features/appbias"
     const val FLOAT = "features/float"
+    const val STORAGE = "features/storage"
+    const val SENSOR = "features/sensor"
+    const val NETWORK = "features/network"
 }

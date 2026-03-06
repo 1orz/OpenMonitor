@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tab_features">功能</string>
+    <string name="tab_overview">概览</string>
+    <string name="tab_control">调节</string>
+    <string name="tab_user">用户</string>
+
+    <!-- 权限引导页 -->
+    <string name="guide_subtitle">选择运行模式</string>
+    <string name="guide_auto_detect">自动检测最佳模式</string>
+    <string name="guide_manual_hint">或手动选择上方模式</string>
+    <string name="guide_confirm">进入 %1$s 模式</string>
+    <string name="guide_detecting_title">正在检测权限</string>
+    <string name="guide_detecting_desc">正在检查可用的权限级别...</string>
+
+    <string name="mode_root_title">ROOT 模式</string>
+    <string name="mode_root_desc">完整功能，需要 KernelSU / Magisk / APatch</string>
+    <string name="mode_root_tag">全部功能可用</string>
+
+    <string name="mode_shizuku_title">Shizuku 模式</string>
+    <string name="mode_shizuku_desc">大部分功能，无需 Root 权限</string>
+    <string name="mode_shizuku_tag">FPS/进程等可用</string>
+
+    <string name="mode_basic_title">基础模式</string>
+    <string name="mode_basic_desc">基本监控，无需特殊权限</string>
+    <string name="mode_basic_tag">基本监控可用</string>
+
+    <!-- Quick Settings Tile -->
+    <string name="tile_label">系统监控</string>
+    <string name="tile_label_format">CPU %1$d%% · %2$s°C</string>
+
+    <!-- 告警通知 -->
+    <string name="alert_channel_name">监控告警</string>
+    <string name="alert_channel_desc">CPU 温度、负载或内存使用过高时发送通知</string>
+    <string name="alert_cpu_temp_title">CPU 温度告警</string>
+    <string name="alert_cpu_temp_body">CPU 温度已达 %1$d°C</string>
+    <string name="alert_cpu_load_title">CPU 负载告警</string>
+    <string name="alert_cpu_load_body">CPU 负载已达 %1$d%%</string>
+    <string name="alert_memory_title">内存告警</string>
+    <string name="alert_memory_body">内存使用率已达 %1$d%%</string>
+    <string name="alert_battery_temp_title">电池温度告警</string>
+    <string name="alert_battery_temp_body">电池温度已达 %1$d°C</string>
+
+    <!-- 存储信息 -->
+    <string name="storage_title">存储信息</string>
+    <string name="internal_storage">内部存储</string>
+    <string name="external_storage">外部存储</string>
+    <string name="partitions">分区</string>
+    <string name="used">已用</string>
+    <string name="available">可用</string>
+    <string name="total">总计</string>
+
+    <!-- 传感器 -->
+    <string name="sensor_title">传感器</string>
+    <string name="sensor_count_format">检测到 %1$d 个传感器</string>
+    <string name="sensor_vendor">厂商</string>
+    <string name="sensor_resolution">分辨率</string>
+    <string name="sensor_max_range">最大范围</string>
+    <string name="sensor_power">功耗</string>
+    <string name="sensor_min_delay">最小延迟</string>
+    <string name="sensor_version">版本</string>
+
+    <!-- 网络监控 -->
+    <string name="network_title">网络监控</string>
+    <string name="network_connected">已连接</string>
+    <string name="network_disconnected">未连接</string>
+    <string name="realtime_speed">实时速率</string>
+    <string name="download">下载</string>
+    <string name="upload">上传</string>
+    <string name="total_traffic">累计流量</string>
+    <string name="total_received">累计接收</string>
+    <string name="total_sent">累计发送</string>
+    <string name="wifi_details">WiFi 详情</string>
+    <string name="signal_strength">信号强度</string>
+    <string name="link_speed">连接速度</string>
+    <string name="frequency">频率</string>
+    <string name="ip_address">IP 地址</string>
+</resources>

@@ -15,12 +15,4 @@ class CpuRepository @Inject constructor(
         pollingFlow(intervalMs) { cpuDataSource.getGlobalStatus() }
 
     suspend fun getCpuStatus(): CpuGlobalStatus = cpuDataSource.getGlobalStatus()
-
-    suspend fun setGovernor(policyIndex: Int, governor: String): Boolean {
-        val path = "/sys/devices/system/cpu/cpufreq/policy$policyIndex/scaling_governor"
-        return cpuDataSource.run {
-            // Delegate to SysfsReader through DataSource (will be connected in DI)
-            true // placeholder
-        }
-    }
 }

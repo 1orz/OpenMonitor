@@ -41,4 +41,8 @@ dependencies {
     implementation(libs.libsu.service)
     implementation(libs.shizuku.api)
     implementation(libs.shizuku.provider)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.coroutines.test)
+    testImplementation(libs.mockk)
 }

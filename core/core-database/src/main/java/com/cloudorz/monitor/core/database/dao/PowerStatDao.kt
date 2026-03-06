@@ -3,6 +3,7 @@ package com.cloudorz.monitor.core.database.dao
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
+import androidx.room.Transaction
 import com.cloudorz.monitor.core.database.entity.PowerStatRecordEntity
 import com.cloudorz.monitor.core.database.entity.PowerStatSessionEntity
 import kotlinx.coroutines.flow.Flow
@@ -41,4 +42,11 @@ interface PowerStatDao {
         usedPercent: Int,
         avgPowerW: Double,
     )
+
+    @Transaction
+    @Query("DELETE FROM power_stat_sessions WHERE beginTime < :cutoffTimestamp")
+    suspend fun deleteSessionsOlderThan(cutoffTimestamp: Long)
+
+    @Query("SELECT * FROM power_stat_records WHERE sessionId = :sessionId ORDER BY startTime ASC")
+    suspend fun getRecordsBySessionOnce(sessionId: Long): List<PowerStatRecordEntity>
 }

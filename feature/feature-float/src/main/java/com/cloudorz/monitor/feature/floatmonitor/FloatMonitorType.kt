@@ -1,10 +1,17 @@
 package com.cloudorz.monitor.feature.floatmonitor
 
-enum class FloatMonitorType(val displayName: String, val description: String) {
-    LOAD_MONITOR("负载监视器", "CPU/GPU/RAM/电池仪表盘"),
-    PROCESS_MONITOR("进程监视器", "Top CPU 进程列表"),
-    THREAD_MONITOR("线程监视器", "当前应用最耗CPU线程"),
-    MINI_MONITOR("迷你监视器", "单行: CPU%/GPU%/温度/FPS/电流"),
-    FPS_RECORDER("帧率记录器", "实时 FPS 计数器"),
-    TEMPERATURE_MONITOR("温度监视器", "多传感器温度值"),
+import androidx.annotation.StringRes
+import com.cloudorz.monitor.core.ui.R
+
+enum class FloatMonitorType(
+    @StringRes val displayNameRes: Int,
+    @StringRes val descriptionRes: Int,
+    @StringRes val infoRes: Int,
+) {
+    LOAD_MONITOR(R.string.monitor_load, R.string.monitor_load_desc, R.string.monitor_load_info),
+    PROCESS_MONITOR(R.string.monitor_process, R.string.monitor_process_desc, R.string.monitor_process_info),
+    THREAD_MONITOR(R.string.monitor_thread, R.string.monitor_thread_desc, R.string.monitor_thread_info),
+    MINI_MONITOR(R.string.monitor_mini, R.string.monitor_mini_desc, R.string.monitor_mini_info),
+    FPS_RECORDER(R.string.monitor_fps, R.string.monitor_fps_desc, R.string.monitor_fps_info),
+    TEMPERATURE_MONITOR(R.string.monitor_temperature, R.string.monitor_temperature_desc, R.string.monitor_temperature_info),
 }

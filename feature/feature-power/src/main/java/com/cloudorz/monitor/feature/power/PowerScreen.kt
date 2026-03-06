@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.BatteryStd
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Button
@@ -26,6 +27,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -41,6 +43,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cloudorz.monitor.core.model.battery.BatteryStatus
 import com.cloudorz.monitor.core.model.battery.PowerStatSession
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import com.cloudorz.monitor.core.ui.R
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -52,11 +57,17 @@ fun PowerScreen(
     onSessionClick: (String) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     PowerScreenContent(
         uiState = uiState,
         onToggleTracking = viewModel::onToggleTracking,
         onSessionClick = onSessionClick,
+        onExportSession = { sessionId ->
+            viewModel.getExportIntent(sessionId) { intent ->
+                context.startActivity(intent)
+            }
+        },
     )
 }
 
@@ -65,6 +76,7 @@ private fun PowerScreenContent(
     uiState: PowerUiState,
     onToggleTracking: () -> Unit,
     onSessionClick: (String) -> Unit,
+    onExportSession: (Long) -> Unit = {},
 ) {
     LazyColumn(
         modifier = Modifier
@@ -90,7 +102,7 @@ private fun PowerScreenContent(
         if (uiState.sessions.isNotEmpty()) {
             item {
                 Text(
-                    text = "耗电历史记录",
+                    text = stringResource(R.string.power_history),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                 )
@@ -103,6 +115,7 @@ private fun PowerScreenContent(
                 SessionItem(
                     session = session,
                     onClick = { onSessionClick(session.sessionId) },
+                    onExport = { onExportSession(session.sessionId.toLongOrNull() ?: 0L) },
                 )
             }
         } else {
@@ -144,7 +157,7 @@ private fun BatteryInfoCard(battery: BatteryStatus) {
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        text = "电池信息",
+                        text = stringResource(R.string.battery_info),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                     )
@@ -189,11 +202,11 @@ private fun BatteryInfoCard(battery: BatteryStatus) {
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 BatteryDetailItem(
-                    label = "电压",
+                    label = stringResource(R.string.voltage),
                     value = String.format(Locale.US, "%.2f V", battery.voltageV),
                 )
                 BatteryDetailItem(
-                    label = "电流",
+                    label = stringResource(R.string.current),
                     value = "${abs(battery.currentMa)} mA",
                 )
             }
@@ -205,11 +218,11 @@ private fun BatteryInfoCard(battery: BatteryStatus) {
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 BatteryDetailItem(
-                    label = "功率",
+                    label = stringResource(R.string.power),
                     value = String.format(Locale.US, "%.2f W", abs(battery.powerW)),
                 )
                 BatteryDetailItem(
-                    label = "温度",
+                    label = stringResource(R.string.temperature),
                     value = String.format(Locale.US, "%.1f \u00B0C", battery.temperatureCelsius),
                 )
             }
@@ -221,12 +234,12 @@ private fun BatteryInfoCard(battery: BatteryStatus) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     BatteryDetailItem(
-                        label = "技术",
+                        label = stringResource(R.string.technology),
                         value = battery.technology,
                     )
                     if (battery.chargerType.isNotEmpty()) {
                         BatteryDetailItem(
-                            label = "充电器类型",
+                            label = stringResource(R.string.charger_type),
                             value = battery.chargerType,
                         )
                     }
@@ -281,7 +294,7 @@ private fun BatteryHealthCard(battery: BatteryStatus) {
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "电池健康度",
+                    text = stringResource(R.string.battery_health),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                 )
@@ -317,10 +330,10 @@ private fun BatteryHealthCard(battery: BatteryStatus) {
 
             Text(
                 text = when {
-                    battery.healthPercent >= 90 -> "电池状态良好"
-                    battery.healthPercent >= 80 -> "电池状态正常"
-                    battery.healthPercent >= 50 -> "电池有一定损耗，建议关注"
-                    else -> "电池损耗严重，建议更换"
+                    battery.healthPercent >= 90 -> stringResource(R.string.battery_health_good)
+                    battery.healthPercent >= 80 -> stringResource(R.string.battery_health_normal)
+                    battery.healthPercent >= 50 -> stringResource(R.string.battery_health_degraded)
+                    else -> stringResource(R.string.battery_health_poor)
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -351,7 +364,7 @@ private fun TrackingButton(
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = if (isTracking) "停止耗电追踪" else "开始耗电追踪",
+            text = if (isTracking) stringResource(R.string.stop_power_tracking) else stringResource(R.string.start_power_tracking),
         )
     }
 }
@@ -360,6 +373,7 @@ private fun TrackingButton(
 private fun SessionItem(
     session: PowerStatSession,
     onClick: () -> Unit,
+    onExport: () -> Unit = {},
 ) {
     val dateFormat = SimpleDateFormat("MM/dd HH:mm", Locale.getDefault())
 
@@ -378,7 +392,10 @@ private fun SessionItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f),
+                ) {
                     Icon(
                         imageVector = Icons.Default.Timer,
                         contentDescription = null,
@@ -390,6 +407,14 @@ private fun SessionItem(
                         text = "${dateFormat.format(Date(session.beginTime))} - ${dateFormat.format(Date(session.endTime))}",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
+                    )
+                }
+                IconButton(onClick = onExport) {
+                    Icon(
+                        imageVector = Icons.Default.Share,
+                        contentDescription = "CSV",
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.primary,
                     )
                 }
             }
@@ -404,7 +429,7 @@ private fun SessionItem(
             ) {
                 Column {
                     Text(
-                        text = "耗电量",
+                        text = stringResource(R.string.power_consumed),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -416,7 +441,7 @@ private fun SessionItem(
                 }
                 Column {
                     Text(
-                        text = "平均功率",
+                        text = stringResource(R.string.avg_power),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -428,7 +453,7 @@ private fun SessionItem(
                 }
                 Column {
                     Text(
-                        text = "时长",
+                        text = stringResource(R.string.duration),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -464,13 +489,13 @@ private fun EmptySessionsHint() {
             )
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = "暂无耗电记录",
+                text = stringResource(R.string.no_power_records),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "点击上方按钮开始追踪耗电情况",
+                text = stringResource(R.string.start_tracking_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

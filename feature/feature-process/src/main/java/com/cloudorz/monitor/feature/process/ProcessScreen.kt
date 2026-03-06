@@ -35,14 +35,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -63,45 +58,20 @@ fun ProcessScreen(
     viewModel: ProcessViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val snackbarHostState = remember { SnackbarHostState() }
 
-    // Handle kill result snackbar
-    LaunchedEffect(uiState.killResult) {
-        when (uiState.killResult) {
-            KillResult.SUCCESS -> {
-                snackbarHostState.showSnackbar("Process killed successfully")
-                viewModel.onKillResultConsumed()
-            }
-            KillResult.FAILURE -> {
-                snackbarHostState.showSnackbar("Failed to kill process. Root access may be required.")
-                viewModel.onKillResultConsumed()
-            }
-            null -> Unit
-        }
-    }
+    ProcessScreenContent(
+        uiState = uiState,
+        onSearchQueryChanged = viewModel::onSearchQueryChanged,
+        onSortByChanged = viewModel::onSortByChanged,
+        onProcessSelected = viewModel::onProcessSelected,
+        modifier = Modifier,
+    )
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-    ) { paddingValues ->
-        ProcessScreenContent(
-            uiState = uiState,
-            onSearchQueryChanged = viewModel::onSearchQueryChanged,
-            onSortByChanged = viewModel::onSortByChanged,
-            onProcessSelected = viewModel::onProcessSelected,
-            modifier = Modifier.padding(paddingValues),
-        )
-    }
-
-    // Detail bottom sheet
     if (uiState.selectedProcess != null) {
         ProcessDetailSheet(
             process = uiState.selectedProcess!!,
             threads = uiState.threads,
-            showKillConfirmation = uiState.showKillConfirmation,
             onDismiss = viewModel::onProcessDismissed,
-            onRequestKill = viewModel::onRequestKill,
-            onConfirmKill = viewModel::onConfirmKill,
-            onDismissKillConfirmation = viewModel::onDismissKillConfirmation,
         )
     }
 }

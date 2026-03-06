@@ -10,6 +10,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.cloudorz.monitor.core.ui.R
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -57,18 +59,18 @@ fun ChargeCurveChart(
                 .padding(16.dp),
         ) {
             Text(
-                text = "充电曲线",
+                text = stringResource(R.string.charge_curve_title),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
             )
             Text(
-                text = "充电曲线将在此显示",
+                text = stringResource(R.string.charge_curve_will_show),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 8.dp),
             )
             Text(
-                text = "需要至少两个数据点",
+                text = stringResource(R.string.charge_curve_min_points),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -93,6 +95,9 @@ fun ChargeCurveChart(
     }
 
     val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+    val legendCapacity = stringResource(R.string.legend_capacity)
+    val legendCurrent = stringResource(R.string.legend_current)
+    val legendTemperature = stringResource(R.string.legend_temperature)
 
     Canvas(
         modifier = modifier
@@ -185,7 +190,13 @@ fun ChargeCurveChart(
         )
 
         // Draw legend
-        drawLegend(chartLeft = chartLeft, chartTop = chartTop)
+        drawLegend(
+            chartLeft = chartLeft,
+            chartTop = chartTop,
+            capacityLabel = legendCapacity,
+            currentLabel = legendCurrent,
+            temperatureLabel = legendTemperature,
+        )
     }
 }
 
@@ -332,6 +343,9 @@ private fun DrawScope.drawDataLine(
 private fun DrawScope.drawLegend(
     chartLeft: Float,
     chartTop: Float,
+    capacityLabel: String,
+    currentLabel: String,
+    temperatureLabel: String,
 ) {
     val legendY = chartTop + 4f
     val paint = android.graphics.Paint().apply {
@@ -348,7 +362,7 @@ private fun DrawScope.drawLegend(
         strokeWidth = 3f,
     )
     paint.color = CapacityColor.hashCode()
-    drawContext.canvas.nativeCanvas.drawText("电量", legendX + 24f, legendY + 6f, paint)
+    drawContext.canvas.nativeCanvas.drawText(capacityLabel, legendX + 24f, legendY + 6f, paint)
     legendX += 80f
 
     // Current legend
@@ -359,7 +373,7 @@ private fun DrawScope.drawLegend(
         strokeWidth = 2f,
     )
     paint.color = CurrentColor.hashCode()
-    drawContext.canvas.nativeCanvas.drawText("电流", legendX + 24f, legendY + 6f, paint)
+    drawContext.canvas.nativeCanvas.drawText(currentLabel, legendX + 24f, legendY + 6f, paint)
     legendX += 80f
 
     // Temperature legend
@@ -371,5 +385,5 @@ private fun DrawScope.drawLegend(
         pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 3f)),
     )
     paint.color = TemperatureColor.hashCode()
-    drawContext.canvas.nativeCanvas.drawText("温度", legendX + 24f, legendY + 6f, paint)
+    drawContext.canvas.nativeCanvas.drawText(temperatureLabel, legendX + 24f, legendY + 6f, paint)
 }

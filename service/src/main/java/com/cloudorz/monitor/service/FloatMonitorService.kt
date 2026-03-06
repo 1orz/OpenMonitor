@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
@@ -36,6 +37,7 @@ import javax.inject.Inject
 class FloatMonitorService : LifecycleService() {
 
     companion object {
+        private const val TAG = "FloatMonitorService"
         const val CHANNEL_ID = "float_monitor"
         const val NOTIFICATION_ID = 1002
 
@@ -43,6 +45,7 @@ class FloatMonitorService : LifecycleService() {
         const val ACTION_STOP = "com.cloudorz.monitor.service.FLOAT_STOP"
         const val ACTION_ADD_MONITOR = "com.cloudorz.monitor.service.FLOAT_ADD"
         const val ACTION_REMOVE_MONITOR = "com.cloudorz.monitor.service.FLOAT_REMOVE"
+        const val ACTION_UPDATE_FPS_SETTINGS = "com.cloudorz.monitor.service.UPDATE_FPS"
         const val EXTRA_MONITOR_TYPE = "monitor_type"
 
         const val TYPE_LOAD = "LOAD_MONITOR"
@@ -55,6 +58,9 @@ class FloatMonitorService : LifecycleService() {
         private const val PREFS_NAME = "monitor_settings"
         private const val KEY_ENABLED_MONITORS = "enabled_monitors"
         private const val KEY_SERVICE_ACTIVE = "float_service_active"
+        const val KEY_FPS_METHOD = "fps_method"
+        const val KEY_FPS_INTERVAL = "fps_interval"
+        const val DEFAULT_FPS_INTERVAL = 500L
 
         fun startIntent(context: Context): Intent =
             Intent(context, FloatMonitorService::class.java).apply { action = ACTION_START }
@@ -72,6 +78,11 @@ class FloatMonitorService : LifecycleService() {
             Intent(context, FloatMonitorService::class.java).apply {
                 action = ACTION_REMOVE_MONITOR
                 putExtra(EXTRA_MONITOR_TYPE, monitorType)
+            }
+
+        fun updateFpsSettingsIntent(context: Context): Intent =
+            Intent(context, FloatMonitorService::class.java).apply {
+                action = ACTION_UPDATE_FPS_SETTINGS
             }
     }
 
@@ -126,8 +137,42 @@ class FloatMonitorService : LifecycleService() {
         } else {
             listOf(FpsMethod.FRAME_METRICS, FpsMethod.CHOREOGRAPHER)
         }
+
+        // Restore saved method from prefs
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        val savedMethod = prefs.getString(KEY_FPS_METHOD, null)
+        if (savedMethod != null) {
+            val method = FpsMethod.entries.find { it.name == savedMethod }
+            if (method != null && method in availableFpsMethods.value) {
+                currentFpsMethod.value = method
+            }
+        }
+
         if (currentFpsMethod.value !in availableFpsMethods.value) {
             currentFpsMethod.value = availableFpsMethods.value.first()
+        }
+    }
+
+    private fun reloadFpsSettings() {
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        val savedMethod = prefs.getString(KEY_FPS_METHOD, null)
+        val method = savedMethod?.let { name -> FpsMethod.entries.find { it.name == name } }
+            ?: currentFpsMethod.value
+
+        if (method != currentFpsMethod.value) {
+            switchFpsMethod(method)
+        }
+
+        // Restart FPS/Mini collection jobs to pick up new interval
+        val fpsTypes = listOf(TYPE_FPS, TYPE_MINI)
+        for (type in fpsTypes) {
+            val job = dataCollectionJobs[type]
+            if (job != null && job.isActive) {
+                job.cancel()
+                dataCollectionJobs[type] = lifecycleScope.launch {
+                    collectDataForType(type)
+                }
+            }
         }
     }
 
@@ -175,6 +220,9 @@ class FloatMonitorService : LifecycleService() {
             ACTION_REMOVE_MONITOR -> {
                 val type = intent.getStringExtra(EXTRA_MONITOR_TYPE) ?: return START_STICKY
                 removeMonitor(type)
+            }
+            ACTION_UPDATE_FPS_SETTINGS -> {
+                reloadFpsSettings()
             }
         }
 
@@ -331,9 +379,11 @@ class FloatMonitorService : LifecycleService() {
     }
 
     private suspend fun collectDataForType(type: String) {
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        val fpsInterval = prefs.getLong(KEY_FPS_INTERVAL, DEFAULT_FPS_INTERVAL)
         val intervalMs = when (type) {
-            TYPE_FPS -> 200L
-            TYPE_MINI -> 500L
+            TYPE_FPS -> fpsInterval
+            TYPE_MINI -> fpsInterval
             TYPE_PROCESS, TYPE_THREAD -> 2000L
             else -> 1500L
         }
@@ -348,8 +398,8 @@ class FloatMonitorService : LifecycleService() {
                     TYPE_PROCESS -> collectProcessData()
                     TYPE_THREAD -> collectThreadData()
                 }
-            } catch (_: Exception) {
-                // Continue polling
+            } catch (e: Exception) {
+                Log.w(TAG, "collectDataForType($type) failed", e)
             }
             delay(intervalMs)
         }
@@ -389,9 +439,11 @@ class FloatMonitorService : LifecycleService() {
     private suspend fun collectFpsData() {
         when (currentFpsMethod.value) {
             FpsMethod.SURFACE_FLINGER -> {
-                val fpsData = fpsDataSource.getFpsFromSurfaceFlinger()
-                currentFps.value = fpsData?.fps?.toDouble() ?: 0.0
-                currentJank.value = fpsData?.jankCount ?: 0
+                // Use realtime delta FPS (sysfs → service call 1013 → gfxinfo delta)
+                // instead of --latency dump which needs a specific window name
+                val realtimeFps = fpsDataSource.getRealtimeFps()
+                currentFps.value = realtimeFps.toDouble()
+                currentJank.value = 0
             }
             FpsMethod.CHOREOGRAPHER -> {
                 currentFps.value = choreographerFpsMonitor.fps.value.toDouble()
@@ -449,7 +501,8 @@ class FloatMonitorService : LifecycleService() {
             // Use top CPU process as approximation for foreground app
             val top = processDataSource.getTopProcesses(1).firstOrNull()
             top?.let { it.pid to it.name }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w(TAG, "getForegroundAppPid failed", e)
             null
         }
     }
@@ -461,7 +514,8 @@ class FloatMonitorService : LifecycleService() {
             activityManager.getMemoryInfo(memInfo)
             val usedMem = memInfo.totalMem - memInfo.availMem
             return (usedMem.toDouble() / memInfo.totalMem.toDouble()) * 100.0
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w(TAG, "calculateMemoryUsage failed", e)
             return 0.0
         }
     }

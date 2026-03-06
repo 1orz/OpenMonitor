@@ -16,12 +16,14 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.BatteryChargingFull
 import androidx.compose.material.icons.outlined.ElectricBolt
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Memory
+import androidx.compose.material.icons.outlined.NetworkCheck
+import androidx.compose.material.icons.outlined.Sensors
 import androidx.compose.material.icons.outlined.Speed
+import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -33,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.cloudorz.monitor.ui.navigation.FeatureRoute
 
 data class FeatureItem(
     val title: String,
@@ -46,12 +49,14 @@ fun FeaturesScreen(
     onFeatureClick: (String) -> Unit,
 ) {
     val features = listOf(
-        FeatureItem("耗电统计", "记录电池消耗", Icons.Outlined.ElectricBolt, "features/power"),
-        FeatureItem("充电统计", "充电曲线与控制", Icons.Outlined.BatteryChargingFull, "features/charge"),
-        FeatureItem("帧率记录", "FPS 监测与分析", Icons.Outlined.Speed, "features/fps"),
-        FeatureItem("进程管理", "查看与管理进程", Icons.Outlined.Memory, "features/process"),
-        FeatureItem("应用偏见", "每应用个性化配置", Icons.Outlined.Apps, "features/appbias"),
-        FeatureItem("悬浮监视器", "实时悬浮窗监控", Icons.Outlined.Layers, "features/float"),
+        FeatureItem("耗电统计", "记录电池消耗", Icons.Outlined.ElectricBolt, FeatureRoute.POWER),
+        FeatureItem("充电统计", "充电曲线与统计", Icons.Outlined.BatteryChargingFull, FeatureRoute.CHARGE),
+        FeatureItem("帧率记录", "FPS 监测与分析", Icons.Outlined.Speed, FeatureRoute.FPS),
+        FeatureItem("进程监控", "查看进程信息", Icons.Outlined.Memory, FeatureRoute.PROCESS),
+        FeatureItem("悬浮监视器", "实时悬浮窗监控", Icons.Outlined.Layers, FeatureRoute.FLOAT),
+        FeatureItem("存储信息", "内部存储与分区", Icons.Outlined.Storage, FeatureRoute.STORAGE),
+        FeatureItem("传感器", "设备传感器信息", Icons.Outlined.Sensors, FeatureRoute.SENSOR),
+        FeatureItem("网络监控", "网络状态与流量", Icons.Outlined.NetworkCheck, FeatureRoute.NETWORK),
     )
 
     LazyVerticalGrid(

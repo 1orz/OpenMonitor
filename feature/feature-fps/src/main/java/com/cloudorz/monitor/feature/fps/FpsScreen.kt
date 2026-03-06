@@ -31,6 +31,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Thermostat
@@ -66,9 +67,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.cloudorz.monitor.core.ui.R
 import com.cloudorz.monitor.core.model.fps.FpsData
 import com.cloudorz.monitor.core.model.fps.FpsMethod
 import com.cloudorz.monitor.core.model.fps.FpsWatchSession
@@ -84,6 +88,7 @@ fun FpsScreen(
     viewModel: FpsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     FpsContent(
         uiState = uiState,
@@ -91,6 +96,11 @@ fun FpsScreen(
         onStopRecording = viewModel::stopRecording,
         onDeleteSession = viewModel::deleteSession,
         onFpsMethodSelected = viewModel::setFpsMethod,
+        onExportSession = { sessionId ->
+            viewModel.getExportIntent(sessionId) { intent ->
+                context.startActivity(intent)
+            }
+        },
     )
 }
 
@@ -102,16 +112,17 @@ private fun FpsContent(
     onStopRecording: () -> Unit,
     onDeleteSession: (Long) -> Unit,
     onFpsMethodSelected: (FpsMethod) -> Unit,
+    onExportSession: (Long) -> Unit = {},
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("实时录制", "历史会话")
+    val tabs = listOf(stringResource(R.string.tab_realtime_recording), stringResource(R.string.tab_session_history))
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text = "帧率记录",
+                        text = stringResource(R.string.fps_recording_title),
                         style = MaterialTheme.typography.titleLarge,
                     )
                 },
@@ -155,6 +166,7 @@ private fun FpsContent(
                 1 -> SessionHistoryTab(
                     sessions = uiState.sessions,
                     onDeleteSession = onDeleteSession,
+                    onExportSession = onExportSession,
                 )
             }
         }
@@ -188,20 +200,20 @@ private fun RealtimeRecordingTab(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = "需要 Shell 权限",
+                    text = stringResource(R.string.shell_permission_required),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "帧率监控需要通过 SurfaceFlinger 采集数据，\n请在设置中切换到以下模式之一：",
+                    text = stringResource(R.string.fps_shell_permission_desc),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-                listOf("Root — Magisk / KernelSU", "ADB — Shizuku 代理", "Shizuku — 无线调试配对").forEach { mode ->
+                listOf(stringResource(R.string.fps_mode_root), stringResource(R.string.fps_mode_adb), stringResource(R.string.fps_mode_shizuku)).forEach { mode ->
                     Text(
                         text = "• $mode",
                         style = MaterialTheme.typography.bodySmall,
@@ -251,7 +263,7 @@ private fun RealtimeRecordingTab(
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(
-                            text = "FPS 趋势",
+                            text = stringResource(R.string.fps_trend),
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -274,7 +286,7 @@ private fun RealtimeRecordingTab(
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(
-                            text = "帧时间",
+                            text = stringResource(R.string.frame_time),
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -333,7 +345,7 @@ private fun FpsMethodSelector(
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(
-                text = "采集方式",
+                text = stringResource(R.string.collection_method),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -433,7 +445,7 @@ private fun FpsCounterDisplay(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "录制中",
+                        text = stringResource(R.string.recording),
                         style = MaterialTheme.typography.labelMedium,
                         color = ChartRed.copy(alpha = 0.8f),
                     )
@@ -470,7 +482,7 @@ private fun FpsStatsRow(fpsData: FpsData) {
                 color = if (fpsData.bigJankCount > 0) ChartRed else ChartGreen,
             )
             StatItem(
-                label = "最大帧时间",
+                label = stringResource(R.string.max_frame_time),
                 value = "${fpsData.maxFrameTimeMs}ms",
                 color = when {
                     fpsData.maxFrameTimeMs > 32 -> ChartRed
@@ -479,7 +491,7 @@ private fun FpsStatsRow(fpsData: FpsData) {
                 },
             )
             StatItem(
-                label = "帧数",
+                label = stringResource(R.string.frame_count),
                 value = "${fpsData.frameCount}",
                 color = MaterialTheme.colorScheme.primary,
             )
@@ -538,7 +550,7 @@ private fun OverlayMetricsRow(
             )
             MetricItem(
                 icon = Icons.Default.Thermostat,
-                label = "温度",
+                label = stringResource(R.string.temperature),
                 value = "%.1f\u00B0C".format(temperature),
                 tint = when {
                     temperature > 45.0 -> ChartRed
@@ -548,7 +560,7 @@ private fun OverlayMetricsRow(
             )
             MetricItem(
                 icon = Icons.Default.BatteryFull,
-                label = "电量",
+                label = stringResource(R.string.battery_level),
                 value = "$batteryLevel%",
                 tint = when {
                     batteryLevel < 20 -> ChartRed
@@ -626,7 +638,7 @@ private fun RecordButton(
     ) {
         Icon(
             imageVector = if (isRecording) Icons.Default.Stop else Icons.Default.FiberManualRecord,
-            contentDescription = if (isRecording) "停止录制" else "开始录制",
+            contentDescription = if (isRecording) stringResource(R.string.stop_recording) else stringResource(R.string.start_recording),
             modifier = Modifier.size(32.dp),
         )
     }
@@ -640,6 +652,7 @@ private fun RecordButton(
 private fun SessionHistoryTab(
     sessions: List<FpsWatchSession>,
     onDeleteSession: (Long) -> Unit,
+    onExportSession: (Long) -> Unit = {},
 ) {
     if (sessions.isEmpty()) {
         Box(
@@ -657,12 +670,12 @@ private fun SessionHistoryTab(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = "暂无录制会话",
+                    text = stringResource(R.string.no_recording_sessions),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.outline,
                 )
                 Text(
-                    text = "开始录制以查看历史数据",
+                    text = stringResource(R.string.start_recording_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f),
                 )
@@ -683,6 +696,7 @@ private fun SessionHistoryTab(
                 SessionCard(
                     session = session,
                     onDelete = { onDeleteSession(session.sessionId.toLongOrNull() ?: 0L) },
+                    onExport = { onExportSession(session.sessionId.toLongOrNull() ?: 0L) },
                 )
             }
         }
@@ -693,6 +707,7 @@ private fun SessionHistoryTab(
 private fun SessionCard(
     session: FpsWatchSession,
     onDelete: () -> Unit,
+    onExport: () -> Unit = {},
 ) {
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()) }
 
@@ -761,7 +776,7 @@ private fun SessionCard(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     Text(
-                        text = "平均 %.1f FPS".format(session.avgFps),
+                        text = stringResource(R.string.avg_fps_format, session.avgFps),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                     )
@@ -778,11 +793,17 @@ private fun SessionCard(
                 )
             }
 
-            // Delete button
+            IconButton(onClick = onExport) {
+                Icon(
+                    imageVector = Icons.Default.Share,
+                    contentDescription = "CSV",
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                )
+            }
             IconButton(onClick = onDelete) {
                 Icon(
                     imageVector = Icons.Default.Delete,
-                    contentDescription = "删除",
+                    contentDescription = stringResource(R.string.delete),
                     tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
                 )
             }

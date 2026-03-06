@@ -24,11 +24,7 @@ data class ProcessUiState(
     val searchQuery: String = "",
     val sortBy: SortBy = SortBy.CPU,
     val isLoading: Boolean = true,
-    val killResult: KillResult? = null,
-    val showKillConfirmation: Boolean = false,
 )
-
-enum class KillResult { SUCCESS, FAILURE }
 
 @HiltViewModel
 class ProcessViewModel @Inject constructor(
@@ -39,8 +35,6 @@ class ProcessViewModel @Inject constructor(
     private val sortBy = MutableStateFlow(SortBy.CPU)
     private val selectedProcess = MutableStateFlow<ProcessInfo?>(null)
     private val threads = MutableStateFlow<List<ThreadInfo>>(emptyList())
-    private val killResult = MutableStateFlow<KillResult?>(null)
-    private val showKillConfirmation = MutableStateFlow(false)
 
     private val processFlow = processRepository.observeProcessList(3000L)
 
@@ -71,7 +65,6 @@ class ProcessViewModel @Inject constructor(
                 }
             )
 
-        // If a process is selected, refresh its data from the latest list
         val refreshedSelected = if (selected != null) {
             processes.firstOrNull { it.pid == selected.pid } ?: selected
         } else null
@@ -84,8 +77,6 @@ class ProcessViewModel @Inject constructor(
             searchQuery = query,
             sortBy = sort,
             isLoading = false,
-            killResult = killResult.value,
-            showKillConfirmation = showKillConfirmation.value,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -112,31 +103,5 @@ class ProcessViewModel @Inject constructor(
     fun onProcessDismissed() {
         selectedProcess.value = null
         threads.value = emptyList()
-        showKillConfirmation.value = false
-    }
-
-    fun onRequestKill() {
-        showKillConfirmation.value = true
-    }
-
-    fun onDismissKillConfirmation() {
-        showKillConfirmation.value = false
-    }
-
-    fun onConfirmKill() {
-        val process = selectedProcess.value ?: return
-        showKillConfirmation.value = false
-        viewModelScope.launch {
-            val success = processRepository.killProcess(process.pid)
-            killResult.value = if (success) KillResult.SUCCESS else KillResult.FAILURE
-            if (success) {
-                selectedProcess.value = null
-                threads.value = emptyList()
-            }
-        }
-    }
-
-    fun onKillResultConsumed() {
-        killResult.value = null
     }
 }

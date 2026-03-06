@@ -1,5 +1,6 @@
 package com.cloudorz.monitor.core.common
 
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -19,6 +20,7 @@ class BasicExecutor @Inject constructor() : ShellExecutor {
     override val mode: PrivilegeMode = PrivilegeMode.BASIC
 
     companion object {
+        private const val TAG = "BasicExecutor"
         private const val PROCESS_TIMEOUT_SECONDS = 30L
     }
 
@@ -57,21 +59,10 @@ class BasicExecutor @Inject constructor() : ShellExecutor {
                 null
             }
         } catch (e: Exception) {
+            Log.d(TAG, "readFile failed: $path", e)
             null
         }
     }
-
-    override suspend fun writeFile(path: String, value: String): Boolean =
-        withContext(Dispatchers.IO) {
-            try {
-                val file = File(path)
-                file.writeText(value)
-                true
-            } catch (e: Exception) {
-                // Most sysfs/procfs files are not writable at basic privilege level.
-                false
-            }
-        }
 
     override suspend fun isAvailable(): Boolean = true
 }

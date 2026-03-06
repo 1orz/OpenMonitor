@@ -18,7 +18,19 @@ android {
         versionName = "1.0.0"
 
         ndk {
-            abiFilters += "arm64-v8a"
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a")
+        }
+
+        externalNativeBuild {
+            cmake {
+                arguments += listOf("-DANDROID_STL=c++_static")
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path("src/main/cpp/CMakeLists.txt")
         }
     }
 
@@ -55,7 +67,6 @@ dependencies {
     implementation(project(":feature:feature-fps"))
     implementation(project(":feature:feature-process"))
     implementation(project(":feature:feature-cpu"))
-    implementation(project(":feature:feature-appbias"))
     implementation(project(":feature:feature-float"))
     implementation(project(":service"))
 
@@ -82,7 +93,14 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
 
+    implementation(libs.work.runtime.ktx)
+    implementation(libs.hilt.work)
+    ksp(libs.hilt.work.compiler)
+
     implementation(libs.libsu.core)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.coroutines.test)
 
     debugImplementation(libs.compose.ui.tooling)
 }

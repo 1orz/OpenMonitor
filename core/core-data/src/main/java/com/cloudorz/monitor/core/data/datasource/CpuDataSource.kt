@@ -1,6 +1,8 @@
 package com.cloudorz.monitor.core.data.datasource
 
+import com.cloudorz.monitor.core.common.CpuNativeInfo
 import com.cloudorz.monitor.core.common.SysfsReader
+import com.cloudorz.monitor.core.model.cpu.CpuCacheInfo
 import com.cloudorz.monitor.core.model.cpu.CpuCoreInfo
 import com.cloudorz.monitor.core.model.cpu.CpuClusterStatus
 import com.cloudorz.monitor.core.model.cpu.CpuGlobalStatus
@@ -12,7 +14,8 @@ import javax.inject.Singleton
 
 @Singleton
 class CpuDataSource @Inject constructor(
-    private val sysfsReader: SysfsReader
+    private val sysfsReader: SysfsReader,
+    private val cpuNativeInfo: CpuNativeInfo,
 ) {
     private val cpuBasePath = "/sys/devices/system/cpu"
     private val procStatPath = "/proc/stat"
@@ -96,6 +99,10 @@ class CpuDataSource @Inject constructor(
     }
 
     suspend fun getCpuName(): String = withContext(Dispatchers.IO) {
+        // Prefer native cpuinfo library for accurate SoC name
+        cpuNativeInfo.getCpuName()?.let { return@withContext it }
+
+        // Fallback to /proc/cpuinfo parsing
         val cpuInfo = sysfsReader.readLines("/proc/cpuinfo") ?: return@withContext "Unknown"
         cpuInfo.firstOrNull { it.startsWith("Hardware") }
             ?.substringAfter(":")?.trim()
@@ -103,6 +110,18 @@ class CpuDataSource @Inject constructor(
                 ?.substringAfter(":")?.trim()
             ?: "Unknown"
     }
+
+    fun getCacheInfo(): CpuCacheInfo {
+        if (!cpuNativeInfo.isAvailable) return CpuCacheInfo()
+        return CpuCacheInfo(
+            l1dCacheSizes = cpuNativeInfo.getL1dCacheSizes()?.toList() ?: emptyList(),
+            l1iCacheSizes = cpuNativeInfo.getL1iCacheSizes()?.toList() ?: emptyList(),
+            l2CacheSizes = cpuNativeInfo.getL2CacheSizes()?.toList() ?: emptyList(),
+            l3CacheSizes = cpuNativeInfo.getL3CacheSizes()?.toList() ?: emptyList(),
+        )
+    }
+
+    fun getArmNeon(): Boolean? = cpuNativeInfo.hasArmNeon()
 
     suspend fun getGlobalStatus(): CpuGlobalStatus {
         val coreCount = getCpuCoreCount()
@@ -127,7 +146,9 @@ class CpuDataSource @Inject constructor(
             temperatureCelsius = getCpuTemperature(),
             uptimeSeconds = getUptime(),
             cores = cores,
-            clusters = clusters
+            clusters = clusters,
+            cacheInfo = getCacheInfo(),
+            hasArmNeon = getArmNeon(),
         )
     }
 

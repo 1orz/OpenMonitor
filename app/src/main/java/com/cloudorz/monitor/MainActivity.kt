@@ -20,7 +20,6 @@ import androidx.navigation.compose.rememberNavController
 import com.cloudorz.monitor.core.common.PermissionManager
 import com.cloudorz.monitor.core.common.PrivilegeMode
 import com.cloudorz.monitor.core.ui.theme.MonitorTheme
-import com.cloudorz.monitor.feature.appbias.AppBiasScreen
 import com.cloudorz.monitor.feature.charge.ChargeScreen
 import com.cloudorz.monitor.feature.cpu.CpuScreen
 import com.cloudorz.monitor.feature.floatmonitor.FloatMonitorScreen
@@ -29,10 +28,13 @@ import com.cloudorz.monitor.feature.overview.OverviewScreen
 import com.cloudorz.monitor.feature.power.PowerScreen
 import com.cloudorz.monitor.feature.process.ProcessScreen
 import com.cloudorz.monitor.ui.features.FeaturesScreen
+import com.cloudorz.monitor.ui.network.NetworkScreen
+import com.cloudorz.monitor.ui.sensor.SensorScreen
+import com.cloudorz.monitor.ui.storage.StorageScreen
 import com.cloudorz.monitor.ui.navigation.BottomNavBar
 import com.cloudorz.monitor.ui.navigation.FeatureRoute
 import com.cloudorz.monitor.ui.navigation.Route
-import com.cloudorz.monitor.ui.splash.SplashScreen
+import com.cloudorz.monitor.ui.splash.PermissionGuideScreen
 import com.cloudorz.monitor.ui.user.UserScreen
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -64,7 +66,7 @@ private fun MonitorAppContent(permissionManager: PermissionManager) {
     }
 
     if (selectedMode == null) {
-        SplashScreen(
+        PermissionGuideScreen(
             permissionManager = permissionManager,
             onModeSelected = { mode -> selectedMode = mode },
         )
@@ -137,11 +139,17 @@ private fun MainScreen(permissionManager: PermissionManager) {
             composable(FeatureRoute.PROCESS) {
                 ProcessScreen()
             }
-            composable(FeatureRoute.APPBIAS) {
-                AppBiasScreen()
-            }
             composable(FeatureRoute.FLOAT) {
                 FloatMonitorScreen()
+            }
+            composable(FeatureRoute.STORAGE) {
+                StorageScreen()
+            }
+            composable(FeatureRoute.SENSOR) {
+                SensorScreen()
+            }
+            composable(FeatureRoute.NETWORK) {
+                NetworkScreen()
             }
         }
     }

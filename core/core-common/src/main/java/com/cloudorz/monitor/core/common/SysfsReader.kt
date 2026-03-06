@@ -1,5 +1,6 @@
 package com.cloudorz.monitor.core.common
 
+import android.util.Log
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.Dispatchers
@@ -7,7 +8,7 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /**
- * Convenience wrapper around a [ShellExecutor] for reading and writing sysfs/procfs
+ * Convenience wrapper around a [ShellExecutor] for reading sysfs/procfs
  * files with typed parsing.
  *
  * Read operations first attempt direct [File] I/O (which works for world-readable
@@ -17,14 +18,15 @@ import javax.inject.Inject
  *
  * Failed paths are cached to avoid repeated SELinux audit log spam.
  *
- * Write operations always go through the [ShellExecutor] because sysfs writes
- * typically require elevated privileges.
- *
  * All operations are dispatched to [Dispatchers.IO].
  */
 class SysfsReader @Inject constructor(
     private val executor: ShellExecutor,
 ) {
+    companion object {
+        private const val TAG = "SysfsReader"
+    }
+
     // Cache paths that failed to read — avoids repeated SELinux denials.
     // Entries expire after 60s so mode changes eventually take effect.
     private val deniedPaths = ConcurrentHashMap<String, Long>()
@@ -37,7 +39,8 @@ class SysfsReader @Inject constructor(
         return try {
             val file = File(path)
             if (file.exists() && file.canRead()) file.readText() else null
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.d(TAG, "readFileDirect failed: $path", e)
             null
         }
     }
@@ -81,6 +84,7 @@ class SysfsReader @Inject constructor(
         try {
             readFileContent(path)?.trim()?.toIntOrNull()
         } catch (e: Exception) {
+            Log.d(TAG, "readInt failed: $path", e)
             null
         }
     }
@@ -95,6 +99,7 @@ class SysfsReader @Inject constructor(
         try {
             readFileContent(path)?.trim()?.toLongOrNull()
         } catch (e: Exception) {
+            Log.d(TAG, "readLong failed: $path", e)
             null
         }
     }
@@ -109,6 +114,7 @@ class SysfsReader @Inject constructor(
         try {
             readFileContent(path)?.trim()
         } catch (e: Exception) {
+            Log.d(TAG, "readString failed: $path", e)
             null
         }
     }
@@ -128,22 +134,9 @@ class SysfsReader @Inject constructor(
                 ?.map { it.trim() }
                 ?: emptyList()
         } catch (e: Exception) {
+            Log.d(TAG, "readLines failed: $path", e)
             emptyList()
         }
     }
 
-    /**
-     * Writes a string value to a file.
-     *
-     * @param path Absolute path to the sysfs/procfs file.
-     * @param value The string value to write.
-     * @return True if the write succeeded, false otherwise.
-     */
-    suspend fun writeValue(path: String, value: String): Boolean = withContext(Dispatchers.IO) {
-        try {
-            executor.writeFile(path, value)
-        } catch (e: Exception) {
-            false
-        }
-    }
 }

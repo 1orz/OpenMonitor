@@ -3,6 +3,7 @@ package com.cloudorz.monitor.core.database.dao
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
+import androidx.room.Transaction
 import com.cloudorz.monitor.core.database.entity.FpsFrameDataEntity
 import com.cloudorz.monitor.core.database.entity.FpsSessionEntity
 import kotlinx.coroutines.flow.Flow
@@ -44,4 +45,11 @@ interface FpsSessionDao {
         avgPowerW: Double,
         durationSeconds: Int,
     )
+
+    @Transaction
+    @Query("DELETE FROM fps_sessions WHERE beginTime < :cutoffTimestamp")
+    suspend fun deleteSessionsOlderThan(cutoffTimestamp: Long)
+
+    @Query("SELECT * FROM fps_frame_data WHERE sessionId = :sessionId ORDER BY timestamp ASC")
+    suspend fun getFrameDataBySessionOnce(sessionId: Long): List<FpsFrameDataEntity>
 }

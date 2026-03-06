@@ -1,6 +1,7 @@
 package com.cloudorz.monitor.core.common
 
 import android.os.Process
+import android.util.Log
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -12,6 +13,10 @@ import java.util.concurrent.TimeUnit
  * `app_process` and communicates with the app via Binder IPC.
  */
 class ShellUserService : IShellService.Stub() {
+
+    companion object {
+        private const val TAG = "ShellUserService"
+    }
 
     override fun destroy() {
         Process.killProcess(Process.myPid())
@@ -54,24 +59,10 @@ class ShellUserService : IShellService.Stub() {
                     null
                 } else if (process.exitValue() == 0) output else null
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.d(TAG, "readFileContent failed: $path", e)
             null
         }
     }
 
-    override fun writeFileContent(path: String, value: String): Boolean {
-        return try {
-            val sanitized = value.replace("'", "'\\''")
-            val process = Runtime.getRuntime().exec(arrayOf("sh", "-c", "echo '$sanitized' > '$path'"))
-            val completed = process.waitFor(10, TimeUnit.SECONDS)
-            if (!completed) {
-                process.destroyForcibly()
-                false
-            } else {
-                process.exitValue() == 0
-            }
-        } catch (_: Exception) {
-            false
-        }
-    }
 }

@@ -5,6 +5,7 @@ import android.app.Application
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.FrameMetrics
 import android.view.Window
 import com.cloudorz.monitor.core.model.fps.FpsData
@@ -12,6 +13,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 class FrameMetricsFpsMonitor {
+
+    companion object {
+        private const val TAG = "FrameMetricsFpsMon"
+    }
 
     private val _fpsData = MutableStateFlow(FpsData())
     val fpsData: StateFlow<FpsData> = _fpsData
@@ -83,14 +88,18 @@ class FrameMetricsFpsMonitor {
         currentWindow = window
         try {
             window.addOnFrameMetricsAvailableListener(listener, handler)
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            Log.d(TAG, "attachToWindow failed", e)
+        }
     }
 
     private fun detachFromWindow() {
         currentWindow?.let { win ->
             try {
                 win.removeOnFrameMetricsAvailableListener(listener)
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                Log.d(TAG, "detachFromWindow failed", e)
+            }
         }
         currentWindow = null
     }

@@ -3,6 +3,8 @@ package com.cloudorz.monitor.core.ui.chart
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,10 +20,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -31,6 +37,7 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -40,6 +47,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
 
 /**
  * One data series rendered as a colored line on the chart.
@@ -75,8 +83,9 @@ data class LineChartSeries(
  * @param modifier      [Modifier] applied to the root layout.
  * @param maxDataPoints Maximum number of data points visible on the X axis.
  * @param yAxisLabel    Optional label drawn above the Y axis (e.g. "C", "MHz").
- * @param showGrid      Whether to draw horizontal grid lines.
- * @param showLegend    Whether to show the legend row.
+ * @param showGrid            Whether to draw horizontal grid lines.
+ * @param showLegend          Whether to show the legend row.
+ * @param interactionEnabled  Whether touch crosshair interaction is enabled.
  */
 @Composable
 fun LineChart(
@@ -86,6 +95,7 @@ fun LineChart(
     yAxisLabel: String = "",
     showGrid: Boolean = true,
     showLegend: Boolean = true,
+    interactionEnabled: Boolean = true,
 ) {
     // Animation: fade-in factor for the whole chart
     val animatedAlpha by animateFloatAsState(
@@ -104,6 +114,9 @@ fun LineChart(
         computeYRange(dataSeries)
     }
 
+    // Touch interaction state
+    var touchX by remember { mutableStateOf<Float?>(null) }
+
     Column(modifier = modifier.fillMaxWidth()) {
         // Y-axis unit label
         if (yAxisLabel.isNotEmpty()) {
@@ -121,7 +134,33 @@ fun LineChart(
                 .fillMaxWidth()
                 .height(180.dp),
         ) {
-            Canvas(modifier = Modifier.matchParentSize()) {
+            val canvasModifier = if (interactionEnabled) {
+                Modifier
+                    .matchParentSize()
+                    .pointerInput(Unit) {
+                        detectHorizontalDragGestures(
+                            onDragStart = { offset -> touchX = offset.x },
+                            onDragEnd = { touchX = null },
+                            onDragCancel = { touchX = null },
+                            onHorizontalDrag = { change, _ ->
+                                touchX = change.position.x
+                            },
+                        )
+                    }
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onPress = { offset ->
+                                touchX = offset.x
+                                val released = tryAwaitRelease()
+                                if (released) touchX = null
+                            },
+                        )
+                    }
+            } else {
+                Modifier.matchParentSize()
+            }
+
+            Canvas(modifier = canvasModifier) {
                 val leftPadding = 42f   // space for Y labels
                 val rightPadding = 16f
                 val topPadding = 8f
@@ -168,6 +207,25 @@ fun LineChart(
                         alpha = animatedAlpha,
                         textMeasurer = textMeasurer,
                         onSurfaceColor = onSurface,
+                    )
+                }
+
+                // Crosshair interaction overlay
+                val currentTouchX = touchX
+                if (currentTouchX != null && dataSeries.isNotEmpty()) {
+                    drawCrosshair(
+                        touchX = currentTouchX,
+                        dataSeries = dataSeries,
+                        maxDataPoints = maxDataPoints,
+                        yMin = globalMin,
+                        yMax = globalMax,
+                        chartLeft = chartLeft,
+                        chartRight = chartRight,
+                        chartTop = chartTop,
+                        chartBottom = chartBottom,
+                        chartWidth = chartWidth,
+                        chartHeight = chartHeight,
+                        textMeasurer = textMeasurer,
                     )
                 }
             }
@@ -379,6 +437,146 @@ private fun DrawScope.drawSeries(
         textLayoutResult = measured,
         topLeft = Offset(labelX, labelY),
     )
+}
+
+/**
+ * Draws crosshair line, highlighted data points, and tooltip when the user touches the chart.
+ */
+private fun DrawScope.drawCrosshair(
+    touchX: Float,
+    dataSeries: List<LineChartSeries>,
+    maxDataPoints: Int,
+    yMin: Float,
+    yMax: Float,
+    chartLeft: Float,
+    chartRight: Float,
+    chartTop: Float,
+    chartBottom: Float,
+    chartWidth: Float,
+    chartHeight: Float,
+    textMeasurer: TextMeasurer,
+) {
+    val yRange = (yMax - yMin).coerceAtLeast(1f)
+    val stepX = chartWidth / (maxDataPoints - 1).coerceAtLeast(1)
+
+    // Collect per-series info at the touched index
+    data class SeriesHit(val label: String, val value: Float, val y: Float, val color: Color)
+
+    val hits = mutableListOf<SeriesHit>()
+    var crosshairX = touchX.coerceIn(chartLeft, chartRight)
+
+    for (series in dataSeries) {
+        val data = series.data
+        if (data.isEmpty()) continue
+
+        val visible = if (data.size > maxDataPoints) data.takeLast(maxDataPoints) else data
+        val pointCount = visible.size
+        if (pointCount < 2) continue
+
+        val startX = chartRight - (pointCount - 1) * stepX
+        val dataIndex = ((crosshairX - startX) / stepX).roundToInt().coerceIn(0, pointCount - 1)
+
+        // Snap crosshair to actual data point X
+        crosshairX = startX + dataIndex * stepX
+
+        val value = visible[dataIndex]
+        val y = chartBottom - ((value - yMin) / yRange) * chartHeight
+        hits.add(SeriesHit(series.label, value, y, series.color))
+    }
+
+    if (hits.isEmpty()) return
+
+    // Clamp snapped crosshair within chart bounds
+    crosshairX = crosshairX.coerceIn(chartLeft, chartRight)
+
+    // Vertical crosshair line (dashed)
+    val dashEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 4f), 0f)
+    drawLine(
+        color = Color.White.copy(alpha = 0.5f),
+        start = Offset(crosshairX, chartTop),
+        end = Offset(crosshairX, chartBottom),
+        strokeWidth = 1f,
+        pathEffect = dashEffect,
+    )
+
+    // Highlighted dots at intersection points
+    for (hit in hits) {
+        drawCircle(
+            color = hit.color,
+            radius = 5f,
+            center = Offset(crosshairX, hit.y),
+        )
+        drawCircle(
+            color = Color.White,
+            radius = 2.5f,
+            center = Offset(crosshairX, hit.y),
+        )
+    }
+
+    // Tooltip
+    val tooltipBg = Color(0xDD1E1E1E)
+    val tooltipTextColor = Color.White
+    val tooltipStyle = TextStyle(color = tooltipTextColor, fontSize = 10.sp)
+    val tooltipPaddingV = 6f
+    val tooltipPaddingLeft = 16f  // space for color indicator + gap
+    val tooltipPaddingRight = 8f
+    val lineSpacing = 2f
+    val indicatorRadius = 3.5f
+
+    // Measure all tooltip lines
+    val measuredLines = hits.map { hit ->
+        val text = "${hit.label}: ${formatAxisValue(hit.value)}"
+        text to textMeasurer.measure(text, tooltipStyle)
+    }
+
+    val tooltipContentWidth = measuredLines.maxOf { it.second.size.width }
+    val tooltipContentHeight = measuredLines.sumOf { it.second.size.height } +
+        (lineSpacing * (measuredLines.size - 1)).toInt()
+    val tooltipWidth = tooltipContentWidth + tooltipPaddingLeft + tooltipPaddingRight
+    val tooltipHeight = tooltipContentHeight + tooltipPaddingV * 2
+
+    // Position tooltip: prefer right of crosshair, flip to left if it would overflow
+    val tooltipGap = 8f
+    var tooltipX = crosshairX + tooltipGap
+    if (tooltipX + tooltipWidth > chartRight) {
+        tooltipX = crosshairX - tooltipGap - tooltipWidth
+    }
+    tooltipX = tooltipX.coerceIn(chartLeft, chartRight - tooltipWidth)
+
+    // Vertical: near top of chart area
+    val tooltipY = chartTop.coerceAtLeast(0f)
+
+    // Draw tooltip background
+    drawRoundRect(
+        color = tooltipBg,
+        topLeft = Offset(tooltipX, tooltipY),
+        size = Size(tooltipWidth, tooltipHeight),
+        cornerRadius = CornerRadius(6f, 6f),
+    )
+
+    // Draw color indicators and text lines
+    var textY = tooltipY + tooltipPaddingV
+    for (i in hits.indices) {
+        val (_, measured) = measuredLines[i]
+        val lineHeight = measured.size.height
+
+        // Color dot
+        drawCircle(
+            color = hits[i].color,
+            radius = indicatorRadius,
+            center = Offset(
+                tooltipX + 8f,
+                textY + lineHeight / 2f,
+            ),
+        )
+
+        // Text
+        drawText(
+            textLayoutResult = measured,
+            topLeft = Offset(tooltipX + tooltipPaddingLeft, textY),
+        )
+        textY += lineHeight + lineSpacing
+    }
 }
 
 /**

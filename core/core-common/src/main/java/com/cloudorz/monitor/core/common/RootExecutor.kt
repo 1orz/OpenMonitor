@@ -1,11 +1,16 @@
 package com.cloudorz.monitor.core.common
 
+import android.util.Log
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 class RootExecutor @Inject constructor() : ShellExecutor {
+
+    companion object {
+        private const val TAG = "RootExecutor"
+    }
 
     override val mode: PrivilegeMode = PrivilegeMode.ROOT
 
@@ -35,22 +40,10 @@ class RootExecutor @Inject constructor() : ShellExecutor {
             val result = Shell.cmd("cat '$path'").exec()
             if (result.code == 0) result.out.joinToString("\n") else null
         } catch (e: Exception) {
+            Log.d(TAG, "readFile failed: $path", e)
             null
         }
     }
-
-    override suspend fun writeFile(path: String, value: String): Boolean =
-        withContext(Dispatchers.IO) {
-            try {
-                val shell = Shell.getShell()
-                if (!shell.isRoot) return@withContext false
-                val sanitizedValue = value.replace("'", "'\\''")
-                val result = Shell.cmd("echo '$sanitizedValue' > '$path'").exec()
-                result.code == 0
-            } catch (e: Exception) {
-                false
-            }
-        }
 
     /**
      * Check if root is available by requesting a root shell via libsu.
@@ -69,6 +62,7 @@ class RootExecutor @Inject constructor() : ShellExecutor {
             val shell = Shell.getShell() // This is the key call — triggers su binary
             shell.isRoot
         } catch (e: Exception) {
+            Log.d(TAG, "isAvailable check failed", e)
             false
         }
     }

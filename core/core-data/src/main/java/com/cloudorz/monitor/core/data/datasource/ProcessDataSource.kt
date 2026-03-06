@@ -96,10 +96,6 @@ class ProcessDataSource @Inject constructor(
             }
     }
 
-    suspend fun killProcess(pid: Int): Boolean = withContext(Dispatchers.IO) {
-        shellExecutor.executeAsRoot("kill -9 $pid").isSuccess
-    }
-
     private fun parseState(c: Char): ProcessState = when (c) {
         'R' -> ProcessState.RUNNING
         'S' -> ProcessState.SLEEPING

@@ -15,13 +15,4 @@ class BatteryRepository @Inject constructor(
         pollingFlow(intervalMs) { batteryDataSource.getBatteryStatus() }
 
     suspend fun getBatteryStatus(): BatteryStatus = batteryDataSource.getBatteryStatus()
-
-    suspend fun setChargingEnabled(enabled: Boolean): Boolean =
-        batteryDataSource.setChargingEnabled(enabled)
-
-    suspend fun setChargeCurrentLimit(limitMa: Int): Boolean =
-        batteryDataSource.setChargeCurrentLimit(limitMa)
-
-    suspend fun setNightCharging(enabled: Boolean): Boolean =
-        batteryDataSource.setNightCharging(enabled)
 }

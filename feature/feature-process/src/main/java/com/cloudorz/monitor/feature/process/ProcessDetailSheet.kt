@@ -18,20 +18,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -56,11 +50,7 @@ import com.cloudorz.monitor.core.ui.theme.ChartYellow
 fun ProcessDetailSheet(
     process: ProcessInfo,
     threads: List<ThreadInfo>,
-    showKillConfirmation: Boolean,
     onDismiss: () -> Unit,
-    onRequestKill: () -> Unit,
-    onConfirmKill: () -> Unit,
-    onDismissKillConfirmation: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -73,17 +63,6 @@ fun ProcessDetailSheet(
         ProcessDetailContent(
             process = process,
             threads = threads,
-            onKillClick = onRequestKill,
-        )
-    }
-
-    // Kill confirmation dialog
-    if (showKillConfirmation) {
-        KillConfirmationDialog(
-            processName = process.displayName,
-            pid = process.pid,
-            onConfirm = onConfirmKill,
-            onDismiss = onDismissKillConfirmation,
         )
     }
 }
@@ -92,7 +71,6 @@ fun ProcessDetailSheet(
 private fun ProcessDetailContent(
     process: ProcessInfo,
     threads: List<ThreadInfo>,
-    onKillClick: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -101,12 +79,10 @@ private fun ProcessDetailContent(
             .padding(horizontal = 16.dp)
             .padding(bottom = 32.dp),
     ) {
-        // Header: process name + PID
         ProcessDetailHeader(process = process)
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Process identification card
         StatCard(
             title = "Process Info",
             icon = Icons.Default.Info,
@@ -121,7 +97,6 @@ private fun ProcessDetailContent(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Resource usage card
         StatCard(
             title = "Resource Usage",
             icon = Icons.Default.Memory,
@@ -138,7 +113,6 @@ private fun ProcessDetailContent(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // System details card
         StatCard(
             title = "System Details",
             icon = Icons.Default.Settings,
@@ -160,7 +134,6 @@ private fun ProcessDetailContent(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Command line
         if (process.cmdline.isNotEmpty()) {
             StatCard(title = "Command Line") {
                 Text(
@@ -176,7 +149,6 @@ private fun ProcessDetailContent(
             Spacer(modifier = Modifier.height(12.dp))
         }
 
-        // Thread list
         SectionHeader(
             title = "Threads",
             action = {
@@ -203,7 +175,6 @@ private fun ProcessDetailContent(
                 )
             }
         } else {
-            // Use a fixed-height container so LazyColumn works inside the scroll parent
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -217,31 +188,6 @@ private fun ProcessDetailContent(
                     ThreadListItem(thread = thread)
                 }
             }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Kill process button
-        Button(
-            onClick = onKillClick,
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.error,
-                contentColor = MaterialTheme.colorScheme.onError,
-            ),
-            shape = MaterialTheme.shapes.medium,
-        ) {
-            Icon(
-                imageVector = Icons.Default.Delete,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "Kill Process",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-            )
         }
     }
 }
@@ -373,7 +319,6 @@ private fun ThreadListItem(
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // TID
         Text(
             text = thread.tid.toString(),
             style = MaterialTheme.typography.bodySmall.copy(
@@ -384,7 +329,6 @@ private fun ThreadListItem(
             modifier = Modifier.width(56.dp),
         )
 
-        // Thread name
         Text(
             text = thread.name.ifEmpty { "<unnamed>" },
             style = MaterialTheme.typography.bodySmall,
@@ -396,7 +340,6 @@ private fun ThreadListItem(
 
         Spacer(modifier = Modifier.width(8.dp))
 
-        // CPU load
         Text(
             text = "%.1f%%".format(thread.cpuLoadPercent),
             style = MaterialTheme.typography.bodySmall,
@@ -406,74 +349,6 @@ private fun ThreadListItem(
     }
 }
 
-@Composable
-private fun KillConfirmationDialog(
-    processName: String,
-    pid: Int,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = {
-            Icon(
-                imageVector = Icons.Default.Delete,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.error,
-            )
-        },
-        title = {
-            Text(
-                text = "Kill Process?",
-                style = MaterialTheme.typography.headlineSmall,
-            )
-        },
-        text = {
-            Column {
-                Text(
-                    text = "Are you sure you want to kill this process?",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "$processName (PID: $pid)",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "This action cannot be undone. Killing system processes may cause instability.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = onConfirm,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error,
-                    contentColor = MaterialTheme.colorScheme.onError,
-                ),
-            ) {
-                Text("Kill")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        },
-    )
-}
-
-/**
- * Returns a color based on CPU usage percentage:
- * - Green for < 5%
- * - Yellow for 5-20%
- * - Red for > 20%
- */
 private fun cpuColor(cpuPercent: Double): Color {
     return when {
         cpuPercent < 5.0 -> ChartGreen

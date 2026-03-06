@@ -3,7 +3,7 @@ package com.cloudorz.monitor.core.common
 /**
  * Abstraction for executing shell commands at various privilege levels.
  * Each implementation corresponds to a specific [PrivilegeMode] and handles
- * command execution, file reading, and file writing accordingly.
+ * command execution and file reading accordingly.
  */
 interface ShellExecutor {
 
@@ -32,15 +32,6 @@ interface ShellExecutor {
      * @return The file contents as a string, or null if the file cannot be read.
      */
     suspend fun readFile(path: String): String?
-
-    /**
-     * Writes a value to a file at the given path.
-     *
-     * @param path Absolute path to the file to write.
-     * @param value The string value to write into the file.
-     * @return True if the write succeeded, false otherwise.
-     */
-    suspend fun writeFile(path: String, value: String): Boolean
 
     /**
      * Checks whether this executor's underlying mechanism is currently available.

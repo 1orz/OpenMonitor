@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.os.IBinder
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
@@ -24,6 +25,7 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
     override val mode: PrivilegeMode = PrivilegeMode.SHIZUKU
 
     companion object {
+        private const val TAG = "ShizukuExecutor"
         private const val SHIZUKU_PERMISSION_REQUEST_CODE = 1001
     }
 
@@ -72,7 +74,9 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
             ) {
                 Shizuku.bindUserService(userServiceArgs, serviceConnection)
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            Log.d(TAG, "bindService failed", e)
+        }
     }
 
     /**
@@ -83,7 +87,9 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
             if (bound) {
                 Shizuku.unbindUserService(userServiceArgs, serviceConnection, true)
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            Log.d(TAG, "unbindService failed", e)
+        }
         shellService = null
         bound = false
     }
@@ -119,26 +125,19 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
     override suspend fun readFile(path: String): String? = withContext(Dispatchers.IO) {
         try {
             shellService?.readFileContent(path)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.d(TAG, "readFile failed: $path", e)
             null
         }
     }
-
-    override suspend fun writeFile(path: String, value: String): Boolean =
-        withContext(Dispatchers.IO) {
-            try {
-                shellService?.writeFileContent(path, value) ?: false
-            } catch (_: Exception) {
-                false
-            }
-        }
 
     override suspend fun isAvailable(): Boolean = withContext(Dispatchers.IO) {
         try {
             val binderAlive = Shizuku.pingBinder()
             if (!binderAlive) return@withContext false
             Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.d(TAG, "isAvailable check failed", e)
             false
         }
     }
@@ -182,6 +181,8 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
             ) {
                 Shizuku.requestPermission(SHIZUKU_PERMISSION_REQUEST_CODE)
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            Log.d(TAG, "requestPermissionIfNeeded failed", e)
+        }
     }
 }

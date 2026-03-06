@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Power Screen -->
+    <string name="battery_info">电池信息</string>
+    <string name="battery_health">电池健康度</string>
+    <string name="voltage">电压</string>
+    <string name="current">电流</string>
+    <string name="power">功率</string>
+    <string name="temperature">温度</string>
+    <string name="technology">技术</string>
+    <string name="charger_type">充电器类型</string>
+    <string name="battery_health_good">电池状态良好</string>
+    <string name="battery_health_normal">电池状态正常</string>
+    <string name="battery_health_degraded">电池有一定损耗，建议关注</string>
+    <string name="battery_health_poor">电池损耗严重，建议更换</string>
+    <string name="stop_power_tracking">停止耗电追踪</string>
+    <string name="start_power_tracking">开始耗电追踪</string>
+    <string name="power_history">耗电历史记录</string>
+    <string name="power_consumed">耗电量</string>
+    <string name="avg_power">平均功率</string>
+    <string name="duration">时长</string>
+    <string name="no_power_records">暂无耗电记录</string>
+    <string name="start_tracking_hint">点击上方按钮开始追踪耗电情况</string>
+
+    <!-- FPS Screen -->
+    <string name="tab_realtime_recording">实时录制</string>
+    <string name="tab_session_history">历史会话</string>
+    <string name="fps_recording_title">帧率记录</string>
+    <string name="shell_permission_required">需要 Shell 权限</string>
+    <string name="fps_shell_permission_desc">帧率监控需要通过 SurfaceFlinger 采集数据，\n请在设置中切换到以下模式之一：</string>
+    <string name="fps_mode_root">Root — Magisk / KernelSU</string>
+    <string name="fps_mode_adb">ADB — Shizuku 代理</string>
+    <string name="fps_mode_shizuku">Shizuku — 无线调试配对</string>
+    <string name="fps_trend">FPS 趋势</string>
+    <string name="frame_time">帧时间</string>
+    <string name="collection_method">采集方式</string>
+    <string name="recording">录制中</string>
+    <string name="max_frame_time">最大帧时间</string>
+    <string name="frame_count">帧数</string>
+    <string name="battery_level">电量</string>
+    <string name="stop_recording">停止录制</string>
+    <string name="start_recording">开始录制</string>
+    <string name="no_recording_sessions">暂无录制会话</string>
+    <string name="start_recording_hint">开始录制以查看历史数据</string>
+    <string name="avg_fps_format">平均 %.1f FPS</string>
+    <string name="delete">删除</string>
+
+    <!-- Float Monitor Screen -->
+    <string name="float_monitor_title">悬浮监视器</string>
+    <string name="detail_info">详细信息</string>
+    <string name="permission_desc_title">权限说明</string>
+    <string name="permission_desc_body">悬浮窗显示支持两种方式：\n1. 无障碍服务（推荐）— 无需悬浮窗权限，同时提供前台应用检测\n2. 悬浮窗权限 — 传统方式，需手动授权</string>
+    <string name="accessibility_enabled">无障碍服务已开启</string>
+    <string name="accessibility_disabled">无障碍服务未开启</string>
+    <string name="go_enable">去开启</string>
+    <string name="overlay_granted">悬浮窗权限已授予</string>
+    <string name="overlay_not_granted">悬浮窗权限未授予</string>
+    <string name="go_authorize">去授权</string>
+
+    <!-- Float Monitor Settings -->
+    <string name="fps_settings_title">FPS 设置</string>
+    <string name="fps_method_label">采集方式</string>
+    <string name="fps_method_sf">SurfaceFlinger</string>
+    <string name="fps_method_ch">Choreographer</string>
+    <string name="fps_interval_label">刷新间隔</string>
+
+    <!-- FloatMonitorType display names -->
+    <string name="monitor_load">负载监视器</string>
+    <string name="monitor_process">进程监视器</string>
+    <string name="monitor_thread">线程监视器</string>
+    <string name="monitor_mini">迷你监视器</string>
+    <string name="monitor_fps">帧率记录器</string>
+    <string name="monitor_temperature">温度监视器</string>
+
+    <!-- FloatMonitorType descriptions -->
+    <string name="monitor_load_desc">CPU/GPU/RAM/电池仪表盘</string>
+    <string name="monitor_process_desc">Top CPU 进程列表</string>
+    <string name="monitor_thread_desc">当前应用最耗CPU线程</string>
+    <string name="monitor_mini_desc">单行: CPU%/GPU%/温度/FPS/电流</string>
+    <string name="monitor_fps_desc">实时 FPS 计数器</string>
+    <string name="monitor_temperature_desc">多传感器温度值</string>
+
+    <!-- FloatMonitorType info texts -->
+    <string name="monitor_load_info">显示 CPU、GPU、内存、电池的实时负载仪表盘。以 2x2 网格形式呈现四个圆弧仪表，直观展示系统资源使用情况。</string>
+    <string name="monitor_process_info">显示当前 CPU 占用率最高的 5 个进程列表，包含进程名称和 CPU 使用百分比。帮助快速定位高负载进程。</string>
+    <string name="monitor_thread_info">显示当前前台应用中 CPU 占用率最高的线程列表。用于深入分析应用性能瓶颈。</string>
+    <string name="monitor_mini_info">极简单行模式，显示 CPU%/GPU%/温度/FPS/实时电流。占用屏幕空间最小，适合日常监控。</string>
+    <string name="monitor_fps_info">实时帧率计数器，大字体显示当前 FPS 值，并统计卡顿 (Jank) 次数。适合游戏和动画性能测试。</string>
+    <string name="monitor_temperature_info">显示设备多个温度传感器的实时读数，包括 CPU、GPU、电池等区域温度。用于监控设备散热状况。</string>
+
+    <!-- CPU Screen -->
+    <string name="cpu_monitor_title">CPU监控</string>
+    <string name="refresh">刷新</string>
+    <string name="online_cores_format">在线核心: %1$d/%2$d</string>
+    <string name="core_status">核心状态</string>
+    <string name="governor">调速器</string>
+    <string name="unknown">未知</string>
+    <string name="frequency_range">频率范围</string>
+    <string name="avg_load">平均负载</string>
+    <string name="avg_frequency">平均频率</string>
+    <string name="cpu_cache_info">缓存信息</string>
+    <string name="l1d_cache">L1 数据</string>
+    <string name="l1i_cache">L1 指令</string>
+    <string name="l2_cache">L2</string>
+    <string name="l3_cache">L3</string>
+    <string name="arm_neon">ARM NEON</string>
+    <string name="supported">支持</string>
+    <string name="not_supported">不支持</string>
+    <string name="cpu_features">CPU 特性</string>
+
+    <!-- Charge Screen -->
+    <string name="charge_info">充电信息</string>
+    <string name="charging">正在充电</string>
+    <string name="not_charging">未在充电</string>
+    <string name="charge_history">充电历史记录</string>
+    <string name="charge_curve">充电曲线</string>
+    <string name="charge_curve_placeholder">充电曲线将在此显示</string>
+    <string name="charge_curve_auto_start">连接充电器后自动开始记录</string>
+    <string name="charge_amount">充电量</string>
+    <string name="energy_charged">充入电量</string>
+    <string name="no_charge_records">暂无充电记录</string>
+    <string name="charge_auto_record_hint">充电时将自动记录充电数据</string>
+    <string name="charge_curve_title">充电曲线</string>
+    <string name="charge_curve_will_show">充电曲线将在此显示</string>
+    <string name="charge_curve_min_points">需要至少两个数据点</string>
+    <string name="legend_capacity">电量</string>
+    <string name="legend_current">电流</string>
+    <string name="legend_temperature">温度</string>
+</resources>

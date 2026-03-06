@@ -1,5 +1,6 @@
 package com.cloudorz.monitor.core.data.datasource
 
+import android.util.Log
 import com.cloudorz.monitor.core.common.ShellExecutor
 import com.cloudorz.monitor.core.common.SysfsReader
 import com.cloudorz.monitor.core.model.fps.FpsData
@@ -80,7 +81,8 @@ class FpsDataSource @Inject constructor(
 
         val frames = try {
             java.lang.Long.parseLong(hexPart, 16)
-        } catch (_: NumberFormatException) {
+        } catch (e: NumberFormatException) {
+            Log.d(TAG, "getFrameCountDeltaFps: hex parse failed: $hexPart", e)
             return null
         }
 
@@ -289,6 +291,7 @@ class FpsDataSource @Inject constructor(
     private enum class DeltaSource { SF, GFXINFO }
 
     companion object {
+        private const val TAG = "FpsDataSource"
         private val MEASURED_FPS_CANDIDATES = listOf(
             "/sys/class/drm/sde-crtc-0/measured_fps",
             "/sys/class/graphics/fb0/measured_fps",
