@@ -100,6 +100,9 @@ class FloatMonitorService : LifecycleService() {
     private val frameMetricsFpsMonitor = FrameMetricsFpsMonitor()
     private val dataCollectionJobs = mutableMapOf<String, Job>()
 
+    // Shared FPS collection: single writer to currentFps, avoids multi-job flicker
+    private var sharedFpsJob: Job? = null
+
     // Shared data states for composables
     val cpuLoad = MutableStateFlow(0.0)
     val gpuLoad = MutableStateFlow(0.0)
@@ -160,18 +163,20 @@ class FloatMonitorService : LifecycleService() {
             ?: currentFpsMethod.value
 
         if (method != currentFpsMethod.value) {
-            switchFpsMethod(method)
+            stopFpsMonitors()
+            currentFpsMethod.value = method
+            startFpsMonitorForCurrentMethod()
         }
 
-        // Restart FPS/Mini collection jobs to pick up new interval
-        val fpsTypes = listOf(TYPE_FPS, TYPE_MINI)
-        for (type in fpsTypes) {
-            val job = dataCollectionJobs[type]
-            if (job != null && job.isActive) {
-                job.cancel()
-                dataCollectionJobs[type] = lifecycleScope.launch {
-                    collectDataForType(type)
-                }
+        // Restart shared FPS job to pick up new interval/method
+        restartSharedFpsJob()
+
+        // Restart MINI collection job if active (for non-FPS data interval)
+        val miniJob = dataCollectionJobs[TYPE_MINI]
+        if (miniJob != null && miniJob.isActive) {
+            miniJob.cancel()
+            dataCollectionJobs[TYPE_MINI] = lifecycleScope.launch {
+                collectDataForType(TYPE_MINI)
             }
         }
     }
@@ -184,14 +189,8 @@ class FloatMonitorService : LifecycleService() {
         currentFpsMethod.value = method
         startFpsMonitorForCurrentMethod()
 
-        // Restart FPS collection job if active
-        val fpsJob = dataCollectionJobs[TYPE_FPS]
-        if (fpsJob != null && fpsJob.isActive) {
-            fpsJob.cancel()
-            dataCollectionJobs[TYPE_FPS] = lifecycleScope.launch {
-                collectDataForType(TYPE_FPS)
-            }
-        }
+        // Restart shared FPS job to use new method
+        restartSharedFpsJob()
     }
 
     private fun startFpsMonitorForCurrentMethod() {
@@ -251,6 +250,8 @@ class FloatMonitorService : LifecycleService() {
             .putStringSet(KEY_ENABLED_MONITORS, emptySet())
             .apply()
 
+        sharedFpsJob?.cancel()
+        sharedFpsJob = null
         dataCollectionJobs.values.forEach { it.cancel() }
         dataCollectionJobs.clear()
         floatWindowManager.removeAllWindows()
@@ -261,17 +262,20 @@ class FloatMonitorService : LifecycleService() {
     private fun addMonitor(type: String) {
         if (floatWindowManager.isWindowActive(type)) return
 
-        // Start FPS monitors if needed
+        // Start shared FPS collection for FPS-consuming monitors
         if (type == TYPE_FPS || type == TYPE_MINI) {
             updateAvailableFpsMethods()
             startFpsMonitorForCurrentMethod()
+            ensureSharedFpsJob()
         }
 
-        // Start data collection
-        val job = lifecycleScope.launch {
-            collectDataForType(type)
+        // Start data collection (TYPE_FPS has no per-type job, FPS is handled by shared job)
+        if (type != TYPE_FPS) {
+            val job = lifecycleScope.launch {
+                collectDataForType(type)
+            }
+            dataCollectionJobs[type] = job
         }
-        dataCollectionJobs[type] = job
 
         // Create floating window
         val service = this
@@ -356,6 +360,8 @@ class FloatMonitorService : LifecycleService() {
             }
             if (!otherFpsNeeded) {
                 stopFpsMonitors()
+                sharedFpsJob?.cancel()
+                sharedFpsJob = null
             }
         }
 
@@ -365,8 +371,8 @@ class FloatMonitorService : LifecycleService() {
         // Persist enabled monitors
         saveEnabledMonitors()
 
-        // If no monitors left, stop the service
-        if (dataCollectionJobs.isEmpty()) {
+        // If no active windows remain, stop the service
+        if (floatWindowManager.getActiveWindowIds().isEmpty()) {
             stopFloatService()
         }
     }
@@ -379,11 +385,8 @@ class FloatMonitorService : LifecycleService() {
     }
 
     private suspend fun collectDataForType(type: String) {
-        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        val fpsInterval = prefs.getLong(KEY_FPS_INTERVAL, DEFAULT_FPS_INTERVAL)
         val intervalMs = when (type) {
-            TYPE_FPS -> fpsInterval
-            TYPE_MINI -> fpsInterval
+            TYPE_MINI -> 1000L  // MINI only collects CPU/GPU/Temp/mA, FPS via shared job
             TYPE_PROCESS, TYPE_THREAD -> 2000L
             else -> 1500L
         }
@@ -393,7 +396,6 @@ class FloatMonitorService : LifecycleService() {
                 when (type) {
                     TYPE_LOAD -> collectLoadData()
                     TYPE_MINI -> collectMiniData()
-                    TYPE_FPS -> collectFpsData()
                     TYPE_TEMPERATURE -> collectThermalData()
                     TYPE_PROCESS -> collectProcessData()
                     TYPE_THREAD -> collectThreadData()
@@ -418,59 +420,53 @@ class FloatMonitorService : LifecycleService() {
     }
 
     private suspend fun collectMiniData() {
+        // Only CPU/GPU/Temp/mA — FPS is handled by the shared FPS job
         val snapshot = aggregatedMonitorDataSource.collectSnapshot()
         cpuLoad.value = snapshot.cpuLoadPercent
         gpuLoad.value = snapshot.gpuLoadPercent
         cpuTemp.value = snapshot.cpuTempCelsius
         currentMa.value = snapshot.batteryCurrentMa
+    }
 
-        val fps = snapshot.fpsData
-        if (fps != null) {
-            currentFps.value = fps.fps.toDouble()
-            currentJank.value = fps.jankCount
-        } else if (!hasShellAccess.value) {
-            collectBasicFps()
-        } else {
-            currentFps.value = 0.0
-            currentJank.value = 0
+    // ---- Shared FPS collection (single writer to currentFps) ----
+
+    private fun ensureSharedFpsJob() {
+        if (sharedFpsJob?.isActive == true) return
+        sharedFpsJob = lifecycleScope.launch {
+            while (isActive) {
+                try {
+                    collectSharedFps()
+                } catch (e: Exception) {
+                    Log.w(TAG, "collectSharedFps failed", e)
+                }
+                val interval = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                    .getLong(KEY_FPS_INTERVAL, DEFAULT_FPS_INTERVAL)
+                delay(interval)
+            }
         }
     }
 
-    private suspend fun collectFpsData() {
+    private fun restartSharedFpsJob() {
+        if (sharedFpsJob?.isActive != true) return
+        sharedFpsJob?.cancel()
+        sharedFpsJob = null
+        ensureSharedFpsJob()
+    }
+
+    private suspend fun collectSharedFps() {
         when (currentFpsMethod.value) {
             FpsMethod.SURFACE_FLINGER -> {
-                // Use realtime delta FPS (sysfs → service call 1013 → gfxinfo delta)
-                // instead of --latency dump which needs a specific window name
-                val realtimeFps = fpsDataSource.getRealtimeFps()
-                currentFps.value = realtimeFps.toDouble()
-                currentJank.value = 0
+                if (hasShellAccess.value) {
+                    currentFps.value = fpsDataSource.getRealtimeFps().toDouble()
+                }
             }
             FpsMethod.CHOREOGRAPHER -> {
                 currentFps.value = choreographerFpsMonitor.fps.value.toDouble()
-                currentJank.value = 0
             }
             FpsMethod.FRAME_METRICS -> {
                 val data = frameMetricsFpsMonitor.fpsData.value
                 currentFps.value = data.fps.toDouble()
                 currentJank.value = data.jankCount
-            }
-        }
-    }
-
-    private fun collectBasicFps() {
-        when (currentFpsMethod.value) {
-            FpsMethod.FRAME_METRICS -> {
-                val data = frameMetricsFpsMonitor.fpsData.value
-                currentFps.value = data.fps.toDouble()
-                currentJank.value = data.jankCount
-            }
-            FpsMethod.CHOREOGRAPHER -> {
-                currentFps.value = choreographerFpsMonitor.fps.value.toDouble()
-                currentJank.value = 0
-            }
-            else -> {
-                currentFps.value = 0.0
-                currentJank.value = 0
             }
         }
     }
@@ -522,6 +518,7 @@ class FloatMonitorService : LifecycleService() {
 
     override fun onDestroy() {
         stopFpsMonitors()
+        sharedFpsJob?.cancel()
         floatWindowManager.removeAllWindows()
         dataCollectionJobs.values.forEach { it.cancel() }
         super.onDestroy()

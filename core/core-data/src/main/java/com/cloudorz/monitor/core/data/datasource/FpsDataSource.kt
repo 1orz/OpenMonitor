@@ -14,98 +14,145 @@ class FpsDataSource @Inject constructor(
     private val shellExecutor: ShellExecutor,
     private val sysfsReader: SysfsReader,
 ) {
-    // Separate delta trackers per data source to avoid cross-contamination
-    private var sfLastFrameCount = -1L
-    private var sfLastFrameTime = -1L
-
-    private var gfxLastFrameCount = -1L
-    private var gfxLastFrameTime = -1L
-    private var gfxLastPackage: String? = null
-
-    @Volatile private var measuredFpsPath: String? = null
-    @Volatile private var sf1013Available = true
-
     // Screen refresh rate cap (will be auto-detected, fallback 165Hz)
     @Volatile private var maxFps = 165f
 
     // Frame dedup: track last max actualPresent timestamp across calls
     @Volatile private var lastMaxActualPresent: Long = 0
 
+    // ---- Realtime FPS (probe-once, single source, unified delta) ----
+
+    private enum class RealtimeSource { UNPROBED, SYSFS, SF_1013, GFXINFO, NONE }
+
+    @Volatile private var realtimeSource = RealtimeSource.UNPROBED
+    @Volatile private var measuredFpsPath: String? = null
+
+    // Unified delta state (single source, no cross-contamination)
+    private var deltaLastCount = -1L
+    private var deltaLastTime = 0L
+    private var deltaLastPackage: String? = null
+
+    // Output smoothing: hold last non-zero value briefly to avoid flicker
+    private var lastReportedFps = 0f
+    private var lastNonZeroTime = 0L
+    private val FPS_HOLD_MS = 1500L
+
     suspend fun getRealtimeFps(): Float = withContext(Dispatchers.IO) {
-        val sysfsFps = tryMeasuredFps()
-        if (sysfsFps != null) return@withContext sysfsFps
-
-        if (sf1013Available) {
-            val sfFps = getFrameCountDeltaFps()
-            if (sfFps != null) return@withContext sfFps
+        if (realtimeSource == RealtimeSource.UNPROBED) {
+            probeRealtimeSource()
         }
-
-        getGfxInfoDeltaFps() ?: 0f
+        val rawFps = collectFromSource()
+        smoothOutput(rawFps)
     }
 
-    private suspend fun tryMeasuredFps(): Float? {
-        var path = measuredFpsPath
-        if (path == "") return null
-
-        if (path == null) {
-            path = MEASURED_FPS_CANDIDATES.firstOrNull { candidate ->
-                sysfsReader.readString(candidate) != null
-            } ?: ""
-            measuredFpsPath = path
-            if (path.isEmpty()) return null
+    private suspend fun probeRealtimeSource() {
+        // 1. Try sysfs measured_fps
+        for (path in MEASURED_FPS_CANDIDATES) {
+            if (sysfsReader.readString(path) != null) {
+                measuredFpsPath = path
+                realtimeSource = RealtimeSource.SYSFS
+                Log.d(TAG, "Realtime FPS source: SYSFS ($path)")
+                return
+            }
         }
+        // 2. Try service call SurfaceFlinger 1013
+        val sfResult = shellExecutor.execute("service call SurfaceFlinger 1013")
+        if (sfResult.isSuccess && !sfResult.stdout.contains("Error") && !sfResult.stdout.contains("not permitted")) {
+            realtimeSource = RealtimeSource.SF_1013
+            Log.d(TAG, "Realtime FPS source: SF_1013")
+            return
+        }
+        // 3. Try gfxinfo
+        val pkg = getFocusedPackage()
+        if (pkg != null) {
+            val gfxResult = shellExecutor.execute("dumpsys gfxinfo $pkg")
+            if (gfxResult.isSuccess && TOTAL_FRAMES_REGEX.containsMatchIn(gfxResult.stdout)) {
+                realtimeSource = RealtimeSource.GFXINFO
+                Log.d(TAG, "Realtime FPS source: GFXINFO")
+                return
+            }
+        }
+        realtimeSource = RealtimeSource.NONE
+        Log.d(TAG, "Realtime FPS source: NONE")
+    }
 
+    private suspend fun collectFromSource(): Float {
+        return when (realtimeSource) {
+            RealtimeSource.SYSFS -> readSysfsFps() ?: 0f
+            RealtimeSource.SF_1013 -> readSf1013FrameCount()?.let { calculateDeltaFps(it) } ?: 0f
+            RealtimeSource.GFXINFO -> readGfxInfoFrameCount()?.let { calculateDeltaFps(it) } ?: 0f
+            else -> 0f
+        }
+    }
+
+    private suspend fun readSysfsFps(): Float? {
+        val path = measuredFpsPath ?: return null
         val raw = sysfsReader.readString(path) ?: return null
-        return raw.split("\\s+".toRegex()).firstOrNull()?.toFloatOrNull()
-            ?.coerceIn(0f, maxFps)
+        return raw.split("\\s+".toRegex()).firstOrNull()?.toFloatOrNull()?.coerceIn(0f, maxFps)
     }
 
-    private suspend fun getFrameCountDeltaFps(): Float? {
+    private suspend fun readSf1013FrameCount(): Long? {
         val result = shellExecutor.execute("service call SurfaceFlinger 1013")
         if (!result.isSuccess) return null
-
         val output = result.stdout.trim()
-        if (output.contains("Error") || output.contains("not permitted")) {
-            sf1013Available = false
-            return null
-        }
-
         val parenIdx = output.indexOf('(')
         if (parenIdx < 0) return null
-
         val hexPart = output.substring(parenIdx + 1)
             .replace("'", "").replace(".", "").replace(")", "")
             .trim()
             .split("\\s+".toRegex())
             .getOrNull(1) ?: return null
-
-        val frames = try {
+        return try {
             java.lang.Long.parseLong(hexPart, 16)
         } catch (e: NumberFormatException) {
-            Log.d(TAG, "getFrameCountDeltaFps: hex parse failed: $hexPart", e)
-            return null
+            Log.d(TAG, "readSf1013FrameCount: hex parse failed: $hexPart", e)
+            null
         }
-
-        return calculateDelta(frames, DeltaSource.SF)
     }
 
-    private suspend fun getGfxInfoDeltaFps(): Float? {
+    private suspend fun readGfxInfoFrameCount(): Long? {
         val pkg = getFocusedPackage() ?: return null
+        // Package changed — reset delta to avoid cross-app spikes
+        if (pkg != deltaLastPackage) {
+            deltaLastPackage = pkg
+            deltaLastCount = -1
+            deltaLastTime = 0
+        }
         val result = shellExecutor.execute("dumpsys gfxinfo $pkg")
         if (!result.isSuccess) return null
-
         val match = TOTAL_FRAMES_REGEX.find(result.stdout) ?: return null
-        val frames = match.groupValues[1].toLongOrNull() ?: return null
+        return match.groupValues[1].toLongOrNull()
+    }
 
-        // Package changed — reset gfxinfo delta to avoid cross-app spikes
-        if (pkg != gfxLastPackage) {
-            gfxLastPackage = pkg
-            gfxLastFrameCount = frames
-            gfxLastFrameTime = System.currentTimeMillis()
-            return 0f
+    private fun calculateDeltaFps(frames: Long): Float {
+        val now = System.currentTimeMillis()
+        val prevCount = deltaLastCount
+        val prevTime = deltaLastTime
+        deltaLastCount = frames
+        deltaLastTime = now
+
+        if (prevCount < 0 || prevTime <= 0) return 0f
+        val dt = now - prevTime
+        if (dt <= 0) return 0f
+        val delta = frames - prevCount
+        if (delta < 0) return 0f
+        return (delta * 1000f / dt).coerceIn(0f, maxFps)
+    }
+
+    private fun smoothOutput(rawFps: Float): Float {
+        val now = System.currentTimeMillis()
+        if (rawFps > 0f) {
+            lastReportedFps = rawFps
+            lastNonZeroTime = now
+            return rawFps
         }
-
-        return calculateDelta(frames, DeltaSource.GFXINFO)
+        // Hold last non-zero value briefly to prevent flicker
+        return if (lastReportedFps > 0f && now - lastNonZeroTime < FPS_HOLD_MS) {
+            lastReportedFps
+        } else {
+            lastReportedFps = 0f
+            0f
+        }
     }
 
     suspend fun getFocusedPackage(): String? = withContext(Dispatchers.IO) {
@@ -119,39 +166,6 @@ class FpsDataSource @Inject constructor(
             }
         }
         null
-    }
-
-    private fun calculateDelta(frames: Long, source: DeltaSource): Float {
-        val now = System.currentTimeMillis()
-
-        val lastCount: Long
-        val lastTime: Long
-        when (source) {
-            DeltaSource.SF -> {
-                lastCount = sfLastFrameCount
-                lastTime = sfLastFrameTime
-                sfLastFrameCount = frames
-                sfLastFrameTime = now
-            }
-            DeltaSource.GFXINFO -> {
-                lastCount = gfxLastFrameCount
-                lastTime = gfxLastFrameTime
-                gfxLastFrameCount = frames
-                gfxLastFrameTime = now
-            }
-        }
-
-        if (lastCount < 0 || lastTime <= 0) return 0f
-
-        val dt = now - lastTime
-        if (dt <= 0) return 0f
-
-        val delta = frames - lastCount
-        // Frame counter went backwards (app restart / counter reset) — skip
-        if (delta < 0) return 0f
-
-        val fps = delta * 1000f / dt
-        return fps.coerceIn(0f, maxFps)
     }
 
     suspend fun getFpsFromSurfaceFlinger(windowName: String? = null): FpsData? = withContext(Dispatchers.IO) {
@@ -287,8 +301,6 @@ class FpsDataSource @Inject constructor(
             window = packageName
         )
     }
-
-    private enum class DeltaSource { SF, GFXINFO }
 
     companion object {
         private const val TAG = "FpsDataSource"
