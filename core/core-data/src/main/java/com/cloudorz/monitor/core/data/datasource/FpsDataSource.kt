@@ -46,12 +46,15 @@ class FpsDataSource @Inject constructor(
     }
 
     private suspend fun probeRealtimeSource() {
+        // Auto-detect screen refresh rate for FPS cap
+        detectMaxFps()
+
         // 1. Try sysfs measured_fps
         for (path in MEASURED_FPS_CANDIDATES) {
             if (sysfsReader.readString(path) != null) {
                 measuredFpsPath = path
                 realtimeSource = RealtimeSource.SYSFS
-                Log.d(TAG, "Realtime FPS source: SYSFS ($path)")
+                Log.d(TAG, "Realtime FPS source: SYSFS ($path), maxFps=$maxFps")
                 return
             }
         }
@@ -59,7 +62,7 @@ class FpsDataSource @Inject constructor(
         val sfResult = shellExecutor.execute("service call SurfaceFlinger 1013")
         if (sfResult.isSuccess && !sfResult.stdout.contains("Error") && !sfResult.stdout.contains("not permitted")) {
             realtimeSource = RealtimeSource.SF_1013
-            Log.d(TAG, "Realtime FPS source: SF_1013")
+            Log.d(TAG, "Realtime FPS source: SF_1013, maxFps=$maxFps")
             return
         }
         // 3. Try gfxinfo
@@ -68,12 +71,27 @@ class FpsDataSource @Inject constructor(
             val gfxResult = shellExecutor.execute("dumpsys gfxinfo $pkg")
             if (gfxResult.isSuccess && TOTAL_FRAMES_REGEX.containsMatchIn(gfxResult.stdout)) {
                 realtimeSource = RealtimeSource.GFXINFO
-                Log.d(TAG, "Realtime FPS source: GFXINFO")
+                Log.d(TAG, "Realtime FPS source: GFXINFO, maxFps=$maxFps")
                 return
             }
         }
         realtimeSource = RealtimeSource.NONE
         Log.d(TAG, "Realtime FPS source: NONE")
+    }
+
+    private suspend fun detectMaxFps() {
+        // Try dumpsys SurfaceFlinger --latency to get refresh period
+        val result = shellExecutor.execute("dumpsys SurfaceFlinger --latency")
+        if (result.isSuccess) {
+            val firstLine = result.stdout.lines().firstOrNull()?.trim()
+            val refreshPeriodNs = firstLine?.toLongOrNull()
+            if (refreshPeriodNs != null && refreshPeriodNs > 0) {
+                maxFps = (1_000_000_000f / refreshPeriodNs).coerceIn(30f, 240f)
+                Log.d(TAG, "Detected maxFps=$maxFps from refresh period=${refreshPeriodNs}ns")
+                return
+            }
+        }
+        Log.d(TAG, "Using default maxFps=$maxFps")
     }
 
     private suspend fun collectFromSource(): Float {
