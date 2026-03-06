@@ -14,7 +14,9 @@ class MemoryDataSource @Inject constructor(
     private val sysfsReader: SysfsReader
 ) {
     suspend fun getMemoryInfo(): MemoryInfo = withContext(Dispatchers.IO) {
-        val lines = sysfsReader.readLines("/proc/meminfo") ?: return@withContext MemoryInfo()
+        val lines = sysfsReader.readLines("/proc/meminfo")
+        if (lines.isEmpty()) return@withContext MemoryInfo()
+
         val map = mutableMapOf<String, Long>()
         for (line in lines) {
             val parts = line.split(":")

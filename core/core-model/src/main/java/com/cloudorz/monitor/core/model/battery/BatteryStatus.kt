@@ -23,6 +23,8 @@ data class BatteryStatus(
     val statusText: String = "",
     val chargerPower: Double = 0.0,
     val timestamp: Long = 0,
+    val capacityMah: Double = 0.0,
+    val health: String = "",
 ) {
     val powerW: Double
         get() = (currentMa / 1000.0) * voltageV

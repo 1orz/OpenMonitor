@@ -1,5 +1,7 @@
 package com.cloudorz.monitor.core.common
 
+import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -8,16 +10,66 @@ import javax.inject.Inject
  * Convenience wrapper around a [ShellExecutor] for reading and writing sysfs/procfs
  * files with typed parsing.
  *
- * This class is the primary interface that data-collection modules use to interact
- * with kernel-exposed system files (e.g., CPU frequencies, thermal zones, battery info).
- * It delegates all I/O to the provided [ShellExecutor], which determines the privilege
- * level used for access.
+ * Read operations first attempt direct [File] I/O (which works for world-readable
+ * files such as `/proc/meminfo`, `/sys/devices/system/cpu/`, etc.) and only fall
+ * back to the [ShellExecutor] when direct access fails. This avoids unnecessary
+ * root shell usage for publicly readable system files.
+ *
+ * Failed paths are cached to avoid repeated SELinux audit log spam.
+ *
+ * Write operations always go through the [ShellExecutor] because sysfs writes
+ * typically require elevated privileges.
  *
  * All operations are dispatched to [Dispatchers.IO].
  */
 class SysfsReader @Inject constructor(
     private val executor: ShellExecutor,
 ) {
+    // Cache paths that failed to read — avoids repeated SELinux denials.
+    // Entries expire after 60s so mode changes eventually take effect.
+    private val deniedPaths = ConcurrentHashMap<String, Long>()
+    private val denyTtlMs = 60_000L
+
+    /**
+     * Tries to read the file directly via [File.readText]; returns null on any failure.
+     */
+    private fun readFileDirect(path: String): String? {
+        return try {
+            val file = File(path)
+            if (file.exists() && file.canRead()) file.readText() else null
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Reads the raw content of a file.
+     *
+     * Strategy by mode and path:
+     * - Shell mode (Root/ADB/Shizuku) + /sys/: go directly through shell executor
+     *   (avoids SELinux audit from app-process direct reads)
+     * - BASIC mode + /sys/: try direct once, cache failure for 60s
+     * - /proc/ paths: try direct first (usually world-readable), fall back to shell
+     */
+    private suspend fun readFileContent(path: String): String? {
+        val deniedAt = deniedPaths[path]
+        if (deniedAt != null && System.currentTimeMillis() - deniedAt < denyTtlMs) return null
+
+        val isSysfs = path.startsWith("/sys/")
+        val hasShell = executor.mode != PrivilegeMode.BASIC
+
+        val result = when {
+            isSysfs && hasShell -> executor.readFile(path)
+            else -> readFileDirect(path) ?: executor.readFile(path)
+        }
+
+        if (result == null) {
+            deniedPaths[path] = System.currentTimeMillis()
+        } else {
+            deniedPaths.remove(path)
+        }
+        return result
+    }
 
     /**
      * Reads a file and parses its trimmed contents as an [Int].
@@ -27,7 +79,7 @@ class SysfsReader @Inject constructor(
      */
     suspend fun readInt(path: String): Int? = withContext(Dispatchers.IO) {
         try {
-            executor.readFile(path)?.trim()?.toIntOrNull()
+            readFileContent(path)?.trim()?.toIntOrNull()
         } catch (e: Exception) {
             null
         }
@@ -41,7 +93,7 @@ class SysfsReader @Inject constructor(
      */
     suspend fun readLong(path: String): Long? = withContext(Dispatchers.IO) {
         try {
-            executor.readFile(path)?.trim()?.toLongOrNull()
+            readFileContent(path)?.trim()?.toLongOrNull()
         } catch (e: Exception) {
             null
         }
@@ -55,7 +107,7 @@ class SysfsReader @Inject constructor(
      */
     suspend fun readString(path: String): String? = withContext(Dispatchers.IO) {
         try {
-            executor.readFile(path)?.trim()
+            readFileContent(path)?.trim()
         } catch (e: Exception) {
             null
         }
@@ -70,7 +122,7 @@ class SysfsReader @Inject constructor(
      */
     suspend fun readLines(path: String): List<String> = withContext(Dispatchers.IO) {
         try {
-            executor.readFile(path)
+            readFileContent(path)
                 ?.trim()
                 ?.split("\n")
                 ?.map { it.trim() }

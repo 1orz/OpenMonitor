@@ -32,16 +32,20 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 
 @Composable
 fun FloatMonitorScreen(
@@ -49,17 +53,30 @@ fun FloatMonitorScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    // Refresh permission and enabled state every time screen resumes
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            viewModel.refreshPermission()
+        }
+    }
 
     Scaffold { paddingValues ->
         FloatMonitorScreenContent(
             hasOverlayPermission = uiState.hasOverlayPermission,
+            hasAccessibilityService = uiState.hasAccessibilityService,
             enabledMonitors = uiState.enabledMonitors,
             onToggleMonitor = viewModel::onToggleMonitor,
-            onRequestPermission = {
+            onRequestOverlayPermission = {
                 val intent = Intent(
                     Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                     Uri.parse("package:${context.packageName}"),
                 )
+                context.startActivity(intent)
+            },
+            onRequestAccessibility = {
+                val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
                 context.startActivity(intent)
             },
             modifier = Modifier.padding(paddingValues),
@@ -70,9 +87,11 @@ fun FloatMonitorScreen(
 @Composable
 private fun FloatMonitorScreenContent(
     hasOverlayPermission: Boolean,
+    hasAccessibilityService: Boolean,
     enabledMonitors: Set<FloatMonitorType>,
     onToggleMonitor: (FloatMonitorType, Boolean) -> Unit,
-    onRequestPermission: () -> Unit,
+    onRequestOverlayPermission: () -> Unit,
+    onRequestAccessibility: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val expandedInfo = remember { mutableStateMapOf<FloatMonitorType, Boolean>() }
@@ -132,8 +151,10 @@ private fun FloatMonitorScreenContent(
             Spacer(modifier = Modifier.height(12.dp))
 
             PermissionSection(
-                hasPermission = hasOverlayPermission,
-                onRequestPermission = onRequestPermission,
+                hasOverlayPermission = hasOverlayPermission,
+                hasAccessibilityService = hasAccessibilityService,
+                onRequestOverlayPermission = onRequestOverlayPermission,
+                onRequestAccessibility = onRequestAccessibility,
             )
         }
     }
@@ -213,14 +234,18 @@ private fun MonitorTypeCard(
 
 @Composable
 private fun PermissionSection(
-    hasPermission: Boolean,
-    onRequestPermission: () -> Unit,
+    hasOverlayPermission: Boolean,
+    hasAccessibilityService: Boolean,
+    onRequestOverlayPermission: () -> Unit,
+    onRequestAccessibility: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val canShowOverlay = hasOverlayPermission || hasAccessibilityService
+
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = if (hasPermission) {
+            containerColor = if (canShowOverlay) {
                 MaterialTheme.colorScheme.surfaceVariant
             } else {
                 MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
@@ -238,7 +263,7 @@ private fun PermissionSection(
                     imageVector = Icons.Default.Security,
                     contentDescription = null,
                     modifier = Modifier.size(20.dp),
-                    tint = if (hasPermission) {
+                    tint = if (canShowOverlay) {
                         MaterialTheme.colorScheme.primary
                     } else {
                         MaterialTheme.colorScheme.error
@@ -256,27 +281,60 @@ private fun PermissionSection(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "悬浮监视器需要 SYSTEM_ALERT_WINDOW (悬浮窗) 权限才能在其他应用上方显示监控信息。" +
-                    "授权后，您可以在任意应用上方查看系统状态。",
+                text = "悬浮窗显示支持两种方式：\n" +
+                    "1. 无障碍服务（推荐）— 无需悬浮窗权限，同时提供前台应用检测\n" +
+                    "2. 悬浮窗权限 — 传统方式，需手动授权",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            if (hasPermission) {
-                Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Accessibility service status
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text(
-                    text = "已授予悬浮窗权限",
+                    text = if (hasAccessibilityService) "无障碍服务已开启" else "无障碍服务未开启",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = if (hasAccessibilityService) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    modifier = Modifier.weight(1f),
                 )
-            } else {
-                Spacer(modifier = Modifier.height(12.dp))
-                Button(
-                    onClick = onRequestPermission,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(text = "授予悬浮窗权限")
+                if (!hasAccessibilityService) {
+                    Button(onClick = onRequestAccessibility) {
+                        Text(text = "去开启")
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Overlay permission status
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = if (hasOverlayPermission) "悬浮窗权限已授予" else "悬浮窗权限未授予",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = if (hasOverlayPermission) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+                if (!hasOverlayPermission) {
+                    Button(onClick = onRequestOverlayPermission) {
+                        Text(text = "去授权")
+                    }
                 }
             }
         }
@@ -294,7 +352,7 @@ private fun monitorTypeInfo(type: FloatMonitorType): String = when (type) {
         "显示当前前台应用中 CPU 占用率最高的线程列表。用于深入分析应用性能瓶颈。"
 
     FloatMonitorType.MINI_MONITOR ->
-        "极简单行模式，显示 CPU%/GPU%/温度 三项核心指标。占用屏幕空间最小，适合日常监控。"
+        "极简单行模式，显示 CPU%/GPU%/温度/FPS/实时电流。占用屏幕空间最小，适合日常监控。"
 
     FloatMonitorType.FPS_RECORDER ->
         "实时帧率计数器，大字体显示当前 FPS 值，并统计卡顿 (Jank) 次数。适合游戏和动画性能测试。"

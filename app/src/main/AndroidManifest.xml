@@ -36,14 +36,21 @@
         </activity>
 
         <service
-            android:name="com.cloudorz.monitor.service.MonitorForegroundService"
+            android:name="com.cloudorz.monitor.service.FloatMonitorService"
             android:exported="false"
             android:foregroundServiceType="specialUse" />
 
         <service
-            android:name="com.cloudorz.monitor.service.FloatMonitorService"
-            android:exported="false"
-            android:foregroundServiceType="specialUse" />
+            android:name="com.cloudorz.monitor.service.AccessibilityMonitorService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_monitor_config" />
+        </service>
 
         <receiver
             android:name="com.cloudorz.monitor.service.BootReceiver"

@@ -600,7 +600,7 @@ private fun BottomInfoBar(
             // Battery level + voltage
             InfoChip(
                 label = "Battery",
-                value = "${batteryStatus.capacity}%  %.2fV".format(batteryStatus.voltageV),
+                value = "${batteryStatus.capacity}%%  %.2fV".format(batteryStatus.voltageV),
             )
 
             // Temperature

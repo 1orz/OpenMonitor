@@ -6,6 +6,7 @@ import com.cloudorz.monitor.core.database.dao.FpsSessionDao
 import com.cloudorz.monitor.core.database.entity.FpsFrameDataEntity
 import com.cloudorz.monitor.core.database.entity.FpsSessionEntity
 import com.cloudorz.monitor.core.model.fps.FpsData
+import com.cloudorz.monitor.core.model.fps.FpsMethod
 import com.cloudorz.monitor.core.model.fps.FpsWatchSession
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -17,10 +18,23 @@ class FpsRepository @Inject constructor(
     private val fpsDataSource: FpsDataSource,
     private val fpsSessionDao: FpsSessionDao
 ) {
-    fun observeFps(intervalMs: Long = 1000L, windowName: String? = null): Flow<FpsData?> =
-        pollingFlow(intervalMs) { fpsDataSource.getFpsFromSurfaceFlinger(windowName) }
+    fun observeFps(
+        method: FpsMethod = FpsMethod.SURFACE_FLINGER,
+        intervalMs: Long = 1000L,
+        windowName: String? = null,
+    ): Flow<FpsData?> = when (method) {
+        FpsMethod.SURFACE_FLINGER -> pollingFlow(intervalMs) {
+            fpsDataSource.getFpsFromSurfaceFlinger(windowName)
+        }
+        FpsMethod.FRAME_METRICS,
+        FpsMethod.CHOREOGRAPHER -> {
+            // FrameMetrics 和 Choreographer 由各自 Monitor 直接提供 StateFlow，
+            // 此处仍用 pollingFlow 保持接口一致，ViewModel 侧负责传入对应 Monitor 的数据
+            pollingFlow(intervalMs) { null }
+        }
+    }
 
-    suspend fun startSession(packageName: String, appName: String): Long {
+    suspend fun startSession(packageName: String, appName: String, mode: String = ""): Long {
         return fpsSessionDao.insertSession(
             FpsSessionEntity(
                 packageName = packageName,
@@ -29,7 +43,7 @@ class FpsRepository @Inject constructor(
                 avgPowerW = 0.0,
                 beginTime = System.currentTimeMillis(),
                 durationSeconds = 0,
-                mode = "",
+                mode = mode,
                 packageVersion = "",
                 sessionDesc = "",
                 viewSize = ""

@@ -18,6 +18,8 @@ data class GpuInfo(
     val memoryTotalMB: Long = 0,
     val governor: String = "",
     val driverVersion: String = "",
+    val glesVersion: String = "",
+    val vulkanVersion: String = "",
 ) {
     val memoryUsagePercent: Double
         get() = if (memoryTotalMB > 0) (memoryUsedMB.toDouble() / memoryTotalMB) * 100.0 else 0.0

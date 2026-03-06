@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">用于在其他应用上方显示悬浮监控窗口（无需悬浮窗权限），并检测当前前台应用以提供准确的帧率监控。</string>
+</resources>

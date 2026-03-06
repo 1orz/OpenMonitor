@@ -38,6 +38,8 @@ import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
@@ -68,6 +70,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cloudorz.monitor.core.model.fps.FpsData
+import com.cloudorz.monitor.core.model.fps.FpsMethod
 import com.cloudorz.monitor.core.model.fps.FpsWatchSession
 import com.cloudorz.monitor.core.ui.theme.ChartGreen
 import com.cloudorz.monitor.core.ui.theme.ChartRed
@@ -87,6 +90,7 @@ fun FpsScreen(
         onStartRecording = { viewModel.startRecording() },
         onStopRecording = viewModel::stopRecording,
         onDeleteSession = viewModel::deleteSession,
+        onFpsMethodSelected = viewModel::setFpsMethod,
     )
 }
 
@@ -97,16 +101,17 @@ private fun FpsContent(
     onStartRecording: () -> Unit,
     onStopRecording: () -> Unit,
     onDeleteSession: (Long) -> Unit,
+    onFpsMethodSelected: (FpsMethod) -> Unit,
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("\u5B9E\u65F6\u5F55\u5236", "\u5386\u53F2\u4F1A\u8BDD")
+    val tabs = listOf("实时录制", "历史会话")
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text = "\u5E27\u7387\u8BB0\u5F55",
+                        text = "帧率记录",
                         style = MaterialTheme.typography.titleLarge,
                     )
                 },
@@ -145,6 +150,7 @@ private fun FpsContent(
                     uiState = uiState,
                     onStartRecording = onStartRecording,
                     onStopRecording = onStopRecording,
+                    onFpsMethodSelected = onFpsMethodSelected,
                 )
                 1 -> SessionHistoryTab(
                     sessions = uiState.sessions,
@@ -159,12 +165,57 @@ private fun FpsContent(
 // Tab 1: Real-time recording
 // ---------------------------------------------------------------------------
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RealtimeRecordingTab(
     uiState: FpsUiState,
     onStartRecording: () -> Unit,
     onStopRecording: () -> Unit,
+    onFpsMethodSelected: (FpsMethod) -> Unit,
 ) {
+    // 无 Shell 权限时显示占位提示
+    if (!uiState.hasShellAccess) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(32.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "🔒",
+                    fontSize = 48.sp,
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "需要 Shell 权限",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "帧率监控需要通过 SurfaceFlinger 采集数据，\n请在设置中切换到以下模式之一：",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                listOf("Root — Magisk / KernelSU", "ADB — Shizuku 代理", "Shizuku — 无线调试配对").forEach { mode ->
+                    Text(
+                        text = "• $mode",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .fillMaxWidth(0.7f)
+                            .padding(vertical = 2.dp),
+                    )
+                }
+            }
+        }
+        return
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -174,6 +225,16 @@ private fun RealtimeRecordingTab(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            // FPS 方式选择
+            if (uiState.availableMethods.isNotEmpty()) {
+                FpsMethodSelector(
+                    availableMethods = uiState.availableMethods,
+                    selectedMethod = uiState.fpsMethod,
+                    onMethodSelected = onFpsMethodSelected,
+                    enabled = !uiState.isRecording,
+                )
+            }
+
             // Large FPS counter
             FpsCounterDisplay(
                 fps = uiState.currentFps?.fps,
@@ -190,7 +251,7 @@ private fun RealtimeRecordingTab(
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(
-                            text = "FPS \u8D8B\u52BF",
+                            text = "FPS 趋势",
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -213,7 +274,7 @@ private fun RealtimeRecordingTab(
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(
-                            text = "\u5E27\u65F6\u95F4",
+                            text = "帧时间",
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -253,6 +314,54 @@ private fun RealtimeRecordingTab(
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 24.dp),
         )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun FpsMethodSelector(
+    availableMethods: List<FpsMethod>,
+    selectedMethod: FpsMethod,
+    onMethodSelected: (FpsMethod) -> Unit,
+    enabled: Boolean,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        ),
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = "采集方式",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FpsMethod.entries.forEach { method ->
+                    val isAvailable = method in availableMethods
+                    FilterChip(
+                        selected = method == selectedMethod,
+                        onClick = { if (isAvailable && enabled) onMethodSelected(method) },
+                        label = { Text(method.displayName) },
+                        enabled = isAvailable && enabled,
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        ),
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = selectedMethod.description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            )
+        }
     }
 }
 
@@ -324,7 +433,7 @@ private fun FpsCounterDisplay(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "\u5F55\u5236\u4E2D",
+                        text = "录制中",
                         style = MaterialTheme.typography.labelMedium,
                         color = ChartRed.copy(alpha = 0.8f),
                     )
@@ -361,7 +470,7 @@ private fun FpsStatsRow(fpsData: FpsData) {
                 color = if (fpsData.bigJankCount > 0) ChartRed else ChartGreen,
             )
             StatItem(
-                label = "\u6700\u5927\u5E27\u65F6\u95F4",
+                label = "最大帧时间",
                 value = "${fpsData.maxFrameTimeMs}ms",
                 color = when {
                     fpsData.maxFrameTimeMs > 32 -> ChartRed
@@ -370,7 +479,7 @@ private fun FpsStatsRow(fpsData: FpsData) {
                 },
             )
             StatItem(
-                label = "\u5E27\u6570",
+                label = "帧数",
                 value = "${fpsData.frameCount}",
                 color = MaterialTheme.colorScheme.primary,
             )
@@ -429,7 +538,7 @@ private fun OverlayMetricsRow(
             )
             MetricItem(
                 icon = Icons.Default.Thermostat,
-                label = "\u6E29\u5EA6",
+                label = "温度",
                 value = "%.1f\u00B0C".format(temperature),
                 tint = when {
                     temperature > 45.0 -> ChartRed
@@ -439,7 +548,7 @@ private fun OverlayMetricsRow(
             )
             MetricItem(
                 icon = Icons.Default.BatteryFull,
-                label = "\u7535\u91CF",
+                label = "电量",
                 value = "$batteryLevel%",
                 tint = when {
                     batteryLevel < 20 -> ChartRed
@@ -517,7 +626,7 @@ private fun RecordButton(
     ) {
         Icon(
             imageVector = if (isRecording) Icons.Default.Stop else Icons.Default.FiberManualRecord,
-            contentDescription = if (isRecording) "\u505C\u6B62\u5F55\u5236" else "\u5F00\u59CB\u5F55\u5236",
+            contentDescription = if (isRecording) "停止录制" else "开始录制",
             modifier = Modifier.size(32.dp),
         )
     }
@@ -548,12 +657,12 @@ private fun SessionHistoryTab(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = "\u6682\u65E0\u5F55\u5236\u4F1A\u8BDD",
+                    text = "暂无录制会话",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.outline,
                 )
                 Text(
-                    text = "\u5F00\u59CB\u5F55\u5236\u4EE5\u67E5\u770B\u5386\u53F2\u6570\u636E",
+                    text = "开始录制以查看历史数据",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f),
                 )
@@ -652,7 +761,7 @@ private fun SessionCard(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     Text(
-                        text = "\u5E73\u5747 %.1f FPS".format(session.avgFps),
+                        text = "平均 %.1f FPS".format(session.avgFps),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                     )
@@ -673,7 +782,7 @@ private fun SessionCard(
             IconButton(onClick = onDelete) {
                 Icon(
                     imageVector = Icons.Default.Delete,
-                    contentDescription = "\u5220\u9664",
+                    contentDescription = "删除",
                     tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
                 )
             }

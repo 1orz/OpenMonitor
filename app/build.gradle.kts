@@ -59,6 +59,8 @@ dependencies {
     implementation(project(":feature:feature-float"))
     implementation(project(":service"))
 
+    implementation(libs.shizuku.api)
+
     implementation(libs.core.ktx)
     implementation(libs.appcompat)
     implementation(libs.activity.compose)

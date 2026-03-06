@@ -8,12 +8,22 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
+import com.cloudorz.monitor.core.common.PermissionManager
+import com.cloudorz.monitor.core.common.PrivilegeMode
+import com.cloudorz.monitor.core.data.datasource.ChoreographerFpsMonitor
+import com.cloudorz.monitor.core.data.datasource.FpsDataSource
+import com.cloudorz.monitor.core.data.datasource.FrameMetricsFpsMonitor
+import com.cloudorz.monitor.core.data.datasource.AggregatedMonitorDataSource
 import com.cloudorz.monitor.core.data.datasource.BatteryDataSource
 import com.cloudorz.monitor.core.data.datasource.CpuDataSource
-import com.cloudorz.monitor.core.data.datasource.FpsDataSource
 import com.cloudorz.monitor.core.data.datasource.GpuDataSource
+import com.cloudorz.monitor.core.data.datasource.ProcessDataSource
 import com.cloudorz.monitor.core.data.datasource.ThermalDataSource
+import com.cloudorz.monitor.core.model.fps.FpsMethod
+import com.cloudorz.monitor.core.model.process.ProcessInfo
+import com.cloudorz.monitor.core.model.process.ThreadInfo
 import com.cloudorz.monitor.core.model.thermal.ThermalZone
+import android.view.WindowManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -35,11 +45,16 @@ class FloatMonitorService : LifecycleService() {
         const val ACTION_REMOVE_MONITOR = "com.cloudorz.monitor.service.FLOAT_REMOVE"
         const val EXTRA_MONITOR_TYPE = "monitor_type"
 
-        // Monitor type constants (match FloatMonitorType enum names)
         const val TYPE_LOAD = "LOAD_MONITOR"
         const val TYPE_MINI = "MINI_MONITOR"
         const val TYPE_FPS = "FPS_RECORDER"
         const val TYPE_TEMPERATURE = "TEMPERATURE_MONITOR"
+        const val TYPE_PROCESS = "PROCESS_MONITOR"
+        const val TYPE_THREAD = "THREAD_MONITOR"
+
+        private const val PREFS_NAME = "monitor_settings"
+        private const val KEY_ENABLED_MONITORS = "enabled_monitors"
+        private const val KEY_SERVICE_ACTIVE = "float_service_active"
 
         fun startIntent(context: Context): Intent =
             Intent(context, FloatMonitorService::class.java).apply { action = ACTION_START }
@@ -65,8 +80,13 @@ class FloatMonitorService : LifecycleService() {
     @Inject lateinit var batteryDataSource: BatteryDataSource
     @Inject lateinit var thermalDataSource: ThermalDataSource
     @Inject lateinit var fpsDataSource: FpsDataSource
+    @Inject lateinit var processDataSource: ProcessDataSource
+    @Inject lateinit var permissionManager: PermissionManager
+    @Inject lateinit var aggregatedMonitorDataSource: AggregatedMonitorDataSource
 
     private lateinit var floatWindowManager: FloatWindowManager
+    private val choreographerFpsMonitor = ChoreographerFpsMonitor()
+    private val frameMetricsFpsMonitor = FrameMetricsFpsMonitor()
     private val dataCollectionJobs = mutableMapOf<String, Job>()
 
     // Shared data states for composables
@@ -78,11 +98,68 @@ class FloatMonitorService : LifecycleService() {
     val currentFps = MutableStateFlow(0.0)
     val currentJank = MutableStateFlow(0)
     val thermalZones = MutableStateFlow<List<ThermalZone>>(emptyList())
+    val topProcesses = MutableStateFlow<List<ProcessInfo>>(emptyList())
+    val topThreads = MutableStateFlow<List<ThreadInfo>>(emptyList())
+    val foregroundApp = MutableStateFlow("")
+    val currentMa = MutableStateFlow(0)
+
+    // FPS method state
+    val currentFpsMethod = MutableStateFlow(FpsMethod.SURFACE_FLINGER)
+    val availableFpsMethods = MutableStateFlow<List<FpsMethod>>(emptyList())
+    val hasShellAccess = MutableStateFlow(false)
 
     override fun onCreate() {
         super.onCreate()
-        floatWindowManager = FloatWindowManager(this)
+        // Use accessibility service context for overlay if available (no SYSTEM_ALERT_WINDOW needed)
+        val windowContext = AccessibilityMonitorService.instance ?: this
+        floatWindowManager = FloatWindowManager(windowContext)
         createNotificationChannel()
+        updateAvailableFpsMethods()
+    }
+
+    private fun updateAvailableFpsMethods() {
+        val mode = permissionManager.currentMode.value
+        val hasShell = mode == PrivilegeMode.ROOT || mode == PrivilegeMode.ADB || mode == PrivilegeMode.SHIZUKU
+        hasShellAccess.value = hasShell
+        availableFpsMethods.value = if (hasShell) {
+            listOf(FpsMethod.SURFACE_FLINGER, FpsMethod.CHOREOGRAPHER)
+        } else {
+            listOf(FpsMethod.FRAME_METRICS, FpsMethod.CHOREOGRAPHER)
+        }
+        if (currentFpsMethod.value !in availableFpsMethods.value) {
+            currentFpsMethod.value = availableFpsMethods.value.first()
+        }
+    }
+
+    fun switchFpsMethod(method: FpsMethod) {
+        if (method == currentFpsMethod.value) return
+        if (method !in availableFpsMethods.value) return
+
+        stopFpsMonitors()
+        currentFpsMethod.value = method
+        startFpsMonitorForCurrentMethod()
+
+        // Restart FPS collection job if active
+        val fpsJob = dataCollectionJobs[TYPE_FPS]
+        if (fpsJob != null && fpsJob.isActive) {
+            fpsJob.cancel()
+            dataCollectionJobs[TYPE_FPS] = lifecycleScope.launch {
+                collectDataForType(TYPE_FPS)
+            }
+        }
+    }
+
+    private fun startFpsMonitorForCurrentMethod() {
+        when (currentFpsMethod.value) {
+            FpsMethod.CHOREOGRAPHER -> choreographerFpsMonitor.start()
+            FpsMethod.FRAME_METRICS -> frameMetricsFpsMonitor.start(application)
+            FpsMethod.SURFACE_FLINGER -> { /* no pre-start needed */ }
+        }
+    }
+
+    private fun stopFpsMonitors() {
+        choreographerFpsMonitor.stop()
+        frameMetricsFpsMonitor.stop()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -105,6 +182,9 @@ class FloatMonitorService : LifecycleService() {
     }
 
     private fun startFloatService() {
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            .edit().putBoolean(KEY_SERVICE_ACTIVE, true).apply()
+
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("CloudMonitor")
             .setContentText("悬浮监视器运行中")
@@ -117,6 +197,12 @@ class FloatMonitorService : LifecycleService() {
     }
 
     private fun stopFloatService() {
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_SERVICE_ACTIVE, false)
+            .putStringSet(KEY_ENABLED_MONITORS, emptySet())
+            .apply()
+
         dataCollectionJobs.values.forEach { it.cancel() }
         dataCollectionJobs.clear()
         floatWindowManager.removeAllWindows()
@@ -127,48 +213,128 @@ class FloatMonitorService : LifecycleService() {
     private fun addMonitor(type: String) {
         if (floatWindowManager.isWindowActive(type)) return
 
-        // Start data collection for this monitor type
+        // Start FPS monitors if needed
+        if (type == TYPE_FPS || type == TYPE_MINI) {
+            updateAvailableFpsMethods()
+            startFpsMonitorForCurrentMethod()
+        }
+
+        // Start data collection
         val job = lifecycleScope.launch {
             collectDataForType(type)
         }
         dataCollectionJobs[type] = job
 
-        // Create the floating window with Compose content
+        // Create floating window
         val service = this
         when (type) {
             TYPE_LOAD -> {
-                floatWindowManager.addWindow(id = type, width = 420, height = 360, y = 200) {
+                floatWindowManager.addWindow(
+                    id = type,
+                    width = WindowManager.LayoutParams.WRAP_CONTENT,
+                    height = WindowManager.LayoutParams.WRAP_CONTENT,
+                    y = 200,
+                ) {
                     FloatLoadMonitorContent(service)
                 }
             }
             TYPE_MINI -> {
-                floatWindowManager.addWindow(id = type, width = 600, height = 80, y = 100) {
+                floatWindowManager.addWindow(
+                    id = type,
+                    width = WindowManager.LayoutParams.WRAP_CONTENT,
+                    height = WindowManager.LayoutParams.WRAP_CONTENT,
+                    x = 0,
+                    y = 0,
+                    centerHorizontal = true,
+                    draggable = false,
+                    aboveStatusBar = true,
+                ) {
                     FloatMiniMonitorContent(service)
                 }
             }
             TYPE_FPS -> {
-                floatWindowManager.addWindow(id = type, width = 220, height = 260, y = 300) {
+                floatWindowManager.addWindow(
+                    id = type,
+                    width = WindowManager.LayoutParams.WRAP_CONTENT,
+                    height = WindowManager.LayoutParams.WRAP_CONTENT,
+                    y = 300,
+                ) {
                     FloatFpsContent(service)
                 }
             }
             TYPE_TEMPERATURE -> {
-                floatWindowManager.addWindow(id = type, width = 420, height = 500, y = 200) {
+                floatWindowManager.addWindow(
+                    id = type,
+                    width = WindowManager.LayoutParams.WRAP_CONTENT,
+                    height = WindowManager.LayoutParams.WRAP_CONTENT,
+                    y = 200,
+                ) {
                     FloatTemperatureContent(service)
                 }
             }
-            else -> {
-                // For PROCESS_MONITOR and THREAD_MONITOR, use mini as fallback
-                floatWindowManager.addWindow(id = type, width = 600, height = 80, y = 100) {
-                    FloatMiniMonitorContent(service)
+            TYPE_PROCESS -> {
+                floatWindowManager.addWindow(
+                    id = type,
+                    width = WindowManager.LayoutParams.WRAP_CONTENT,
+                    height = WindowManager.LayoutParams.WRAP_CONTENT,
+                    y = 200,
+                ) {
+                    FloatProcessContent(service)
+                }
+            }
+            TYPE_THREAD -> {
+                floatWindowManager.addWindow(
+                    id = type,
+                    width = WindowManager.LayoutParams.WRAP_CONTENT,
+                    height = WindowManager.LayoutParams.WRAP_CONTENT,
+                    y = 200,
+                ) {
+                    FloatThreadContent(service)
                 }
             }
         }
+
+        // Persist enabled monitors
+        saveEnabledMonitors()
+    }
+
+    private fun removeMonitor(type: String) {
+        // Smart FPS cleanup
+        if (type == TYPE_FPS || type == TYPE_MINI) {
+            val otherFpsNeeded = when (type) {
+                TYPE_FPS -> floatWindowManager.isWindowActive(TYPE_MINI)
+                TYPE_MINI -> floatWindowManager.isWindowActive(TYPE_FPS)
+                else -> false
+            }
+            if (!otherFpsNeeded) {
+                stopFpsMonitors()
+            }
+        }
+
+        dataCollectionJobs.remove(type)?.cancel()
+        floatWindowManager.removeWindow(type)
+
+        // Persist enabled monitors
+        saveEnabledMonitors()
+
+        // If no monitors left, stop the service
+        if (dataCollectionJobs.isEmpty()) {
+            stopFloatService()
+        }
+    }
+
+    private fun saveEnabledMonitors() {
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            .edit()
+            .putStringSet(KEY_ENABLED_MONITORS, floatWindowManager.getActiveWindowIds())
+            .apply()
     }
 
     private suspend fun collectDataForType(type: String) {
         val intervalMs = when (type) {
-            TYPE_FPS -> 500L
-            TYPE_MINI -> 1000L
+            TYPE_FPS -> 200L
+            TYPE_MINI -> 500L
+            TYPE_PROCESS, TYPE_THREAD -> 2000L
             else -> 1500L
         }
 
@@ -179,51 +345,81 @@ class FloatMonitorService : LifecycleService() {
                     TYPE_MINI -> collectMiniData()
                     TYPE_FPS -> collectFpsData()
                     TYPE_TEMPERATURE -> collectThermalData()
-                    else -> collectMiniData()
+                    TYPE_PROCESS -> collectProcessData()
+                    TYPE_THREAD -> collectThreadData()
                 }
             } catch (_: Exception) {
-                // Ignore errors, continue polling
+                // Continue polling
             }
             delay(intervalMs)
         }
     }
 
     private suspend fun collectLoadData() {
-        // CPU load (index 0 is overall)
-        val loads = cpuDataSource.getCpuLoad()
-        cpuLoad.value = loads.getOrElse(0) { 0.0 }
+        val snapshot = aggregatedMonitorDataSource.collectSnapshot()
+        cpuLoad.value = snapshot.cpuLoadPercent
+        gpuLoad.value = snapshot.gpuLoadPercent
+        cpuTemp.value = snapshot.cpuTempCelsius
 
-        // GPU load
-        val gpuInfo = gpuDataSource.getGpuInfo()
-        gpuLoad.value = gpuInfo.loadPercent
-
-        // Memory: read /proc/meminfo directly
         val batteryInfo = batteryDataSource.getBatteryStatus()
         batteryLevel.value = batteryInfo.capacity
 
-        // CPU temp
-        cpuTemp.value = thermalDataSource.getCpuTemperature().let { if (it < 0) 0.0 else it }
-
-        // Memory usage percentage
         memUsed.value = calculateMemoryUsage()
     }
 
     private suspend fun collectMiniData() {
-        val loads = cpuDataSource.getCpuLoad()
-        cpuLoad.value = loads.getOrElse(0) { 0.0 }
+        val snapshot = aggregatedMonitorDataSource.collectSnapshot()
+        cpuLoad.value = snapshot.cpuLoadPercent
+        gpuLoad.value = snapshot.gpuLoadPercent
+        cpuTemp.value = snapshot.cpuTempCelsius
+        currentMa.value = snapshot.batteryCurrentMa
 
-        val gpuInfo = gpuDataSource.getGpuInfo()
-        gpuLoad.value = gpuInfo.loadPercent
-
-        cpuTemp.value = thermalDataSource.getCpuTemperature().let { if (it < 0) 0.0 else it }
+        val fps = snapshot.fpsData
+        if (fps != null) {
+            currentFps.value = fps.fps.toDouble()
+            currentJank.value = fps.jankCount
+        } else if (!hasShellAccess.value) {
+            collectBasicFps()
+        } else {
+            currentFps.value = 0.0
+            currentJank.value = 0
+        }
     }
 
     private suspend fun collectFpsData() {
-        val window = fpsDataSource.getCurrentWindow()
-        val fpsData = fpsDataSource.getFpsFromSurfaceFlinger(window)
-        if (fpsData != null) {
-            currentFps.value = fpsData.fps.toDouble()
-            currentJank.value = fpsData.jankCount
+        when (currentFpsMethod.value) {
+            FpsMethod.SURFACE_FLINGER -> {
+                val fpsData = fpsDataSource.getFpsFromSurfaceFlinger()
+                currentFps.value = fpsData?.fps?.toDouble() ?: 0.0
+                currentJank.value = fpsData?.jankCount ?: 0
+            }
+            FpsMethod.CHOREOGRAPHER -> {
+                currentFps.value = choreographerFpsMonitor.fps.value.toDouble()
+                currentJank.value = 0
+            }
+            FpsMethod.FRAME_METRICS -> {
+                val data = frameMetricsFpsMonitor.fpsData.value
+                currentFps.value = data.fps.toDouble()
+                currentJank.value = data.jankCount
+            }
+        }
+    }
+
+    private fun collectBasicFps() {
+        when (currentFpsMethod.value) {
+            FpsMethod.FRAME_METRICS -> {
+                val data = frameMetricsFpsMonitor.fpsData.value
+                currentFps.value = data.fps.toDouble()
+                currentJank.value = data.jankCount
+            }
+            FpsMethod.CHOREOGRAPHER -> {
+                currentFps.value = choreographerFpsMonitor.fps.value.toDouble()
+                currentJank.value = 0
+            }
+            else -> {
+                currentFps.value = 0.0
+                currentJank.value = 0
+            }
         }
     }
 
@@ -231,7 +427,34 @@ class FloatMonitorService : LifecycleService() {
         thermalZones.value = thermalDataSource.getAllThermalZones()
     }
 
-    private suspend fun calculateMemoryUsage(): Double {
+    private suspend fun collectProcessData() {
+        topProcesses.value = processDataSource.getTopProcesses(8)
+    }
+
+    private suspend fun collectThreadData() {
+        // Get foreground app PID
+        val fgPid = getForegroundAppPid()
+        if (fgPid != null) {
+            val threads = processDataSource.getThreads(fgPid.first)
+            topThreads.value = threads.take(15)
+            foregroundApp.value = fgPid.second
+        } else {
+            topThreads.value = emptyList()
+            foregroundApp.value = ""
+        }
+    }
+
+    private suspend fun getForegroundAppPid(): Pair<Int, String>? {
+        return try {
+            // Use top CPU process as approximation for foreground app
+            val top = processDataSource.getTopProcesses(1).firstOrNull()
+            top?.let { it.pid to it.name }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun calculateMemoryUsage(): Double {
         try {
             val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
             val memInfo = android.app.ActivityManager.MemoryInfo()
@@ -243,17 +466,8 @@ class FloatMonitorService : LifecycleService() {
         }
     }
 
-    private fun removeMonitor(type: String) {
-        dataCollectionJobs.remove(type)?.cancel()
-        floatWindowManager.removeWindow(type)
-
-        // If no monitors left, stop the service
-        if (dataCollectionJobs.isEmpty()) {
-            stopFloatService()
-        }
-    }
-
     override fun onDestroy() {
+        stopFpsMonitors()
         floatWindowManager.removeAllWindows()
         dataCollectionJobs.values.forEach { it.cancel() }
         super.onDestroy()

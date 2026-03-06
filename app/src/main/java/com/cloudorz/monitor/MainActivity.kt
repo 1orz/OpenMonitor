@@ -56,7 +56,12 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun MonitorAppContent(permissionManager: PermissionManager) {
-    var selectedMode by rememberSaveable { mutableStateOf<PrivilegeMode?>(null) }
+    // 若已从 SharedPreferences 恢复模式，跳过 SplashScreen
+    var selectedMode by rememberSaveable {
+        mutableStateOf<PrivilegeMode?>(
+            if (permissionManager.hasPersistedMode) permissionManager.currentMode.value else null
+        )
+    }
 
     if (selectedMode == null) {
         SplashScreen(

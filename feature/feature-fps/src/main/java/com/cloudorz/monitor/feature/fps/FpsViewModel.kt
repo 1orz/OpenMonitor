@@ -1,12 +1,18 @@
 package com.cloudorz.monitor.feature.fps
 
+import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.cloudorz.monitor.core.common.PermissionManager
+import com.cloudorz.monitor.core.common.PrivilegeMode
 import com.cloudorz.monitor.core.data.repository.BatteryRepository
 import com.cloudorz.monitor.core.data.repository.CpuRepository
 import com.cloudorz.monitor.core.data.repository.FpsRepository
 import com.cloudorz.monitor.core.model.fps.FpsData
+import com.cloudorz.monitor.core.model.fps.FpsMethod
 import com.cloudorz.monitor.core.model.fps.FpsWatchSession
+import com.cloudorz.monitor.core.data.datasource.ChoreographerFpsMonitor
+import com.cloudorz.monitor.core.data.datasource.FrameMetricsFpsMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,15 +32,20 @@ data class FpsUiState(
     val batteryLevel: Int = 0,
     val sessions: List<FpsWatchSession> = emptyList(),
     val currentSessionId: Long? = null,
+    val fpsMethod: FpsMethod = FpsMethod.SURFACE_FLINGER,
+    val availableMethods: List<FpsMethod> = emptyList(),
+    val hasShellAccess: Boolean = false,
 )
 
 private const val MAX_HISTORY_SIZE = 60
 
 @HiltViewModel
 class FpsViewModel @Inject constructor(
+    private val application: Application,
     private val fpsRepository: FpsRepository,
     private val cpuRepository: CpuRepository,
     private val batteryRepository: BatteryRepository,
+    private val permissionManager: PermissionManager,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FpsUiState())
@@ -47,8 +58,51 @@ class FpsViewModel @Inject constructor(
     private var recordingStartTime: Long = 0L
     private var fpsAccumulator: MutableList<Double> = mutableListOf()
 
+    private val choreographerMonitor = ChoreographerFpsMonitor()
+    private val frameMetricsMonitor = FrameMetricsFpsMonitor()
+
     init {
         observeSessions()
+        updateAvailableMethods()
+        // 监听模式变化以更新可用方式
+        viewModelScope.launch {
+            permissionManager.currentMode.collect {
+                updateAvailableMethods()
+            }
+        }
+    }
+
+    private fun updateAvailableMethods() {
+        val mode = permissionManager.currentMode.value
+        val hasShell = mode == PrivilegeMode.ROOT || mode == PrivilegeMode.ADB || mode == PrivilegeMode.SHIZUKU
+        val methods = if (hasShell) {
+            FpsMethod.entries.toList()
+        } else {
+            emptyList()
+        }
+        _uiState.update {
+            if (methods.isEmpty()) {
+                it.copy(availableMethods = methods, fpsMethod = FpsMethod.SURFACE_FLINGER, hasShellAccess = false)
+            } else {
+                val currentMethod = it.fpsMethod
+                val validMethod = if (currentMethod in methods) currentMethod else methods.first()
+                it.copy(availableMethods = methods, fpsMethod = validMethod, hasShellAccess = true)
+            }
+        }
+    }
+
+    fun setFpsMethod(method: FpsMethod) {
+        if (method == _uiState.value.fpsMethod) return
+        val wasRecording = _uiState.value.isRecording
+        if (wasRecording) {
+            stopFpsMonitors()
+            fpsCollectionJob?.cancel()
+            fpsCollectionJob = null
+        }
+        _uiState.update { it.copy(fpsMethod = method, currentFps = null, fpsHistory = emptyList()) }
+        if (wasRecording) {
+            startFpsCollection()
+        }
     }
 
     private fun observeSessions() {
@@ -65,9 +119,11 @@ class FpsViewModel @Inject constructor(
         if (_uiState.value.isRecording) return
 
         viewModelScope.launch {
+            val method = _uiState.value.fpsMethod
             val sessionId = fpsRepository.startSession(
                 packageName = packageName.ifEmpty { "com.unknown" },
                 appName = appName.ifEmpty { "Unknown App" },
+                mode = method.name,
             )
             recordingStartTime = System.currentTimeMillis()
             fpsAccumulator.clear()
@@ -90,6 +146,7 @@ class FpsViewModel @Inject constructor(
     fun stopRecording() {
         if (!_uiState.value.isRecording) return
 
+        stopFpsMonitors()
         fpsCollectionJob?.cancel()
         cpuCollectionJob?.cancel()
         batteryCollectionJob?.cancel()
@@ -131,31 +188,65 @@ class FpsViewModel @Inject constructor(
     }
 
     private fun startFpsCollection() {
+        val method = _uiState.value.fpsMethod
+        // 启动对应的 Monitor
+        when (method) {
+            FpsMethod.CHOREOGRAPHER -> choreographerMonitor.start()
+            FpsMethod.FRAME_METRICS -> frameMetricsMonitor.start(application)
+            FpsMethod.SURFACE_FLINGER -> { /* 无需预启动 */ }
+        }
+
         fpsCollectionJob = viewModelScope.launch {
-            fpsRepository.observeFps(intervalMs = 1000L)
-                .catch { /* Silently handle errors */ }
-                .collect { fpsData ->
-                    if (fpsData != null) {
-                        fpsAccumulator.add(fpsData.fps.toDouble())
-
-                        val sessionId = _uiState.value.currentSessionId
-                        if (sessionId != null) {
-                            fpsRepository.recordFrame(sessionId, fpsData)
-                        }
-
-                        _uiState.update { state ->
-                            val newHistory = state.fpsHistory.toMutableList().apply {
-                                add(fpsData.fps.toFloat())
-                                if (size > MAX_HISTORY_SIZE) removeAt(0)
-                            }
-                            state.copy(
-                                currentFps = fpsData,
-                                fpsHistory = newHistory,
-                            )
+            when (method) {
+                FpsMethod.SURFACE_FLINGER -> {
+                    fpsRepository.observeFps(method = FpsMethod.SURFACE_FLINGER, intervalMs = 1000L)
+                        .catch { /* Silently handle errors */ }
+                        .collect { fpsData -> handleFpsData(fpsData) }
+                }
+                FpsMethod.CHOREOGRAPHER -> {
+                    choreographerMonitor.fps.collect { fpsValue ->
+                        if (fpsValue > 0) {
+                            val data = FpsData(fps = fpsValue, window = "self")
+                            handleFpsData(data)
                         }
                     }
                 }
+                FpsMethod.FRAME_METRICS -> {
+                    frameMetricsMonitor.fpsData.collect { data ->
+                        if (data.fps > 0) {
+                            handleFpsData(data)
+                        }
+                    }
+                }
+            }
         }
+    }
+
+    private suspend fun handleFpsData(fpsData: FpsData?) {
+        if (fpsData != null) {
+            fpsAccumulator.add(fpsData.fps.toDouble())
+
+            val sessionId = _uiState.value.currentSessionId
+            if (sessionId != null) {
+                fpsRepository.recordFrame(sessionId, fpsData)
+            }
+
+            _uiState.update { state ->
+                val newHistory = state.fpsHistory.toMutableList().apply {
+                    add(fpsData.fps.toFloat())
+                    if (size > MAX_HISTORY_SIZE) removeAt(0)
+                }
+                state.copy(
+                    currentFps = fpsData,
+                    fpsHistory = newHistory,
+                )
+            }
+        }
+    }
+
+    private fun stopFpsMonitors() {
+        choreographerMonitor.stop()
+        frameMetricsMonitor.stop()
     }
 
     private fun startCpuCollection() {
@@ -187,6 +278,7 @@ class FpsViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
+        stopFpsMonitors()
         fpsCollectionJob?.cancel()
         cpuCollectionJob?.cancel()
         batteryCollectionJob?.cancel()
