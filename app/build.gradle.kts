@@ -34,6 +34,11 @@ android {
         }
     }
 
+    androidResources {
+        // Keep daemon binary uncompressed in APK so shell can unzip it as a direct copy
+        noCompress += listOf("monitor-daemon")
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -54,6 +59,31 @@ android {
         compose = true
     }
 }
+
+// ── Build monitor-daemon from Go source ──────────────────────────────────────
+val daemonSrcDir = file("${rootProject.projectDir}/../monitor-daemon")
+val daemonBinary = file("src/main/assets/daemon/monitor-daemon")
+
+val buildMonitorDaemon by tasks.registering(Exec::class) {
+    group = "build"
+    description = "Compile monitor-daemon (Go → Android arm64)"
+    onlyIf { daemonSrcDir.exists() }
+
+    workingDir = daemonSrcDir
+    commandLine = listOf("go", "build", "-o", daemonBinary.absolutePath, "./cmd/daemon")
+    environment("GOOS", "android")
+    environment("GOARCH", "arm64")
+    environment("CGO_ENABLED", "0")
+
+    inputs.files(fileTree(daemonSrcDir) { include("**/*.go", "go.mod", "go.sum") })
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    outputs.file(daemonBinary)
+}
+
+tasks.named("preBuild") {
+    dependsOn(buildMonitorDaemon)
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 dependencies {
     implementation(project(":core:core-common"))

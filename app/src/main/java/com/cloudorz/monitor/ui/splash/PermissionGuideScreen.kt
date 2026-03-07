@@ -38,6 +38,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -49,18 +50,23 @@ import androidx.compose.ui.unit.dp
 import com.cloudorz.monitor.R
 import com.cloudorz.monitor.core.common.PermissionManager
 import com.cloudorz.monitor.core.common.PrivilegeMode
+import com.cloudorz.monitor.core.data.datasource.DaemonManager
+import com.cloudorz.monitor.core.data.datasource.DaemonState
 
-private enum class DetectState { IDLE, DETECTING, DONE }
+private enum class DetectState { IDLE, DETECTING, DONE, LAUNCHING_DAEMON, DAEMON_FAILED }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PermissionGuideScreen(
     permissionManager: PermissionManager,
+    daemonManager: DaemonManager,
     onModeSelected: (PrivilegeMode) -> Unit,
 ) {
     var selectedMode by remember { mutableStateOf<PrivilegeMode?>(null) }
     var detectState by remember { mutableStateOf(DetectState.IDLE) }
     var detectedMode by remember { mutableStateOf<PrivilegeMode?>(null) }
+    // True while waiting for user to respond to Shizuku permission dialog
+    var waitingForShizuku by remember { mutableStateOf(false) }
 
     if (detectState == DetectState.DETECTING) {
         LaunchedEffect(Unit) {
@@ -71,9 +77,63 @@ fun PermissionGuideScreen(
         }
     }
 
+    // Daemon launch step: triggered after user confirms ROOT/SHIZUKU
+    if (detectState == DetectState.LAUNCHING_DAEMON) {
+        LaunchedEffect(Unit) {
+            val result = daemonManager.ensureRunning()
+            if (result == DaemonState.RUNNING || result == DaemonState.NOT_NEEDED) {
+                val mode = selectedMode ?: return@LaunchedEffect
+                permissionManager.setMode(mode)
+                onModeSelected(mode)
+            } else {
+                detectState = DetectState.DAEMON_FAILED
+            }
+        }
+    }
+
+    // Observe Shizuku permission dialog result
+    val shizukuPermissionResult by permissionManager.shizukuPermissionResult.collectAsStateWithLifecycle()
+    LaunchedEffect(shizukuPermissionResult) {
+        if (!waitingForShizuku) return@LaunchedEffect
+        val granted = shizukuPermissionResult ?: return@LaunchedEffect
+        waitingForShizuku = false
+        permissionManager.resetShizukuPermissionResult()
+        if (granted) {
+            // Shizuku authorized — now launch daemon before proceeding
+            selectedMode = PrivilegeMode.SHIZUKU
+            detectState = DetectState.LAUNCHING_DAEMON
+        }
+        // If denied: stay on guide screen; user can try again or choose another mode
+    }
+
     // Auto-detection dialog
     if (detectState == DetectState.DETECTING) {
         DetectingDialog()
+    }
+
+    // Daemon launching dialog
+    if (detectState == DetectState.LAUNCHING_DAEMON) {
+        DaemonLaunchingDialog()
+    }
+
+    // Daemon launch failed dialog
+    if (detectState == DetectState.DAEMON_FAILED) {
+        DaemonFailedDialog(
+            onRetry = { detectState = DetectState.LAUNCHING_DAEMON },
+            onFallbackBasic = {
+                detectState = DetectState.IDLE
+                permissionManager.setMode(PrivilegeMode.BASIC)
+                onModeSelected(PrivilegeMode.BASIC)
+            },
+        )
+    }
+
+    // Shizuku permission waiting dialog
+    if (waitingForShizuku) {
+        ShizukuWaitingDialog(onCancel = {
+            waitingForShizuku = false
+            permissionManager.resetShizukuPermissionResult()
+        })
     }
 
     Surface(
@@ -187,7 +247,21 @@ fun PermissionGuideScreen(
 
                 Button(
                     onClick = {
-                        selectedMode?.let { mode ->
+                        val mode = selectedMode ?: return@Button
+                        if (mode == PrivilegeMode.SHIZUKU) {
+                            if (permissionManager.isShizukuAvailableSync()) {
+                                // Permission granted — launch daemon before proceeding
+                                detectState = DetectState.LAUNCHING_DAEMON
+                            } else {
+                                permissionManager.resetShizukuPermissionResult()
+                                permissionManager.requestShizukuPermission()
+                                waitingForShizuku = true
+                            }
+                        } else if (mode == PrivilegeMode.ROOT) {
+                            // ROOT — launch daemon before proceeding
+                            detectState = DetectState.LAUNCHING_DAEMON
+                        } else {
+                            // BASIC/ADB — no daemon needed
                             permissionManager.setMode(mode)
                             onModeSelected(mode)
                         }
@@ -291,6 +365,33 @@ private fun ModeCard(
 }
 
 @Composable
+private fun ShizukuWaitingDialog(onCancel: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onCancel,
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onCancel) { Text("取消") }
+        },
+        icon = {
+            CircularProgressIndicator(modifier = Modifier.size(48.dp))
+        },
+        title = {
+            Text(
+                text = "等待 Shizuku 授权",
+                textAlign = TextAlign.Center,
+            )
+        },
+        text = {
+            Text(
+                text = "请在弹出的 Shizuku 授权对话框中点击【允许】。\n\n若 Shizuku 未运行，请先启动 Shizuku 后重试。",
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+    )
+}
+
+@Composable
 private fun DetectingDialog() {
     AlertDialog(
         onDismissRequest = {},
@@ -309,6 +410,49 @@ private fun DetectingDialog() {
                 text = stringResource(R.string.guide_detecting_desc),
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
+            )
+        },
+    )
+}
+
+@Composable
+private fun DaemonLaunchingDialog() {
+    AlertDialog(
+        onDismissRequest = {},
+        confirmButton = {},
+        icon = {
+            CircularProgressIndicator(modifier = Modifier.size(48.dp))
+        },
+        title = {
+            Text(
+                text = stringResource(R.string.daemon_launching),
+                textAlign = TextAlign.Center,
+            )
+        },
+    )
+}
+
+@Composable
+private fun DaemonFailedDialog(
+    onRetry: () -> Unit,
+    onFallbackBasic: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = {},
+        confirmButton = {
+            Button(onClick = onRetry) {
+                Text(stringResource(R.string.daemon_retry))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onFallbackBasic) {
+                Text(stringResource(R.string.daemon_fallback_basic))
+            }
+        },
+        title = {
+            Text(
+                text = stringResource(R.string.daemon_launch_failed),
+                textAlign = TextAlign.Center,
             )
         },
     )

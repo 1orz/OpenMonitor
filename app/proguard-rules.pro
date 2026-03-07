@@ -17,3 +17,8 @@
 -keep class com.cloudorz.monitor.core.common.CpuNativeInfo {
     native <methods>;
 }
+
+# Keep PowerProfile for reflection (battery capacity reading)
+-keep class com.android.internal.os.PowerProfile {
+    public <methods>;
+}

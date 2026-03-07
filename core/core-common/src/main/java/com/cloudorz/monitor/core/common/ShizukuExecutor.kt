@@ -3,9 +3,14 @@ package com.cloudorz.monitor.core.common
 import android.content.ComponentName
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
 import javax.inject.Inject
@@ -27,6 +32,47 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
     companion object {
         private const val TAG = "ShizukuExecutor"
         private const val SHIZUKU_PERMISSION_REQUEST_CODE = 1001
+    }
+
+    // Binder alive state — updated by Shizuku's global listeners.
+    private val _binderAlive = MutableStateFlow(
+        try { Shizuku.pingBinder() } catch (_: Exception) { false }
+    )
+    val binderAlive: StateFlow<Boolean> = _binderAlive.asStateFlow()
+
+    // Result of the most recent requestPermission() call; null = no result yet.
+    private val _permissionResult = MutableStateFlow<Boolean?>(null)
+    val permissionResult: StateFlow<Boolean?> = _permissionResult.asStateFlow()
+
+    init {
+        val handler = Handler(Looper.getMainLooper())
+        try {
+            Shizuku.addBinderDeadListener(
+                Shizuku.OnBinderDeadListener {
+                    _binderAlive.value = false
+                    Log.w(TAG, "binder dead")
+                },
+                handler,
+            )
+            Shizuku.addBinderReceivedListener(
+                Shizuku.OnBinderReceivedListener {
+                    _binderAlive.value = true
+                    Log.i(TAG, "binder received")
+                },
+                handler,
+            )
+            Shizuku.addRequestPermissionResultListener(
+                Shizuku.OnRequestPermissionResultListener { _, grantResult ->
+                    val granted = grantResult == PackageManager.PERMISSION_GRANTED
+                    _permissionResult.value = granted
+                    Log.i(TAG, "permission result: granted=$granted")
+                    if (granted) bindService()
+                },
+                handler,
+            )
+        } catch (e: Exception) {
+            Log.d(TAG, "addListeners failed (Shizuku not yet attached)", e)
+        }
     }
 
     @Volatile
@@ -173,6 +219,14 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
 
         return CommandResult(exitCode = exitCode, stdout = stdout.trimEnd(), stderr = stderr.trimEnd())
     }
+
+    /** Synchronous permission check (no coroutine needed). */
+    fun isAvailableSync(): Boolean = try {
+        Shizuku.pingBinder() && Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
+    } catch (_: Exception) { false }
+
+    /** Clear the last permission result so the next grant/deny is observable. */
+    fun resetPermissionResult() { _permissionResult.value = null }
 
     fun requestPermissionIfNeeded() {
         try {

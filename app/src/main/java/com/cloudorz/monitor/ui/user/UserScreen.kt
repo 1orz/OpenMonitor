@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.outlined.Cable
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -46,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.cloudorz.monitor.core.common.PermissionManager
 import com.cloudorz.monitor.core.common.PrivilegeMode
 import kotlinx.coroutines.launch
@@ -54,11 +56,13 @@ import rikka.shizuku.Shizuku
 @Composable
 fun UserScreen(
     permissionManager: PermissionManager,
+    viewModel: UserViewModel = hiltViewModel(),
 ) {
     val currentMode by permissionManager.currentMode.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     var isDetecting by remember { mutableStateOf(false) }
     var shizukuStatus by remember { mutableStateOf(checkShizukuStatus()) }
+    val daemonStatus by viewModel.daemonStatus.collectAsState()
 
     // Listen for Shizuku binder changes
     DisposableEffect(Unit) {
@@ -247,6 +251,12 @@ fun UserScreen(
         // Shizuku setup guide
         ShizukuSetupCard(shizukuStatus)
 
+        // Daemon connectivity card
+        DaemonStatusCard(
+            status = daemonStatus,
+            onCheck = { viewModel.checkDaemon() },
+        )
+
         // App info card
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -427,6 +437,102 @@ private fun ShizukuSetupCard(status: ShizukuStatus) {
                         },
                     ) {
                         Text("打开/安装 Shizuku")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DaemonStatusCard(
+    status: UserViewModel.DaemonStatus,
+    onCheck: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Outlined.Cable,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Daemon 连接状态",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                if (status.checkedOnce) {
+                    val (label, color) = if (status.connected) {
+                        "已连接" to MaterialTheme.colorScheme.primary
+                    } else {
+                        "未连接" to MaterialTheme.colorScheme.error
+                    }
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = color,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (status.checkedOnce && status.connected) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Filled.CheckCircle,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (status.version != null) "版本：${status.version}" else "Daemon 运行中",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            } else if (status.checkedOnce && !status.connected) {
+                Text(
+                    text = "Daemon 未运行。ROOT / Shizuku 模式下打开悬浮监视器会自动启动。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            } else {
+                Text(
+                    text = "点击「手动检测」查看 Daemon 连通性（端口 127.0.0.1:9876）",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedButton(
+                    onClick = onCheck,
+                    enabled = !status.checking,
+                ) {
+                    if (status.checking) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("检测中...")
+                    } else {
+                        Text("手动检测")
                     }
                 }
             }

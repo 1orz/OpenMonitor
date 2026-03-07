@@ -9,8 +9,11 @@ import com.cloudorz.monitor.service.AccessibilityMonitorService
 import com.cloudorz.monitor.service.FloatMonitorService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 
@@ -31,6 +34,9 @@ class FloatMonitorViewModel @Inject constructor(
 
     private val prefs = context.getSharedPreferences("monitor_settings", Context.MODE_PRIVATE)
 
+    private val _snackbarEvent = MutableSharedFlow<Int>(extraBufferCapacity = 1)
+    val snackbarEvent: SharedFlow<Int> = _snackbarEvent.asSharedFlow()
+
     private val _uiState = MutableStateFlow(
         FloatMonitorUiState(
             hasOverlayPermission = Settings.canDrawOverlays(context),
@@ -45,6 +51,7 @@ class FloatMonitorViewModel @Inject constructor(
     fun onToggleMonitor(type: FloatMonitorType, enabled: Boolean) {
         if (!_uiState.value.canShowOverlay) {
             refreshPermission()
+            _snackbarEvent.tryEmit(com.cloudorz.monitor.core.ui.R.string.permission_required_toast)
             return
         }
 

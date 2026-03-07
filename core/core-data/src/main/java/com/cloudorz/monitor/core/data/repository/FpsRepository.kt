@@ -23,13 +23,16 @@ class FpsRepository @Inject constructor(
         intervalMs: Long = 1000L,
         windowName: String? = null,
     ): Flow<FpsData?> = when (method) {
+        FpsMethod.DAEMON -> pollingFlow(intervalMs) {
+            fpsDataSource.getDaemonFps()
+        }
         FpsMethod.SURFACE_FLINGER -> pollingFlow(intervalMs) {
             fpsDataSource.getFpsFromSurfaceFlinger(windowName)
         }
         FpsMethod.FRAME_METRICS,
         FpsMethod.CHOREOGRAPHER -> {
             // FrameMetrics 和 Choreographer 由各自 Monitor 直接提供 StateFlow，
-            // 此处仍用 pollingFlow 保持接口一致，ViewModel 侧负责传入对应 Monitor 的数据
+            // ViewModel 侧负责传入对应 Monitor 的数据
             pollingFlow(intervalMs) { null }
         }
     }

@@ -76,4 +76,22 @@
     <string name="link_speed">Link Speed</string>
     <string name="frequency">Frequency</string>
     <string name="ip_address">IP Address</string>
+
+    <!-- Daemon -->
+    <string name="daemon_launching">Deploying monitor service…</string>
+    <string name="daemon_launch_failed">Monitor service failed to start</string>
+    <string name="daemon_retry">Retry</string>
+    <string name="daemon_fallback_basic">Continue in Basic Mode</string>
+    <string name="daemon_checking">Connecting to monitor service…</string>
+
+    <!-- Float Monitor Notification -->
+    <string name="float_notification_title">CloudMonitor</string>
+    <string name="float_notification_text">Float monitor running</string>
+    <string name="float_channel_name">Float Monitor</string>
+    <string name="float_channel_desc">Float monitor background notification</string>
+
+    <!-- Shizuku Dialog -->
+    <string name="shizuku_waiting_title">Waiting for Shizuku Authorization</string>
+    <string name="shizuku_waiting_desc">Please tap "Allow" in the Shizuku authorization dialog.\n\nIf Shizuku is not running, please start it first.</string>
+    <string name="cancel">Cancel</string>
 </resources>

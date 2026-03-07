@@ -1,6 +1,7 @@
 package com.cloudorz.monitor.core.data.datasource
 
 import android.util.Log
+import com.cloudorz.monitor.core.common.AppLogger
 import com.cloudorz.monitor.core.common.ShellExecutor
 import com.cloudorz.monitor.core.common.SysfsReader
 import com.cloudorz.monitor.core.model.fps.FpsData
@@ -13,6 +14,7 @@ import javax.inject.Singleton
 class FpsDataSource @Inject constructor(
     private val shellExecutor: ShellExecutor,
     private val sysfsReader: SysfsReader,
+    private val daemonDataSource: DaemonDataSource,
 ) {
     // Screen refresh rate cap (will be auto-detected, fallback 165Hz)
     @Volatile private var maxFps = 165f
@@ -22,7 +24,7 @@ class FpsDataSource @Inject constructor(
 
     // ---- Realtime FPS (probe-once, single source, unified delta) ----
 
-    private enum class RealtimeSource { UNPROBED, SYSFS, SF_1013, GFXINFO, NONE }
+    private enum class RealtimeSource { UNPROBED, SYSFS, SF_1013, GFXINFO, SF_TIMESTATS, NONE }
 
     @Volatile private var realtimeSource = RealtimeSource.UNPROBED
     @Volatile private var measuredFpsPath: String? = null
@@ -32,12 +34,28 @@ class FpsDataSource @Inject constructor(
     private var deltaLastTime = 0L
     private var deltaLastPackage: String? = null
 
+    // Re-probe trigger: consecutive nulls from package-dependent sources
+    private var consecutiveNulls = 0
+
     // Output smoothing: hold last non-zero value briefly to avoid flicker
     private var lastReportedFps = 0f
     private var lastNonZeroTime = 0L
     private val FPS_HOLD_MS = 1500L
 
+    /** Explicit daemon channel — returns null if daemon is not available. */
+    suspend fun getDaemonFps(): FpsData? = withContext(Dispatchers.IO) {
+        if (!daemonDataSource.isAvailable()) return@withContext null
+        daemonDataSource.collectSnapshot()?.fpsData
+    }
+
     suspend fun getRealtimeFps(): Float = withContext(Dispatchers.IO) {
+        // Daemon channel (priority 1): accurate, no shell overhead
+        if (daemonDataSource.isAvailable()) {
+            val snap = daemonDataSource.collectSnapshot()
+            val fps = snap?.fpsData?.fps?.toFloat() ?: 0f
+            if (fps > 0f) return@withContext fps.coerceIn(0f, maxFps)
+        }
+        // Shell probe fallback (priority 2)
         if (realtimeSource == RealtimeSource.UNPROBED) {
             probeRealtimeSource()
         }
@@ -46,6 +64,11 @@ class FpsDataSource @Inject constructor(
     }
 
     private suspend fun probeRealtimeSource() {
+        // Reset delta state and null counter fresh for each probe
+        deltaLastCount = -1L
+        deltaLastTime = 0L
+        consecutiveNulls = 0
+
         // Auto-detect screen refresh rate for FPS cap
         detectMaxFps()
 
@@ -54,7 +77,7 @@ class FpsDataSource @Inject constructor(
             if (sysfsReader.readString(path) != null) {
                 measuredFpsPath = path
                 realtimeSource = RealtimeSource.SYSFS
-                Log.d(TAG, "Realtime FPS source: SYSFS ($path), maxFps=$maxFps")
+                AppLogger.d(TAG, "Realtime FPS source: SYSFS ($path), maxFps=$maxFps")
                 return
             }
         }
@@ -62,21 +85,30 @@ class FpsDataSource @Inject constructor(
         val sfResult = shellExecutor.execute("service call SurfaceFlinger 1013")
         if (sfResult.isSuccess && !sfResult.stdout.contains("Error") && !sfResult.stdout.contains("not permitted")) {
             realtimeSource = RealtimeSource.SF_1013
-            Log.d(TAG, "Realtime FPS source: SF_1013, maxFps=$maxFps")
+            AppLogger.d(TAG, "Realtime FPS source: SF_1013, maxFps=$maxFps")
             return
         }
-        // 3. Try gfxinfo
+        // 3. Try gfxinfo (View renderer — works for regular apps)
         val pkg = getFocusedPackage()
         if (pkg != null) {
             val gfxResult = shellExecutor.execute("dumpsys gfxinfo $pkg")
             if (gfxResult.isSuccess && TOTAL_FRAMES_REGEX.containsMatchIn(gfxResult.stdout)) {
                 realtimeSource = RealtimeSource.GFXINFO
-                Log.d(TAG, "Realtime FPS source: GFXINFO, maxFps=$maxFps")
+                AppLogger.d(TAG, "Realtime FPS source: GFXINFO, maxFps=$maxFps")
                 return
             }
         }
+        // 4. Try SF timestats (works for games using SurfaceView/OpenGL/Vulkan)
+        shellExecutor.execute("dumpsys SurfaceFlinger --timestats -enable")
+        val tsResult = shellExecutor.execute("dumpsys SurfaceFlinger --timestats -dump")
+        val tsPkg = pkg ?: getFocusedPackage()
+        if (tsResult.isSuccess && tsPkg != null && parseTimestatsFrameCount(tsResult.stdout, tsPkg) != null) {
+            realtimeSource = RealtimeSource.SF_TIMESTATS
+            AppLogger.d(TAG, "Realtime FPS source: SF_TIMESTATS, maxFps=$maxFps")
+            return
+        }
         realtimeSource = RealtimeSource.NONE
-        Log.d(TAG, "Realtime FPS source: NONE")
+        AppLogger.d(TAG, "Realtime FPS source: NONE")
     }
 
     private suspend fun detectMaxFps() {
@@ -87,7 +119,7 @@ class FpsDataSource @Inject constructor(
             val refreshPeriodNs = firstLine?.toLongOrNull()
             if (refreshPeriodNs != null && refreshPeriodNs > 0) {
                 maxFps = (1_000_000_000f / refreshPeriodNs).coerceIn(30f, 240f)
-                Log.d(TAG, "Detected maxFps=$maxFps from refresh period=${refreshPeriodNs}ns")
+                AppLogger.d(TAG, "Detected maxFps=$maxFps from refresh period=${refreshPeriodNs}ns")
                 return
             }
         }
@@ -98,7 +130,36 @@ class FpsDataSource @Inject constructor(
         return when (realtimeSource) {
             RealtimeSource.SYSFS -> readSysfsFps() ?: 0f
             RealtimeSource.SF_1013 -> readSf1013FrameCount()?.let { calculateDeltaFps(it) } ?: 0f
-            RealtimeSource.GFXINFO -> readGfxInfoFrameCount()?.let { calculateDeltaFps(it) } ?: 0f
+            RealtimeSource.GFXINFO -> {
+                val count = readGfxInfoFrameCount()
+                if (count != null) {
+                    consecutiveNulls = 0
+                    calculateDeltaFps(count)
+                } else {
+                    // Game/native app: gfxinfo has no View renderer data → re-probe after 2 nulls
+                    if (++consecutiveNulls >= 2) {
+                        AppLogger.w(TAG, "GFXINFO null x$consecutiveNulls, re-probing for game-compatible source")
+                        realtimeSource = RealtimeSource.UNPROBED
+                        consecutiveNulls = 0
+                    }
+                    0f
+                }
+            }
+            RealtimeSource.SF_TIMESTATS -> {
+                val count = readTimestatsFrameCount()
+                if (count != null) {
+                    consecutiveNulls = 0
+                    calculateDeltaFps(count)
+                } else {
+                    // Package not found in timestats → app switched, re-probe
+                    if (++consecutiveNulls >= 2) {
+                        AppLogger.w(TAG, "SF_TIMESTATS null x$consecutiveNulls, re-probing")
+                        realtimeSource = RealtimeSource.UNPROBED
+                        consecutiveNulls = 0
+                    }
+                    0f
+                }
+            }
             else -> 0f
         }
     }
@@ -140,6 +201,51 @@ class FpsDataSource @Inject constructor(
         if (!result.isSuccess) return null
         val match = TOTAL_FRAMES_REGEX.find(result.stdout) ?: return null
         return match.groupValues[1].toLongOrNull()
+    }
+
+    private suspend fun readTimestatsFrameCount(): Long? {
+        val pkg = getFocusedPackage() ?: return null
+        if (pkg != deltaLastPackage) {
+            deltaLastPackage = pkg
+            deltaLastCount = -1
+            deltaLastTime = 0
+        }
+        val result = shellExecutor.execute("dumpsys SurfaceFlinger --timestats -dump")
+        if (!result.isSuccess) return null
+        return parseTimestatsFrameCount(result.stdout, pkg)
+    }
+
+    private fun parseTimestatsFrameCount(output: String, pkg: String): Long? {
+        // Each layer appears twice in the dump:
+        //   1st: large cumulative totalFrames (with histograms) — use this for delta
+        //   2nd: small windowed totalFrames (jank analysis) — skip
+        // Use a Set to detect and skip duplicate layer IDs.
+        var inTargetLayer = false
+        val seenLayerIds = mutableSetOf<String>()
+        var totalSum = 0L
+        var foundAny = false
+
+        for (line in output.lines()) {
+            val trimmed = line.trim()
+            when {
+                trimmed.startsWith("layerName =") -> {
+                    inTargetLayer = if (trimmed.contains(pkg)) {
+                        seenLayerIds.add(trimmed) // true = first occurrence, false = duplicate
+                    } else {
+                        false
+                    }
+                }
+                inTargetLayer && trimmed.startsWith("totalFrames =") -> {
+                    val count = TIMESTATS_FRAMES_REGEX.find(trimmed)?.groupValues?.get(1)?.toLongOrNull()
+                    if (count != null) {
+                        totalSum += count
+                        foundAny = true
+                        inTargetLayer = false // done with this entry
+                    }
+                }
+            }
+        }
+        return if (foundAny) totalSum else null
     }
 
     private fun calculateDeltaFps(frames: Long): Float {
@@ -327,6 +433,7 @@ class FpsDataSource @Inject constructor(
             "/sys/class/graphics/fb0/measured_fps",
         )
         private val TOTAL_FRAMES_REGEX = Regex("""Total frames rendered:\s*(\d+)""")
+        private val TIMESTATS_FRAMES_REGEX = Regex("""totalFrames\s*=\s*(\d+)""")
         private val FOCUSED_APP_REGEX = Regex("""\bu\d+\s+([\w.]+)/""")
     }
 }

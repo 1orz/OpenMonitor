@@ -15,6 +15,9 @@ import com.cloudorz.monitor.core.data.datasource.ChoreographerFpsMonitor
 import com.cloudorz.monitor.core.data.datasource.FpsDataSource
 import com.cloudorz.monitor.core.data.datasource.FrameMetricsFpsMonitor
 import com.cloudorz.monitor.core.data.datasource.AggregatedMonitorDataSource
+import com.cloudorz.monitor.core.data.datasource.DaemonDataSource
+import com.cloudorz.monitor.core.data.datasource.DaemonLauncher
+import com.cloudorz.monitor.core.data.datasource.DaemonManager
 import com.cloudorz.monitor.core.data.datasource.BatteryDataSource
 import com.cloudorz.monitor.core.data.datasource.CpuDataSource
 import com.cloudorz.monitor.core.data.datasource.GpuDataSource
@@ -26,11 +29,13 @@ import com.cloudorz.monitor.core.model.process.ThreadInfo
 import com.cloudorz.monitor.core.model.thermal.ThermalZone
 import android.view.WindowManager
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -94,6 +99,9 @@ class FloatMonitorService : LifecycleService() {
     @Inject lateinit var processDataSource: ProcessDataSource
     @Inject lateinit var permissionManager: PermissionManager
     @Inject lateinit var aggregatedMonitorDataSource: AggregatedMonitorDataSource
+    @Inject lateinit var daemonLauncher: DaemonLauncher
+    @Inject lateinit var daemonDataSource: DaemonDataSource
+    @Inject lateinit var daemonManager: DaemonManager
 
     private lateinit var floatWindowManager: FloatWindowManager
     private val choreographerFpsMonitor = ChoreographerFpsMonitor()
@@ -128,17 +136,23 @@ class FloatMonitorService : LifecycleService() {
         val windowContext = AccessibilityMonitorService.instance ?: this
         floatWindowManager = FloatWindowManager(windowContext)
         createNotificationChannel()
-        updateAvailableFpsMethods()
+        updateAvailableFpsMethodsSync()
+        // React to daemon state changes
+        lifecycleScope.launch {
+            daemonManager.state.collect { updateAvailableFpsMethodsSync() }
+        }
     }
 
-    private fun updateAvailableFpsMethods() {
+    private fun updateAvailableFpsMethodsSync() {
         val mode = permissionManager.currentMode.value
+        val hasDaemon = daemonManager.isRunning()
         val hasShell = mode == PrivilegeMode.ROOT || mode == PrivilegeMode.ADB || mode == PrivilegeMode.SHIZUKU
         hasShellAccess.value = hasShell
-        availableFpsMethods.value = if (hasShell) {
-            listOf(FpsMethod.SURFACE_FLINGER, FpsMethod.CHOREOGRAPHER)
-        } else {
-            listOf(FpsMethod.FRAME_METRICS, FpsMethod.CHOREOGRAPHER)
+        availableFpsMethods.value = buildList {
+            if (hasDaemon) add(FpsMethod.DAEMON)
+            if (hasShell) add(FpsMethod.SURFACE_FLINGER)
+            add(FpsMethod.FRAME_METRICS)
+            add(FpsMethod.CHOREOGRAPHER)
         }
 
         // Restore saved method from prefs
@@ -197,6 +211,7 @@ class FloatMonitorService : LifecycleService() {
         when (currentFpsMethod.value) {
             FpsMethod.CHOREOGRAPHER -> choreographerFpsMonitor.start()
             FpsMethod.FRAME_METRICS -> frameMetricsFpsMonitor.start(application)
+            FpsMethod.DAEMON,
             FpsMethod.SURFACE_FLINGER -> { /* no pre-start needed */ }
         }
     }
@@ -233,8 +248,8 @@ class FloatMonitorService : LifecycleService() {
             .edit().putBoolean(KEY_SERVICE_ACTIVE, true).apply()
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("CloudMonitor")
-            .setContentText("悬浮监视器运行中")
+            .setContentTitle(getString(R.string.float_notification_title))
+            .setContentText(getString(R.string.float_notification_text))
             .setSmallIcon(android.R.drawable.ic_menu_info_details)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -264,7 +279,7 @@ class FloatMonitorService : LifecycleService() {
 
         // Start shared FPS collection for FPS-consuming monitors
         if (type == TYPE_FPS || type == TYPE_MINI) {
-            updateAvailableFpsMethods()
+            updateAvailableFpsMethodsSync()
             startFpsMonitorForCurrentMethod()
             ensureSharedFpsJob()
         }
@@ -455,6 +470,11 @@ class FloatMonitorService : LifecycleService() {
 
     private suspend fun collectSharedFps() {
         when (currentFpsMethod.value) {
+            FpsMethod.DAEMON -> {
+                val data = fpsDataSource.getDaemonFps()
+                currentFps.value = data?.fps?.toDouble() ?: 0.0
+                currentJank.value = data?.jankCount ?: 0
+            }
             FpsMethod.SURFACE_FLINGER -> {
                 if (hasShellAccess.value) {
                     currentFps.value = fpsDataSource.getRealtimeFps().toDouble()
@@ -532,10 +552,10 @@ class FloatMonitorService : LifecycleService() {
     private fun createNotificationChannel() {
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "悬浮监视器",
+            getString(R.string.float_channel_name),
             NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = "悬浮监视器后台通知"
+            description = getString(R.string.float_channel_desc)
             setShowBadge(false)
         }
         val manager = getSystemService(NotificationManager::class.java)

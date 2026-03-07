@@ -32,6 +32,20 @@ class PermissionManager @Inject constructor(
 
     val hasPersistedMode: Boolean
 
+    /** Mirrors ShizukuExecutor.binderAlive — true while Shizuku is attached. */
+    val shizukuBinderAlive: StateFlow<Boolean> get() = shizukuExecutor.binderAlive
+
+    /** Result of the most recent Shizuku permission request. Null until user responds. */
+    val shizukuPermissionResult: StateFlow<Boolean?> get() = shizukuExecutor.permissionResult
+
+    fun resetShizukuPermissionResult() = shizukuExecutor.resetPermissionResult()
+
+    /** True if Shizuku binder is alive AND permission is granted (synchronous). */
+    fun isShizukuAvailableSync(): Boolean = shizukuExecutor.isAvailableSync()
+
+    /** Triggers the Shizuku permission grant dialog if not yet granted. */
+    fun requestShizukuPermission() = shizukuExecutor.requestPermissionIfNeeded()
+
     init {
         val saved = prefs.getString("privilege_mode", null)
         hasPersistedMode = saved != null

@@ -24,6 +24,7 @@ class AggregatedMonitorDataSource @Inject constructor(
     private val sysfsReader: SysfsReader,
     private val platformDetector: PlatformDetector,
     private val fpsDataSource: FpsDataSource,
+    private val daemonDataSource: DaemonDataSource,
     @ApplicationContext private val context: Context,
 ) {
     companion object {
@@ -45,9 +46,37 @@ class AggregatedMonitorDataSource @Inject constructor(
         context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
     }
 
-    suspend fun collectSnapshot(): MonitorSnapshot {
-        val hasShell = shellExecutor.mode != PrivilegeMode.BASIC
-        return if (hasShell) collectViaShell() else collectBasic()
+    suspend fun collectSnapshot(): MonitorSnapshot = when (shellExecutor.mode) {
+        PrivilegeMode.ROOT,
+        PrivilegeMode.ADB,
+        PrivilegeMode.SHIZUKU -> collectWithDaemon()
+        PrivilegeMode.BASIC   -> collectBasic()
+    }
+
+    /**
+     * ROOT / ADB / SHIZUKU path:
+     *   1. daemon running  → DaemonDataSource (fast, accurate, GPU on root)
+     *   2. daemon offline  → collectViaShell() (compound shell commands, existing logic)
+     */
+    private suspend fun collectWithDaemon(): MonitorSnapshot {
+        if (daemonDataSource.isAvailable()) {
+            val snap = daemonDataSource.collectSnapshot()
+            if (snap != null) {
+                val rawUa = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
+                val currentMa = if (rawUa != Int.MIN_VALUE) {
+                    MonitorParser.normalizeCurrentToMa(rawUa.toLong())
+                } else 0
+                return snap.copy(batteryCurrentMa = currentMa)
+            }
+        }
+        // Daemon was alive but has now missed 3+ pings (~15 s) — kill any residual process.
+        // Best-effort: silently ignored if daemon already exited or user lacks permission.
+        if (daemonDataSource.isDead()) {
+            shellExecutor.execute("killall monitor-daemon 2>/dev/null || true")
+            daemonDataSource.resetDeadState()
+            Log.i(TAG, "collectWithDaemon: daemon dead after 3+ failures, killed residual process")
+        }
+        return collectViaShell()
     }
 
     private suspend fun collectViaShell(): MonitorSnapshot = withContext(Dispatchers.IO) {

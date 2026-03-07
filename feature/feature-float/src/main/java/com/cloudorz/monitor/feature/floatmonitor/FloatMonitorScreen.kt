@@ -32,6 +32,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -60,6 +63,7 @@ fun FloatMonitorScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val snackbarHostState = remember { SnackbarHostState() }
 
     // Refresh permission and enabled state every time screen resumes
     LaunchedEffect(lifecycleOwner) {
@@ -68,10 +72,23 @@ fun FloatMonitorScreen(
         }
     }
 
-    Scaffold { paddingValues ->
+    LaunchedEffect(Unit) {
+        viewModel.snackbarEvent.collect { msgRes ->
+            snackbarHostState.showSnackbar(context.getString(msgRes))
+        }
+    }
+
+    Scaffold(
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { data ->
+                Snackbar(snackbarData = data)
+            }
+        },
+    ) { paddingValues ->
         FloatMonitorScreenContent(
             hasOverlayPermission = uiState.hasOverlayPermission,
             hasAccessibilityService = uiState.hasAccessibilityService,
+            canShowOverlay = uiState.canShowOverlay,
             enabledMonitors = uiState.enabledMonitors,
             fpsMethod = uiState.fpsMethod,
             fpsIntervalMs = uiState.fpsIntervalMs,
@@ -98,6 +115,7 @@ fun FloatMonitorScreen(
 private fun FloatMonitorScreenContent(
     hasOverlayPermission: Boolean,
     hasAccessibilityService: Boolean,
+    canShowOverlay: Boolean,
     enabledMonitors: Set<FloatMonitorType>,
     fpsMethod: FpsMethod,
     fpsIntervalMs: Long,
@@ -151,6 +169,7 @@ private fun FloatMonitorScreenContent(
                 monitorType = monitorType,
                 isEnabled = isEnabled,
                 isExpanded = isExpanded,
+                switchEnabled = canShowOverlay,
                 onToggle = { enabled -> onToggleMonitor(monitorType, enabled) },
                 onInfoClick = {
                     expandedInfo[monitorType] = !(expandedInfo[monitorType] ?: false)
@@ -193,6 +212,7 @@ private fun MonitorTypeCard(
     monitorType: FloatMonitorType,
     isEnabled: Boolean,
     isExpanded: Boolean,
+    switchEnabled: Boolean,
     onToggle: (Boolean) -> Unit,
     onInfoClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -238,6 +258,7 @@ private fun MonitorTypeCard(
                 Switch(
                     checked = isEnabled,
                     onCheckedChange = onToggle,
+                    enabled = switchEnabled,
                 )
             }
 

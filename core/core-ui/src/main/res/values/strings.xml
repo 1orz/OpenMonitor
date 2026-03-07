@@ -56,6 +56,7 @@
     <string name="overlay_granted">Overlay permission granted</string>
     <string name="overlay_not_granted">Overlay permission not granted</string>
     <string name="go_authorize">Authorize</string>
+    <string name="permission_required_toast">Please grant overlay or accessibility permission first</string>
 
     <!-- Float Monitor Settings -->
     <string name="fps_settings_title">FPS Settings</string>

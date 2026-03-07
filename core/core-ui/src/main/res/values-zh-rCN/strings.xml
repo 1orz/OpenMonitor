@@ -56,6 +56,7 @@
     <string name="overlay_granted">悬浮窗权限已授予</string>
     <string name="overlay_not_granted">悬浮窗权限未授予</string>
     <string name="go_authorize">去授权</string>
+    <string name="permission_required_toast">请先授予悬浮窗权限或启用无障碍服务</string>
 
     <!-- Float Monitor Settings -->
     <string name="fps_settings_title">FPS 设置</string>

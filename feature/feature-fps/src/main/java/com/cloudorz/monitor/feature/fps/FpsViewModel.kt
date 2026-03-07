@@ -16,15 +16,20 @@ import com.cloudorz.monitor.core.model.fps.FpsData
 import com.cloudorz.monitor.core.model.fps.FpsMethod
 import com.cloudorz.monitor.core.model.fps.FpsWatchSession
 import com.cloudorz.monitor.core.data.datasource.ChoreographerFpsMonitor
+import com.cloudorz.monitor.core.data.datasource.DaemonManager
+import com.cloudorz.monitor.core.data.datasource.DaemonState
 import com.cloudorz.monitor.core.data.datasource.FrameMetricsFpsMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
 
@@ -52,6 +57,7 @@ class FpsViewModel @Inject constructor(
     private val batteryRepository: BatteryRepository,
     private val permissionManager: PermissionManager,
     private val csvExporter: CsvExporter,
+    private val daemonManager: DaemonManager,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FpsUiState())
@@ -69,31 +75,31 @@ class FpsViewModel @Inject constructor(
 
     init {
         observeSessions()
-        updateAvailableMethods()
-        // 监听模式变化以更新可用方式
+        updateAvailableMethodsSync()
+        // React to daemon state changes
         viewModelScope.launch {
-            permissionManager.currentMode.collect {
-                updateAvailableMethods()
-            }
+            daemonManager.state.collect { updateAvailableMethodsSync() }
+        }
+        // React to permission mode changes
+        viewModelScope.launch {
+            permissionManager.currentMode.collect { updateAvailableMethodsSync() }
         }
     }
 
-    private fun updateAvailableMethods() {
+    private fun updateAvailableMethodsSync() {
         val mode = permissionManager.currentMode.value
+        val hasDaemon = daemonManager.isRunning()
         val hasShell = mode == PrivilegeMode.ROOT || mode == PrivilegeMode.ADB || mode == PrivilegeMode.SHIZUKU
-        val methods = if (hasShell) {
-            FpsMethod.entries.toList()
-        } else {
-            emptyList()
+        val methods = buildList {
+            if (hasDaemon) add(FpsMethod.DAEMON)
+            if (hasShell) add(FpsMethod.SURFACE_FLINGER)
+            add(FpsMethod.FRAME_METRICS)
+            add(FpsMethod.CHOREOGRAPHER)
         }
         _uiState.update {
-            if (methods.isEmpty()) {
-                it.copy(availableMethods = methods, fpsMethod = FpsMethod.SURFACE_FLINGER, hasShellAccess = false)
-            } else {
-                val currentMethod = it.fpsMethod
-                val validMethod = if (currentMethod in methods) currentMethod else methods.first()
-                it.copy(availableMethods = methods, fpsMethod = validMethod, hasShellAccess = true)
-            }
+            val currentMethod = it.fpsMethod
+            val validMethod = if (currentMethod in methods) currentMethod else methods.first()
+            it.copy(availableMethods = methods, fpsMethod = validMethod, hasShellAccess = hasShell)
         }
     }
 
@@ -114,7 +120,7 @@ class FpsViewModel @Inject constructor(
     private fun observeSessions() {
         viewModelScope.launch {
             fpsRepository.getAllSessions()
-                .catch { /* Silently handle errors */ }
+                .catch { e -> android.util.Log.w("FpsVM", "flow error", e) }
                 .collect { sessions ->
                     _uiState.update { it.copy(sessions = sessions) }
                 }
@@ -195,18 +201,19 @@ class FpsViewModel @Inject constructor(
 
     private fun startFpsCollection() {
         val method = _uiState.value.fpsMethod
-        // 启动对应的 Monitor
         when (method) {
             FpsMethod.CHOREOGRAPHER -> choreographerMonitor.start()
             FpsMethod.FRAME_METRICS -> frameMetricsMonitor.start(application)
+            FpsMethod.DAEMON,
             FpsMethod.SURFACE_FLINGER -> { /* 无需预启动 */ }
         }
 
         fpsCollectionJob = viewModelScope.launch {
             when (method) {
+                FpsMethod.DAEMON,
                 FpsMethod.SURFACE_FLINGER -> {
-                    fpsRepository.observeFps(method = FpsMethod.SURFACE_FLINGER, intervalMs = 1000L)
-                        .catch { /* Silently handle errors */ }
+                    fpsRepository.observeFps(method = method, intervalMs = 1000L)
+                        .catch { e -> android.util.Log.w("FpsVM", "flow error", e) }
                         .collect { fpsData -> handleFpsData(fpsData) }
                 }
                 FpsMethod.CHOREOGRAPHER -> {
@@ -258,7 +265,7 @@ class FpsViewModel @Inject constructor(
     private fun startCpuCollection() {
         cpuCollectionJob = viewModelScope.launch {
             cpuRepository.observeCpuStatus(intervalMs = 2000L)
-                .catch { /* Silently handle errors */ }
+                .catch { e -> android.util.Log.w("FpsVM", "flow error", e) }
                 .collect { cpuStatus ->
                     _uiState.update {
                         it.copy(
@@ -273,7 +280,7 @@ class FpsViewModel @Inject constructor(
     private fun startBatteryCollection() {
         batteryCollectionJob = viewModelScope.launch {
             batteryRepository.observeBatteryStatus(intervalMs = 5000L)
-                .catch { /* Silently handle errors */ }
+                .catch { e -> android.util.Log.w("FpsVM", "flow error", e) }
                 .collect { batteryStatus ->
                     _uiState.update {
                         it.copy(batteryLevel = batteryStatus.capacity)

@@ -61,7 +61,7 @@ class OverviewViewModel @Inject constructor(
     private fun observeCpuStatus() {
         viewModelScope.launch {
             cpuRepository.observeCpuStatus(intervalMs = 1000L)
-                .catch { /* silently ignore read errors */ }
+                .catch { e -> android.util.Log.w("OverviewVM", "flow error", e) }
                 .collect { cpu ->
                     _uiState.update { it.copy(cpuStatus = cpu, isLoading = false) }
                 }
@@ -71,7 +71,7 @@ class OverviewViewModel @Inject constructor(
     private fun observeMemoryInfo() {
         viewModelScope.launch {
             memoryRepository.observeMemoryInfo(intervalMs = 2000L)
-                .catch { /* silently ignore read errors */ }
+                .catch { e -> android.util.Log.w("OverviewVM", "flow error", e) }
                 .collect { memory ->
                     _uiState.update { it.copy(memoryInfo = memory, isLoading = false) }
                 }
@@ -81,7 +81,7 @@ class OverviewViewModel @Inject constructor(
     private fun observeSwapInfo() {
         viewModelScope.launch {
             memoryRepository.observeSwapInfo(intervalMs = 3000L)
-                .catch { /* silently ignore read errors */ }
+                .catch { e -> android.util.Log.w("OverviewVM", "flow error", e) }
                 .collect { swap ->
                     _uiState.update { it.copy(swapInfo = swap, isLoading = false) }
                 }
@@ -91,7 +91,7 @@ class OverviewViewModel @Inject constructor(
     private fun observeGpuInfo() {
         viewModelScope.launch {
             gpuRepository.observeGpuInfo(intervalMs = 1000L)
-                .catch { /* silently ignore read errors */ }
+                .catch { e -> android.util.Log.w("OverviewVM", "flow error", e) }
                 .collect { gpu ->
                     _uiState.update { it.copy(gpuInfo = gpu, isLoading = false) }
                 }
@@ -101,7 +101,7 @@ class OverviewViewModel @Inject constructor(
     private fun observeBatteryStatus() {
         viewModelScope.launch {
             batteryRepository.observeBatteryStatus(intervalMs = 5000L)
-                .catch { /* silently ignore read errors */ }
+                .catch { e -> android.util.Log.w("OverviewVM", "flow error", e) }
                 .collect { battery ->
                     _uiState.update { it.copy(batteryStatus = battery, isLoading = false) }
                 }
@@ -111,7 +111,7 @@ class OverviewViewModel @Inject constructor(
     private fun observeThermalZones() {
         viewModelScope.launch {
             thermalRepository.observeThermalZones(intervalMs = 3000L)
-                .catch { /* silently ignore read errors */ }
+                .catch { e -> android.util.Log.w("OverviewVM", "flow error", e) }
                 .collect { zones ->
                     _uiState.update { it.copy(thermalZones = zones, isLoading = false) }
                 }
@@ -121,7 +121,7 @@ class OverviewViewModel @Inject constructor(
     private fun observeTopProcesses() {
         viewModelScope.launch {
             processRepository.observeTopProcesses(count = 5, intervalMs = 2000L)
-                .catch { /* silently ignore read errors */ }
+                .catch { e -> android.util.Log.w("OverviewVM", "flow error", e) }
                 .collect { processes ->
                     _uiState.update { it.copy(topProcesses = processes, isLoading = false) }
                 }
