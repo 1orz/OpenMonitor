@@ -54,7 +54,7 @@ class AggregatedMonitorDataSource @Inject constructor(
      * Android API supplements battery current (BatteryManager).
      * On transient daemon failure, returns last cached snapshot to avoid UI flicker.
      */
-    private suspend fun collectFromDaemon(): MonitorSnapshot {
+    private suspend fun collectFromDaemon(): MonitorSnapshot = withContext(Dispatchers.IO) {
         if (daemonDataSource.isAvailable()) {
             val snap = daemonDataSource.collectSnapshot()
             if (snap != null) {
@@ -68,7 +68,7 @@ class AggregatedMonitorDataSource @Inject constructor(
                 } else 0
                 val result = snap.copy(batteryCurrentMa = currentMa)
                 lastDaemonSnapshot = result
-                return result
+                return@withContext result
             }
             Log.e(TAG, "collectFromDaemon: snapshot null")
         } else {
@@ -83,7 +83,7 @@ class AggregatedMonitorDataSource @Inject constructor(
         }
 
         // Transient failure → return last cached; never connected → empty default
-        return lastDaemonSnapshot ?: MonitorSnapshot()
+        lastDaemonSnapshot ?: MonitorSnapshot()
     }
 
     // ---- BASIC mode fallback ----
