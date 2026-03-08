@@ -116,7 +116,10 @@ class FloatMonitorService : LifecycleService() {
     val topThreads = MutableStateFlow<List<ThreadInfo>>(emptyList())
     val foregroundApp = MutableStateFlow("")
     val currentMa = MutableStateFlow(0)
+    val cpuCoreLoads = MutableStateFlow<List<Double>>(emptyList())
+    val batteryTemp = MutableStateFlow(0.0)
     val hasShellAccess = MutableStateFlow(false)
+    val hasRootAccess = MutableStateFlow(false)
     val fpsInteracting = MutableStateFlow(false)
     private var fpsInteractionJob: Job? = null
 
@@ -133,6 +136,7 @@ class FloatMonitorService : LifecycleService() {
         hasShellAccess.value = mode == PrivilegeMode.ROOT ||
             mode == PrivilegeMode.ADB ||
             mode == PrivilegeMode.SHIZUKU
+        hasRootAccess.value = mode == PrivilegeMode.ROOT
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -355,10 +359,23 @@ class FloatMonitorService : LifecycleService() {
 
     private suspend fun collectMiniData() {
         val snapshot = aggregatedMonitorDataSource.collectSnapshot()
+        // Diagnostic: log when key values are zero/empty (data "disappears")
+        if (snapshot.cpuLoadPercent == 0.0 || snapshot.cpuTempCelsius == 0.0 || snapshot.cpuCoreLoads.isEmpty()) {
+            Log.e(TAG, "collectMiniData: ANOMALY cpu=%.1f temp=%.1f cores=%d runner=%s".format(
+                snapshot.cpuLoadPercent, snapshot.cpuTempCelsius,
+                snapshot.cpuCoreLoads.size, snapshot.daemonRunner.ifEmpty { "none" }))
+        }
         cpuLoad.value = snapshot.cpuLoadPercent
         gpuLoad.value = snapshot.gpuLoadPercent
         cpuTemp.value = snapshot.cpuTempCelsius
         currentMa.value = snapshot.batteryCurrentMa
+        cpuCoreLoads.value = snapshot.cpuCoreLoads
+
+        try {
+            batteryTemp.value = batteryDataSource.getBatteryStatus().temperatureCelsius
+        } catch (e: Exception) {
+            Log.w(TAG, "getBatteryStatus for mini failed", e)
+        }
     }
 
     // ---- Shared FPS collection (daemon only) ----

@@ -72,4 +72,14 @@ internal object MonitorParser {
         val abs = kotlin.math.abs(rawValue)
         return if (abs >= 10000) (rawValue / 1000).toInt() else rawValue.toInt()
     }
+
+    /**
+     * Ensures battery current sign matches charging state.
+     * Many OEMs (Xiaomi, etc.) return positive values regardless of direction.
+     * Convention: positive = charging, negative = discharging.
+     */
+    fun ensureCurrentSign(currentMa: Int, isCharging: Boolean): Int {
+        if (currentMa == 0) return 0
+        return if (isCharging) kotlin.math.abs(currentMa) else -kotlin.math.abs(currentMa)
+    }
 }

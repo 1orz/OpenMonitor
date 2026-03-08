@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,11 +21,18 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
@@ -35,6 +43,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import kotlin.math.abs
 
 private val BG = Color(0xCC000000)
@@ -134,9 +143,20 @@ fun FloatMiniMonitorContent(service: FloatMonitorService) {
     val gpu by service.gpuLoad.collectAsState()
     val temp by service.cpuTemp.collectAsState()
     val fps by service.currentFps.collectAsState()
-    val jank by service.currentJank.collectAsState()
     val hasShell by service.hasShellAccess.collectAsState()
+    val hasRoot by service.hasRootAccess.collectAsState()
     val mA by service.currentMa.collectAsState()
+    val coreLoads by service.cpuCoreLoads.collectAsState()
+    val batTemp by service.batteryTemp.collectAsState()
+
+    // Alternate between battery current and battery temp every 3s
+    var showBatTemp by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(3000)
+            showBatTemp = !showBatTemp
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -148,13 +168,36 @@ fun FloatMiniMonitorContent(service: FloatMonitorService) {
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            MiniIconLabel(R.drawable.ic_cpu, "%3d%%".format(cpu.toInt()), Color.White)
-            MiniIconLabel(R.drawable.ic_gpu, "%3d%%".format(gpu.toInt()), Color.White)
+            // CPU: icon + inline core bar chart + percentage
+            Image(
+                painter = painterResource(R.drawable.ic_cpu),
+                contentDescription = null,
+                modifier = Modifier.size(8.dp),
+                colorFilter = ColorFilter.tint(Color.White),
+            )
+            if (coreLoads.isNotEmpty()) {
+                CpuCoreBarChart(
+                    coreLoads = coreLoads,
+                    modifier = Modifier
+                        .width(28.dp)
+                        .height(8.dp),
+                )
+            }
+            MiniText("%3d%%".format(cpu.toInt()))
+
+            if (hasRoot) {
+                MiniIconLabel(R.drawable.ic_gpu, "%3d%%".format(gpu.toInt()), Color.White)
+            }
             MiniIconLabel(R.drawable.ic_temperature, "%3.0f\u00B0".format(temp), Color.White)
-            val fpsBase = if (fps > 0) "%5.1f".format(fps) else if (hasShell) "  0.0" else "   --"
-            val fpsText = if (jank > 0 && fps > 0) "$fpsBase J%d".format(jank) else fpsBase
+            val fpsText = if (fps > 0) "%5.1f".format(fps) else if (hasShell) "  0.0" else "   --"
             MiniIconLabel(R.drawable.ic_frame, fpsText, Color.White)
-            MiniIconLabel(R.drawable.ic_current, "%4dmA".format(abs(mA)), Color.White)
+
+            // Alternating: battery current ↔ battery temp (same icon & color)
+            if (showBatTemp && batTemp > 0) {
+                MiniIconLabel(R.drawable.ic_current, "%.1f\u00B0".format(batTemp), Color.White)
+            } else {
+                MiniIconLabel(R.drawable.ic_current, "%dmA".format(mA), Color.White)
+            }
         }
     }
 }
@@ -181,6 +224,47 @@ private fun MiniIconLabel(iconRes: Int, value: String, color: Color) {
             maxLines = 1,
             softWrap = false,
         )
+    }
+}
+
+@Composable
+private fun MiniText(value: String, color: Color = Color.White) {
+    Text(
+        text = value,
+        style = MonoStyle.copy(fontSize = 8.sp, color = color, letterSpacing = 0.sp),
+        maxLines = 1,
+        softWrap = false,
+    )
+}
+
+@Composable
+private fun CpuCoreBarChart(coreLoads: List<Double>, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val barCount = coreLoads.size
+        if (barCount == 0) return@Canvas
+        val gap = 1.dp.toPx()
+        val totalGaps = gap * (barCount - 1)
+        val barWidth = (size.width - totalGaps) / barCount
+        val cornerRadius = CornerRadius(1.dp.toPx())
+
+        coreLoads.forEachIndexed { i, load ->
+            val clamped = load.coerceIn(0.0, 100.0).toFloat()
+            val color = when {
+                clamped > 85f -> Color(0xFFF44336)
+                clamped > 65f -> Color(0xFFFF9800)
+                else -> CpuColor
+            }
+            val alpha = 0.5f + 0.5f * clamped / 100f
+            val barHeight = (size.height * (clamped / 100f)).coerceAtLeast(size.height * 0.05f)
+            val x = i * (barWidth + gap)
+
+            drawRoundRect(
+                color = color.copy(alpha = alpha),
+                topLeft = Offset(x, size.height - barHeight),
+                size = Size(barWidth, barHeight),
+                cornerRadius = cornerRadius,
+            )
+        }
     }
 }
 

@@ -8,7 +8,6 @@ import android.util.Log
 import com.cloudorz.monitor.core.common.PlatformDetector
 import com.cloudorz.monitor.core.common.PrivilegeMode
 import com.cloudorz.monitor.core.common.ShellExecutor
-import com.cloudorz.monitor.core.common.SysfsReader
 import com.cloudorz.monitor.core.data.util.MonitorParser
 import com.cloudorz.monitor.core.model.monitor.MonitorSnapshot
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -21,23 +20,18 @@ import javax.inject.Singleton
 @Singleton
 class AggregatedMonitorDataSource @Inject constructor(
     private val shellExecutor: ShellExecutor,
-    private val sysfsReader: SysfsReader,
     private val platformDetector: PlatformDetector,
     private val daemonDataSource: DaemonDataSource,
     @ApplicationContext private val context: Context,
 ) {
     companion object {
         private const val TAG = "AggregatedMonitor"
-        private const val SEP = "===MONSEP==="
     }
 
-    // CPU cross-cycle delta state
+    // CPU cross-cycle delta state (BASIC mode)
     @Volatile private var prevProcStat: LongArray? = null
 
-    // Cached thermal zone index: -2=unscanned, -1=not found
-    @Volatile private var cpuThermalZoneIndex: Int = -2
-
-    // Cached GPU load sysfs path
+    // Cached GPU load sysfs path (BASIC mode)
     @Volatile private var gpuLoadPath: String? = null
     @Volatile private var gpuLoadPathResolved = false
 
@@ -45,117 +39,51 @@ class AggregatedMonitorDataSource @Inject constructor(
         context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
     }
 
+    /** Last successful daemon snapshot — returned on transient failures to avoid UI flicker. */
+    @Volatile private var lastDaemonSnapshot: MonitorSnapshot? = null
+
     suspend fun collectSnapshot(): MonitorSnapshot = when (shellExecutor.mode) {
         PrivilegeMode.ROOT,
         PrivilegeMode.ADB,
-        PrivilegeMode.SHIZUKU -> collectWithDaemon()
+        PrivilegeMode.SHIZUKU -> collectFromDaemon()
         PrivilegeMode.BASIC   -> collectBasic()
     }
 
     /**
-     * ROOT / ADB / SHIZUKU path:
-     *   1. daemon running  → DaemonDataSource (fast, accurate, GPU on root)
-     *   2. daemon offline  → collectViaShell() (compound shell commands, existing logic)
+     * ROOT / SHIZUKU / ADB: daemon is the sole data source.
+     * Android API supplements battery current (BatteryManager).
+     * On transient daemon failure, returns last cached snapshot to avoid UI flicker.
      */
-    private suspend fun collectWithDaemon(): MonitorSnapshot {
+    private suspend fun collectFromDaemon(): MonitorSnapshot {
         if (daemonDataSource.isAvailable()) {
             val snap = daemonDataSource.collectSnapshot()
             if (snap != null) {
                 val rawUa = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
                 val currentMa = if (rawUa != Int.MIN_VALUE) {
-                    MonitorParser.normalizeCurrentToMa(rawUa.toLong())
+                    val ma = MonitorParser.normalizeCurrentToMa(rawUa.toLong())
+                    val status = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_STATUS)
+                    val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                        status == BatteryManager.BATTERY_STATUS_FULL
+                    MonitorParser.ensureCurrentSign(ma, isCharging)
                 } else 0
-                return snap.copy(batteryCurrentMa = currentMa)
+                val result = snap.copy(batteryCurrentMa = currentMa)
+                lastDaemonSnapshot = result
+                return result
             }
+            Log.e(TAG, "collectFromDaemon: snapshot null")
+        } else {
+            Log.e(TAG, "collectFromDaemon: daemon NOT available")
         }
-        // Daemon was alive but has now missed 3+ pings (~15 s) — kill any residual process.
-        // Best-effort: silently ignored if daemon already exited or user lacks permission.
+
+        // Daemon dead (3+ consecutive failures) — kill residual, DaemonManager will restart
         if (daemonDataSource.isDead()) {
             shellExecutor.execute("killall monitor-daemon 2>/dev/null || true")
             daemonDataSource.resetDeadState()
-            Log.i(TAG, "collectWithDaemon: daemon dead after 3+ failures, killed residual process")
+            Log.e(TAG, "collectFromDaemon: daemon dead, killed residual")
         }
-        return collectViaShell()
-    }
 
-    private suspend fun collectViaShell(): MonitorSnapshot = withContext(Dispatchers.IO) {
-        resolveGpuLoadPath()
-        resolveThermalZoneIndex()
-
-        val cmd = buildCompoundCommand()
-        val result = shellExecutor.execute(cmd)
-        if (!result.isSuccess) return@withContext collectBasic()
-
-        val sections = result.stdout.split(SEP)
-
-        val cpuSection = sections.getOrNull(0)?.trim() ?: ""
-        val gpuSection = sections.getOrNull(1)?.trim() ?: ""
-        val thermalSection = sections.getOrNull(2)?.trim() ?: ""
-        val batterySection = sections.getOrNull(3)?.trim() ?: ""
-
-        val cpuLoad = parseCpuLoad(cpuSection)
-        val gpuLoad = parseGpuLoad(gpuSection)
-        val temp = parseThermal(thermalSection)
-        val currentMa = parseBatteryCurrent(batterySection)
-
-        MonitorSnapshot(
-            cpuLoadPercent = cpuLoad,
-            gpuLoadPercent = gpuLoad,
-            cpuTempCelsius = temp,
-            batteryCurrentMa = currentMa,
-        )
-    }
-
-    private fun buildCompoundCommand(): String = buildString {
-        // Section 0: /proc/stat
-        append("cat /proc/stat")
-        append(";echo '$SEP'")
-
-        // Section 1: GPU load
-        val gpu = gpuLoadPath
-        if (gpu != null) {
-            append(";cat $gpu 2>/dev/null")
-        }
-        append(";echo '$SEP'")
-
-        // Section 2: CPU thermal zone temp
-        val tIdx = cpuThermalZoneIndex
-        if (tIdx >= 0) {
-            append(";cat /sys/class/thermal/thermal_zone$tIdx/temp 2>/dev/null")
-        }
-        append(";echo '$SEP'")
-
-        // Section 3: Battery current (uevent is more reliable across devices)
-        append(";cat /sys/class/power_supply/battery/uevent 2>/dev/null")
-        // Note: SurfaceFlinger latency removed — FPS is collected separately by
-        // DaemonDataSource or FpsDataSource. Including it here caused ~1MB Binder
-        // transactions (991KB) that risked TransactionTooLargeException and triggered
-        // frequent GC pauses.
-    }
-
-    // ---- Parsers (delegated to MonitorParser for testability) ----
-
-    private fun parseCpuLoad(procStatOutput: String): Double {
-        val (load, newValues) = MonitorParser.parseCpuLoad(procStatOutput, prevProcStat)
-        prevProcStat = newValues
-        return load
-    }
-
-    private fun parseGpuLoad(gpuOutput: String): Double =
-        MonitorParser.parseGpuLoad(gpuOutput)
-
-    private fun parseThermal(thermalOutput: String): Double =
-        MonitorParser.parseThermal(thermalOutput)
-
-    private fun parseBatteryCurrent(batteryOutput: String): Int {
-        // Try uevent format first (multi-line key=value)
-        val fromUevent = MonitorParser.parseBatteryCurrentFromUevent(batteryOutput)
-        if (fromUevent != null) return fromUevent
-        // Fallback: single value (direct current_now output)
-        val fromSysfs = MonitorParser.parseBatteryCurrentFromSysfs(batteryOutput)
-        if (fromSysfs != null) return fromSysfs
-        // Last resort: Android API
-        return getBatteryCurrentFromApi()
+        // Transient failure → return last cached; never connected → empty default
+        return lastDaemonSnapshot ?: MonitorSnapshot()
     }
 
     // ---- BASIC mode fallback ----
@@ -191,6 +119,14 @@ class AggregatedMonitorDataSource @Inject constructor(
         )
     }
 
+    // ---- CPU load (BASIC mode, cross-cycle delta) ----
+
+    private fun parseCpuLoad(procStatText: String): Double {
+        val (load, newValues) = MonitorParser.parseCpuLoad(procStatText, prevProcStat)
+        prevProcStat = newValues
+        return load
+    }
+
     // ---- Lazy resolvers ----
 
     private fun resolveGpuLoadPath() {
@@ -203,34 +139,28 @@ class AggregatedMonitorDataSource @Inject constructor(
         gpuLoadPathResolved = true
     }
 
-    private suspend fun resolveThermalZoneIndex() {
-        if (cpuThermalZoneIndex != -2) return
-        for (i in 0..30) {
-            val type = sysfsReader.readString("/sys/class/thermal/thermal_zone$i/type") ?: break
-            if (type.contains("cpu", ignoreCase = true) ||
-                type.contains("tsens_tz_sensor", ignoreCase = true) ||
-                type.contains("mtktscpu", ignoreCase = true)) {
-                cpuThermalZoneIndex = i
-                return
-            }
-        }
-        cpuThermalZoneIndex = -1
-    }
-
     // ---- Android API fallbacks ----
 
     @Suppress("UnspecifiedRegisterReceiverFlag")
     private fun getBatteryCurrentFromApi(): Int {
+        val status = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_STATUS)
+        val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+            status == BatteryManager.BATTERY_STATUS_FULL
+
         // BatteryManager API
         val currentUa = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
         if (currentUa != Int.MIN_VALUE && currentUa != 0) {
-            return MonitorParser.normalizeCurrentToMa(currentUa.toLong())
+            val ma = MonitorParser.normalizeCurrentToMa(currentUa.toLong())
+            return MonitorParser.ensureCurrentSign(ma, isCharging)
         }
         // Intent broadcast fallback
         return try {
             val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
             val raw = intent?.getIntExtra("current_now", 0) ?: 0
-            if (raw != 0) MonitorParser.normalizeCurrentToMa(raw.toLong()) else 0
+            if (raw != 0) {
+                val ma = MonitorParser.normalizeCurrentToMa(raw.toLong())
+                MonitorParser.ensureCurrentSign(ma, isCharging)
+            } else 0
         } catch (e: Exception) {
             Log.d(TAG, "getBatteryCurrentFromIntent failed", e)
             0

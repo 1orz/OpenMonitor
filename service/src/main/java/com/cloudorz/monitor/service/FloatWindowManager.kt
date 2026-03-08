@@ -31,7 +31,7 @@ class FloatWindowManager(private val context: Context) {
     private val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private val activeWindows = mutableMapOf<String, FloatWindow>()
     private val useAccessibilityOverlay = context is AccessibilityService
-    private val posPrefs = context.getSharedPreferences("float_window_pos", Context.MODE_PRIVATE)
+    private val posPrefs = context.applicationContext.getSharedPreferences("float_window_pos", Context.MODE_PRIVATE)
 
     data class FloatWindow(
         val id: String,
@@ -191,6 +191,13 @@ class FloatWindowManager(private val context: Context) {
         override fun onTouchEvent(event: MotionEvent): Boolean {
             when (event.actionMasked) {
                 MotionEvent.ACTION_MOVE -> {
+                    if (!isDragging) {
+                        val dx = event.rawX - initialTouchX
+                        val dy = event.rawY - initialTouchY
+                        if (dx * dx + dy * dy > touchSlop * touchSlop) {
+                            isDragging = true
+                        }
+                    }
                     val params = windowParams ?: return true
                     val screenWidth = resources.displayMetrics.widthPixels
                     val screenHeight = resources.displayMetrics.heightPixels

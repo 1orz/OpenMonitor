@@ -97,9 +97,11 @@ class DaemonDataSource @Inject constructor(
             }
 
             val cpuLoadsArr = obj.optJSONArray("cpu_load")
-            val cpuLoad = if (cpuLoadsArr != null && cpuLoadsArr.length() > 0) {
-                (0 until cpuLoadsArr.length()).sumOf { cpuLoadsArr.getDouble(it) } /
-                    cpuLoadsArr.length()
+            val cpuCoreLoads = if (cpuLoadsArr != null && cpuLoadsArr.length() > 0) {
+                (0 until cpuLoadsArr.length()).map { cpuLoadsArr.getDouble(it) }
+            } else emptyList()
+            val cpuLoad = if (cpuCoreLoads.isNotEmpty()) {
+                cpuCoreLoads.average()
             } else 0.0
 
             val fps = obj.optDouble("fps", 0.0)
@@ -118,11 +120,17 @@ class DaemonDataSource @Inject constructor(
                 Log.i(TAG, "daemon runner: $runner")
             }
 
+            val temp = obj.optDouble("cpu_temp", 0.0)
+            if (cpuLoad == 0.0 && temp == 0.0 && cpuCoreLoads.isEmpty()) {
+                Log.e(TAG, "parseSnapshot: all-zero from daemon, json=${json.take(200)}")
+            }
+
             MonitorSnapshot(
                 cpuLoadPercent = cpuLoad,
+                cpuCoreLoads = cpuCoreLoads,
                 gpuLoadPercent = obj.optDouble("gpu_load", 0.0),
                 gpuFreqMhz = obj.optInt("gpu_freq", 0),
-                cpuTempCelsius = obj.optDouble("cpu_temp", 0.0),
+                cpuTempCelsius = temp,
                 fpsData = fpsData,
                 daemonRunner = runner,
                 // batteryCurrentMa intentionally left 0 — filled by caller from BatteryManager

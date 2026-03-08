@@ -5,6 +5,7 @@ import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.net.SocketTimeoutException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -28,7 +29,11 @@ class DaemonClient @Inject constructor() {
     fun isAlive(): Boolean {
         return try {
             sendRaw("ping") == "pong"
+        } catch (e: SocketTimeoutException) {
+            Log.e(TAG, "isAlive TIMEOUT: ${e.message}")
+            false
         } catch (e: Exception) {
+            Log.e(TAG, "isAlive failed: ${e.javaClass.simpleName}: ${e.message}")
             false
         }
     }
@@ -41,8 +46,11 @@ class DaemonClient @Inject constructor() {
         val payload = if (arg.isEmpty()) cmd else "$cmd\n$arg"
         return try {
             sendRaw(payload)
+        } catch (e: SocketTimeoutException) {
+            Log.e(TAG, "sendCommand($cmd) TIMEOUT: ${e.message}")
+            null
         } catch (e: Exception) {
-            Log.w(TAG, "sendCommand($cmd) failed: ${e.message}")
+            Log.e(TAG, "sendCommand($cmd) failed: ${e.javaClass.simpleName}: ${e.message}")
             null
         }
     }
