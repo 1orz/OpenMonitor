@@ -39,10 +39,21 @@ android {
         noCompress += listOf("monitor-daemon")
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("${rootProject.projectDir}/release.jks")
+            storePassword = "monitor123"
+            keyAlias = "monitor"
+            keyPassword = "monitor123"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -53,6 +64,10 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
+    }
+
+    lint {
+        disable += "Instantiatable"
     }
 
     buildFeatures {

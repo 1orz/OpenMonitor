@@ -19,3 +19,4 @@
 
 # Daemon binary (built from submodule by Gradle)
 /app/src/main/assets/daemon/monitor-daemon
+release.jks

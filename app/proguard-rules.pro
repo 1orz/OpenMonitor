@@ -13,6 +13,9 @@
 # Keep libsu
 -keep class com.topjohnwu.superuser.** { *; }
 
+# Keep Service subclasses (FloatMonitorService extends LifecycleService)
+-keep class * extends android.app.Service
+
 # Keep JNI native methods (cpuinfo bridge)
 -keep class com.cloudorz.monitor.core.common.CpuNativeInfo {
     native <methods>;
