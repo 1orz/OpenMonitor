@@ -5,8 +5,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -55,7 +53,6 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.cloudorz.monitor.core.common.PermissionManager
 import com.cloudorz.monitor.core.common.PrivilegeMode
-import com.cloudorz.monitor.core.model.fps.FpsMethod
 import kotlinx.coroutines.launch
 import rikka.shizuku.Shizuku
 
@@ -268,7 +265,6 @@ fun UserScreen(
         val fpsSettings by viewModel.fpsSettings.collectAsState()
         FpsSettingsCard(
             fpsSettings = fpsSettings,
-            onMethodSelected = viewModel::setFpsMethod,
             onIntervalSelected = viewModel::setFpsInterval,
         )
 
@@ -618,11 +614,9 @@ private fun modeDescription(mode: PrivilegeMode): String = when (mode) {
     PrivilegeMode.BASIC -> "无特权，帧率监控等功能不可用"
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun FpsSettingsCard(
     fpsSettings: UserViewModel.FpsSettings,
-    onMethodSelected: (FpsMethod) -> Unit,
     onIntervalSelected: (Long) -> Unit,
 ) {
     Card(
@@ -652,40 +646,6 @@ private fun FpsSettingsCard(
             }
             Spacer(modifier = Modifier.height(12.dp))
 
-            // FPS method selection
-            Text(
-                text = "采集方式",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                FpsMethod.entries.forEach { method ->
-                    val isAvailable = method in fpsSettings.availableMethods
-                    FilterChip(
-                        selected = method == fpsSettings.method,
-                        onClick = { if (isAvailable) onMethodSelected(method) },
-                        label = { Text(method.displayName) },
-                        enabled = isAvailable,
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        ),
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = fpsSettings.method.description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Update interval
             Text(
                 text = "刷新间隔",
                 style = MaterialTheme.typography.bodyMedium,

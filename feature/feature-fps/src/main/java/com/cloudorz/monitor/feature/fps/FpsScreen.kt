@@ -178,8 +178,8 @@ private fun RealtimeRecordingTab(
     onStartRecording: () -> Unit,
     onStopRecording: () -> Unit,
 ) {
-    // 无 Shell 权限时显示占位提示
-    if (!uiState.hasShellAccess) {
+    // Daemon 未运行时显示占位提示
+    if (!uiState.hasDaemon) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -206,7 +206,7 @@ private fun RealtimeRecordingTab(
                     textAlign = TextAlign.Center,
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-                listOf(stringResource(R.string.fps_mode_root), stringResource(R.string.fps_mode_adb), stringResource(R.string.fps_mode_shizuku)).forEach { mode ->
+                listOf(stringResource(R.string.fps_mode_root), stringResource(R.string.fps_mode_shizuku)).forEach { mode ->
                     Text(
                         text = "• $mode",
                         style = MaterialTheme.typography.bodySmall,
@@ -230,33 +230,6 @@ private fun RealtimeRecordingTab(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // Current FPS method (read-only, configured in settings page)
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                ),
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "${stringResource(R.string.collection_method)}: ${uiState.fpsMethod.displayName}",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(modifier = Modifier.weight(1f))
-                    Text(
-                        text = stringResource(R.string.change_in_settings),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.outline,
-                    )
-                }
-            }
-
             // Large FPS counter
             FpsCounterDisplay(
                 fps = uiState.currentFps?.fps,

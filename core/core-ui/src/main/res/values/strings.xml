@@ -27,13 +27,11 @@
     <string name="tab_session_history">Session History</string>
     <string name="fps_recording_title">FPS Recording</string>
     <string name="shell_permission_required">Shell Permission Required</string>
-    <string name="fps_shell_permission_desc">FPS monitoring requires SurfaceFlinger data.\nPlease switch to one of the following modes in settings:</string>
+    <string name="fps_shell_permission_desc">FPS monitoring requires the daemon service.\nPlease switch to one of the following modes in settings:</string>
     <string name="fps_mode_root">Root — Magisk / KernelSU</string>
-    <string name="fps_mode_adb">ADB — Shizuku Agent</string>
     <string name="fps_mode_shizuku">Shizuku — Wireless Debug Pairing</string>
     <string name="fps_trend">FPS Trend</string>
     <string name="frame_time">Frame Time</string>
-    <string name="collection_method">Collection Method</string>
     <string name="recording">Recording</string>
     <string name="max_frame_time">Max Frame Time</string>
     <string name="frame_count">Frame Count</string>
@@ -59,12 +57,7 @@
     <string name="permission_required_toast">Please grant overlay or accessibility permission first</string>
 
     <!-- Float Monitor Settings -->
-    <string name="fps_settings_title">FPS Settings</string>
-    <string name="fps_method_label">Collection Method</string>
-    <string name="fps_method_sf">SurfaceFlinger</string>
-    <string name="fps_method_ch">Choreographer</string>
     <string name="fps_interval_label">Update Interval</string>
-    <string name="change_in_settings">Change in Settings</string>
 
     <!-- FloatMonitorType display names -->
     <string name="monitor_load">Load Monitor</string>

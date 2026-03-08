@@ -3,13 +3,10 @@ package com.cloudorz.monitor.ui.user
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.cloudorz.monitor.core.common.PermissionManager
-import com.cloudorz.monitor.core.common.PrivilegeMode
 import com.cloudorz.monitor.core.data.datasource.DaemonClient
 import com.cloudorz.monitor.core.data.datasource.DaemonLauncher
 import com.cloudorz.monitor.core.data.datasource.DaemonManager
 import com.cloudorz.monitor.core.data.datasource.DaemonState
-import com.cloudorz.monitor.core.model.fps.FpsMethod
 import com.cloudorz.monitor.service.FloatMonitorService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -28,7 +25,6 @@ class UserViewModel @Inject constructor(
     private val daemonClient: DaemonClient,
     private val daemonManager: DaemonManager,
     private val daemonLauncher: DaemonLauncher,
-    private val permissionManager: PermissionManager,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -42,9 +38,7 @@ class UserViewModel @Inject constructor(
     )
 
     data class FpsSettings(
-        val method: FpsMethod = FpsMethod.SURFACE_FLINGER,
         val intervalMs: Long = FloatMonitorService.DEFAULT_FPS_INTERVAL,
-        val availableMethods: List<FpsMethod> = emptyList(),
     )
 
     private val prefs = context.getSharedPreferences("monitor_settings", Context.MODE_PRIVATE)
@@ -54,14 +48,12 @@ class UserViewModel @Inject constructor(
 
     private val _fpsSettings = MutableStateFlow(
         FpsSettings(
-            method = restoreFpsMethod(),
             intervalMs = prefs.getLong(FloatMonitorService.KEY_FPS_INTERVAL, FloatMonitorService.DEFAULT_FPS_INTERVAL),
         )
     )
     val fpsSettings: StateFlow<FpsSettings> = _fpsSettings.asStateFlow()
 
     init {
-        // Sync with DaemonManager state
         viewModelScope.launch {
             daemonManager.state.collect { state ->
                 if (state == DaemonState.RUNNING) {
@@ -80,14 +72,8 @@ class UserViewModel @Inject constructor(
                         checkedOnce = true,
                     )
                 }
-                updateAvailableMethods()
             }
         }
-        // React to permission mode changes
-        viewModelScope.launch {
-            permissionManager.currentMode.collect { updateAvailableMethods() }
-        }
-        updateAvailableMethods()
     }
 
     fun checkDaemon() {
@@ -126,38 +112,10 @@ class UserViewModel @Inject constructor(
         }
     }
 
-    fun setFpsMethod(method: FpsMethod) {
-        prefs.edit().putString(FloatMonitorService.KEY_FPS_METHOD, method.name).apply()
-        _fpsSettings.update { it.copy(method = method) }
-        notifyServiceFpsSettingsChanged()
-    }
-
     fun setFpsInterval(intervalMs: Long) {
         prefs.edit().putLong(FloatMonitorService.KEY_FPS_INTERVAL, intervalMs).apply()
         _fpsSettings.update { it.copy(intervalMs = intervalMs) }
         notifyServiceFpsSettingsChanged()
-    }
-
-    private fun updateAvailableMethods() {
-        val mode = permissionManager.currentMode.value
-        val hasDaemon = daemonManager.isRunning()
-        val hasShell = mode == PrivilegeMode.ROOT || mode == PrivilegeMode.ADB || mode == PrivilegeMode.SHIZUKU
-        val methods = buildList {
-            if (hasDaemon) add(FpsMethod.DAEMON)
-            if (hasShell) add(FpsMethod.SURFACE_FLINGER)
-            add(FpsMethod.FRAME_METRICS)
-            add(FpsMethod.CHOREOGRAPHER)
-        }
-        _fpsSettings.update { current ->
-            val validMethod = if (current.method in methods) current.method else methods.first()
-            current.copy(availableMethods = methods, method = validMethod)
-        }
-    }
-
-    private fun restoreFpsMethod(): FpsMethod {
-        val name = prefs.getString(FloatMonitorService.KEY_FPS_METHOD, null)
-            ?: return FpsMethod.SURFACE_FLINGER
-        return FpsMethod.entries.find { it.name == name } ?: FpsMethod.SURFACE_FLINGER
     }
 
     private fun notifyServiceFpsSettingsChanged() {
@@ -166,7 +124,6 @@ class UserViewModel @Inject constructor(
         } catch (_: Exception) {}
     }
 
-    /** Returns (raw response, commit hash) from daemon-version command. */
     private fun fetchVersionInfo(): Pair<String?, String?> {
         val raw = daemonClient.sendCommand("daemon-version")?.trim() ?: return null to null
         val commit = try {

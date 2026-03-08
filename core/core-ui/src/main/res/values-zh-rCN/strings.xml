@@ -27,13 +27,11 @@
     <string name="tab_session_history">历史会话</string>
     <string name="fps_recording_title">帧率记录</string>
     <string name="shell_permission_required">需要 Shell 权限</string>
-    <string name="fps_shell_permission_desc">帧率监控需要通过 SurfaceFlinger 采集数据，\n请在设置中切换到以下模式之一：</string>
+    <string name="fps_shell_permission_desc">帧率监控需要 Daemon 服务，\n请在设置中切换到以下模式之一：</string>
     <string name="fps_mode_root">Root — Magisk / KernelSU</string>
-    <string name="fps_mode_adb">ADB — Shizuku 代理</string>
     <string name="fps_mode_shizuku">Shizuku — 无线调试配对</string>
     <string name="fps_trend">FPS 趋势</string>
     <string name="frame_time">帧时间</string>
-    <string name="collection_method">采集方式</string>
     <string name="recording">录制中</string>
     <string name="max_frame_time">最大帧时间</string>
     <string name="frame_count">帧数</string>
@@ -59,12 +57,7 @@
     <string name="permission_required_toast">请先授予悬浮窗权限或启用无障碍服务</string>
 
     <!-- Float Monitor Settings -->
-    <string name="fps_settings_title">FPS 设置</string>
-    <string name="fps_method_label">采集方式</string>
-    <string name="fps_method_sf">SurfaceFlinger</string>
-    <string name="fps_method_ch">Choreographer</string>
     <string name="fps_interval_label">刷新间隔</string>
-    <string name="change_in_settings">设置页修改</string>
 
     <!-- FloatMonitorType display names -->
     <string name="monitor_load">负载监视器</string>

@@ -11,9 +11,7 @@ import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.cloudorz.monitor.core.common.PermissionManager
 import com.cloudorz.monitor.core.common.PrivilegeMode
-import com.cloudorz.monitor.core.data.datasource.ChoreographerFpsMonitor
 import com.cloudorz.monitor.core.data.datasource.FpsDataSource
-import com.cloudorz.monitor.core.data.datasource.FrameMetricsFpsMonitor
 import com.cloudorz.monitor.core.data.datasource.AggregatedMonitorDataSource
 import com.cloudorz.monitor.core.data.datasource.DaemonDataSource
 import com.cloudorz.monitor.core.data.datasource.DaemonLauncher
@@ -23,19 +21,16 @@ import com.cloudorz.monitor.core.data.datasource.CpuDataSource
 import com.cloudorz.monitor.core.data.datasource.GpuDataSource
 import com.cloudorz.monitor.core.data.datasource.ProcessDataSource
 import com.cloudorz.monitor.core.data.datasource.ThermalDataSource
-import com.cloudorz.monitor.core.model.fps.FpsMethod
 import com.cloudorz.monitor.core.model.process.ProcessInfo
 import com.cloudorz.monitor.core.model.process.ThreadInfo
 import com.cloudorz.monitor.core.model.thermal.ThermalZone
 import android.view.WindowManager
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -63,7 +58,6 @@ class FloatMonitorService : LifecycleService() {
         private const val PREFS_NAME = "monitor_settings"
         private const val KEY_ENABLED_MONITORS = "enabled_monitors"
         private const val KEY_SERVICE_ACTIVE = "float_service_active"
-        const val KEY_FPS_METHOD = "fps_method"
         const val KEY_FPS_INTERVAL = "fps_interval"
         const val DEFAULT_FPS_INTERVAL = 500L
 
@@ -104,11 +98,9 @@ class FloatMonitorService : LifecycleService() {
     @Inject lateinit var daemonManager: DaemonManager
 
     private lateinit var floatWindowManager: FloatWindowManager
-    private val choreographerFpsMonitor = ChoreographerFpsMonitor()
-    private val frameMetricsFpsMonitor = FrameMetricsFpsMonitor()
     private val dataCollectionJobs = mutableMapOf<String, Job>()
 
-    // Shared FPS collection: single writer to currentFps, avoids multi-job flicker
+    // Shared FPS collection: single writer to currentFps
     private var sharedFpsJob: Job? = null
 
     // Shared data states for composables
@@ -124,101 +116,21 @@ class FloatMonitorService : LifecycleService() {
     val topThreads = MutableStateFlow<List<ThreadInfo>>(emptyList())
     val foregroundApp = MutableStateFlow("")
     val currentMa = MutableStateFlow(0)
-
-    // FPS method state
-    val currentFpsMethod = MutableStateFlow(FpsMethod.SURFACE_FLINGER)
-    val availableFpsMethods = MutableStateFlow<List<FpsMethod>>(emptyList())
     val hasShellAccess = MutableStateFlow(false)
 
     override fun onCreate() {
         super.onCreate()
-        // Use accessibility service context for overlay if available (no SYSTEM_ALERT_WINDOW needed)
         val windowContext = AccessibilityMonitorService.instance ?: this
         floatWindowManager = FloatWindowManager(windowContext)
         createNotificationChannel()
-        updateAvailableFpsMethodsSync()
-        // React to daemon state changes
-        lifecycleScope.launch {
-            daemonManager.state.collect { updateAvailableFpsMethodsSync() }
-        }
+        updateShellAccess()
     }
 
-    private fun updateAvailableFpsMethodsSync() {
+    private fun updateShellAccess() {
         val mode = permissionManager.currentMode.value
-        val hasDaemon = daemonManager.isRunning()
-        val hasShell = mode == PrivilegeMode.ROOT || mode == PrivilegeMode.ADB || mode == PrivilegeMode.SHIZUKU
-        hasShellAccess.value = hasShell
-        availableFpsMethods.value = buildList {
-            if (hasDaemon) add(FpsMethod.DAEMON)
-            if (hasShell) add(FpsMethod.SURFACE_FLINGER)
-            add(FpsMethod.FRAME_METRICS)
-            add(FpsMethod.CHOREOGRAPHER)
-        }
-
-        // Restore saved method from prefs
-        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        val savedMethod = prefs.getString(KEY_FPS_METHOD, null)
-        if (savedMethod != null) {
-            val method = FpsMethod.entries.find { it.name == savedMethod }
-            if (method != null && method in availableFpsMethods.value) {
-                currentFpsMethod.value = method
-            }
-        }
-
-        if (currentFpsMethod.value !in availableFpsMethods.value) {
-            currentFpsMethod.value = availableFpsMethods.value.first()
-        }
-    }
-
-    private fun reloadFpsSettings() {
-        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        val savedMethod = prefs.getString(KEY_FPS_METHOD, null)
-        val method = savedMethod?.let { name -> FpsMethod.entries.find { it.name == name } }
-            ?: currentFpsMethod.value
-
-        if (method != currentFpsMethod.value) {
-            stopFpsMonitors()
-            currentFpsMethod.value = method
-            startFpsMonitorForCurrentMethod()
-        }
-
-        // Restart shared FPS job to pick up new interval/method
-        restartSharedFpsJob()
-
-        // Restart MINI collection job if active (for non-FPS data interval)
-        val miniJob = dataCollectionJobs[TYPE_MINI]
-        if (miniJob != null && miniJob.isActive) {
-            miniJob.cancel()
-            dataCollectionJobs[TYPE_MINI] = lifecycleScope.launch {
-                collectDataForType(TYPE_MINI)
-            }
-        }
-    }
-
-    fun switchFpsMethod(method: FpsMethod) {
-        if (method == currentFpsMethod.value) return
-        if (method !in availableFpsMethods.value) return
-
-        stopFpsMonitors()
-        currentFpsMethod.value = method
-        startFpsMonitorForCurrentMethod()
-
-        // Restart shared FPS job to use new method
-        restartSharedFpsJob()
-    }
-
-    private fun startFpsMonitorForCurrentMethod() {
-        when (currentFpsMethod.value) {
-            FpsMethod.CHOREOGRAPHER -> choreographerFpsMonitor.start()
-            FpsMethod.FRAME_METRICS -> frameMetricsFpsMonitor.start(application)
-            FpsMethod.DAEMON,
-            FpsMethod.SURFACE_FLINGER -> { /* no pre-start needed */ }
-        }
-    }
-
-    private fun stopFpsMonitors() {
-        choreographerFpsMonitor.stop()
-        frameMetricsFpsMonitor.stop()
+        hasShellAccess.value = mode == PrivilegeMode.ROOT ||
+            mode == PrivilegeMode.ADB ||
+            mode == PrivilegeMode.SHIZUKU
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -236,7 +148,7 @@ class FloatMonitorService : LifecycleService() {
                 removeMonitor(type)
             }
             ACTION_UPDATE_FPS_SETTINGS -> {
-                reloadFpsSettings()
+                restartSharedFpsJob()
             }
         }
 
@@ -279,8 +191,6 @@ class FloatMonitorService : LifecycleService() {
 
         // Start shared FPS collection for FPS-consuming monitors
         if (type == TYPE_FPS || type == TYPE_MINI) {
-            updateAvailableFpsMethodsSync()
-            startFpsMonitorForCurrentMethod()
             ensureSharedFpsJob()
         }
 
@@ -361,12 +271,10 @@ class FloatMonitorService : LifecycleService() {
             }
         }
 
-        // Persist enabled monitors
         saveEnabledMonitors()
     }
 
     private fun removeMonitor(type: String) {
-        // Smart FPS cleanup
         if (type == TYPE_FPS || type == TYPE_MINI) {
             val otherFpsNeeded = when (type) {
                 TYPE_FPS -> floatWindowManager.isWindowActive(TYPE_MINI)
@@ -374,7 +282,6 @@ class FloatMonitorService : LifecycleService() {
                 else -> false
             }
             if (!otherFpsNeeded) {
-                stopFpsMonitors()
                 sharedFpsJob?.cancel()
                 sharedFpsJob = null
             }
@@ -383,10 +290,8 @@ class FloatMonitorService : LifecycleService() {
         dataCollectionJobs.remove(type)?.cancel()
         floatWindowManager.removeWindow(type)
 
-        // Persist enabled monitors
         saveEnabledMonitors()
 
-        // If no active windows remain, stop the service
         if (floatWindowManager.getActiveWindowIds().isEmpty()) {
             stopFloatService()
         }
@@ -401,7 +306,7 @@ class FloatMonitorService : LifecycleService() {
 
     private suspend fun collectDataForType(type: String) {
         val intervalMs = when (type) {
-            TYPE_MINI -> 1000L  // MINI only collects CPU/GPU/Temp/mA, FPS via shared job
+            TYPE_MINI -> 1000L
             TYPE_PROCESS, TYPE_THREAD -> 2000L
             else -> 1500L
         }
@@ -435,7 +340,6 @@ class FloatMonitorService : LifecycleService() {
     }
 
     private suspend fun collectMiniData() {
-        // Only CPU/GPU/Temp/mA — FPS is handled by the shared FPS job
         val snapshot = aggregatedMonitorDataSource.collectSnapshot()
         cpuLoad.value = snapshot.cpuLoadPercent
         gpuLoad.value = snapshot.gpuLoadPercent
@@ -443,14 +347,16 @@ class FloatMonitorService : LifecycleService() {
         currentMa.value = snapshot.batteryCurrentMa
     }
 
-    // ---- Shared FPS collection (single writer to currentFps) ----
+    // ---- Shared FPS collection (daemon only) ----
 
     private fun ensureSharedFpsJob() {
         if (sharedFpsJob?.isActive == true) return
         sharedFpsJob = lifecycleScope.launch {
             while (isActive) {
                 try {
-                    collectSharedFps()
+                    val data = fpsDataSource.getDaemonFps()
+                    currentFps.value = data?.fps?.toDouble() ?: 0.0
+                    currentJank.value = data?.jankCount ?: 0
                 } catch (e: Exception) {
                     Log.w(TAG, "collectSharedFps failed", e)
                 }
@@ -468,29 +374,6 @@ class FloatMonitorService : LifecycleService() {
         ensureSharedFpsJob()
     }
 
-    private suspend fun collectSharedFps() {
-        when (currentFpsMethod.value) {
-            FpsMethod.DAEMON -> {
-                val data = fpsDataSource.getDaemonFps()
-                currentFps.value = data?.fps?.toDouble() ?: 0.0
-                currentJank.value = data?.jankCount ?: 0
-            }
-            FpsMethod.SURFACE_FLINGER -> {
-                if (hasShellAccess.value) {
-                    currentFps.value = fpsDataSource.getRealtimeFps().toDouble()
-                }
-            }
-            FpsMethod.CHOREOGRAPHER -> {
-                currentFps.value = choreographerFpsMonitor.fps.value.toDouble()
-            }
-            FpsMethod.FRAME_METRICS -> {
-                val data = frameMetricsFpsMonitor.fpsData.value
-                currentFps.value = data.fps.toDouble()
-                currentJank.value = data.jankCount
-            }
-        }
-    }
-
     private suspend fun collectThermalData() {
         thermalZones.value = thermalDataSource.getAllThermalZones()
     }
@@ -500,7 +383,6 @@ class FloatMonitorService : LifecycleService() {
     }
 
     private suspend fun collectThreadData() {
-        // Get foreground app PID
         val fgPid = getForegroundAppPid()
         if (fgPid != null) {
             val threads = processDataSource.getThreads(fgPid.first)
@@ -514,7 +396,6 @@ class FloatMonitorService : LifecycleService() {
 
     private suspend fun getForegroundAppPid(): Pair<Int, String>? {
         return try {
-            // Use top CPU process as approximation for foreground app
             val top = processDataSource.getTopProcesses(1).firstOrNull()
             top?.let { it.pid to it.name }
         } catch (e: Exception) {
@@ -537,7 +418,6 @@ class FloatMonitorService : LifecycleService() {
     }
 
     override fun onDestroy() {
-        stopFpsMonitors()
         sharedFpsJob?.cancel()
         floatWindowManager.removeAllWindows()
         dataCollectionJobs.values.forEach { it.cancel() }
