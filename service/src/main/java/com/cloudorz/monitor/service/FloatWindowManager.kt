@@ -31,6 +31,7 @@ class FloatWindowManager(private val context: Context) {
     private val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private val activeWindows = mutableMapOf<String, FloatWindow>()
     private val useAccessibilityOverlay = context is AccessibilityService
+    private val posPrefs = context.getSharedPreferences("float_window_pos", Context.MODE_PRIVATE)
 
     data class FloatWindow(
         val id: String,
@@ -47,6 +48,7 @@ class FloatWindowManager(private val context: Context) {
         centerHorizontal: Boolean = false,
         draggable: Boolean = true,
         aboveStatusBar: Boolean = false,
+        onInteraction: ((Boolean) -> Unit)? = null,
         content: @Composable () -> Unit,
     ) {
         if (activeWindows.containsKey(id)) {
@@ -75,6 +77,10 @@ class FloatWindowManager(private val context: Context) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         }
 
+        val savedX = posPrefs.getInt("${id}_x", Int.MIN_VALUE)
+        val savedY = posPrefs.getInt("${id}_y", Int.MIN_VALUE)
+        val hasSaved = savedX != Int.MIN_VALUE && savedY != Int.MIN_VALUE
+
         val params = WindowManager.LayoutParams(
             width,
             height,
@@ -82,13 +88,13 @@ class FloatWindowManager(private val context: Context) {
             flags,
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = if (centerHorizontal) {
+            gravity = if (centerHorizontal && !hasSaved) {
                 Gravity.TOP or Gravity.CENTER_HORIZONTAL
             } else {
                 Gravity.TOP or Gravity.START
             }
-            this.x = x
-            this.y = y
+            this.x = if (hasSaved) savedX else x
+            this.y = if (hasSaved) savedY else y
             if (aboveStatusBar && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 layoutInDisplayCutoutMode =
                     WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
@@ -103,7 +109,9 @@ class FloatWindowManager(private val context: Context) {
 
         // Wrap in DraggableFrameLayout for proper drag + Compose click coexistence
         val rootView: View = if (draggable) {
-            DraggableFrameLayout(context).apply {
+            DraggableFrameLayout(context, onInteraction, onDragEnd = { px, py ->
+                posPrefs.edit().putInt("${id}_x", px).putInt("${id}_y", py).apply()
+            }).apply {
                 windowParams = params
                 this.windowMgr = this@FloatWindowManager.windowManager
                 addView(composeView)
@@ -143,7 +151,11 @@ class FloatWindowManager(private val context: Context) {
 
     fun getActiveWindowIds(): Set<String> = activeWindows.keys.toSet()
 
-    private class DraggableFrameLayout(context: Context) : FrameLayout(context) {
+    private class DraggableFrameLayout(
+        context: Context,
+        private val onInteraction: ((Boolean) -> Unit)? = null,
+        private val onDragEnd: ((Int, Int) -> Unit)? = null,
+    ) : FrameLayout(context) {
         var windowParams: WindowManager.LayoutParams? = null
         var windowMgr: WindowManager? = null
 
@@ -162,6 +174,7 @@ class FloatWindowManager(private val context: Context) {
                     initialTouchX = ev.rawX
                     initialTouchY = ev.rawY
                     isDragging = false
+                    onInteraction?.invoke(true)
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = ev.rawX - initialTouchX
@@ -184,7 +197,6 @@ class FloatWindowManager(private val context: Context) {
                     val w = width.coerceAtLeast(1)
                     val h = height.coerceAtLeast(1)
 
-                    // Clamp to screen bounds in real-time
                     params.x = (initialX + (event.rawX - initialTouchX).toInt())
                         .coerceIn(0, (screenWidth - w).coerceAtLeast(0))
                     params.y = (initialY + (event.rawY - initialTouchY).toInt())
@@ -196,7 +208,12 @@ class FloatWindowManager(private val context: Context) {
                     }
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    if (isDragging) {
+                        val p = windowParams
+                        if (p != null) onDragEnd?.invoke(p.x, p.y)
+                    }
                     isDragging = false
+                    onInteraction?.invoke(false)
                 }
             }
             return true

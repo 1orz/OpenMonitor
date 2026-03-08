@@ -105,7 +105,7 @@ class DaemonDataSource @Inject constructor(
             val fps = obj.optDouble("fps", 0.0)
             val fpsData = if (fps > 0.0) {
                 FpsData(
-                    fps = fps.toInt(),
+                    fps = fps,
                     jankCount = obj.optInt("jank", 0),
                     bigJankCount = obj.optInt("big_jank", 0),
                     window = obj.optString("fps_layer", ""),

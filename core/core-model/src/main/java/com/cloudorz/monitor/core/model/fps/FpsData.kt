@@ -1,7 +1,7 @@
 package com.cloudorz.monitor.core.model.fps
 
 data class FpsData(
-    val fps: Int = 0,
+    val fps: Double = 0.0,
     val jankCount: Int = 0,
     val bigJankCount: Int = 0,
     val maxFrameTimeMs: Int = 0,
@@ -29,7 +29,7 @@ data class FpsData(
     }
 
     override fun hashCode(): Int {
-        var result = fps
+        var result = fps.hashCode()
         result = 31 * result + jankCount
         result = 31 * result + bigJankCount
         result = 31 * result + maxFrameTimeMs

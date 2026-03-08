@@ -1,7 +1,10 @@
 package com.cloudorz.monitor.service
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -148,7 +151,7 @@ fun FloatMiniMonitorContent(service: FloatMonitorService) {
             MiniIconLabel(R.drawable.ic_cpu, "%3d%%".format(cpu.toInt()), Color.White)
             MiniIconLabel(R.drawable.ic_gpu, "%3d%%".format(gpu.toInt()), Color.White)
             MiniIconLabel(R.drawable.ic_temperature, "%3.0f\u00B0".format(temp), Color.White)
-            val fpsBase = if (fps > 0) "%3d".format(fps.toInt()) else if (hasShell) "  0" else " --"
+            val fpsBase = if (fps > 0) "%5.1f".format(fps) else if (hasShell) "  0.0" else "   --"
             val fpsText = if (jank > 0 && fps > 0) "$fpsBase J%d".format(jank) else fpsBase
             MiniIconLabel(R.drawable.ic_frame, fpsText, Color.White)
             MiniIconLabel(R.drawable.ic_current, "%4dmA".format(abs(mA)), Color.White)
@@ -184,15 +187,35 @@ private fun MiniIconLabel(iconRes: Int, value: String, color: Color) {
 @Composable
 fun FloatFpsContent(service: FloatMonitorService) {
     val fps by service.currentFps.collectAsState()
-
-    Text(
-        text = "%d".format(fps.toInt()),
-        style = MonoStyle.copy(
-            fontSize = 18.sp,
-            color = fpsColor(fps),
-        ),
-        textAlign = TextAlign.End,
+    val interacting by service.fpsInteracting.collectAsState()
+    val bgAlpha by animateFloatAsState(
+        targetValue = if (interacting) 1f else 0f,
+        animationSpec = tween(durationMillis = if (interacting) 150 else 300),
+        label = "fpsBg",
     )
+    val shape = RoundedCornerShape(6.dp)
+
+    Box(
+        modifier = Modifier
+            .background(Color(0x33000000).copy(alpha = 0.2f * bgAlpha), shape)
+            .then(
+                if (bgAlpha > 0.01f) Modifier.border(
+                    width = 1.dp,
+                    color = Color.White.copy(alpha = 0.3f * bgAlpha),
+                    shape = shape,
+                ) else Modifier
+            )
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+    ) {
+        Text(
+            text = "%.1f".format(fps),
+            style = MonoStyle.copy(
+                fontSize = 18.sp,
+                color = fpsColor(fps),
+            ),
+            textAlign = TextAlign.End,
+        )
+    }
 }
 
 @Composable

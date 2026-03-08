@@ -57,12 +57,16 @@ class DaemonManager @Inject constructor(
             return@withContext DaemonState.NOT_NEEDED
         }
 
-        // Quick check: already running?
+        // Quick check: already running with correct version?
         if (daemonDataSource.isAvailable()) {
-            _state.value = DaemonState.RUNNING
-            startHeartbeat()
-            Log.i(TAG, "daemon already running")
-            return@withContext DaemonState.RUNNING
+            if (daemonLauncher.isVersionMatch()) {
+                _state.value = DaemonState.RUNNING
+                startHeartbeat()
+                Log.i(TAG, "daemon already running")
+                return@withContext DaemonState.RUNNING
+            }
+            // Version mismatch — fall through to relaunch
+            Log.i(TAG, "daemon alive but version mismatch, will upgrade")
         }
 
         // Launch

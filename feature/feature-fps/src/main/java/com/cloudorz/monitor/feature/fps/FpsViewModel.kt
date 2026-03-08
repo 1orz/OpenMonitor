@@ -157,7 +157,7 @@ class FpsViewModel @Inject constructor(
 
     private suspend fun handleFpsData(fpsData: FpsData?) {
         if (fpsData != null) {
-            fpsAccumulator.add(fpsData.fps.toDouble())
+            fpsAccumulator.add(fpsData.fps)
 
             val sessionId = _uiState.value.currentSessionId
             if (sessionId != null) {

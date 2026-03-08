@@ -314,15 +314,15 @@ private fun RealtimeRecordingTab(
 
 @Composable
 private fun FpsCounterDisplay(
-    fps: Int?,
+    fps: Double?,
     isRecording: Boolean,
 ) {
-    val displayFps = fps ?: 0
+    val displayFps = fps ?: 0.0
     val fpsColor by animateColorAsState(
         targetValue = when {
             !isRecording || fps == null -> MaterialTheme.colorScheme.outline
-            displayFps >= 50 -> ChartGreen
-            displayFps >= 30 -> ChartYellow
+            displayFps >= 50.0 -> ChartGreen
+            displayFps >= 30.0 -> ChartYellow
             else -> ChartRed
         },
         animationSpec = tween(300),
@@ -343,7 +343,7 @@ private fun FpsCounterDisplay(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = if (isRecording && fps != null) "$displayFps" else "--",
+                text = if (isRecording && fps != null) "%.1f".format(displayFps) else "--",
                 style = MaterialTheme.typography.displayLarge.copy(
                     fontSize = 72.sp,
                     fontWeight = FontWeight.Bold,

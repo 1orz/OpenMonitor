@@ -45,7 +45,7 @@ class FpsRepository @Inject constructor(
             FpsFrameDataEntity(
                 sessionId = sessionId,
                 timestamp = System.currentTimeMillis(),
-                fps = fpsData.fps.toDouble(),
+                fps = fpsData.fps,
                 jankCount = fpsData.jankCount,
                 bigJankCount = fpsData.bigJankCount,
                 maxFrameTimeMs = fpsData.maxFrameTimeMs,

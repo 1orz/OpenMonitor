@@ -117,6 +117,8 @@ class FloatMonitorService : LifecycleService() {
     val foregroundApp = MutableStateFlow("")
     val currentMa = MutableStateFlow(0)
     val hasShellAccess = MutableStateFlow(false)
+    val fpsInteracting = MutableStateFlow(false)
+    private var fpsInteractionJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -235,6 +237,18 @@ class FloatMonitorService : LifecycleService() {
                     width = WindowManager.LayoutParams.WRAP_CONTENT,
                     height = WindowManager.LayoutParams.WRAP_CONTENT,
                     y = 300,
+                    onInteraction = { touching ->
+                        if (touching) {
+                            fpsInteractionJob?.cancel()
+                            fpsInteracting.value = true
+                        } else {
+                            fpsInteractionJob?.cancel()
+                            fpsInteractionJob = lifecycleScope.launch {
+                                delay(1000)
+                                fpsInteracting.value = false
+                            }
+                        }
+                    },
                 ) {
                     FloatFpsContent(service)
                 }
@@ -355,7 +369,7 @@ class FloatMonitorService : LifecycleService() {
             while (isActive) {
                 try {
                     val data = fpsDataSource.getDaemonFps()
-                    currentFps.value = data?.fps?.toDouble() ?: 0.0
+                    currentFps.value = data?.fps ?: 0.0
                     currentJank.value = data?.jankCount ?: 0
                 } catch (e: Exception) {
                     Log.w(TAG, "collectSharedFps failed", e)

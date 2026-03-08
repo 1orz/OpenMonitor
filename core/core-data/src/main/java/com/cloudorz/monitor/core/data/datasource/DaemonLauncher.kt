@@ -130,7 +130,7 @@ class DaemonLauncher @Inject constructor(
     }
 
     /** Returns true if the running daemon's commit matches the bundled version. */
-    private fun isVersionMatch(): Boolean {
+    fun isVersionMatch(): Boolean {
         if (expectedCommit.isEmpty()) return true // no version file bundled, skip check
         val resp = daemonClient.sendCommand("daemon-version") ?: return false
         val match = resp.contains(expectedCommit)
