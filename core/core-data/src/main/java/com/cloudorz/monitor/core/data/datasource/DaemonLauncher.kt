@@ -88,7 +88,7 @@ class DaemonLauncher @Inject constructor(
         if (daemonClient.isAlive()) {
             if (isVersionMatch()) return@withContext true
             // Version mismatch: stop → delete → extract → relaunch
-            Log.i(TAG, "daemon version mismatch, upgrading")
+            Log.e(TAG, "daemon version mismatch, upgrading")
             stop()
             delay(500)
             deleteOldBinary()
@@ -108,7 +108,7 @@ class DaemonLauncher @Inject constructor(
             if (daemonClient.isAlive()) return@withContext true
             delay(500L)
         }
-        Log.w(TAG, "daemon did not respond after launch")
+        Log.e(TAG, "daemon did not respond after launch")
         false
     }
 
@@ -134,7 +134,7 @@ class DaemonLauncher @Inject constructor(
         if (expectedCommit.isEmpty()) return true // no version file bundled, skip check
         val resp = daemonClient.sendCommand("daemon-version") ?: return false
         val match = resp.contains(expectedCommit)
-        if (!match) Log.i(TAG, "version mismatch: expected=$expectedCommit, got=$resp")
+        if (!match) Log.e(TAG, "version mismatch: expected=$expectedCommit, got=$resp")
         return match
     }
 
@@ -154,7 +154,7 @@ class DaemonLauncher @Inject constructor(
         } else if (shellExecutor.mode == PrivilegeMode.ROOT) {
             shellExecutor.executeAsRoot("rm -f '$shellBinaryPath'")
         }
-        Log.i(TAG, "deleted old binary")
+        Log.e(TAG, "deleted old binary")
     }
 
     // ---- internal ----
@@ -188,7 +188,7 @@ class DaemonLauncher @Inject constructor(
                             " && '$shellBinaryPath'"
                     )
                     if (r.isSuccess) return logResult(r, shellBinaryPath)
-                    Log.d(TAG, "cp from staging failed (${r.stderr}), trying APK extraction")
+                    Log.e(TAG, "cp from staging failed (${r.stderr}), trying APK extraction")
                 }
                 // Strategy 2: unzip daemon from APK directly (APK path is always world-readable)
                 val apkPath = context.packageCodePath
@@ -218,16 +218,16 @@ class DaemonLauncher @Inject constructor(
             input.use { ins -> dest.outputStream().use { ins.copyTo(it) } }
             dest.setReadable(true, false)
             dest.setExecutable(true, false)
-            Log.d(TAG, "extracted daemon to $destPath")
+            Log.e(TAG, "extracted daemon to $destPath")
             destPath
         } catch (e: Exception) {
-            Log.d(TAG, "asset not bundled ($ASSET_PATH): ${e.message}")
+            Log.e(TAG, "asset not bundled ($ASSET_PATH): ${e.message}")
             // Dev fallback: manually pushed binary
             if (File(destPath).canExecute() || File(shellBinaryPath).exists()) {
-                Log.d(TAG, "using pre-existing binary")
+                Log.e(TAG, "using pre-existing binary")
                 if (File(destPath).exists()) destPath else shellBinaryPath
             } else {
-                Log.w(TAG, "no daemon binary available")
+                Log.e(TAG, "no daemon binary available")
                 null
             }
         }
@@ -235,10 +235,10 @@ class DaemonLauncher @Inject constructor(
 
     private fun logResult(result: com.cloudorz.monitor.core.common.CommandResult, binary: String): Boolean {
         return if (result.isSuccess) {
-            Log.i(TAG, "daemon launched via ${shellExecutor.mode} ($binary)")
+            Log.e(TAG, "daemon launched via ${shellExecutor.mode} ($binary)")
             true
         } else {
-            Log.w(TAG, "daemon launch failed (${shellExecutor.mode}): ${result.stderr}")
+            Log.e(TAG, "daemon launch failed (${shellExecutor.mode}): ${result.stderr}")
             false
         }
     }

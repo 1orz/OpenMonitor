@@ -28,7 +28,7 @@ class DaemonClient @Inject constructor() {
     /** Returns true if the daemon is reachable and responds to ping. */
     fun isAlive(): Boolean {
         return try {
-            sendRaw("ping") == "pong"
+            sendRaw("ping").contains("pong")
         } catch (e: SocketTimeoutException) {
             Log.e(TAG, "isAlive TIMEOUT: ${e.message}")
             false

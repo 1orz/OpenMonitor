@@ -40,11 +40,11 @@ class DaemonDataSource @Inject constructor(
         val alive = client.isAlive()
         val wasAlive = cachedAlive
         if (alive) {
-            if (!wasAlive) Log.i(TAG, "daemon connected (runner=${daemonRunner.ifEmpty { "unknown" }})")
+            if (!wasAlive) Log.e(TAG, "daemon connected (runner=${daemonRunner.ifEmpty { "unknown" }})")
             everAlive = true
             consecutiveFailures = 0
         } else {
-            if (wasAlive) Log.w(TAG, "daemon disconnected")
+            if (wasAlive) Log.e(TAG, "daemon disconnected")
             if (everAlive) consecutiveFailures++
         }
         cachedAlive = alive
@@ -92,7 +92,7 @@ class DaemonDataSource @Inject constructor(
         return try {
             val obj = JSONObject(json)
             if (obj.has("error")) {
-                Log.w(TAG, "daemon error: ${obj.optString("error")}")
+                Log.e(TAG, "daemon error: ${obj.optString("error")}")
                 return null
             }
 
@@ -117,7 +117,7 @@ class DaemonDataSource @Inject constructor(
             val runner = obj.optString("runner", "")
             if (runner.isNotEmpty() && daemonRunner != runner) {
                 daemonRunner = runner
-                Log.i(TAG, "daemon runner: $runner")
+                Log.e(TAG, "daemon runner: $runner")
             }
 
             val temp = obj.optDouble("cpu_temp", 0.0)
@@ -136,7 +136,7 @@ class DaemonDataSource @Inject constructor(
                 // batteryCurrentMa intentionally left 0 — filled by caller from BatteryManager
             )
         } catch (e: Exception) {
-            Log.w(TAG, "parseSnapshot failed: ${e.message}")
+            Log.e(TAG, "parseSnapshot failed: ${e.message}")
             null
         }
     }

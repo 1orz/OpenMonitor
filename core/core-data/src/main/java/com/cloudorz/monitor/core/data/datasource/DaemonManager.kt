@@ -62,28 +62,28 @@ class DaemonManager @Inject constructor(
             if (daemonLauncher.isVersionMatch()) {
                 _state.value = DaemonState.RUNNING
                 startHeartbeat()
-                Log.i(TAG, "daemon already running")
+                Log.e(TAG, "daemon already running")
                 return@withContext DaemonState.RUNNING
             }
             // Version mismatch — fall through to relaunch
-            Log.i(TAG, "daemon alive but version mismatch, will upgrade")
+            Log.e(TAG, "daemon alive but version mismatch, will upgrade")
         }
 
         // Launch
         _state.value = DaemonState.LAUNCHING
-        Log.i(TAG, "launching daemon (mode=$mode)")
+        Log.e(TAG, "launching daemon (mode=$mode)")
 
         val launched = daemonLauncher.ensureRunning()
         if (launched) {
             _state.value = DaemonState.RUNNING
             daemonDataSource.resetDeadState()
             startHeartbeat()
-            Log.i(TAG, "daemon launched successfully")
+            Log.e(TAG, "daemon launched successfully")
             return@withContext DaemonState.RUNNING
         }
 
         _state.value = DaemonState.FAILED
-        Log.w(TAG, "daemon launch failed")
+        Log.e(TAG, "daemon launch failed")
         DaemonState.FAILED
     }
 
@@ -101,19 +101,19 @@ class DaemonManager @Inject constructor(
                     }
                 } else {
                     failures++
-                    Log.w(TAG, "heartbeat failed ($failures/$HEARTBEAT_FAIL_THRESHOLD)")
+                    Log.e(TAG, "heartbeat failed ($failures/$HEARTBEAT_FAIL_THRESHOLD)")
                     if (failures >= HEARTBEAT_FAIL_THRESHOLD) {
-                        Log.w(TAG, "daemon dead, attempting restart")
+                        Log.e(TAG, "daemon dead, attempting restart")
                         _state.value = DaemonState.LAUNCHING
                         daemonDataSource.resetDeadState()
                         val restarted = daemonLauncher.ensureRunning()
                         if (restarted) {
                             _state.value = DaemonState.RUNNING
                             failures = 0
-                            Log.i(TAG, "daemon restarted successfully")
+                            Log.e(TAG, "daemon restarted successfully")
                         } else {
                             _state.value = DaemonState.FAILED
-                            Log.w(TAG, "daemon restart failed, stopping heartbeat")
+                            Log.e(TAG, "daemon restart failed, stopping heartbeat")
                             return@launch
                         }
                     }
@@ -127,7 +127,7 @@ class DaemonManager @Inject constructor(
      * Flow: daemon-exit (TCP) → pkill fallback → extract fresh binary → launch.
      */
     suspend fun restart(): DaemonState = withContext(Dispatchers.IO) {
-        Log.i(TAG, "restart requested")
+        Log.e(TAG, "restart requested")
         stopHeartbeat()
         _state.value = DaemonState.LAUNCHING
 
