@@ -23,7 +23,6 @@ class AggregatedMonitorDataSource @Inject constructor(
     private val shellExecutor: ShellExecutor,
     private val sysfsReader: SysfsReader,
     private val platformDetector: PlatformDetector,
-    private val fpsDataSource: FpsDataSource,
     private val daemonDataSource: DaemonDataSource,
     @ApplicationContext private val context: Context,
 ) {
@@ -93,22 +92,17 @@ class AggregatedMonitorDataSource @Inject constructor(
         val gpuSection = sections.getOrNull(1)?.trim() ?: ""
         val thermalSection = sections.getOrNull(2)?.trim() ?: ""
         val batterySection = sections.getOrNull(3)?.trim() ?: ""
-        val sfSection = sections.getOrNull(4)?.trim() ?: ""
 
         val cpuLoad = parseCpuLoad(cpuSection)
         val gpuLoad = parseGpuLoad(gpuSection)
         val temp = parseThermal(thermalSection)
         val currentMa = parseBatteryCurrent(batterySection)
-        val fpsData = if (sfSection.isNotEmpty()) {
-            fpsDataSource.parseSurfaceFlingerLatency(sfSection, "")
-        } else null
 
         MonitorSnapshot(
             cpuLoadPercent = cpuLoad,
             gpuLoadPercent = gpuLoad,
             cpuTempCelsius = temp,
             batteryCurrentMa = currentMa,
-            fpsData = fpsData,
         )
     }
 
@@ -133,10 +127,10 @@ class AggregatedMonitorDataSource @Inject constructor(
 
         // Section 3: Battery current (uevent is more reliable across devices)
         append(";cat /sys/class/power_supply/battery/uevent 2>/dev/null")
-        append(";echo '$SEP'")
-
-        // Section 4: SurfaceFlinger latency
-        append(";dumpsys SurfaceFlinger --latency")
+        // Note: SurfaceFlinger latency removed — FPS is collected separately by
+        // DaemonDataSource or FpsDataSource. Including it here caused ~1MB Binder
+        // transactions (991KB) that risked TransactionTooLargeException and triggered
+        // frequent GC pauses.
     }
 
     // ---- Parsers (delegated to MonitorParser for testability) ----

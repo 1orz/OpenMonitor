@@ -1,0 +1,3 @@
+[submodule "monitor-daemon"]
+	path = monitor-daemon
+	url = https://github.com/1orz/monitor-daemon.git

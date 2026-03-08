@@ -60,17 +60,25 @@ android {
     }
 }
 
-// ── Build monitor-daemon from Go source ──────────────────────────────────────
-val daemonSrcDir = file("${rootProject.projectDir}/../monitor-daemon")
+// ── Build monitor-daemon from Go source (git submodule) ──────────────────────
+val daemonSrcDir = file("${rootProject.projectDir}/monitor-daemon")
 val daemonBinary = file("src/main/assets/daemon/monitor-daemon")
 
 val buildMonitorDaemon by tasks.registering(Exec::class) {
     group = "build"
     description = "Compile monitor-daemon (Go → Android arm64)"
-    onlyIf { daemonSrcDir.exists() }
+    onlyIf { daemonSrcDir.resolve("go.mod").exists() }
 
     workingDir = daemonSrcDir
-    commandLine = listOf("go", "build", "-o", daemonBinary.absolutePath, "./cmd/daemon")
+
+    // Inject git commit hash via -ldflags
+    val gitCommit = providers.exec {
+        workingDir = daemonSrcDir
+        commandLine("git", "rev-parse", "--short", "HEAD")
+    }.standardOutput.asText.map { it.trim() }.getOrElse("unknown")
+
+    val ldflags = "-s -w -X monitor-daemon/collector.GitCommit=$gitCommit"
+    commandLine = listOf("go", "build", "-ldflags", ldflags, "-o", daemonBinary.absolutePath, "./cmd/daemon")
     environment("GOOS", "android")
     environment("GOARCH", "arm64")
     environment("CGO_ENABLED", "0")
