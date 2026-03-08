@@ -67,4 +67,22 @@ class UserViewModel @Inject constructor(
             )
         }
     }
+
+    fun restartDaemon() {
+        if (_daemonStatus.value.checking) return
+        viewModelScope.launch {
+            _daemonStatus.value = _daemonStatus.value.copy(checking = true)
+            val result = daemonManager.restart()
+            val alive = result == DaemonState.RUNNING
+            val version = if (alive) {
+                withContext(Dispatchers.IO) { daemonClient.sendCommand("daemon-version")?.trim() }
+            } else null
+            _daemonStatus.value = DaemonStatus(
+                checking = false,
+                connected = alive,
+                version = version,
+                checkedOnce = true,
+            )
+        }
+    }
 }

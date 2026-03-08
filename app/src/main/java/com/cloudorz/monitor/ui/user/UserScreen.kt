@@ -251,10 +251,11 @@ fun UserScreen(
         // Shizuku setup guide
         ShizukuSetupCard(shizukuStatus)
 
-        // Daemon connectivity card
+        // Daemon status card
         DaemonStatusCard(
             status = daemonStatus,
             onCheck = { viewModel.checkDaemon() },
+            onRestart = { viewModel.restartDaemon() },
         )
 
         // App info card
@@ -448,6 +449,7 @@ private fun ShizukuSetupCard(status: ShizukuStatus) {
 private fun DaemonStatusCard(
     status: UserViewModel.DaemonStatus,
     onCheck: () -> Unit,
+    onRestart: () -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -469,16 +471,16 @@ private fun DaemonStatusCard(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Daemon 连接状态",
+                    text = "Daemon 状态",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 if (status.checkedOnce) {
                     val (label, color) = if (status.connected) {
-                        "已连接" to MaterialTheme.colorScheme.primary
+                        "运行中" to MaterialTheme.colorScheme.primary
                     } else {
-                        "未连接" to MaterialTheme.colorScheme.error
+                        "未运行" to MaterialTheme.colorScheme.error
                     }
                     Text(
                         text = label,
@@ -508,21 +510,24 @@ private fun DaemonStatusCard(
                 Spacer(modifier = Modifier.height(8.dp))
             } else if (status.checkedOnce && !status.connected) {
                 Text(
-                    text = "Daemon 未运行。ROOT / Shizuku 模式下打开悬浮监视器会自动启动。",
+                    text = "Daemon 未运行。ROOT / Shizuku 模式下会自动启动。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
             } else {
                 Text(
-                    text = "点击「手动检测」查看 Daemon 连通性（端口 127.0.0.1:9876）",
+                    text = "点击「检测」查看 Daemon 连通性（端口 127.0.0.1:9876）",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 OutlinedButton(
                     onClick = onCheck,
                     enabled = !status.checking,
@@ -532,8 +537,14 @@ private fun DaemonStatusCard(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("检测中...")
                     } else {
-                        Text("手动检测")
+                        Text("检测")
                     }
+                }
+                OutlinedButton(
+                    onClick = onRestart,
+                    enabled = !status.checking,
+                ) {
+                    Text("重启")
                 }
             }
         }

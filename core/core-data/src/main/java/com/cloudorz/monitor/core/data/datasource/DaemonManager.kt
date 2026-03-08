@@ -28,6 +28,7 @@ enum class DaemonState {
 class DaemonManager @Inject constructor(
     private val daemonLauncher: DaemonLauncher,
     private val daemonDataSource: DaemonDataSource,
+    private val daemonClient: DaemonClient,
     private val permissionManager: PermissionManager,
 ) {
     companion object {
@@ -115,6 +116,31 @@ class DaemonManager @Inject constructor(
                 }
             }
         }
+    }
+
+    /**
+     * Gracefully stops the daemon and relaunches it.
+     * Flow: daemon-exit (TCP) → pkill fallback → extract fresh binary → launch.
+     */
+    suspend fun restart(): DaemonState = withContext(Dispatchers.IO) {
+        Log.i(TAG, "restart requested")
+        stopHeartbeat()
+        _state.value = DaemonState.LAUNCHING
+
+        // 1. TCP command exit (no shell Mutex contention, instant)
+        try { daemonClient.sendCommand("daemon-exit") } catch (_: Exception) {}
+        delay(500)
+
+        // 2. Fallback force kill (only if daemon still alive)
+        if (daemonClient.isAlive()) {
+            try { daemonLauncher.stop() } catch (_: Exception) {}
+            delay(500)
+        }
+
+        // 3. Reset state and relaunch
+        daemonDataSource.resetDeadState()
+        daemonDataSource.invalidate()
+        ensureRunning()
     }
 
     fun stopHeartbeat() {

@@ -38,6 +38,7 @@ class DaemonLauncher @Inject constructor(
         private const val TAG = "DaemonLauncher"
         private const val BINARY_NAME = "monitor-daemon"
         private const val ASSET_PATH = "daemon/monitor-daemon"
+        private const val COMMIT_ASSET_PATH = "daemon/daemon-commit.txt"
         const val LOG_PATH = "/data/local/tmp/daemon.log"
         private const val LAUNCH_WAIT_MS = 2_000L
         private const val PING_RETRIES = 3
@@ -65,15 +66,32 @@ class DaemonLauncher @Inject constructor(
     val binaryPath: String
         get() = if (shellExecutor.mode == PrivilegeMode.ROOT) rootBinaryPath else shellBinaryPath
 
+    /** Expected daemon commit from bundled assets. Empty if no version file. */
+    val expectedCommit: String by lazy {
+        try {
+            context.assets.open(COMMIT_ASSET_PATH).bufferedReader().use {
+                it.readLine()?.trim() ?: ""
+            }
+        } catch (_: Exception) { "" }
+    }
+
     /**
-     * Ensures the daemon is running.
+     * Ensures the daemon is running with the correct version.
+     * If the running daemon's commit doesn't match the bundled version,
+     * it is stopped and relaunched with the fresh binary.
      * Returns true if reachable after this call, false if launch failed or unsupported.
      * ADB mode is not supported: AdbExecutor runs as app uid and cannot write to /data/local/tmp/.
      */
     suspend fun ensureRunning(): Boolean = withContext(Dispatchers.IO) {
         if (shellExecutor.mode == PrivilegeMode.BASIC ||
             shellExecutor.mode == PrivilegeMode.ADB) return@withContext false
-        if (daemonClient.isAlive()) return@withContext true
+        if (daemonClient.isAlive()) {
+            if (isVersionMatch()) return@withContext true
+            // Version mismatch: stop old daemon, will relaunch below
+            Log.i(TAG, "daemon version mismatch, upgrading")
+            stop()
+            delay(500)
+        }
 
         var launched = false
         repeat(LAUNCH_RETRIES) {
@@ -93,13 +111,29 @@ class DaemonLauncher @Inject constructor(
     }
 
     suspend fun stop() = withContext(Dispatchers.IO) {
-        val cmd = "pkill -f $BINARY_NAME 2>/dev/null"
-        when (shellExecutor.mode) {
-            PrivilegeMode.ROOT -> shellExecutor.executeAsRoot(cmd)
-            PrivilegeMode.ADB,
-            PrivilegeMode.SHIZUKU -> shellExecutor.execute(cmd)
-            PrivilegeMode.BASIC -> Unit
+        // 1. TCP graceful exit (no shell Mutex contention)
+        try { daemonClient.sendCommand("daemon-exit") } catch (_: Exception) {}
+        delay(300)
+
+        // 2. Fallback: force kill if still alive
+        if (daemonClient.isAlive()) {
+            val cmd = "pkill -f $BINARY_NAME 2>/dev/null"
+            when (shellExecutor.mode) {
+                PrivilegeMode.ROOT -> shellExecutor.executeAsRoot(cmd)
+                PrivilegeMode.ADB,
+                PrivilegeMode.SHIZUKU -> shellExecutor.execute(cmd)
+                PrivilegeMode.BASIC -> Unit
+            }
         }
+    }
+
+    /** Returns true if the running daemon's commit matches the bundled version. */
+    private fun isVersionMatch(): Boolean {
+        if (expectedCommit.isEmpty()) return true // no version file bundled, skip check
+        val resp = daemonClient.sendCommand("daemon-version") ?: return false
+        val match = resp.contains(expectedCommit)
+        if (!match) Log.i(TAG, "version mismatch: expected=$expectedCommit, got=$resp")
+        return match
     }
 
     // ---- internal ----
@@ -107,17 +141,20 @@ class DaemonLauncher @Inject constructor(
     /**
      * Extracts binary from APK assets via Java IO, then launches via privilege channel.
      *
-     * ROOT:    extract → filesDir  →  su -c 'binary > log &'
+     * ROOT:    extract → filesDir  →  su -c 'binary' (self-daemonizes)
      * SHIZUKU: strategy1: extract → externalCacheDir, shell cp → /data/local/tmp/
      *          strategy2 (fallback): shell unzip -p APK → /data/local/tmp/
      *          (strategy2 handles Android 13+ MIUI where shell cannot access externalCacheDir)
      * ADB:     not supported (AdbExecutor runs as app uid, cannot write /data/local/tmp/)
+     *
+     * The daemon self-daemonizes (detaches stdio, writes PID file, like nginx),
+     * so no nohup/& is needed. Shell returns immediately after exec.
      */
     private suspend fun launch(): Boolean {
         return when (shellExecutor.mode) {
             PrivilegeMode.ROOT -> {
                 val dest = extractBinary(rootBinaryPath) ?: return false
-                val result = shellExecutor.executeAsRoot("'$dest' > '$LOG_PATH' 2>&1 &")
+                val result = shellExecutor.executeAsRoot("'$dest'")
                 logResult(result, dest)
             }
             PrivilegeMode.SHIZUKU -> {
@@ -127,7 +164,7 @@ class DaemonLauncher @Inject constructor(
                     val r = shellExecutor.execute(
                         "cp '$staged' '$shellBinaryPath'" +
                             " && chmod 755 '$shellBinaryPath'" +
-                            " && '$shellBinaryPath' > '$LOG_PATH' 2>&1 &"
+                            " && '$shellBinaryPath'"
                     )
                     if (r.isSuccess) return logResult(r, shellBinaryPath)
                     Log.d(TAG, "cp from staging failed (${r.stderr}), trying APK extraction")
@@ -137,7 +174,7 @@ class DaemonLauncher @Inject constructor(
                 val result = shellExecutor.execute(
                     "unzip -p '$apkPath' '$ASSET_PATH' > '$shellBinaryPath'" +
                         " && chmod 755 '$shellBinaryPath'" +
-                        " && '$shellBinaryPath' > '$LOG_PATH' 2>&1 &"
+                        " && '$shellBinaryPath'"
                 )
                 logResult(result, shellBinaryPath)
             }
