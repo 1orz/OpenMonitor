@@ -5,6 +5,8 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,12 +21,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Cable
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -50,6 +55,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.cloudorz.monitor.core.common.PermissionManager
 import com.cloudorz.monitor.core.common.PrivilegeMode
+import com.cloudorz.monitor.core.model.fps.FpsMethod
 import kotlinx.coroutines.launch
 import rikka.shizuku.Shizuku
 
@@ -256,6 +262,14 @@ fun UserScreen(
             status = daemonStatus,
             onCheck = { viewModel.checkDaemon() },
             onRestart = { viewModel.restartDaemon() },
+        )
+
+        // FPS settings card
+        val fpsSettings by viewModel.fpsSettings.collectAsState()
+        FpsSettingsCard(
+            fpsSettings = fpsSettings,
+            onMethodSelected = viewModel::setFpsMethod,
+            onIntervalSelected = viewModel::setFpsInterval,
         )
 
         // App info card
@@ -502,9 +516,30 @@ private fun DaemonStatusCard(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (status.version != null) "版本：${status.version}" else "Daemon 运行中",
+                        text = "Daemon 运行中",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (status.expectedCommit != null || status.currentCommit != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    val expected = status.expectedCommit ?: "N/A"
+                    val current = status.currentCommit ?: "N/A"
+                    val isMatch = status.expectedCommit != null &&
+                        status.currentCommit != null &&
+                        status.currentCommit.contains(status.expectedCommit)
+                    val commitColor = if (isMatch) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    }
+                    Text(
+                        text = "Expected=$expected  Current=$current",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp,
+                        ),
+                        color = commitColor,
                     )
                 }
                 Spacer(modifier = Modifier.height(8.dp))
@@ -581,4 +616,95 @@ private fun modeDescription(mode: PrivilegeMode): String = when (mode) {
     PrivilegeMode.ADB -> "已弃用 — 请使用 Shizuku 模式"
     PrivilegeMode.SHIZUKU -> "通过 Shizuku 获取 Shell 权限（推荐）"
     PrivilegeMode.BASIC -> "无特权，帧率监控等功能不可用"
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun FpsSettingsCard(
+    fpsSettings: UserViewModel.FpsSettings,
+    onMethodSelected: (FpsMethod) -> Unit,
+    onIntervalSelected: (Long) -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Filled.Speed,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "FPS 设置",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // FPS method selection
+            Text(
+                text = "采集方式",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FpsMethod.entries.forEach { method ->
+                    val isAvailable = method in fpsSettings.availableMethods
+                    FilterChip(
+                        selected = method == fpsSettings.method,
+                        onClick = { if (isAvailable) onMethodSelected(method) },
+                        label = { Text(method.displayName) },
+                        enabled = isAvailable,
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        ),
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = fpsSettings.method.description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Update interval
+            Text(
+                text = "刷新间隔",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(200L, 500L, 1000L, 2000L).forEach { interval ->
+                    val label = if (interval < 1000) "${interval}ms" else "${interval / 1000}s"
+                    FilterChip(
+                        selected = fpsSettings.intervalMs == interval,
+                        onClick = { onIntervalSelected(interval) },
+                        label = { Text(label) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        ),
+                    )
+                }
+            }
+        }
+    }
 }

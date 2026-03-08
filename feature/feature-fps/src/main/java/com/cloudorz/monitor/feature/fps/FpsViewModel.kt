@@ -2,6 +2,7 @@ package com.cloudorz.monitor.feature.fps
 
 import android.app.Application
 import android.content.Intent
+import android.content.SharedPreferences
 import android.net.Uri
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
@@ -60,6 +61,14 @@ class FpsViewModel @Inject constructor(
     private val daemonManager: DaemonManager,
 ) : ViewModel() {
 
+    // Same keys as FloatMonitorService — cannot import across module boundary
+    private companion object {
+        const val KEY_FPS_METHOD = "fps_method"
+    }
+
+    private val prefs: SharedPreferences =
+        application.getSharedPreferences("monitor_settings", Application.MODE_PRIVATE)
+
     private val _uiState = MutableStateFlow(FpsUiState())
     val uiState: StateFlow<FpsUiState> = _uiState.asStateFlow()
 
@@ -73,7 +82,27 @@ class FpsViewModel @Inject constructor(
     private val choreographerMonitor = ChoreographerFpsMonitor()
     private val frameMetricsMonitor = FrameMetricsFpsMonitor()
 
+    /** Listens for FPS method changes from the settings page. */
+    private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == KEY_FPS_METHOD) {
+            val newMethod = restoreFpsMethod()
+            if (newMethod != _uiState.value.fpsMethod && newMethod in _uiState.value.availableMethods) {
+                val wasRecording = _uiState.value.isRecording
+                if (wasRecording) {
+                    stopFpsMonitors()
+                    fpsCollectionJob?.cancel()
+                    fpsCollectionJob = null
+                }
+                _uiState.update { it.copy(fpsMethod = newMethod, currentFps = null, fpsHistory = emptyList()) }
+                if (wasRecording) {
+                    startFpsCollection()
+                }
+            }
+        }
+    }
+
     init {
+        prefs.registerOnSharedPreferenceChangeListener(prefsListener)
         observeSessions()
         updateAvailableMethodsSync()
         // React to daemon state changes
@@ -96,25 +125,17 @@ class FpsViewModel @Inject constructor(
             add(FpsMethod.FRAME_METRICS)
             add(FpsMethod.CHOREOGRAPHER)
         }
+        val savedMethod = restoreFpsMethod()
         _uiState.update {
-            val currentMethod = it.fpsMethod
-            val validMethod = if (currentMethod in methods) currentMethod else methods.first()
+            val validMethod = if (savedMethod in methods) savedMethod else methods.first()
             it.copy(availableMethods = methods, fpsMethod = validMethod, hasShellAccess = hasShell)
         }
     }
 
-    fun setFpsMethod(method: FpsMethod) {
-        if (method == _uiState.value.fpsMethod) return
-        val wasRecording = _uiState.value.isRecording
-        if (wasRecording) {
-            stopFpsMonitors()
-            fpsCollectionJob?.cancel()
-            fpsCollectionJob = null
-        }
-        _uiState.update { it.copy(fpsMethod = method, currentFps = null, fpsHistory = emptyList()) }
-        if (wasRecording) {
-            startFpsCollection()
-        }
+    private fun restoreFpsMethod(): FpsMethod {
+        val name = prefs.getString(KEY_FPS_METHOD, null)
+            ?: return FpsMethod.SURFACE_FLINGER
+        return FpsMethod.entries.find { it.name == name } ?: FpsMethod.SURFACE_FLINGER
     }
 
     private fun observeSessions() {
@@ -311,6 +332,7 @@ class FpsViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
+        prefs.unregisterOnSharedPreferenceChangeListener(prefsListener)
         stopFpsMonitors()
         fpsCollectionJob?.cancel()
         cpuCollectionJob?.cancel()

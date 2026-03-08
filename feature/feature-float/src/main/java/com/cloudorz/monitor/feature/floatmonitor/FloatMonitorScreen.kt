@@ -21,12 +21,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -53,7 +50,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
-import com.cloudorz.monitor.core.model.fps.FpsMethod
 import com.cloudorz.monitor.core.ui.R
 
 @Composable
@@ -90,11 +86,7 @@ fun FloatMonitorScreen(
             hasAccessibilityService = uiState.hasAccessibilityService,
             canShowOverlay = uiState.canShowOverlay,
             enabledMonitors = uiState.enabledMonitors,
-            fpsMethod = uiState.fpsMethod,
-            fpsIntervalMs = uiState.fpsIntervalMs,
             onToggleMonitor = viewModel::onToggleMonitor,
-            onFpsMethodSelected = viewModel::setFpsMethod,
-            onFpsIntervalSelected = viewModel::setFpsInterval,
             onRequestOverlayPermission = {
                 // Android 11+ ignores package: URI for overlay permission,
                 // so we go to app info page where the toggle is one tap away.
@@ -126,11 +118,7 @@ private fun FloatMonitorScreenContent(
     hasAccessibilityService: Boolean,
     canShowOverlay: Boolean,
     enabledMonitors: Set<FloatMonitorType>,
-    fpsMethod: FpsMethod,
-    fpsIntervalMs: Long,
     onToggleMonitor: (FloatMonitorType, Boolean) -> Unit,
-    onFpsMethodSelected: (FpsMethod) -> Unit,
-    onFpsIntervalSelected: (Long) -> Unit,
     onRequestOverlayPermission: () -> Unit,
     onRequestAccessibility: () -> Unit,
     modifier: Modifier = Modifier,
@@ -183,20 +171,6 @@ private fun FloatMonitorScreenContent(
                 onInfoClick = {
                     expandedInfo[monitorType] = !(expandedInfo[monitorType] ?: false)
                 },
-            )
-        }
-
-        // FPS settings section
-        item {
-            Spacer(modifier = Modifier.height(4.dp))
-            HorizontalDivider()
-            Spacer(modifier = Modifier.height(8.dp))
-
-            FpsSettingsSection(
-                fpsMethod = fpsMethod,
-                fpsIntervalMs = fpsIntervalMs,
-                onMethodSelected = onFpsMethodSelected,
-                onIntervalSelected = onFpsIntervalSelected,
             )
         }
 
@@ -285,89 +259,6 @@ private fun MonitorTypeCard(
                         )
                         .padding(12.dp),
                 )
-            }
-        }
-    }
-}
-
-@Composable
-private fun FpsSettingsSection(
-    fpsMethod: FpsMethod,
-    fpsIntervalMs: Long,
-    onMethodSelected: (FpsMethod) -> Unit,
-    onIntervalSelected: (Long) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = MaterialTheme.shapes.medium,
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.Speed,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.fps_settings_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium,
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // FPS method
-            Text(
-                text = stringResource(R.string.fps_method_label),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    selected = fpsMethod == FpsMethod.SURFACE_FLINGER,
-                    onClick = { onMethodSelected(FpsMethod.SURFACE_FLINGER) },
-                    label = { Text(stringResource(R.string.fps_method_sf)) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                    ),
-                )
-                FilterChip(
-                    selected = fpsMethod == FpsMethod.CHOREOGRAPHER,
-                    onClick = { onMethodSelected(FpsMethod.CHOREOGRAPHER) },
-                    label = { Text(stringResource(R.string.fps_method_ch)) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                    ),
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Update interval
-            Text(
-                text = stringResource(R.string.fps_interval_label),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(200L, 500L, 1000L, 2000L).forEach { interval ->
-                    val label = if (interval < 1000) "${interval}ms" else "${interval / 1000}s"
-                    FilterChip(
-                        selected = fpsIntervalMs == interval,
-                        onClick = { onIntervalSelected(interval) },
-                        label = { Text(label) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        ),
-                    )
-                }
             }
         }
     }

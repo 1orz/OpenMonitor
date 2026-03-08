@@ -64,6 +64,7 @@
     <string name="fps_method_sf">SurfaceFlinger</string>
     <string name="fps_method_ch">Choreographer</string>
     <string name="fps_interval_label">刷新间隔</string>
+    <string name="change_in_settings">设置页修改</string>
 
     <!-- FloatMonitorType display names -->
     <string name="monitor_load">负载监视器</string>

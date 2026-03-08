@@ -39,8 +39,6 @@ import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
@@ -74,7 +72,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cloudorz.monitor.core.ui.R
 import com.cloudorz.monitor.core.model.fps.FpsData
-import com.cloudorz.monitor.core.model.fps.FpsMethod
 import com.cloudorz.monitor.core.model.fps.FpsWatchSession
 import com.cloudorz.monitor.core.ui.theme.ChartGreen
 import com.cloudorz.monitor.core.ui.theme.ChartRed
@@ -95,7 +92,6 @@ fun FpsScreen(
         onStartRecording = { viewModel.startRecording() },
         onStopRecording = viewModel::stopRecording,
         onDeleteSession = viewModel::deleteSession,
-        onFpsMethodSelected = viewModel::setFpsMethod,
         onExportSession = { sessionId ->
             viewModel.getExportIntent(sessionId) { intent ->
                 context.startActivity(intent)
@@ -111,7 +107,6 @@ private fun FpsContent(
     onStartRecording: () -> Unit,
     onStopRecording: () -> Unit,
     onDeleteSession: (Long) -> Unit,
-    onFpsMethodSelected: (FpsMethod) -> Unit,
     onExportSession: (Long) -> Unit = {},
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -161,7 +156,6 @@ private fun FpsContent(
                     uiState = uiState,
                     onStartRecording = onStartRecording,
                     onStopRecording = onStopRecording,
-                    onFpsMethodSelected = onFpsMethodSelected,
                 )
                 1 -> SessionHistoryTab(
                     sessions = uiState.sessions,
@@ -183,7 +177,6 @@ private fun RealtimeRecordingTab(
     uiState: FpsUiState,
     onStartRecording: () -> Unit,
     onStopRecording: () -> Unit,
-    onFpsMethodSelected: (FpsMethod) -> Unit,
 ) {
     // 无 Shell 权限时显示占位提示
     if (!uiState.hasShellAccess) {
@@ -237,14 +230,31 @@ private fun RealtimeRecordingTab(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // FPS 方式选择
-            if (uiState.availableMethods.isNotEmpty()) {
-                FpsMethodSelector(
-                    availableMethods = uiState.availableMethods,
-                    selectedMethod = uiState.fpsMethod,
-                    onMethodSelected = onFpsMethodSelected,
-                    enabled = !uiState.isRecording,
-                )
+            // Current FPS method (read-only, configured in settings page)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                ),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "${stringResource(R.string.collection_method)}: ${uiState.fpsMethod.displayName}",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(
+                        text = stringResource(R.string.change_in_settings),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline,
+                    )
+                }
             }
 
             // Large FPS counter
@@ -326,54 +336,6 @@ private fun RealtimeRecordingTab(
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 24.dp),
         )
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun FpsMethodSelector(
-    availableMethods: List<FpsMethod>,
-    selectedMethod: FpsMethod,
-    onMethodSelected: (FpsMethod) -> Unit,
-    enabled: Boolean,
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-        ),
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(
-                text = stringResource(R.string.collection_method),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                FpsMethod.entries.forEach { method ->
-                    val isAvailable = method in availableMethods
-                    FilterChip(
-                        selected = method == selectedMethod,
-                        onClick = { if (isAvailable && enabled) onMethodSelected(method) },
-                        label = { Text(method.displayName) },
-                        enabled = isAvailable && enabled,
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        ),
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = selectedMethod.description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-            )
-        }
     }
 }
 

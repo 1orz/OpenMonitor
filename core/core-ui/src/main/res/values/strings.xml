@@ -64,6 +64,7 @@
     <string name="fps_method_sf">SurfaceFlinger</string>
     <string name="fps_method_ch">Choreographer</string>
     <string name="fps_interval_label">Update Interval</string>
+    <string name="change_in_settings">Change in Settings</string>
 
     <!-- FloatMonitorType display names -->
     <string name="monitor_load">Load Monitor</string>

@@ -87,10 +87,12 @@ class DaemonLauncher @Inject constructor(
             shellExecutor.mode == PrivilegeMode.ADB) return@withContext false
         if (daemonClient.isAlive()) {
             if (isVersionMatch()) return@withContext true
-            // Version mismatch: stop old daemon, will relaunch below
+            // Version mismatch: stop → delete → extract → relaunch
             Log.i(TAG, "daemon version mismatch, upgrading")
             stop()
             delay(500)
+            deleteOldBinary()
+            delay(200)
         }
 
         var launched = false
@@ -134,6 +136,25 @@ class DaemonLauncher @Inject constructor(
         val match = resp.contains(expectedCommit)
         if (!match) Log.i(TAG, "version mismatch: expected=$expectedCommit, got=$resp")
         return match
+    }
+
+    /**
+     * Deletes the old daemon binary from disk so that [launch] extracts a fresh copy from APK.
+     * ROOT: app can directly delete filesDir binary.
+     * SHIZUKU: /data/local/tmp/ is shell-writable, need shell rm.
+     */
+    private suspend fun deleteOldBinary() {
+        // Delete app-local copy (ROOT path or staging)
+        File(rootBinaryPath).delete()
+        File(stagingPath).delete()
+
+        // Delete /data/local/tmp/ copy via shell (app uid cannot write there)
+        if (shellExecutor.mode == PrivilegeMode.SHIZUKU) {
+            shellExecutor.execute("rm -f '$shellBinaryPath'")
+        } else if (shellExecutor.mode == PrivilegeMode.ROOT) {
+            shellExecutor.executeAsRoot("rm -f '$shellBinaryPath'")
+        }
+        Log.i(TAG, "deleted old binary")
     }
 
     // ---- internal ----
