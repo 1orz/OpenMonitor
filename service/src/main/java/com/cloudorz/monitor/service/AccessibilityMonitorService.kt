@@ -2,8 +2,10 @@ package com.cloudorz.monitor.service
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Bundle
 import android.view.accessibility.AccessibilityEvent
 
 /**
@@ -61,8 +63,18 @@ class AccessibilityMonitorService : AccessibilityService() {
         }
 
         fun openSettings(context: Context) {
+            val componentName = ComponentName(
+                context.packageName,
+                AccessibilityMonitorService::class.java.name,
+            ).flattenToString()
+
             val intent = Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                // AOSP Settings uses this to scroll to & highlight the specific service
+                putExtra(":settings:fragment_args_key", componentName)
+                putExtra(":settings:show_fragment_args", Bundle().apply {
+                    putString(":settings:fragment_args_key", componentName)
+                })
             }
             context.startActivity(intent)
         }
