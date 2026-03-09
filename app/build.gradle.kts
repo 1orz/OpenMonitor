@@ -42,10 +42,10 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file("${rootProject.projectDir}/release.jks")
-            storePassword = "monitor123"
-            keyAlias = "monitor"
-            keyPassword = "monitor123"
+            storeFile = file(System.getenv("KEYSTORE_PATH") ?: "${rootProject.projectDir}/release.jks")
+            storePassword = System.getenv("STORE_PASSWORD") ?: "monitor123"
+            keyAlias = System.getenv("KEY_ALIAS") ?: "monitor"
+            keyPassword = System.getenv("KEY_PASSWORD") ?: "monitor123"
         }
     }
 
