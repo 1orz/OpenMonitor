@@ -43,9 +43,10 @@ android {
     signingConfigs {
         create("release") {
             storeFile = file(System.getenv("KEYSTORE_PATH") ?: "${rootProject.projectDir}/release.jks")
-            storePassword = System.getenv("STORE_PASSWORD") ?: "monitor123"
-            keyAlias = System.getenv("KEY_ALIAS") ?: "monitor"
-            keyPassword = System.getenv("KEY_PASSWORD") ?: "monitor123"
+            val pw = System.getenv("STORE_PASSWORD") ?: "monitor123"
+            storePassword = pw
+            keyAlias = "opmonitor"
+            keyPassword = pw
         }
     }
 
@@ -72,7 +73,7 @@ android {
     }
 }
 
-// ── Build monitor-daemon from Go source (git submodule) ──────────────────────
+// ── Build monitor-daemon from Go source ─────────────────────────────────────
 val daemonSrcDir = file("${rootProject.projectDir}/monitor-daemon")
 val daemonBinary = file("src/main/jniLibs/arm64-v8a/libmonitor-daemon.so")
 val daemonCommitFile = file("src/main/assets/daemon/daemon-commit.txt")
@@ -84,13 +85,13 @@ val buildMonitorDaemon by tasks.registering(Exec::class) {
 
     workingDir = daemonSrcDir
 
-    // Inject git commit hash via -ldflags
-    val gitCommit = providers.exec {
-        workingDir = daemonSrcDir
-        commandLine("git", "rev-parse", "--short", "HEAD")
+    // Use hash of daemon source tree (no longer a submodule)
+    val daemonHash = providers.exec {
+        workingDir = rootProject.projectDir
+        commandLine("git", "log", "-1", "--format=%h", "--", "monitor-daemon")
     }.standardOutput.asText.map { it.trim() }.getOrElse("unknown")
 
-    val ldflags = "-s -w -X monitor-daemon/collector.GitCommit=$gitCommit"
+    val ldflags = "-s -w -X monitor-daemon/collector.GitCommit=$daemonHash"
     commandLine = listOf("go", "build", "-ldflags", ldflags, "-o", daemonBinary.absolutePath, "./cmd/daemon")
     environment("GOOS", "android")
     environment("GOARCH", "arm64")
@@ -101,9 +102,8 @@ val buildMonitorDaemon by tasks.registering(Exec::class) {
     outputs.file(daemonBinary)
 
     doLast {
-        // Write commit hash to assets for version matching
         daemonCommitFile.parentFile.mkdirs()
-        daemonCommitFile.writeText(gitCommit)
+        daemonCommitFile.writeText(daemonHash)
     }
 }
 
