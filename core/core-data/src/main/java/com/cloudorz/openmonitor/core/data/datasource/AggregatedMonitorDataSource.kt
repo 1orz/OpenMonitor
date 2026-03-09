@@ -22,7 +22,7 @@ class AggregatedMonitorDataSource @Inject constructor(
     private val shellExecutor: ShellExecutor,
     private val platformDetector: PlatformDetector,
     private val daemonDataSource: DaemonDataSource,
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
 ) {
     companion object {
         private const val TAG = "AggregatedMonitor"

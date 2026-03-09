@@ -21,8 +21,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -36,12 +36,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
+import android.content.ClipData
+import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import kotlinx.coroutines.launch
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cloudorz.openmonitor.core.common.AppLogEntry
 
@@ -54,7 +57,8 @@ fun LogScreen(viewModel: LogViewModel = hiltViewModel()) {
 
     var selectedTab by remember { mutableIntStateOf(0) }
     var autoScroll by remember { mutableStateOf(true) }
-    val clipboard = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
+    val scope = rememberCoroutineScope()
 
     val appListState = rememberLazyListState()
     val daemonListState = rememberLazyListState()
@@ -89,7 +93,7 @@ fun LogScreen(viewModel: LogViewModel = hiltViewModel()) {
                             val text = appLogs.joinToString("\n") {
                                 "${it.time} ${it.level}/${it.tag}: ${it.message}"
                             }
-                            clipboard.setText(AnnotatedString(text))
+                            scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("logs", text))) }
                         }) {
                             Icon(Icons.Outlined.ContentCopy, contentDescription = "复制全部")
                         }
@@ -109,7 +113,7 @@ fun LogScreen(viewModel: LogViewModel = hiltViewModel()) {
                             Icon(Icons.Outlined.Refresh, contentDescription = "立即刷新")
                         }
                         IconButton(onClick = {
-                            clipboard.setText(AnnotatedString(daemonLogs.joinToString("\n")))
+                            scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("logs", daemonLogs.joinToString("\n")))) }
                         }) {
                             Icon(Icons.Outlined.ContentCopy, contentDescription = "复制全部")
                         }
@@ -129,7 +133,7 @@ fun LogScreen(viewModel: LogViewModel = hiltViewModel()) {
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            TabRow(selectedTabIndex = selectedTab) {
+            PrimaryTabRow(selectedTabIndex = selectedTab) {
                 Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },

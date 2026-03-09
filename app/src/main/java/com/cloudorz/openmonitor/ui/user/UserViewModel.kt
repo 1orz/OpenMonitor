@@ -26,7 +26,7 @@ class UserViewModel @Inject constructor(
     private val daemonClient: DaemonClient,
     private val daemonManager: DaemonManager,
     private val daemonLauncher: DaemonLauncher,
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
 ) : ViewModel() {
 
     data class DaemonStatus(

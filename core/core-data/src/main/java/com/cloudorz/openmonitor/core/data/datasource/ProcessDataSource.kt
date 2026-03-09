@@ -40,7 +40,8 @@ class ProcessDataSource @Inject constructor(
     }
 
     suspend fun getProcessDetail(pid: Int): ProcessInfo? = withContext(Dispatchers.IO) {
-        val statusLines = sysfsReader.readLines("/proc/$pid/status") ?: return@withContext null
+        val statusLines = sysfsReader.readLines("/proc/$pid/status")
+        if (statusLines.isEmpty()) return@withContext null
         val statusMap = mutableMapOf<String, String>()
         for (line in statusLines) {
             val parts = line.split(":", limit = 2)

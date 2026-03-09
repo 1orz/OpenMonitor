@@ -35,7 +35,7 @@ data class ChargeUiState(
 
 @HiltViewModel
 class ChargeViewModel @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val batteryRepository: BatteryRepository,
     private val chargeRepository: ChargeRepository,
     private val csvExporter: CsvExporter,

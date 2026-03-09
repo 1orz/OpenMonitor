@@ -14,7 +14,7 @@ import javax.inject.Singleton
 
 @Singleton
 class PermissionManager @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val rootExecutor: RootExecutor,
     private val shizukuExecutor: ShizukuExecutor,
     private val adbExecutor: AdbExecutor,

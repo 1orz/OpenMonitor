@@ -61,7 +61,7 @@ class CpuDataSource @Inject constructor(
     }
 
     private suspend fun parseProcStat(): List<LongArray> {
-        val lines = sysfsReader.readLines(procStatPath) ?: return emptyList()
+        val lines = sysfsReader.readLines(procStatPath)
         return lines
             .filter { it.startsWith("cpu") }
             .map { line ->
@@ -103,7 +103,8 @@ class CpuDataSource @Inject constructor(
         cpuNativeInfo.getCpuName()?.let { return@withContext it }
 
         // Fallback to /proc/cpuinfo parsing
-        val cpuInfo = sysfsReader.readLines("/proc/cpuinfo") ?: return@withContext "Unknown"
+        val cpuInfo = sysfsReader.readLines("/proc/cpuinfo")
+        if (cpuInfo.isEmpty()) return@withContext "Unknown"
         cpuInfo.firstOrNull { it.startsWith("Hardware") }
             ?.substringAfter(":")?.trim()
             ?: cpuInfo.firstOrNull { it.startsWith("model name") }

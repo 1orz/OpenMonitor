@@ -31,7 +31,7 @@ data class PowerUiState(
 
 @HiltViewModel
 class PowerViewModel @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val batteryRepository: BatteryRepository,
     private val powerRepository: PowerRepository,
     private val csvExporter: CsvExporter,

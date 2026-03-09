@@ -38,7 +38,8 @@ fun <T> adaptivePollingFlow(
         val value = emitter()
         emit(value)
 
-        currentInterval = if (lastValue != null && hasChanged(lastValue!!, value)) {
+        @Suppress("UNCHECKED_CAST")
+        currentInterval = if (lastValue != null && hasChanged(lastValue as T, value)) {
             (currentInterval * 0.8).toLong().coerceAtLeast(minIntervalMs)
         } else {
             (currentInterval * 1.2).toLong().coerceAtMost(maxIntervalMs)

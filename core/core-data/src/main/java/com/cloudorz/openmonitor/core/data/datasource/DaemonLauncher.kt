@@ -29,7 +29,7 @@ import javax.inject.Singleton
 class DaemonLauncher @Inject constructor(
     private val shellExecutor: ShellExecutor,
     private val daemonClient: DaemonClient,
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
 ) {
     companion object {
         private const val TAG = "DaemonLauncher"

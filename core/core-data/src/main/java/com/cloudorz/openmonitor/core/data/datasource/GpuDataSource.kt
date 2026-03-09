@@ -18,7 +18,7 @@ import javax.inject.Singleton
 class GpuDataSource @Inject constructor(
     private val sysfsReader: SysfsReader,
     private val platformDetector: PlatformDetector,
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) {
     companion object {
         private const val TAG = "GpuDataSource"

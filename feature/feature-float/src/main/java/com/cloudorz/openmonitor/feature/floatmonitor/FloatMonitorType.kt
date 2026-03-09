@@ -4,9 +4,9 @@ import androidx.annotation.StringRes
 import com.cloudorz.openmonitor.core.ui.R
 
 enum class FloatMonitorType(
-    @StringRes val displayNameRes: Int,
-    @StringRes val descriptionRes: Int,
-    @StringRes val infoRes: Int,
+    @param:StringRes val displayNameRes: Int,
+    @param:StringRes val descriptionRes: Int,
+    @param:StringRes val infoRes: Int,
 ) {
     LOAD_MONITOR(R.string.monitor_load, R.string.monitor_load_desc, R.string.monitor_load_info),
     PROCESS_MONITOR(R.string.monitor_process, R.string.monitor_process_desc, R.string.monitor_process_info),

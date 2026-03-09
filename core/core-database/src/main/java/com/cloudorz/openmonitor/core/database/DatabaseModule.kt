@@ -23,7 +23,7 @@ object DatabaseModule {
             context,
             MonitorDatabase::class.java,
             "cloud_monitor.db",
-        ).fallbackToDestructiveMigration()
+        ).fallbackToDestructiveMigration(dropAllTables = true)
             .build()
     }
 

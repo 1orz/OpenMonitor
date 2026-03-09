@@ -18,7 +18,7 @@ import javax.inject.Singleton
 @Singleton
 class BatteryDataSource @Inject constructor(
     private val sysfsReader: SysfsReader,
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) {
     companion object {
         private const val TAG = "BatteryDataSource"
