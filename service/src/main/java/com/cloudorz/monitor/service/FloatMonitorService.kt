@@ -45,7 +45,7 @@ class FloatMonitorService : LifecycleService() {
         const val ACTION_STOP = "com.cloudorz.monitor.service.FLOAT_STOP"
         const val ACTION_ADD_MONITOR = "com.cloudorz.monitor.service.FLOAT_ADD"
         const val ACTION_REMOVE_MONITOR = "com.cloudorz.monitor.service.FLOAT_REMOVE"
-        const val ACTION_UPDATE_FPS_SETTINGS = "com.cloudorz.monitor.service.UPDATE_FPS"
+        const val ACTION_UPDATE_POLL_SETTINGS = "com.cloudorz.monitor.service.UPDATE_POLL"
         const val EXTRA_MONITOR_TYPE = "monitor_type"
 
         const val TYPE_LOAD = "LOAD_MONITOR"
@@ -58,8 +58,8 @@ class FloatMonitorService : LifecycleService() {
         private const val PREFS_NAME = "monitor_settings"
         private const val KEY_ENABLED_MONITORS = "enabled_monitors"
         private const val KEY_SERVICE_ACTIVE = "float_service_active"
-        const val KEY_FPS_INTERVAL = "fps_interval"
-        const val DEFAULT_FPS_INTERVAL = 500L
+        const val KEY_POLL_INTERVAL = "poll_interval"
+        const val DEFAULT_POLL_INTERVAL = 500L
 
         fun startIntent(context: Context): Intent =
             Intent(context, FloatMonitorService::class.java).apply { action = ACTION_START }
@@ -79,9 +79,9 @@ class FloatMonitorService : LifecycleService() {
                 putExtra(EXTRA_MONITOR_TYPE, monitorType)
             }
 
-        fun updateFpsSettingsIntent(context: Context): Intent =
+        fun updatePollSettingsIntent(context: Context): Intent =
             Intent(context, FloatMonitorService::class.java).apply {
-                action = ACTION_UPDATE_FPS_SETTINGS
+                action = ACTION_UPDATE_POLL_SETTINGS
             }
     }
 
@@ -96,6 +96,7 @@ class FloatMonitorService : LifecycleService() {
     @Inject lateinit var daemonLauncher: DaemonLauncher
     @Inject lateinit var daemonDataSource: DaemonDataSource
     @Inject lateinit var daemonManager: DaemonManager
+    @Inject lateinit var daemonClient: com.cloudorz.monitor.core.data.datasource.DaemonClient
 
     private lateinit var floatWindowManager: FloatWindowManager
     private val dataCollectionJobs = mutableMapOf<String, Job>()
@@ -153,8 +154,8 @@ class FloatMonitorService : LifecycleService() {
                 val type = intent.getStringExtra(EXTRA_MONITOR_TYPE) ?: return START_STICKY
                 removeMonitor(type)
             }
-            ACTION_UPDATE_FPS_SETTINGS -> {
-                restartSharedFpsJob()
+            ACTION_UPDATE_POLL_SETTINGS -> {
+                restartAllJobs()
             }
         }
 
@@ -174,9 +175,23 @@ class FloatMonitorService : LifecycleService() {
             .build()
 
         startForeground(NOTIFICATION_ID, notification)
+
+        // Auto-restore saved monitors (supports daemon watchdog restart)
+        val savedMonitors = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            .getStringSet(KEY_ENABLED_MONITORS, emptySet()) ?: emptySet()
+        for (type in savedMonitors) {
+            addMonitor(type)
+        }
+
+        // Notify daemon to start watchdog if monitors are active
+        if (savedMonitors.isNotEmpty()) {
+            notifyWatchdog(true)
+        }
     }
 
     private fun stopFloatService() {
+        notifyWatchdog(false)
+
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
             .edit()
             .putBoolean(KEY_SERVICE_ACTIVE, false)
@@ -190,6 +205,14 @@ class FloatMonitorService : LifecycleService() {
         floatWindowManager.removeAllWindows()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
+    }
+
+    private fun notifyWatchdog(enable: Boolean) {
+        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                daemonClient.sendCommand(if (enable) "watchdog-start" else "watchdog-stop")
+            } catch (_: Exception) {}
+        }
     }
 
     private fun addMonitor(type: String) {
@@ -322,13 +345,11 @@ class FloatMonitorService : LifecycleService() {
             .apply()
     }
 
-    private suspend fun collectDataForType(type: String) {
-        val intervalMs = when (type) {
-            TYPE_MINI -> 1000L
-            TYPE_PROCESS, TYPE_THREAD -> 2000L
-            else -> 1500L
-        }
+    private fun getPollInterval(): Long =
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            .getLong(KEY_POLL_INTERVAL, DEFAULT_POLL_INTERVAL)
 
+    private suspend fun collectDataForType(type: String) {
         while (kotlin.coroutines.coroutineContext.isActive) {
             try {
                 when (type) {
@@ -340,6 +361,13 @@ class FloatMonitorService : LifecycleService() {
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "collectDataForType($type) failed", e)
+            }
+            // Process/Thread are heavier — use 2x interval (min 1000ms)
+            val base = getPollInterval()
+            val intervalMs = if (type == TYPE_PROCESS || type == TYPE_THREAD) {
+                (base * 2).coerceAtLeast(1000L)
+            } else {
+                base
             }
             delay(intervalMs)
         }
@@ -391,18 +419,25 @@ class FloatMonitorService : LifecycleService() {
                 } catch (e: Exception) {
                     Log.w(TAG, "collectSharedFps failed", e)
                 }
-                val interval = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                    .getLong(KEY_FPS_INTERVAL, DEFAULT_FPS_INTERVAL)
-                delay(interval)
+                delay(getPollInterval())
             }
         }
     }
 
-    private fun restartSharedFpsJob() {
-        if (sharedFpsJob?.isActive != true) return
-        sharedFpsJob?.cancel()
-        sharedFpsJob = null
-        ensureSharedFpsJob()
+    /** Restart all active collection jobs with the new poll interval */
+    private fun restartAllJobs() {
+        // Restart shared FPS job
+        if (sharedFpsJob?.isActive == true) {
+            sharedFpsJob?.cancel()
+            sharedFpsJob = null
+            ensureSharedFpsJob()
+        }
+        // Restart per-type data jobs
+        val activeTypes = dataCollectionJobs.keys.toList()
+        for (type in activeTypes) {
+            dataCollectionJobs.remove(type)?.cancel()
+            dataCollectionJobs[type] = lifecycleScope.launch { collectDataForType(type) }
+        }
     }
 
     private suspend fun collectThermalData() {

@@ -37,8 +37,8 @@ class UserViewModel @Inject constructor(
         val checkedOnce: Boolean = false,
     )
 
-    data class FpsSettings(
-        val intervalMs: Long = FloatMonitorService.DEFAULT_FPS_INTERVAL,
+    data class PollSettings(
+        val intervalMs: Long = FloatMonitorService.DEFAULT_POLL_INTERVAL,
     )
 
     private val prefs = context.getSharedPreferences("monitor_settings", Context.MODE_PRIVATE)
@@ -46,12 +46,12 @@ class UserViewModel @Inject constructor(
     private val _daemonStatus = MutableStateFlow(DaemonStatus())
     val daemonStatus: StateFlow<DaemonStatus> = _daemonStatus.asStateFlow()
 
-    private val _fpsSettings = MutableStateFlow(
-        FpsSettings(
-            intervalMs = prefs.getLong(FloatMonitorService.KEY_FPS_INTERVAL, FloatMonitorService.DEFAULT_FPS_INTERVAL),
+    private val _pollSettings = MutableStateFlow(
+        PollSettings(
+            intervalMs = prefs.getLong(FloatMonitorService.KEY_POLL_INTERVAL, FloatMonitorService.DEFAULT_POLL_INTERVAL),
         )
     )
-    val fpsSettings: StateFlow<FpsSettings> = _fpsSettings.asStateFlow()
+    val pollSettings: StateFlow<PollSettings> = _pollSettings.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -112,15 +112,11 @@ class UserViewModel @Inject constructor(
         }
     }
 
-    fun setFpsInterval(intervalMs: Long) {
-        prefs.edit().putLong(FloatMonitorService.KEY_FPS_INTERVAL, intervalMs).apply()
-        _fpsSettings.update { it.copy(intervalMs = intervalMs) }
-        notifyServiceFpsSettingsChanged()
-    }
-
-    private fun notifyServiceFpsSettingsChanged() {
+    fun setPollInterval(intervalMs: Long) {
+        prefs.edit().putLong(FloatMonitorService.KEY_POLL_INTERVAL, intervalMs).apply()
+        _pollSettings.update { it.copy(intervalMs = intervalMs) }
         try {
-            context.startService(FloatMonitorService.updateFpsSettingsIntent(context))
+            context.startService(FloatMonitorService.updatePollSettingsIntent(context))
         } catch (_: Exception) {}
     }
 

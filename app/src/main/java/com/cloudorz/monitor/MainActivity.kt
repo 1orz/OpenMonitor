@@ -25,10 +25,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import android.provider.Settings
 import com.cloudorz.monitor.core.common.PermissionManager
 import com.cloudorz.monitor.core.common.PrivilegeMode
 import com.cloudorz.monitor.core.data.datasource.DaemonManager
 import com.cloudorz.monitor.core.data.datasource.DaemonState
+import com.cloudorz.monitor.service.AccessibilityMonitorService
+import com.cloudorz.monitor.service.FloatMonitorService
 import com.cloudorz.monitor.core.ui.theme.MonitorTheme
 import com.cloudorz.monitor.feature.charge.ChargeScreen
 import com.cloudorz.monitor.feature.cpu.CpuScreen
@@ -47,6 +50,7 @@ import com.cloudorz.monitor.ui.navigation.FeatureRoute
 import com.cloudorz.monitor.ui.navigation.Route
 import com.cloudorz.monitor.ui.splash.PermissionGuideScreen
 import com.cloudorz.monitor.ui.user.UserScreen  // 设置页复用
+import androidx.compose.ui.platform.LocalContext
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -151,6 +155,26 @@ private fun MonitorAppContent(permissionManager: PermissionManager, daemonManage
 
 @Composable
 private fun MainScreen(permissionManager: PermissionManager) {
+    val context = LocalContext.current
+
+    // Restore saved float monitors on app start
+    LaunchedEffect(Unit) {
+        val prefs = context.getSharedPreferences("monitor_settings", android.content.Context.MODE_PRIVATE)
+        val savedMonitors = prefs.getStringSet("enabled_monitors", emptySet()) ?: emptySet()
+        if (savedMonitors.isEmpty()) return@LaunchedEffect
+
+        var canShow = Settings.canDrawOverlays(context) || AccessibilityMonitorService.isEnabled(context)
+        if (!canShow && permissionManager.currentMode.value != PrivilegeMode.BASIC) {
+            AccessibilityMonitorService.enableViaShell(context, permissionManager.getExecutor())
+            delay(1500)
+            canShow = AccessibilityMonitorService.isEnabled(context)
+        }
+        if (canShow) {
+            // Service auto-restores saved monitors in startFloatService()
+            context.startForegroundService(FloatMonitorService.startIntent(context))
+        }
+    }
+
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route

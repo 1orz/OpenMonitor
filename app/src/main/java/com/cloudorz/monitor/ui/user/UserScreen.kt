@@ -251,8 +251,10 @@ fun UserScreen(
             }
         }
 
-        // Shizuku setup guide
-        ShizukuSetupCard(shizukuStatus)
+        // Shizuku setup guide (only shown in SHIZUKU mode)
+        if (currentMode == PrivilegeMode.SHIZUKU) {
+            ShizukuSetupCard(shizukuStatus)
+        }
 
         // Daemon status card
         DaemonStatusCard(
@@ -261,11 +263,11 @@ fun UserScreen(
             onRestart = { viewModel.restartDaemon() },
         )
 
-        // FPS settings card
-        val fpsSettings by viewModel.fpsSettings.collectAsState()
-        FpsSettingsCard(
-            fpsSettings = fpsSettings,
-            onIntervalSelected = viewModel::setFpsInterval,
+        // Poll interval settings card
+        val pollSettings by viewModel.pollSettings.collectAsState()
+        PollSettingsCard(
+            pollSettings = pollSettings,
+            onIntervalSelected = viewModel::setPollInterval,
         )
 
         // App info card
@@ -615,8 +617,8 @@ private fun modeDescription(mode: PrivilegeMode): String = when (mode) {
 }
 
 @Composable
-private fun FpsSettingsCard(
-    fpsSettings: UserViewModel.FpsSettings,
+private fun PollSettingsCard(
+    pollSettings: UserViewModel.PollSettings,
     onIntervalSelected: (Long) -> Unit,
 ) {
     Card(
@@ -639,7 +641,7 @@ private fun FpsSettingsCard(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "FPS 设置",
+                    text = "采样设置",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -647,7 +649,7 @@ private fun FpsSettingsCard(
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
-                text = "刷新间隔",
+                text = "数据刷新间隔（所有悬浮窗）",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -656,7 +658,7 @@ private fun FpsSettingsCard(
                 listOf(200L, 500L, 1000L, 2000L).forEach { interval ->
                     val label = if (interval < 1000) "${interval}ms" else "${interval / 1000}s"
                     FilterChip(
-                        selected = fpsSettings.intervalMs == interval,
+                        selected = pollSettings.intervalMs == interval,
                         onClick = { onIntervalSelected(interval) },
                         label = { Text(label) },
                         colors = FilterChipDefaults.filterChipColors(

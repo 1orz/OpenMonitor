@@ -138,6 +138,30 @@ class FloatMonitorViewModel @Inject constructor(
         context.startService(addIntent)
     }
 
+    fun tryEnableAccessibility(onManualRequired: () -> Unit) {
+        val mode = permissionManager.currentMode.value
+        if (mode == PrivilegeMode.BASIC) {
+            onManualRequired()
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val executor = permissionManager.getExecutor()
+                val success = AccessibilityMonitorService.enableViaShell(context, executor)
+                if (success) {
+                    delay(1500)
+                    val enabled = AccessibilityMonitorService.isEnabled(context)
+                    _uiState.update { it.copy(hasAccessibilityService = enabled) }
+                    if (!enabled) onManualRequired()
+                } else {
+                    onManualRequired()
+                }
+            } catch (_: Exception) {
+                onManualRequired()
+            }
+        }
+    }
+
     private fun stopMonitor(type: FloatMonitorType) {
         val removeIntent = FloatMonitorService.removeMonitorIntent(context, type.name)
         context.startService(removeIntent)

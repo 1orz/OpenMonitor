@@ -106,8 +106,9 @@ fun FloatMonitorScreen(
                 }
             },
             onRequestAccessibility = {
-                val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-                context.startActivity(intent)
+                viewModel.tryEnableAccessibility {
+                    context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                }
             },
             modifier = Modifier.padding(paddingValues),
         )
