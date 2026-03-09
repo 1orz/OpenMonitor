@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.4.1)
-project(SystemMonitor-Native)
+project(OpenMonitor-Native)
 
 # Import prebuilt cpuinfo static library
 set(distribution_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external)

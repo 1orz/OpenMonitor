@@ -15,7 +15,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "SystemMonitor"
+rootProject.name = "OpenMonitor"
 
 include(":app")
 include(":core:core-common")
