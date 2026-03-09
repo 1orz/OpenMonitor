@@ -88,20 +88,22 @@ fun FloatMonitorScreen(
             enabledMonitors = uiState.enabledMonitors,
             onToggleMonitor = viewModel::onToggleMonitor,
             onRequestOverlayPermission = {
-                // Android 11+ ignores package: URI for overlay permission,
-                // so we go to app info page where the toggle is one tap away.
-                val intent = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                    Intent(
-                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                        Uri.parse("package:${context.packageName}"),
+                try {
+                    context.startActivity(
+                        Intent(
+                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            Uri.parse("package:${context.packageName}"),
+                        )
                     )
-                } else {
-                    Intent(
-                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        Uri.parse("package:${context.packageName}"),
+                } catch (_: Exception) {
+                    // Some OEMs (HyperOS/ColorOS) may fail — fallback to app details
+                    context.startActivity(
+                        Intent(
+                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.parse("package:${context.packageName}"),
+                        )
                     )
                 }
-                context.startActivity(intent)
             },
             onRequestAccessibility = {
                 val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
