@@ -79,7 +79,7 @@ class FloatWindowManager(private val context: Context) {
 
         val savedX = posPrefs.getInt("${id}_x", Int.MIN_VALUE)
         val savedY = posPrefs.getInt("${id}_y", Int.MIN_VALUE)
-        val hasSaved = savedX != Int.MIN_VALUE && savedY != Int.MIN_VALUE
+        val hasSaved = draggable && savedX != Int.MIN_VALUE && savedY != Int.MIN_VALUE
 
         val params = WindowManager.LayoutParams(
             width,

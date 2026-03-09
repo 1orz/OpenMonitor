@@ -160,7 +160,7 @@ fun FloatMiniMonitorContent(service: FloatMonitorService) {
 
     Box(
         modifier = Modifier
-            .background(Color(0x66000000), RoundedCornerShape(bottomStart = 3.dp, bottomEnd = 3.dp))
+            .background(Color(0x66000000), RoundedCornerShape(3.dp))
             .padding(start = 3.dp, end = 2.dp),
         contentAlignment = Alignment.Center,
     ) {

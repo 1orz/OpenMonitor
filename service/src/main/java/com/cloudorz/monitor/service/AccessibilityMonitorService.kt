@@ -53,6 +53,33 @@ class AccessibilityMonitorService : AccessibilityService() {
 
         val isActive: Boolean get() = instance != null
 
+        private fun componentName(context: Context): String =
+            "${context.packageName}/${AccessibilityMonitorService::class.java.canonicalName}"
+
+        /**
+         * Enable this accessibility service via shell command (ADB/Shizuku/Root).
+         * Returns true if the service is (now) listed in enabled_accessibility_services.
+         */
+        suspend fun enableViaShell(
+            context: Context,
+            executor: com.cloudorz.monitor.core.common.ShellExecutor,
+        ): Boolean {
+            try {
+                val cn = componentName(context)
+                val getResult = executor.execute("settings get secure enabled_accessibility_services")
+                val current = getResult.stdout.trim()
+                if (current.contains(cn)) return true
+
+                val newValue = if (current.isEmpty() || current == "null") cn else "$current:$cn"
+                val putResult = executor.execute("settings put secure enabled_accessibility_services '$newValue'")
+                if (!putResult.isSuccess) return false
+                executor.execute("settings put secure accessibility_enabled 1")
+                return true
+            } catch (_: Exception) {
+                return false
+            }
+        }
+
         fun isEnabled(context: Context): Boolean {
             val enabledServices = android.provider.Settings.Secure.getString(
                 context.contentResolver,
