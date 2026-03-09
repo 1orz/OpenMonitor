@@ -132,8 +132,15 @@ func (s *Server) handleStream(conn net.Conn, streamCmd string) {
 	}
 	log.Printf("[stream] start cmd=%q interval=%dms", innerCmd, intervalMs)
 
+	// Adjust daemon sampling rate to match stream interval
+	prevInterval := collector.GetSampleInterval()
+	collector.SetSampleInterval(int64(intervalMs))
+
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	defer func() {
+		cancel()
+		collector.SetSampleInterval(prevInterval) // restore on disconnect
+	}()
 
 	// Goroutine: detect @signal:exit or client disconnect.
 	conn.SetReadDeadline(time.Time{}) // no deadline during stream
@@ -198,6 +205,17 @@ func (s *Server) dispatch(cmd string) []byte {
 		}
 		collector.SetLogLevel(level)
 		return []byte(fmt.Sprintf(`{"status":"ok","level":"%s"}`, collector.LevelName(level)))
+	case "sample-interval":
+		parts := strings.SplitN(cmd, "\n", 2)
+		if len(parts) < 2 {
+			return []byte(`{"error":"usage: sample-interval\\n<ms>"}`)
+		}
+		ms, err := strconv.ParseInt(strings.TrimSpace(parts[1]), 10, 64)
+		if err != nil {
+			return []byte(fmt.Sprintf(`{"error":"invalid interval: %s"}`, strings.TrimSpace(parts[1])))
+		}
+		collector.SetSampleInterval(ms)
+		return []byte(fmt.Sprintf(`{"status":"ok","interval_ms":%d}`, collector.GetSampleInterval()))
 	case "watchdog-start":
 		started := s.watchdog.Start()
 		return []byte(fmt.Sprintf(`{"status":"ok","watchdog":true,"changed":%v}`, started))

@@ -4,8 +4,26 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 )
+
+// sampleIntervalMs controls system sampling rate (default 1000ms).
+// Adjusted at runtime via SetSampleInterval when a stream client connects.
+var sampleIntervalMs int64 = 1000
+
+// SetSampleInterval adjusts the system sampling rate (minimum 200ms).
+func SetSampleInterval(ms int64) {
+	if ms < 200 {
+		ms = 200
+	}
+	atomic.StoreInt64(&sampleIntervalMs, ms)
+}
+
+// GetSampleInterval returns the current system sampling interval in ms.
+func GetSampleInterval() int64 {
+	return atomic.LoadInt64(&sampleIntervalMs)
+}
 
 // daemonRunner is the identity of the current process: "root" or "shell".
 var daemonRunner = func() string {
@@ -70,11 +88,11 @@ func (c *Collector) Start() {
 	// FPS: background 500ms sampling
 	c.fps.start()
 
-	// System stats: 1s polling
+	// System stats: dynamic interval (default 1s, adjustable via SetSampleInterval)
 	go func() {
 		for {
 			c.sampleSystem()
-			time.Sleep(1 * time.Second)
+			time.Sleep(time.Duration(atomic.LoadInt64(&sampleIntervalMs)) * time.Millisecond)
 		}
 	}()
 }
