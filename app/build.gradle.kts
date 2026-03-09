@@ -34,9 +34,11 @@ android {
         }
     }
 
-    androidResources {
-        // Keep daemon binary uncompressed in APK so shell can unzip it as a direct copy
-        noCompress += listOf("monitor-daemon")
+    packaging {
+        jniLibs {
+            // Force extraction of native libs so daemon binary is executable from nativeLibraryDir
+            useLegacyPackaging = true
+        }
     }
 
     signingConfigs {
@@ -77,7 +79,8 @@ android {
 
 // ── Build monitor-daemon from Go source (git submodule) ──────────────────────
 val daemonSrcDir = file("${rootProject.projectDir}/monitor-daemon")
-val daemonBinary = file("src/main/assets/daemon/monitor-daemon")
+val daemonBinary = file("src/main/jniLibs/arm64-v8a/libmonitor-daemon.so")
+val daemonCommitFile = file("src/main/assets/daemon/daemon-commit.txt")
 
 val buildMonitorDaemon by tasks.registering(Exec::class) {
     group = "build"
@@ -101,6 +104,12 @@ val buildMonitorDaemon by tasks.registering(Exec::class) {
     inputs.files(fileTree(daemonSrcDir) { include("**/*.go", "go.mod", "go.sum") })
         .withPathSensitivity(PathSensitivity.RELATIVE)
     outputs.file(daemonBinary)
+
+    doLast {
+        // Write commit hash to assets for version matching
+        daemonCommitFile.parentFile.mkdirs()
+        daemonCommitFile.writeText(gitCommit)
+    }
 }
 
 tasks.named("preBuild") {
