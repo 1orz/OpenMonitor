@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">CloudMonitor</string>
+    <string name="app_name">OpenMonitor</string>
     <string name="tab_features">Features</string>
     <string name="tab_overview">Overview</string>
     <string name="tab_control">Control</string>
@@ -85,7 +85,7 @@
     <string name="daemon_checking">Connecting to monitor service…</string>
 
     <!-- Float Monitor Notification -->
-    <string name="float_notification_title">CloudMonitor</string>
+    <string name="float_notification_title">OpenMonitor</string>
     <string name="float_notification_text">Float monitor running</string>
     <string name="float_channel_name">Float Monitor</string>
     <string name="float_channel_desc">Float monitor background notification</string>

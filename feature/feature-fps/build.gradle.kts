@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.cloudorz.monitor.feature.fps"
+    namespace = "com.cloudorz.openmonitor.feature.fps"
     compileSdk = 34
 
     defaultConfig {

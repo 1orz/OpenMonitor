@@ -1,0 +1,526 @@
+package com.cloudorz.openmonitor.service
+
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
+import kotlin.math.abs
+
+private val BG = Color(0xCC000000)
+private val TextPrimary = Color(0xFFFFFFFF)
+private val TextSecondary = Color(0xB3FFFFFF)
+private val Track = Color(0xFF333333)
+private val CpuColor = Color(0xFF42A5F5)
+private val GpuColor = Color(0xFFAB47BC)
+private val MemColor = Color(0xFF66BB6A)
+private val BatColor = Color(0xFFFFA726)
+private val CurrentColor = Color(0xFF29B6F6)
+
+private val MonoStyle = TextStyle(
+    fontFamily = FontFamily.Monospace,
+    fontWeight = FontWeight.Bold,
+)
+
+@Composable
+fun FloatLoadMonitorContent(service: FloatMonitorService) {
+    val cpu by service.cpuLoad.collectAsState()
+    val gpu by service.gpuLoad.collectAsState()
+    val mem by service.memUsed.collectAsState()
+    val bat by service.batteryLevel.collectAsState()
+    val temp by service.cpuTemp.collectAsState()
+
+    Box(
+        modifier = Modifier
+            .width(200.dp)
+            .background(BG, RoundedCornerShape(8.dp))
+            .padding(10.dp),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            LoadBar("CPU", cpu.toFloat(), CpuColor)
+            LoadBar("GPU", gpu.toFloat(), GpuColor)
+            LoadBar("RAM", mem.toFloat(), MemColor)
+            LoadBar("BAT", bat.toFloat(), BatColor)
+            if (temp > 0) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.ic_temperature),
+                        contentDescription = null,
+                        modifier = Modifier.size(10.dp),
+                        colorFilter = ColorFilter.tint(tempColor(temp)),
+                    )
+                    Text(
+                        text = "${"%.1f".format(temp)}\u00B0C",
+                        style = MonoStyle.copy(fontSize = 10.sp, color = tempColor(temp)),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LoadBar(label: String, value: Float, color: Color) {
+    val clamped = value.coerceIn(0f, 100f)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MonoStyle.copy(fontSize = 9.sp, color = TextSecondary),
+            modifier = Modifier.width(28.dp),
+        )
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(6.dp)
+                .clip(RoundedCornerShape(3.dp))
+                .background(Track),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(fraction = (clamped / 100f).coerceIn(0f, 1f))
+                    .background(color, RoundedCornerShape(3.dp)),
+            )
+        }
+        Text(
+            text = "%3d%%".format(clamped.toInt()),
+            style = MonoStyle.copy(fontSize = 9.sp, color = TextPrimary),
+            modifier = Modifier.width(34.dp),
+            textAlign = TextAlign.End,
+        )
+    }
+}
+
+@Composable
+fun FloatMiniMonitorContent(service: FloatMonitorService) {
+    val cpu by service.cpuLoad.collectAsState()
+    val gpu by service.gpuLoad.collectAsState()
+    val temp by service.cpuTemp.collectAsState()
+    val fps by service.currentFps.collectAsState()
+    val hasShell by service.hasShellAccess.collectAsState()
+    val hasRoot by service.hasRootAccess.collectAsState()
+    val mA by service.currentMa.collectAsState()
+    val coreLoads by service.cpuCoreLoads.collectAsState()
+    val batTemp by service.batteryTemp.collectAsState()
+
+    // Alternate between battery current and battery temp every 3s
+    var showBatTemp by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(3000)
+            showBatTemp = !showBatTemp
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .background(Color(0x66000000), RoundedCornerShape(3.dp))
+            .padding(start = 3.dp, end = 2.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // CPU: icon + inline core bar chart + percentage
+            Image(
+                painter = painterResource(R.drawable.ic_cpu),
+                contentDescription = null,
+                modifier = Modifier.size(8.dp),
+                colorFilter = ColorFilter.tint(Color.White),
+            )
+            if (coreLoads.isNotEmpty()) {
+                CpuCoreBarChart(
+                    coreLoads = coreLoads,
+                    modifier = Modifier
+                        .width(28.dp)
+                        .height(8.dp),
+                )
+            }
+            MiniText("%3d%%".format(cpu.toInt()))
+
+            if (hasRoot) {
+                MiniIconLabel(R.drawable.ic_gpu, "%3d%%".format(gpu.toInt()), Color.White)
+            }
+            MiniIconLabel(R.drawable.ic_temperature, "%3.0f\u00B0".format(temp), Color.White)
+            val fpsText = if (fps > 0) "%5.1f".format(fps) else if (hasShell) "  0.0" else "   --"
+            MiniIconLabel(R.drawable.ic_frame, fpsText, Color.White)
+
+            // Alternating: battery current ↔ battery temp (same icon & color)
+            if (showBatTemp && batTemp > 0) {
+                MiniIconLabel(R.drawable.ic_current, "%.1f\u00B0".format(batTemp), Color.White)
+            } else {
+                MiniIconLabel(R.drawable.ic_current, "%dmA".format(mA), Color.White)
+            }
+        }
+    }
+}
+
+@Composable
+private fun MiniIconLabel(iconRes: Int, value: String, color: Color) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(1.dp),
+    ) {
+        Image(
+            painter = painterResource(iconRes),
+            contentDescription = null,
+            modifier = Modifier.size(8.dp),
+            colorFilter = ColorFilter.tint(color),
+        )
+        Text(
+            text = value,
+            style = MonoStyle.copy(
+                fontSize = 8.sp,
+                color = color,
+                letterSpacing = 0.sp,
+            ),
+            maxLines = 1,
+            softWrap = false,
+        )
+    }
+}
+
+@Composable
+private fun MiniText(value: String, color: Color = Color.White) {
+    Text(
+        text = value,
+        style = MonoStyle.copy(fontSize = 8.sp, color = color, letterSpacing = 0.sp),
+        maxLines = 1,
+        softWrap = false,
+    )
+}
+
+@Composable
+private fun CpuCoreBarChart(coreLoads: List<Double>, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val barCount = coreLoads.size
+        if (barCount == 0) return@Canvas
+        val gap = 1.dp.toPx()
+        val totalGaps = gap * (barCount - 1)
+        val barWidth = (size.width - totalGaps) / barCount
+        val cornerRadius = CornerRadius(1.dp.toPx())
+
+        coreLoads.forEachIndexed { i, load ->
+            val clamped = load.coerceIn(0.0, 100.0).toFloat()
+            val color = when {
+                clamped > 85f -> Color(0xFFF44336)
+                clamped > 65f -> Color(0xFFFF9800)
+                else -> CpuColor
+            }
+            val alpha = 0.5f + 0.5f * clamped / 100f
+            val barHeight = (size.height * (clamped / 100f)).coerceAtLeast(size.height * 0.05f)
+            val x = i * (barWidth + gap)
+
+            drawRoundRect(
+                color = color.copy(alpha = alpha),
+                topLeft = Offset(x, size.height - barHeight),
+                size = Size(barWidth, barHeight),
+                cornerRadius = cornerRadius,
+            )
+        }
+    }
+}
+
+@Composable
+fun FloatFpsContent(service: FloatMonitorService) {
+    val fps by service.currentFps.collectAsState()
+    val interacting by service.fpsInteracting.collectAsState()
+    val bgAlpha by animateFloatAsState(
+        targetValue = if (interacting) 1f else 0f,
+        animationSpec = tween(durationMillis = if (interacting) 150 else 300),
+        label = "fpsBg",
+    )
+    val shape = RoundedCornerShape(6.dp)
+
+    Box(
+        modifier = Modifier
+            .background(Color(0x33000000).copy(alpha = 0.2f * bgAlpha), shape)
+            .then(
+                if (bgAlpha > 0.01f) Modifier.border(
+                    width = 1.dp,
+                    color = Color.White.copy(alpha = 0.3f * bgAlpha),
+                    shape = shape,
+                ) else Modifier
+            )
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+    ) {
+        Text(
+            text = "%.1f".format(fps),
+            style = MonoStyle.copy(
+                fontSize = 18.sp,
+                color = fpsColor(fps),
+            ),
+            textAlign = TextAlign.End,
+        )
+    }
+}
+
+@Composable
+fun FloatTemperatureContent(service: FloatMonitorService) {
+    val zones by service.thermalZones.collectAsState()
+
+    Box(
+        modifier = Modifier
+            .width(220.dp)
+            .background(BG, RoundedCornerShape(8.dp))
+            .padding(10.dp),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = "TEMPERATURE",
+                style = MonoStyle.copy(fontSize = 10.sp, color = TextSecondary, letterSpacing = 0.5.sp),
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+
+            val filtered = zones.filter { zone ->
+                zone.type.contains("cpu", ignoreCase = true) ||
+                    zone.type.contains("gpu", ignoreCase = true) ||
+                    zone.type.contains("battery", ignoreCase = true) ||
+                    zone.type.contains("soc", ignoreCase = true) ||
+                    zone.type.contains("skin", ignoreCase = true) ||
+                    zone.type.contains("tsens", ignoreCase = true)
+            }.take(10)
+
+            val display = filtered.ifEmpty { zones.take(8) }
+            if (display.isEmpty()) {
+                Text("No thermal data", style = TextStyle(fontSize = 11.sp, color = Color(0x80FFFFFF)))
+            } else {
+                display.forEach { zone ->
+                    ThermalRow(zone.type.ifEmpty { zone.name }, zone.temperatureCelsius)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThermalRow(label: String, temp: Double) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 1.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = TextStyle(fontSize = 10.sp, color = TextPrimary),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = "${"%.1f".format(temp)}\u00B0C",
+            style = MonoStyle.copy(fontSize = 10.sp, color = tempColor(temp)),
+        )
+    }
+}
+
+@Composable
+fun FloatProcessContent(service: FloatMonitorService) {
+    val processes by service.topProcesses.collectAsState()
+    val hasShell by service.hasShellAccess.collectAsState()
+
+    Box(
+        modifier = Modifier
+            .width(240.dp)
+            .background(BG, RoundedCornerShape(8.dp))
+            .padding(10.dp),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = "TOP PROCESSES",
+                style = MonoStyle.copy(fontSize = 10.sp, color = TextSecondary, letterSpacing = 0.5.sp),
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+
+            if (!hasShell) {
+                Text("需要 Shell 权限", style = TextStyle(fontSize = 9.sp, color = Color(0xFFFFC107)))
+            } else if (processes.isEmpty()) {
+                Text("加载中...", style = TextStyle(fontSize = 9.sp, color = TextSecondary))
+            } else {
+                processes.forEach { proc ->
+                    ProcessRow(
+                        name = proc.name.substringAfterLast('/').substringAfterLast(':'),
+                        cpu = proc.cpuPercent,
+                        memMb = proc.rssKB / 1024.0,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProcessRow(name: String, cpu: Double, memMb: Double) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 1.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = name,
+            style = TextStyle(fontSize = 9.sp, color = TextPrimary),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = "%4.1f%%".format(cpu),
+            style = MonoStyle.copy(
+                fontSize = 9.sp,
+                color = when {
+                    cpu >= 20 -> Color(0xFFF44336)
+                    cpu >= 5 -> Color(0xFFFFC107)
+                    else -> Color(0xFF4CAF50)
+                },
+            ),
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = "%3dM".format(memMb.toInt()),
+            style = MonoStyle.copy(fontSize = 9.sp, color = TextSecondary),
+        )
+    }
+}
+
+@Composable
+fun FloatThreadContent(service: FloatMonitorService) {
+    val threads by service.topThreads.collectAsState()
+    val fgApp by service.foregroundApp.collectAsState()
+    val hasShell by service.hasShellAccess.collectAsState()
+
+    Box(
+        modifier = Modifier
+            .width(220.dp)
+            .background(BG, RoundedCornerShape(8.dp))
+            .padding(10.dp),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = "THREADS",
+                style = MonoStyle.copy(fontSize = 10.sp, color = TextSecondary, letterSpacing = 0.5.sp),
+            )
+            if (fgApp.isNotEmpty()) {
+                Text(
+                    text = fgApp,
+                    style = TextStyle(fontSize = 8.sp, color = CpuColor),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+
+            if (!hasShell) {
+                Text("需要 Shell 权限", style = TextStyle(fontSize = 9.sp, color = Color(0xFFFFC107)))
+            } else if (threads.isEmpty()) {
+                Text("加载中...", style = TextStyle(fontSize = 9.sp, color = TextSecondary))
+            } else {
+                threads.forEach { thread ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 1.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = thread.name.ifEmpty { "tid:${thread.tid}" },
+                            style = TextStyle(fontSize = 9.sp, color = TextPrimary),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "%4.1f%%".format(thread.cpuLoadPercent),
+                            style = MonoStyle.copy(
+                                fontSize = 9.sp,
+                                color = when {
+                                    thread.cpuLoadPercent >= 20 -> Color(0xFFF44336)
+                                    thread.cpuLoadPercent >= 5 -> Color(0xFFFFC107)
+                                    else -> Color(0xFF4CAF50)
+                                },
+                            ),
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = thread.tid.toString(),
+                            style = MonoStyle.copy(fontSize = 8.sp, color = TextSecondary),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun fpsColor(fps: Double): Color = when {
+    fps >= 120.0 -> Color(0xFF00E676) // bright green
+    fps >= 90.0 -> Color(0xFF66BB6A)  // green
+    fps >= 60.0 -> Color(0xFFFFC107)  // amber
+    fps >= 30.0 -> Color(0xFFFF9800)  // orange
+    else -> Color(0xFFF44336)          // red
+}
+
+private fun tempColor(celsius: Double): Color = when {
+    celsius < 45.0 -> Color(0xFF4CAF50)
+    celsius < 60.0 -> Color(0xFFFFC107)
+    else -> Color(0xFFF44336)
+}
+
+private fun currentColor(mA: Int): Color = when {
+    mA > 0 -> Color(0xFF4CAF50)    // charging
+    mA == 0 -> CurrentColor
+    abs(mA) > 1500 -> Color(0xFFF44336)  // high drain
+    abs(mA) > 800 -> Color(0xFFFFC107)   // moderate drain
+    else -> CurrentColor
+}

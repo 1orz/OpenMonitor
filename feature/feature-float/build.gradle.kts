@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.cloudorz.monitor.feature.floatmonitor"
+    namespace = "com.cloudorz.openmonitor.feature.floatmonitor"
     compileSdk = 34
 
     defaultConfig {

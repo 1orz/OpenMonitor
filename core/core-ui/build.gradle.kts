@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.cloudorz.monitor.core.ui"
+    namespace = "com.cloudorz.openmonitor.core.ui"
     compileSdk = 34
 
     defaultConfig {

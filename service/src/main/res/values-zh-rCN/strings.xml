@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="accessibility_service_description">用于在其他应用上方显示悬浮监控窗口（无需悬浮窗权限），并检测当前前台应用以提供准确的帧率监控。</string>
-    <string name="float_notification_title">云监控</string>
+    <string name="float_notification_title">OpenMonitor</string>
     <string name="float_notification_text">悬浮监视器运行中</string>
     <string name="float_channel_name">悬浮监视器</string>
     <string name="float_channel_desc">悬浮监视器后台通知</string>

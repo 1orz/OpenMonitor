@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.cloudorz.monitor.service"
+    namespace = "com.cloudorz.openmonitor.service"
     compileSdk = 34
 
     defaultConfig {

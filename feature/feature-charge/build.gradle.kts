@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.cloudorz.monitor.feature.charge"
+    namespace = "com.cloudorz.openmonitor.feature.charge"
     compileSdk = 34
 
     defaultConfig {

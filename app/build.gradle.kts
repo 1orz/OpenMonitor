@@ -7,11 +7,11 @@ plugins {
 }
 
 android {
-    namespace = "com.cloudorz.monitor"
+    namespace = "com.cloudorz.openmonitor"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.cloudorz.monitor"
+        applicationId = "com.cloudorz.openmonitor"
         minSdk = 26
         targetSdk = 34
         versionCode = 1

@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.cloudorz.monitor.feature.process"
+    namespace = "com.cloudorz.openmonitor.feature.process"
     compileSdk = 34
 
     defaultConfig {

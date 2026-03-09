@@ -23,7 +23,7 @@
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
-        android:theme="@style/Theme.CloudMonitor"
+        android:theme="@style/Theme.OpenMonitor"
         android:allowBackup="true"
         android:enableOnBackInvokedCallback="true">
 
@@ -39,12 +39,12 @@
         </activity>
 
         <service
-            android:name="com.cloudorz.monitor.service.FloatMonitorService"
+            android:name="com.cloudorz.openmonitor.service.FloatMonitorService"
             android:exported="false"
             android:foregroundServiceType="specialUse" />
 
         <service
-            android:name="com.cloudorz.monitor.service.AccessibilityMonitorService"
+            android:name="com.cloudorz.openmonitor.service.AccessibilityMonitorService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
             android:exported="true">
             <intent-filter>
@@ -71,7 +71,7 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="com.cloudorz.monitor.WIDGET_REFRESH" />
+                <action android:name="com.cloudorz.openmonitor.WIDGET_REFRESH" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
@@ -79,7 +79,7 @@
         </receiver>
 
         <receiver
-            android:name="com.cloudorz.monitor.service.BootReceiver"
+            android:name="com.cloudorz.openmonitor.service.BootReceiver"
             android:enabled="true"
             android:exported="true">
             <intent-filter>

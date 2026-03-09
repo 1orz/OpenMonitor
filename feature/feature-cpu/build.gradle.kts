@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.cloudorz.monitor.feature.cpu"
+    namespace = "com.cloudorz.openmonitor.feature.cpu"
     compileSdk = 34
 
     defaultConfig {

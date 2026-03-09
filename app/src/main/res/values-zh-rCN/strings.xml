@@ -77,7 +77,7 @@
     <string name="ip_address">IP 地址</string>
 
     <!-- Daemon -->
-    <string name="app_name">云监控</string>
+    <string name="app_name">OpenMonitor</string>
     <string name="daemon_launching">正在部署监控服务…</string>
     <string name="daemon_launch_failed">监控服务启动失败</string>
     <string name="daemon_retry">重试</string>
@@ -85,7 +85,7 @@
     <string name="daemon_checking">正在连接监控服务…</string>
 
     <!-- 悬浮监视器通知 -->
-    <string name="float_notification_title">云监控</string>
+    <string name="float_notification_title">OpenMonitor</string>
     <string name="float_notification_text">悬浮监视器运行中</string>
     <string name="float_channel_name">悬浮监视器</string>
     <string name="float_channel_desc">悬浮监视器后台通知</string>
