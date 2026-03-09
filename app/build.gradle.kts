@@ -43,7 +43,7 @@ android {
     signingConfigs {
         create("release") {
             storeFile = file(System.getenv("KEYSTORE_PATH") ?: "${rootProject.projectDir}/release.jks")
-            val pw = System.getenv("STORE_PASSWORD") ?: "monitor123"
+            val pw = System.getenv("STORE_PASSWORD") ?: "opmonitor12138"
             storePassword = pw
             keyAlias = "opmonitor"
             keyPassword = pw

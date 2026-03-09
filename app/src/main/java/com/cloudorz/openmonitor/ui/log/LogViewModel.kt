@@ -21,7 +21,10 @@ class LogViewModel @Inject constructor(
 ) : ViewModel() {
 
     companion object {
-        private val DAEMON_LOG_PATH = DaemonLauncher.LOG_PATH
+        private val DAEMON_LOG_PATHS = listOf(
+            "/data/local/tmp/daemon.log",
+            "/sdcard/daemon.log",
+        )
         private const val DAEMON_POLL_INTERVAL_MS = 3_000L
         private const val DAEMON_TAIL_LINES = 300
     }
@@ -47,14 +50,15 @@ class LogViewModel @Inject constructor(
     }
 
     private suspend fun fetchDaemonLogs() {
-        val result = shellExecutor.execute(
-            "tail -n $DAEMON_TAIL_LINES $DAEMON_LOG_PATH 2>/dev/null"
-        )
+        val cmd = DAEMON_LOG_PATHS.joinToString(" ") {
+            "tail -n $DAEMON_TAIL_LINES $it 2>/dev/null"
+        }.replace(" tail", " || tail")
+        val result = shellExecutor.execute(cmd)
         if (result.isSuccess && result.stdout.isNotBlank()) {
             _daemonLogs.value = result.stdout.lines().filter { it.isNotBlank() }
             _daemonLogStatus.value = null
         } else if (_daemonLogs.value.isEmpty()) {
-            _daemonLogStatus.value = "暂无 daemon 日志（daemon 未运行或 $DAEMON_LOG_PATH 不存在）"
+            _daemonLogStatus.value = "暂无 daemon 日志（daemon 未运行）"
         }
     }
 
@@ -66,7 +70,8 @@ class LogViewModel @Inject constructor(
 
     fun clearDaemonLogs() {
         viewModelScope.launch {
-            shellExecutor.execute("echo -n > $DAEMON_LOG_PATH 2>/dev/null")
+            val cmd = DAEMON_LOG_PATHS.joinToString("; ") { "echo -n > $it 2>/dev/null" }
+            shellExecutor.execute(cmd)
             _daemonLogs.value = emptyList()
             _daemonLogStatus.value = null
         }

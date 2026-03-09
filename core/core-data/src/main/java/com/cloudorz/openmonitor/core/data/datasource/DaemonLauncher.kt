@@ -40,7 +40,7 @@ class DaemonLauncher @Inject constructor(
         private const val LAUNCH_RETRIES = 5
         private const val LAUNCH_RETRY_MS = 600L
         /** Daemon stdout/stderr log path. */
-        const val LOG_PATH = "/data/local/tmp/daemon.log"
+        // Daemon handles log path fallback internally (daemon/daemon.go)
     }
 
     /** Path to daemon binary in the APK's native library directory. */
@@ -119,7 +119,7 @@ class DaemonLauncher @Inject constructor(
      */
     private suspend fun launch(): Boolean {
         val binary = binaryPath
-        val cmd = "nohup '$binary' > $LOG_PATH 2>&1 &"
+        val cmd = "'$binary'"
         return when (shellExecutor.mode) {
             PrivilegeMode.ROOT -> {
                 val result = shellExecutor.executeAsRoot(cmd)
