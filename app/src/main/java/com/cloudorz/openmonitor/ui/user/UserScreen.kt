@@ -186,21 +186,30 @@ fun UserScreen(
                             selected = currentMode == mode,
                             onClick = {
                                 if (currentMode == mode || isDetecting) return@RadioButton
+                                val oldMode = currentMode
                                 when (mode) {
                                     PrivilegeMode.ROOT -> {
                                         isDetecting = true
                                         coroutineScope.launch {
                                             val detected = permissionManager.detectBestMode()
-                                            if (detected != PrivilegeMode.ROOT) {
-                                                permissionManager.setMode(currentMode)
+                                            if (detected == PrivilegeMode.ROOT) {
+                                                viewModel.switchMode(oldMode, PrivilegeMode.ROOT) {
+                                                    permissionManager.setMode(PrivilegeMode.ROOT)
+                                                    isDetecting = false
+                                                }
+                                            } else {
+                                                isDetecting = false
                                             }
-                                            isDetecting = false
                                         }
                                     }
                                     PrivilegeMode.SHIZUKU -> {
                                         when (shizukuStatus) {
                                             ShizukuStatus.GRANTED -> {
-                                                permissionManager.setMode(PrivilegeMode.SHIZUKU)
+                                                isDetecting = true
+                                                viewModel.switchMode(oldMode, PrivilegeMode.SHIZUKU) {
+                                                    permissionManager.setMode(PrivilegeMode.SHIZUKU)
+                                                    isDetecting = false
+                                                }
                                             }
                                             ShizukuStatus.NOT_GRANTED -> {
                                                 try { Shizuku.requestPermission(1001) } catch (_: Exception) {}
@@ -210,7 +219,20 @@ fun UserScreen(
                                             }
                                         }
                                     }
-                                    else -> permissionManager.setMode(mode)
+                                    PrivilegeMode.ADB -> {
+                                        isDetecting = true
+                                        viewModel.switchMode(oldMode, PrivilegeMode.ADB) {
+                                            permissionManager.setMode(PrivilegeMode.ADB)
+                                            isDetecting = false
+                                        }
+                                    }
+                                    PrivilegeMode.BASIC -> {
+                                        isDetecting = true
+                                        viewModel.switchMode(oldMode, PrivilegeMode.BASIC) {
+                                            permissionManager.setMode(PrivilegeMode.BASIC)
+                                            isDetecting = false
+                                        }
+                                    }
                                 }
                             },
                             enabled = !isDetecting,
@@ -242,7 +264,7 @@ fun UserScreen(
                     ) {
                         CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                         Text(
-                            text = "正在检测权限...",
+                            text = "正在切换模式...",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -256,11 +278,27 @@ fun UserScreen(
             ShizukuSetupCard(shizukuStatus)
         }
 
+        // ADB setup guide (only shown in ADB mode)
+        if (currentMode == PrivilegeMode.ADB) {
+            AdbSetupCard(
+                binaryPath = viewModel.daemonBinaryPath,
+                daemonConnected = daemonStatus.connected,
+                onCheck = { viewModel.checkDaemon() },
+            )
+        }
+
         // Daemon status card
         DaemonStatusCard(
             status = daemonStatus,
             onCheck = { viewModel.checkDaemon() },
             onRestart = { viewModel.restartDaemon() },
+        )
+
+        // Daemon log level card
+        val logLevel by viewModel.logLevel.collectAsState()
+        DaemonLogLevelCard(
+            currentLevel = logLevel,
+            onLevelSelected = viewModel::setDaemonLogLevel,
         )
 
         // Poll interval settings card
@@ -611,7 +649,7 @@ private fun modeDisplayName(mode: PrivilegeMode): String = when (mode) {
 
 private fun modeDescription(mode: PrivilegeMode): String = when (mode) {
     PrivilegeMode.ROOT -> "Magisk / KernelSU，完整 Root 权限"
-    PrivilegeMode.ADB -> "已弃用 — 请使用 Shizuku 模式"
+    PrivilegeMode.ADB -> "通过 ADB 手动启动 Daemon（FPS/进程等可用）"
     PrivilegeMode.SHIZUKU -> "通过 Shizuku 获取 Shell 权限（推荐）"
     PrivilegeMode.BASIC -> "无特权，帧率监控等功能不可用"
 }
@@ -661,6 +699,139 @@ private fun PollSettingsCard(
                         selected = pollSettings.intervalMs == interval,
                         onClick = { onIntervalSelected(interval) },
                         label = { Text(label) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        ),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AdbSetupCard(
+    binaryPath: String,
+    daemonConnected: Boolean,
+    onCheck: () -> Unit,
+) {
+    val context = LocalContext.current
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Filled.Warning,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.tertiary,
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "ADB Daemon 设置",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "在电脑终端执行以下命令启动 Daemon：",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            val adbCommand = "adb shell $binaryPath"
+            Text(
+                text = adbCommand,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
+                ),
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedButton(onClick = {
+                    val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
+                    clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("adb command", adbCommand))
+                }) {
+                    Text("复制命令")
+                }
+                OutlinedButton(onClick = onCheck) {
+                    Text("检测连接")
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = if (daemonConnected) Icons.Filled.CheckCircle else Icons.Filled.Warning,
+                    contentDescription = null,
+                    tint = if (daemonConnected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = if (daemonConnected) "Daemon 已连接" else "Daemon 未连接（启动后点击检测）",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DaemonLogLevelCard(
+    currentLevel: String,
+    onLevelSelected: (String) -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Outlined.Cable,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Daemon 日志级别",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("debug", "info", "warning", "error").forEach { level ->
+                    FilterChip(
+                        selected = currentLevel == level,
+                        onClick = { onLevelSelected(level) },
+                        label = { Text(level.replaceFirstChar { it.uppercase() }) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                         ),

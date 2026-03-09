@@ -45,19 +45,41 @@ class DaemonManager @Inject constructor(
 
     fun isRunning(): Boolean = _state.value == DaemonState.RUNNING
 
+    /** Whether daemon is useful for the current mode. */
     fun needsDaemon(): Boolean {
+        val mode = permissionManager.currentMode.value
+        return mode == PrivilegeMode.ROOT || mode == PrivilegeMode.SHIZUKU || mode == PrivilegeMode.ADB
+    }
+
+    /** Whether daemon can be auto-launched (ROOT/SHIZUKU only). */
+    fun canAutoLaunchDaemon(): Boolean {
         val mode = permissionManager.currentMode.value
         return mode == PrivilegeMode.ROOT || mode == PrivilegeMode.SHIZUKU
     }
 
     suspend fun ensureRunning(): DaemonState = withContext(Dispatchers.IO) {
         val mode = permissionManager.currentMode.value
-        if (mode == PrivilegeMode.BASIC || mode == PrivilegeMode.ADB) {
+
+        // BASIC: no daemon needed
+        if (mode == PrivilegeMode.BASIC) {
             _state.value = DaemonState.NOT_NEEDED
             return@withContext DaemonState.NOT_NEEDED
         }
 
-        // Quick check: already running with correct version?
+        // ADB: daemon must be started manually, just check availability
+        if (mode == PrivilegeMode.ADB) {
+            if (daemonDataSource.isAvailable()) {
+                _state.value = DaemonState.RUNNING
+                startHeartbeat()
+                Log.e(TAG, "ADB mode: daemon already running")
+                return@withContext DaemonState.RUNNING
+            }
+            _state.value = DaemonState.IDLE // Not FAILED — user hasn't started it yet
+            Log.e(TAG, "ADB mode: daemon not running (user must start manually)")
+            return@withContext DaemonState.IDLE
+        }
+
+        // ROOT/SHIZUKU: auto-launch
         if (daemonDataSource.isAvailable()) {
             if (daemonLauncher.isVersionMatch()) {
                 _state.value = DaemonState.RUNNING
@@ -65,11 +87,9 @@ class DaemonManager @Inject constructor(
                 Log.e(TAG, "daemon already running")
                 return@withContext DaemonState.RUNNING
             }
-            // Version mismatch — fall through to relaunch
             Log.e(TAG, "daemon alive but version mismatch, will upgrade")
         }
 
-        // Launch
         _state.value = DaemonState.LAUNCHING
         Log.e(TAG, "launching daemon (mode=$mode)")
 
@@ -85,6 +105,61 @@ class DaemonManager @Inject constructor(
         _state.value = DaemonState.FAILED
         Log.e(TAG, "daemon launch failed")
         DaemonState.FAILED
+    }
+
+    /**
+     * Handles mode transition: stops daemon if needed, restarts under new mode.
+     */
+    suspend fun switchMode(oldMode: PrivilegeMode, newMode: PrivilegeMode): DaemonState = withContext(Dispatchers.IO) {
+        Log.e(TAG, "switchMode: $oldMode → $newMode")
+        val oldAutoLaunch = oldMode == PrivilegeMode.ROOT || oldMode == PrivilegeMode.SHIZUKU
+        val newAutoLaunch = newMode == PrivilegeMode.ROOT || newMode == PrivilegeMode.SHIZUKU
+
+        // Case 1: BASIC ↔ ADB — no auto-launch daemon involved
+        if (!oldAutoLaunch && !newAutoLaunch) {
+            if (newMode == PrivilegeMode.ADB) return@withContext ensureRunning() // check if daemon is manually running
+            _state.value = DaemonState.NOT_NEEDED
+            return@withContext DaemonState.NOT_NEEDED
+        }
+
+        // Case 2: had auto-launch daemon, switching to non-auto mode → stop
+        if (oldAutoLaunch && !newAutoLaunch) {
+            stopDaemon()
+            if (newMode == PrivilegeMode.ADB) return@withContext ensureRunning()
+            _state.value = DaemonState.NOT_NEEDED
+            return@withContext DaemonState.NOT_NEEDED
+        }
+
+        // Case 3: didn't have auto-launch, now needs it → start
+        if (!oldAutoLaunch && newAutoLaunch) {
+            return@withContext ensureRunning()
+        }
+
+        // Case 4: both auto-launch (ROOT ↔ SHIZUKU) → restart with different executor
+        return@withContext restart()
+    }
+
+    /**
+     * Gracefully stops the daemon and relaunches it.
+     */
+    suspend fun restart(): DaemonState = withContext(Dispatchers.IO) {
+        Log.e(TAG, "restart requested")
+        stopDaemon()
+        daemonDataSource.resetDeadState()
+        daemonDataSource.invalidate()
+        ensureRunning()
+    }
+
+    /** Stops the daemon without relaunching. */
+    private suspend fun stopDaemon() {
+        stopHeartbeat()
+        _state.value = DaemonState.LAUNCHING
+        try { daemonClient.sendCommand("daemon-exit") } catch (_: Exception) {}
+        delay(500)
+        if (daemonClient.isAlive()) {
+            try { daemonLauncher.stop() } catch (_: Exception) {}
+            delay(500)
+        }
     }
 
     private fun startHeartbeat() {
@@ -106,45 +181,27 @@ class DaemonManager @Inject constructor(
                         Log.e(TAG, "daemon dead, attempting restart")
                         _state.value = DaemonState.LAUNCHING
                         daemonDataSource.resetDeadState()
-                        val restarted = daemonLauncher.ensureRunning()
-                        if (restarted) {
-                            _state.value = DaemonState.RUNNING
-                            failures = 0
-                            Log.e(TAG, "daemon restarted successfully")
+                        if (canAutoLaunchDaemon()) {
+                            val restarted = daemonLauncher.ensureRunning()
+                            if (restarted) {
+                                _state.value = DaemonState.RUNNING
+                                failures = 0
+                                Log.e(TAG, "daemon restarted successfully")
+                            } else {
+                                _state.value = DaemonState.FAILED
+                                Log.e(TAG, "daemon restart failed, stopping heartbeat")
+                                return@launch
+                            }
                         } else {
+                            // ADB mode: can't auto-restart
                             _state.value = DaemonState.FAILED
-                            Log.e(TAG, "daemon restart failed, stopping heartbeat")
+                            Log.e(TAG, "ADB mode: daemon lost, user must restart manually")
                             return@launch
                         }
                     }
                 }
             }
         }
-    }
-
-    /**
-     * Gracefully stops the daemon and relaunches it.
-     * Flow: daemon-exit (TCP) → pkill fallback → extract fresh binary → launch.
-     */
-    suspend fun restart(): DaemonState = withContext(Dispatchers.IO) {
-        Log.e(TAG, "restart requested")
-        stopHeartbeat()
-        _state.value = DaemonState.LAUNCHING
-
-        // 1. TCP command exit (no shell Mutex contention, instant)
-        try { daemonClient.sendCommand("daemon-exit") } catch (_: Exception) {}
-        delay(500)
-
-        // 2. Fallback force kill (only if daemon still alive)
-        if (daemonClient.isAlive()) {
-            try { daemonLauncher.stop() } catch (_: Exception) {}
-            delay(500)
-        }
-
-        // 3. Reset state and relaunch
-        daemonDataSource.resetDeadState()
-        daemonDataSource.invalidate()
-        ensureRunning()
     }
 
     fun stopHeartbeat() {

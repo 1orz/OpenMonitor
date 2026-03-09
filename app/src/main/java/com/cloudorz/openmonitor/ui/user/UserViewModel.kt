@@ -3,6 +3,7 @@ package com.cloudorz.openmonitor.ui.user
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.cloudorz.openmonitor.core.common.PrivilegeMode
 import com.cloudorz.openmonitor.core.data.datasource.DaemonClient
 import com.cloudorz.openmonitor.core.data.datasource.DaemonLauncher
 import com.cloudorz.openmonitor.core.data.datasource.DaemonManager
@@ -53,6 +54,15 @@ class UserViewModel @Inject constructor(
     )
     val pollSettings: StateFlow<PollSettings> = _pollSettings.asStateFlow()
 
+    // Daemon log level
+    private val _logLevel = MutableStateFlow(
+        prefs.getString("daemon_log_level", "warning") ?: "warning"
+    )
+    val logLevel: StateFlow<String> = _logLevel.asStateFlow()
+
+    /** Daemon binary path for ADB instructions. */
+    val daemonBinaryPath: String get() = daemonLauncher.binaryPath
+
     init {
         viewModelScope.launch {
             daemonManager.state.collect { state ->
@@ -65,6 +75,8 @@ class UserViewModel @Inject constructor(
                         expectedCommit = daemonLauncher.expectedCommit.ifEmpty { null },
                         checkedOnce = true,
                     )
+                    // Send persisted log level to daemon
+                    sendLogLevel(_logLevel.value)
                 } else if (state == DaemonState.FAILED || state == DaemonState.NOT_NEEDED) {
                     _daemonStatus.value = DaemonStatus(
                         connected = false,
@@ -118,6 +130,39 @@ class UserViewModel @Inject constructor(
         try {
             context.startService(FloatMonitorService.updatePollSettingsIntent(context))
         } catch (_: Exception) {}
+    }
+
+    fun setDaemonLogLevel(level: String) {
+        prefs.edit().putString("daemon_log_level", level).apply()
+        _logLevel.value = level
+        sendLogLevel(level)
+    }
+
+    /**
+     * Switches privilege mode: stops daemon under old mode, restarts under new mode.
+     */
+    fun switchMode(oldMode: PrivilegeMode, newMode: PrivilegeMode, onComplete: (DaemonState) -> Unit) {
+        viewModelScope.launch {
+            _daemonStatus.update { it.copy(checking = true) }
+            val result = daemonManager.switchMode(oldMode, newMode)
+            val alive = result == DaemonState.RUNNING
+            val versionInfo = if (alive) withContext(Dispatchers.IO) { fetchVersionInfo() } else null
+            _daemonStatus.value = DaemonStatus(
+                checking = false,
+                connected = alive,
+                version = versionInfo?.first,
+                currentCommit = versionInfo?.second,
+                expectedCommit = daemonLauncher.expectedCommit.ifEmpty { null },
+                checkedOnce = true,
+            )
+            onComplete(result)
+        }
+    }
+
+    private fun sendLogLevel(level: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try { daemonClient.sendCommand("log-level\n$level") } catch (_: Exception) {}
+        }
     }
 
     private fun fetchVersionInfo(): Pair<String?, String?> {

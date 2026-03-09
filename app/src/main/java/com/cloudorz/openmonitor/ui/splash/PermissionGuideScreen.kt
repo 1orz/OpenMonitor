@@ -81,12 +81,20 @@ fun PermissionGuideScreen(
     if (detectState == DetectState.LAUNCHING_DAEMON) {
         LaunchedEffect(Unit) {
             val result = daemonManager.ensureRunning()
-            if (result == DaemonState.RUNNING || result == DaemonState.NOT_NEEDED) {
-                val mode = selectedMode ?: return@LaunchedEffect
-                permissionManager.setMode(mode)
-                onModeSelected(mode)
-            } else {
-                detectState = DetectState.DAEMON_FAILED
+            val mode = selectedMode ?: return@LaunchedEffect
+            when {
+                result == DaemonState.RUNNING || result == DaemonState.NOT_NEEDED -> {
+                    permissionManager.setMode(mode)
+                    onModeSelected(mode)
+                }
+                // ADB mode: daemon might not be running yet, allow user to proceed
+                mode == PrivilegeMode.ADB && result == DaemonState.IDLE -> {
+                    permissionManager.setMode(mode)
+                    onModeSelected(mode)
+                }
+                else -> {
+                    detectState = DetectState.DAEMON_FAILED
+                }
             }
         }
     }
@@ -160,7 +168,7 @@ fun PermissionGuideScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "System Monitor",
+                text = "OpenMonitor",
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground,
@@ -197,6 +205,18 @@ fun PermissionGuideScreen(
                 tagColor = Color(0xFF2196F3),
                 isSelected = selectedMode == PrivilegeMode.SHIZUKU,
                 onClick = { selectedMode = PrivilegeMode.SHIZUKU },
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            ModeCard(
+                iconRes = R.drawable.ic_mode_basic, // reuse basic icon for ADB
+                title = "ADB 模式",
+                description = "通过 ADB 手动启动 Daemon，无需 Root 或 Shizuku",
+                tagText = "FPS / 进程等可用",
+                tagColor = Color(0xFFFF9800),
+                isSelected = selectedMode == PrivilegeMode.ADB,
+                onClick = { selectedMode = PrivilegeMode.ADB },
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -260,8 +280,12 @@ fun PermissionGuideScreen(
                         } else if (mode == PrivilegeMode.ROOT) {
                             // ROOT — launch daemon before proceeding
                             detectState = DetectState.LAUNCHING_DAEMON
+                        } else if (mode == PrivilegeMode.ADB) {
+                            // ADB — try to connect to manually started daemon, then proceed
+                            permissionManager.setMode(mode)
+                            detectState = DetectState.LAUNCHING_DAEMON
                         } else {
-                            // BASIC/ADB — no daemon needed
+                            // BASIC — no daemon needed
                             permissionManager.setMode(mode)
                             onModeSelected(mode)
                         }

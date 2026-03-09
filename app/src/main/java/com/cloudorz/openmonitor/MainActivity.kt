@@ -115,15 +115,30 @@ private fun MonitorAppContent(permissionManager: PermissionManager, daemonManage
             }
         }
 
+        // ADB mode: try to connect to manually started daemon, but don't block
+        if (selectedMode == PrivilegeMode.ADB) {
+            daemonManager.ensureRunning()
+        }
+
         startupPhase = StartupPhase.READY
     }
 
-    // Runtime: binder died while using SHIZUKU mode
+    // Runtime: Shizuku binder died — keep current screen, sync mode to BASIC
     val shizukuBinderAlive by permissionManager.shizukuBinderAlive.collectAsStateWithLifecycle()
     LaunchedEffect(shizukuBinderAlive) {
-        if (!shizukuBinderAlive && selectedMode == PrivilegeMode.SHIZUKU) {
-            selectedMode = null
-            startupPhase = StartupPhase.NEEDS_GUIDE
+        if (!shizukuBinderAlive && selectedMode == PrivilegeMode.SHIZUKU
+            && startupPhase == StartupPhase.READY) {
+            // Don't force back to guide page — degrade gracefully
+            permissionManager.setMode(PrivilegeMode.BASIC)
+            selectedMode = PrivilegeMode.BASIC
+        }
+    }
+
+    // Keep selectedMode in sync with PermissionManager (for Settings page mode switch)
+    val currentModeFromManager by permissionManager.currentMode.collectAsStateWithLifecycle()
+    LaunchedEffect(currentModeFromManager) {
+        if (startupPhase == StartupPhase.READY) {
+            selectedMode = currentModeFromManager
         }
     }
 
