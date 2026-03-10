@@ -2,6 +2,7 @@ package collector
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"math"
 	"os/exec"
@@ -9,6 +10,10 @@ import (
 	"sync"
 	"time"
 )
+
+// cmdTimeout is the maximum time allowed for any dumpsys command.
+// If a command takes longer, it is killed to prevent the sampling goroutine from hanging.
+const cmdTimeout = 5 * time.Second
 
 // FpsResult is the current FPS snapshot exposed to callers.
 type FpsResult struct {
@@ -38,6 +43,10 @@ type fpsCollector struct {
 
 	zeroStreak  int
 	lastFrameNs int64 // latest actualPresentTime from --latency (ns since boot)
+
+	// Recovery: consecutive sample failures trigger timestats re-enable.
+	consecutiveErrors int
+	lastReenableTime  time.Time
 }
 
 func newFpsCollector() *fpsCollector {
@@ -48,8 +57,7 @@ func newFpsCollector() *fpsCollector {
 
 func (fc *fpsCollector) start() {
 	go func() {
-		exec.Command("dumpsys", "SurfaceFlinger", "--timestats", "-enable").Run() //nolint
-		exec.Command("dumpsys", "SurfaceFlinger", "--timestats", "-clear").Run()  //nolint
+		fc.enableTimestats()
 		logInfo("fps", "timestats enabled, sampling every 500ms")
 
 		for {
@@ -57,6 +65,33 @@ func (fc *fpsCollector) start() {
 			time.Sleep(500 * time.Millisecond)
 		}
 	}()
+}
+
+// enableTimestats resets the SurfaceFlinger timestats state.
+func (fc *fpsCollector) enableTimestats() {
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+	exec.CommandContext(ctx, "dumpsys", "SurfaceFlinger", "--timestats", "-enable").Run() //nolint
+
+	ctx2, cancel2 := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel2()
+	exec.CommandContext(ctx2, "dumpsys", "SurfaceFlinger", "--timestats", "-clear").Run() //nolint
+
+	fc.lastReenableTime = time.Now()
+}
+
+// reenableIfNeeded re-enables timestats after consecutive errors or long runtime.
+// SurfaceFlinger may internally disable timestats or become unresponsive.
+func (fc *fpsCollector) reenableIfNeeded() {
+	if fc.consecutiveErrors >= 6 || time.Since(fc.lastReenableTime) > 10*time.Minute {
+		logInfo("fps", "re-enabling timestats (consecutive_errors=%d, last_reenable=%s ago)",
+			fc.consecutiveErrors, time.Since(fc.lastReenableTime).Round(time.Second))
+		fc.enableTimestats()
+		fc.consecutiveErrors = 0
+		// Reset state so we rebuild baselines
+		fc.prevCounts = make(map[string]int64)
+		fc.prevTime = time.Time{}
+	}
 }
 
 func (fc *fpsCollector) get() FpsResult {
@@ -75,7 +110,9 @@ func getFocusedPkg() string {
 }
 
 func getFocusedFromActivity() string {
-	out, err := exec.Command("dumpsys", "activity", "activities").Output()
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "dumpsys", "activity", "activities").Output()
 	if err != nil {
 		return ""
 	}
@@ -88,7 +125,9 @@ func getFocusedFromActivity() string {
 }
 
 func getFocusedFromWindow() string {
-	out, err := exec.Command("dumpsys", "window", "displays").Output()
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "dumpsys", "window", "displays").Output()
 	if err != nil {
 		return ""
 	}
@@ -120,15 +159,20 @@ func extractPkgFromRecord(line string) string {
 // ─── Core sampling logic ────────────────────────────────────────────
 
 func (fc *fpsCollector) sample() {
+	fc.reenableIfNeeded()
+
 	pkg := getFocusedPkg()
 	if pkg == "" {
+		fc.consecutiveErrors++
 		return
 	}
 
 	counts, err := parseTimestats(pkg)
 	if err != nil {
+		fc.consecutiveErrors++
 		return
 	}
+	fc.consecutiveErrors = 0
 
 	now := time.Now()
 
@@ -319,7 +363,9 @@ func (fc *fpsCollector) probeLatency() bool {
 // parseLatency runs `dumpsys SurfaceFlinger --latency <layer>` and returns
 // valid actualPresentTime values (nanoseconds since boot).
 func parseLatency(layer string) []int64 {
-	out, err := exec.Command("dumpsys", "SurfaceFlinger", "--latency", layer).Output()
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "dumpsys", "SurfaceFlinger", "--latency", layer).Output()
 	if err != nil {
 		return nil
 	}
@@ -366,7 +412,9 @@ func (fc *fpsCollector) detectJank(curFrameTimeMs float64) {
 // ─── Timestats parsing ──────────────────────────────────────────────
 
 func parseTimestats(pkg string) (map[string]int64, error) {
-	out, err := exec.Command("dumpsys", "SurfaceFlinger", "--timestats", "-dump").Output()
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "dumpsys", "SurfaceFlinger", "--timestats", "-dump").Output()
 	if err != nil {
 		return nil, err
 	}
