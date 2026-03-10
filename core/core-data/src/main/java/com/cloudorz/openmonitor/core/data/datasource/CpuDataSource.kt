@@ -22,7 +22,6 @@ class CpuDataSource @Inject constructor(
     private val procStatPath = "/proc/stat"
 
     suspend fun getCpuCoreCount(): Int = withContext(Dispatchers.IO) {
-        val pattern = Regex("cpu\\d+")
         sysfsReader.readString("$cpuBasePath/possible")
             ?.let { possible ->
                 val parts = possible.trim().split("-")

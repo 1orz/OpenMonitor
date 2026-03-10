@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import androidx.core.content.edit
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -112,7 +113,7 @@ class PermissionManager @Inject constructor(
     }
 
     private fun persistMode(mode: PrivilegeMode) {
-        prefs.edit().putString("privilege_mode", mode.name).apply()
+        prefs.edit { putString("privilege_mode", mode.name) }
     }
 
     private suspend fun hasElevatedShellAccess(): Boolean {

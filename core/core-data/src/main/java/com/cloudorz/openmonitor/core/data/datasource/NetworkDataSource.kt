@@ -51,7 +51,7 @@ class NetworkDataSource @Inject constructor(
 
         var rxSpeed = 0L
         var txSpeed = 0L
-        if (lastTimestamp > 0 && now > lastTimestamp) {
+        if (lastTimestamp in 1..<now) {
             val elapsed = (now - lastTimestamp) / 1000.0
             if (elapsed > 0) {
                 rxSpeed = ((totalRx - lastRxBytes) / elapsed).toLong().coerceAtLeast(0)

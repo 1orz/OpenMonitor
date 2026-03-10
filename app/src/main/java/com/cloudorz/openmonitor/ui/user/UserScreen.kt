@@ -22,7 +22,6 @@ import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Cable
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -589,7 +588,7 @@ private fun DaemonStatusCard(
                     )
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-            } else if (status.checkedOnce && !status.connected) {
+            } else if (status.checkedOnce) {
                 Text(
                     text = "Daemon 未运行。ROOT / Shizuku 模式下会自动启动。",
                     style = MaterialTheme.typography.bodySmall,

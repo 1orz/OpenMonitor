@@ -22,6 +22,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import androidx.core.content.edit
 import javax.inject.Inject
 
 @HiltViewModel
@@ -140,7 +141,7 @@ class UserViewModel @Inject constructor(
     }
 
     fun setPollInterval(intervalMs: Long) {
-        prefs.edit().putLong(FloatMonitorService.KEY_POLL_INTERVAL, intervalMs).apply()
+        prefs.edit { putLong(FloatMonitorService.KEY_POLL_INTERVAL, intervalMs) }
         _pollSettings.update { it.copy(intervalMs = intervalMs) }
         try {
             context.startService(FloatMonitorService.updatePollSettingsIntent(context))
@@ -148,7 +149,7 @@ class UserViewModel @Inject constructor(
     }
 
     fun setDaemonLogLevel(level: String) {
-        prefs.edit().putString("daemon_log_level", level).apply()
+        prefs.edit { putString("daemon_log_level", level) }
         _logLevel.value = level
         sendLogLevel(level)
     }

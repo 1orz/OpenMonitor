@@ -1,7 +1,9 @@
 # CloudMonitor ProGuard rules
 
-# Keep Hilt generated classes
--keep class dagger.hilt.** { *; }
+# Keep Hilt-generated components and entry points
+-keep class * extends dagger.hilt.internal.GeneratedComponent { *; }
+-keep @dagger.hilt.android.EarlyEntryPoint class * { *; }
+-keep @dagger.hilt.InstallIn class * { *; }
 -keep class javax.inject.** { *; }
 
 # Keep Room entities
@@ -21,7 +23,5 @@
     native <methods>;
 }
 
-# Keep PowerProfile for reflection (battery capacity reading)
--keep class com.android.internal.os.PowerProfile {
-    public <methods>;
-}
+# PowerProfile is an internal Android API used via reflection for battery capacity
+-dontwarn com.android.internal.os.PowerProfile

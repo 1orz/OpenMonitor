@@ -76,7 +76,7 @@ class ThermalDataSource @Inject constructor(
      */
     private suspend fun readCpuTempFromFallbackPaths(): Double {
         val path = cachedCpuTempPath.get()
-        if (path != null && path.isNotEmpty()) {
+        if (!path.isNullOrEmpty()) {
             val temp = readTempFromPath(path)
             if (temp != null) return temp
             // Cached path went stale — re-probe

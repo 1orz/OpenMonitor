@@ -1,6 +1,5 @@
 package com.cloudorz.openmonitor.ui.splash
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Monitor
 import androidx.compose.material3.AlertDialog
@@ -75,7 +73,6 @@ fun SplashScreen(
             RootDeniedDialog(
                 onRetry = { rootCheckState = RootCheckState.CHECKING },
                 onFallbackBasic = {
-                    rootCheckState = RootCheckState.IDLE
                     permissionManager.setMode(PrivilegeMode.BASIC)
                     onModeSelected(PrivilegeMode.BASIC)
                 },

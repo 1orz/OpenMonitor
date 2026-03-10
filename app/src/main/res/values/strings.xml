@@ -1,18 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">OpenMonitor</string>
-    <string name="tab_features">Features</string>
-    <string name="tab_overview">Overview</string>
-    <string name="tab_control">Control</string>
-    <string name="tab_user">User</string>
-
     <!-- Permission Guide Screen -->
     <string name="guide_subtitle">Select Running Mode</string>
     <string name="guide_auto_detect">Auto-Detect Best Mode</string>
     <string name="guide_manual_hint">Or manually select a mode above</string>
     <string name="guide_confirm">Enter %1$s Mode</string>
     <string name="guide_detecting_title">Detecting Permissions</string>
-    <string name="guide_detecting_desc">Checking available privilege levels...</string>
+    <string name="guide_detecting_desc">Checking available privilege levels\u2026</string>
 
     <string name="mode_root_title">ROOT Mode</string>
     <string name="mode_root_desc">Full access. Requires KernelSU / Magisk / APatch</string>
@@ -77,12 +72,17 @@
     <string name="frequency">Frequency</string>
     <string name="ip_address">IP Address</string>
 
+    <!-- Widget -->
+    <string name="widget_cpu_label" translatable="false">CPU</string>
+    <string name="widget_ram_label" translatable="false">RAM</string>
+    <string name="widget_placeholder_percent" translatable="false">--%</string>
+    <string name="widget_placeholder_temp" translatable="false">--°C</string>
+
     <!-- Daemon -->
     <string name="daemon_launching">Deploying monitor service…</string>
     <string name="daemon_launch_failed">Monitor service failed to start</string>
     <string name="daemon_retry">Retry</string>
     <string name="daemon_fallback_basic">Continue in Basic Mode</string>
-    <string name="daemon_checking">Connecting to monitor service…</string>
 
     <!-- Float Monitor Notification -->
     <string name="float_notification_title">OpenMonitor</string>
@@ -90,8 +90,4 @@
     <string name="float_channel_name">Float Monitor</string>
     <string name="float_channel_desc">Float monitor background notification</string>
 
-    <!-- Shizuku Dialog -->
-    <string name="shizuku_waiting_title">Waiting for Shizuku Authorization</string>
-    <string name="shizuku_waiting_desc">Please tap "Allow" in the Shizuku authorization dialog.\n\nIf Shizuku is not running, please start it first.</string>
-    <string name="cancel">Cancel</string>
 </resources>

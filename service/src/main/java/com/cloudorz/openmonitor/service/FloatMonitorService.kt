@@ -29,8 +29,10 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import androidx.core.content.edit
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -164,7 +166,7 @@ class FloatMonitorService : LifecycleService() {
 
     private fun startFloatService() {
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-            .edit().putBoolean(KEY_SERVICE_ACTIVE, true).apply()
+            .edit { putBoolean(KEY_SERVICE_ACTIVE, true) }
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.float_notification_title))
@@ -192,10 +194,10 @@ class FloatMonitorService : LifecycleService() {
         notifyWatchdog(false)
 
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-            .edit()
-            .putBoolean(KEY_SERVICE_ACTIVE, false)
-            .putStringSet(KEY_ENABLED_MONITORS, emptySet())
-            .apply()
+            .edit {
+                putBoolean(KEY_SERVICE_ACTIVE, false)
+                putStringSet(KEY_ENABLED_MONITORS, emptySet())
+            }
 
         sharedFpsJob?.cancel()
         sharedFpsJob = null
@@ -339,9 +341,7 @@ class FloatMonitorService : LifecycleService() {
 
     private fun saveEnabledMonitors() {
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-            .edit()
-            .putStringSet(KEY_ENABLED_MONITORS, floatWindowManager.getActiveWindowIds())
-            .apply()
+            .edit { putStringSet(KEY_ENABLED_MONITORS, floatWindowManager.getActiveWindowIds()) }
     }
 
     private fun getPollInterval(): Long =
@@ -349,7 +349,7 @@ class FloatMonitorService : LifecycleService() {
             .getLong(KEY_POLL_INTERVAL, DEFAULT_POLL_INTERVAL)
 
     private suspend fun collectDataForType(type: String) {
-        while (kotlin.coroutines.coroutineContext.isActive) {
+        while (currentCoroutineContext().isActive) {
             try {
                 when (type) {
                     TYPE_LOAD -> collectLoadData()
@@ -471,7 +471,7 @@ class FloatMonitorService : LifecycleService() {
 
     private fun calculateMemoryUsage(): Double {
         try {
-            val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            val activityManager = getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager
             val memInfo = android.app.ActivityManager.MemoryInfo()
             activityManager.getMemoryInfo(memInfo)
             val usedMem = memInfo.totalMem - memInfo.availMem

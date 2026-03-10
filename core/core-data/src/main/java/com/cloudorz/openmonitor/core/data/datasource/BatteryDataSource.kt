@@ -14,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.abs
 
 @Singleton
 class BatteryDataSource @Inject constructor(
@@ -122,7 +123,7 @@ class BatteryDataSource @Inject constructor(
         val currentMa = readBatteryCurrent(batteryIntent).toLong()
 
         val chargeType = sysfsReader.readString("$batteryPath/charge_type") ?: ""
-        val powerW = Math.abs(currentMa / 1000.0 * voltageV)
+        val powerW = abs(currentMa / 1000.0 * voltageV)
 
         BatteryStatus(
             capacity = level,

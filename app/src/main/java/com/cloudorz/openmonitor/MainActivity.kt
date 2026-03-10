@@ -79,7 +79,7 @@ private enum class StartupPhase { CHECKING, READY, NEEDS_GUIDE }
 @Composable
 private fun MonitorAppContent(permissionManager: PermissionManager, daemonManager: DaemonManager) {
     var selectedMode by rememberSaveable {
-        mutableStateOf<PrivilegeMode?>(
+        mutableStateOf(
             if (permissionManager.hasPersistedMode) permissionManager.currentMode.value else null
         )
     }

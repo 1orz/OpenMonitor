@@ -110,19 +110,15 @@ class GpuDataSource @Inject constructor(
 
     private fun readVulkanVersion(): String {
         return try {
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
-                val features = context.packageManager.systemAvailableFeatures
-                val vulkanFeature = features.firstOrNull {
-                    it.name == PackageManager.FEATURE_VULKAN_HARDWARE_VERSION
-                }
-                if (vulkanFeature != null) {
-                    val major = (vulkanFeature.version shr 22) and 0x3FF
-                    val minor = (vulkanFeature.version shr 12) and 0x3FF
-                    val patch = vulkanFeature.version and 0xFFF
-                    "$major.$minor.$patch"
-                } else {
-                    ""
-                }
+            val features = context.packageManager.systemAvailableFeatures
+            val vulkanFeature = features.firstOrNull {
+                it.name == PackageManager.FEATURE_VULKAN_HARDWARE_VERSION
+            }
+            if (vulkanFeature != null) {
+                val major = (vulkanFeature.version shr 22) and 0x3FF
+                val minor = (vulkanFeature.version shr 12) and 0x3FF
+                val patch = vulkanFeature.version and 0xFFF
+                "$major.$minor.$patch"
             } else {
                 ""
             }

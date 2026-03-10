@@ -56,9 +56,6 @@
     <string name="go_authorize">Authorize</string>
     <string name="permission_required_toast">Please grant overlay or accessibility permission first</string>
 
-    <!-- Float Monitor Settings -->
-    <string name="fps_interval_label">Update Interval</string>
-
     <!-- FloatMonitorType display names -->
     <string name="monitor_load">Load Monitor</string>
     <string name="monitor_process">Process Monitor</string>
@@ -71,7 +68,7 @@
     <string name="monitor_load_desc">CPU/GPU/RAM/Battery dashboard</string>
     <string name="monitor_process_desc">Top CPU process list</string>
     <string name="monitor_thread_desc">Most CPU-intensive threads of current app</string>
-    <string name="monitor_mini_desc">Single line: CPU%/GPU%/Temp/FPS/Current</string>
+    <string name="monitor_mini_desc">Single line: CPU%%/GPU%%/Temp/FPS/Current</string>
     <string name="monitor_fps_desc">Real-time FPS counter</string>
     <string name="monitor_temperature_desc">Multi-sensor temperature values</string>
 
@@ -79,7 +76,7 @@
     <string name="monitor_load_info">Displays a real-time dashboard of CPU, GPU, memory, and battery load. Presented as four arc gauges in a 2x2 grid for intuitive system resource overview.</string>
     <string name="monitor_process_info">Shows the top 5 processes by CPU usage, including process name and CPU percentage. Helps quickly identify high-load processes.</string>
     <string name="monitor_thread_info">Shows the threads with the highest CPU usage in the current foreground app. Useful for deep analysis of app performance bottlenecks.</string>
-    <string name="monitor_mini_info">Ultra-minimal single-line mode showing CPU%/GPU%/Temp/FPS/Real-time current. Takes up minimal screen space, ideal for daily monitoring.</string>
+    <string name="monitor_mini_info">Ultra-minimal single-line mode showing CPU%%/GPU%%/Temp/FPS/Real-time current. Takes up minimal screen space, ideal for daily monitoring.</string>
     <string name="monitor_fps_info">Real-time frame rate counter with large font displaying current FPS and jank count statistics. Ideal for game and animation performance testing.</string>
     <string name="monitor_temperature_info">Displays real-time readings from multiple temperature sensors including CPU, GPU, and battery zones. Used for monitoring device thermal conditions.</string>
 

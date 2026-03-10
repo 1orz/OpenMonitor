@@ -16,12 +16,10 @@ activityCompose = "1.12.4"
 coreKtx = "1.17.0"
 appcompat = "1.7.1"
 junit = "4.13.2"
-junitExt = "1.1.5"
 mockk = "1.14.9"
 
 [libraries]
 # Kotlin & Coroutines
-kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlin" }
 coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 
@@ -75,14 +73,12 @@ hilt-work-compiler = { module = "androidx.hilt:hilt-compiler", version.ref = "hi
 
 # Test
 junit = { module = "junit:junit", version.ref = "junit" }
-junit-ext = { module = "androidx.test.ext:junit", version.ref = "junitExt" }
 coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }

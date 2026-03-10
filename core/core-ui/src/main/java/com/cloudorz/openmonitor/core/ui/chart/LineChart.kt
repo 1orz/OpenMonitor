@@ -43,7 +43,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -166,12 +165,10 @@ fun LineChart(
                 val topPadding = 8f
                 val bottomPadding = 4f
 
-                val chartLeft = leftPadding
                 val chartRight = size.width - rightPadding
-                val chartTop = topPadding
                 val chartBottom = size.height - bottomPadding
-                val chartWidth = chartRight - chartLeft
-                val chartHeight = chartBottom - chartTop
+                val chartWidth = chartRight - leftPadding
+                val chartHeight = chartBottom - topPadding
 
                 if (chartWidth <= 0f || chartHeight <= 0f) return@Canvas
 
@@ -183,9 +180,9 @@ fun LineChart(
                         labelColor = labelColor,
                         yMin = globalMin,
                         yMax = globalMax,
-                        chartLeft = chartLeft,
+                        chartLeft = leftPadding,
                         chartRight = chartRight,
-                        chartTop = chartTop,
+                        chartTop = topPadding,
                         chartBottom = chartBottom,
                         lineCount = 4,
                     )
@@ -198,9 +195,9 @@ fun LineChart(
                         maxDataPoints = maxDataPoints,
                         yMin = globalMin,
                         yMax = globalMax,
-                        chartLeft = chartLeft,
+                        chartLeft = leftPadding,
                         chartRight = chartRight,
-                        chartTop = chartTop,
+                        chartTop = topPadding,
                         chartBottom = chartBottom,
                         chartWidth = chartWidth,
                         chartHeight = chartHeight,
@@ -219,9 +216,9 @@ fun LineChart(
                         maxDataPoints = maxDataPoints,
                         yMin = globalMin,
                         yMax = globalMax,
-                        chartLeft = chartLeft,
+                        chartLeft = leftPadding,
                         chartRight = chartRight,
-                        chartTop = chartTop,
+                        chartTop = topPadding,
                         chartBottom = chartBottom,
                         chartWidth = chartWidth,
                         chartHeight = chartHeight,
@@ -307,9 +304,9 @@ private fun DrawScope.drawGridLines(
  * Formats a Y-axis value for compact display.
  */
 private fun formatAxisValue(value: Float): String = when {
-    value >= 1000f -> String.format("%.0fk", value / 1000f)
-    value == value.toLong().toFloat() -> String.format("%.0f", value)
-    else -> String.format("%.1f", value)
+    value >= 1000f -> String.format(java.util.Locale.US, "%.0fk", value / 1000f)
+    value == value.toLong().toFloat() -> String.format(java.util.Locale.US, "%.0f", value)
+    else -> String.format(java.util.Locale.US, "%.1f", value)
 }
 
 /**

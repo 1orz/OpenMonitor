@@ -1,5 +1,6 @@
 package com.cloudorz.openmonitor.feature.floatmonitor
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -68,6 +69,8 @@ fun FloatMonitorScreen(
         }
     }
 
+    // context.getString is required here — stringResource() is not available inside LaunchedEffect
+    @SuppressLint("LocalContextGetResourceValueCall")
     LaunchedEffect(Unit) {
         viewModel.snackbarEvent.collect { msgRes ->
             snackbarHostState.showSnackbar(context.getString(msgRes))

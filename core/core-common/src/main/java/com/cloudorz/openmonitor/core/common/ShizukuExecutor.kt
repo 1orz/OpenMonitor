@@ -49,21 +49,21 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
         val handler = Handler(Looper.getMainLooper())
         try {
             Shizuku.addBinderDeadListener(
-                Shizuku.OnBinderDeadListener {
+                {
                     _binderAlive.value = false
                     Log.w(TAG, "binder dead")
                 },
                 handler,
             )
             Shizuku.addBinderReceivedListener(
-                Shizuku.OnBinderReceivedListener {
+                {
                     _binderAlive.value = true
                     Log.i(TAG, "binder received")
                 },
                 handler,
             )
             Shizuku.addRequestPermissionResultListener(
-                Shizuku.OnRequestPermissionResultListener { _, grantResult ->
+                { _, grantResult ->
                     val granted = grantResult == PackageManager.PERMISSION_GRANTED
                     _permissionResult.value = granted
                     Log.i(TAG, "permission result: granted=$granted")

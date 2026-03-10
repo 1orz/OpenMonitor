@@ -66,14 +66,13 @@ fun FpsDataChart(
         val labelMarginLeft = 40f
 
         val drawableWidth = chartWidth - labelMarginLeft
-        val drawableHeight = chartHeight
 
         // Draw background zone gradient
         drawBackgroundZones(
             targetFps = targetFps,
             maxFps = maxDisplayFps,
             drawableWidth = drawableWidth,
-            drawableHeight = drawableHeight,
+            drawableHeight = chartHeight,
             offsetX = labelMarginLeft,
         )
 
@@ -82,7 +81,7 @@ fun FpsDataChart(
             referenceValues = ReferenceLines,
             maxFps = maxDisplayFps,
             drawableWidth = drawableWidth,
-            drawableHeight = drawableHeight,
+            drawableHeight = chartHeight,
             offsetX = labelMarginLeft,
             textMeasurer = textMeasurer,
         )
@@ -94,7 +93,7 @@ fun FpsDataChart(
                 targetFps = targetFps,
                 maxFps = maxDisplayFps,
                 drawableWidth = drawableWidth,
-                drawableHeight = drawableHeight,
+                drawableHeight = chartHeight,
                 offsetX = labelMarginLeft,
             )
         }

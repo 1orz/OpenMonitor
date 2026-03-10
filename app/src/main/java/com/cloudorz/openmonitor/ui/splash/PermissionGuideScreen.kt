@@ -3,11 +3,8 @@ package com.cloudorz.openmonitor.ui.splash
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -64,14 +61,12 @@ fun PermissionGuideScreen(
 ) {
     var selectedMode by remember { mutableStateOf<PrivilegeMode?>(null) }
     var detectState by remember { mutableStateOf(DetectState.IDLE) }
-    var detectedMode by remember { mutableStateOf<PrivilegeMode?>(null) }
     // True while waiting for user to respond to Shizuku permission dialog
     var waitingForShizuku by remember { mutableStateOf(false) }
 
     if (detectState == DetectState.DETECTING) {
         LaunchedEffect(Unit) {
             val best = permissionManager.detectBestMode()
-            detectedMode = best
             selectedMode = best
             detectState = DetectState.DONE
         }

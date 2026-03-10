@@ -127,8 +127,8 @@ fun RamBarView(
  * Formats kilobytes into a human-readable string (KB, MB, GB).
  */
 private fun formatSize(sizeKB: Long): String = when {
-    sizeKB >= 1_048_576L -> String.format("%.1f GB", sizeKB / 1_048_576.0)
-    sizeKB >= 1_024L -> String.format("%.1f MB", sizeKB / 1_024.0)
+    sizeKB >= 1_048_576L -> String.format(java.util.Locale.US, "%.1f GB", sizeKB / 1_048_576.0)
+    sizeKB >= 1_024L -> String.format(java.util.Locale.US, "%.1f MB", sizeKB / 1_024.0)
     else -> "$sizeKB KB"
 }
 

@@ -638,7 +638,7 @@ private fun loadColor(loadPercent: Double): androidx.compose.ui.graphics.Color =
 private fun getClusterLabel(index: Int, totalClusters: Int): String {
     if (totalClusters <= 1) return "Cluster $index"
     return when (index) {
-        0 -> "Cluster $index (Little)"
+        0 -> "Cluster 0 (Little)"
         totalClusters - 1 -> "Cluster $index (Big)"
         else -> "Cluster $index (Mid)"
     }

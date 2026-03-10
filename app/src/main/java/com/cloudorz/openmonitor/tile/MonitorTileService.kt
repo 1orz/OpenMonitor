@@ -60,7 +60,7 @@ class MonitorTileService : TileService() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startActivityAndCollapse(pendingIntent)
         } else {
-            @Suppress("DEPRECATION")
+            @Suppress("StartActivityAndCollapseDeprecated", "DEPRECATION")
             startActivityAndCollapse(intent)
         }
     }
@@ -83,17 +83,7 @@ class MonitorTileService : TileService() {
         tile.label = getString(R.string.tile_label_format, loadPercent, tempStr)
         tile.state = Tile.STATE_ACTIVE
 
-        val iconRes = when {
-            loadPercent >= 80 -> R.drawable.ic_tile_monitor
-            loadPercent >= 50 -> R.drawable.ic_tile_monitor
-            else -> R.drawable.ic_tile_monitor
-        }
-        val tintColor = when {
-            loadPercent >= 80 -> 0xFFF44336.toInt() // red
-            loadPercent >= 50 -> 0xFFFFC107.toInt() // yellow
-            else -> 0xFF4CAF50.toInt() // green
-        }
-        tile.icon = Icon.createWithResource(this, iconRes)
+        tile.icon = Icon.createWithResource(this, R.drawable.ic_tile_monitor)
 
         tile.updateTile()
     }

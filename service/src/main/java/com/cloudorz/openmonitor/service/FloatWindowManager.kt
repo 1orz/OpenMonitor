@@ -2,6 +2,7 @@ package com.cloudorz.openmonitor.service
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
+import androidx.core.content.edit
 import android.graphics.PixelFormat
 import android.os.Build
 import android.util.Log
@@ -110,7 +111,10 @@ class FloatWindowManager(private val context: Context) {
         // Wrap in DraggableFrameLayout for proper drag + Compose click coexistence
         val rootView: View = if (draggable) {
             DraggableFrameLayout(context, onInteraction, onDragEnd = { px, py ->
-                posPrefs.edit().putInt("${id}_x", px).putInt("${id}_y", py).apply()
+                posPrefs.edit {
+                    putInt("${id}_x", px)
+                    putInt("${id}_y", py)
+                }
             }).apply {
                 windowParams = params
                 this.windowMgr = this@FloatWindowManager.windowManager
@@ -218,6 +222,8 @@ class FloatWindowManager(private val context: Context) {
                     if (isDragging) {
                         val p = windowParams
                         if (p != null) onDragEnd?.invoke(p.x, p.y)
+                    } else if (event.actionMasked == MotionEvent.ACTION_UP) {
+                        performClick()
                     }
                     isDragging = false
                     onInteraction?.invoke(false)

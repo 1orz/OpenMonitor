@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.cloudorz.openmonitor.core.common.AppLogEntry
 import com.cloudorz.openmonitor.core.common.AppLogger
 import com.cloudorz.openmonitor.core.common.ShellExecutor
-import com.cloudorz.openmonitor.core.data.datasource.DaemonLauncher
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +22,7 @@ class LogViewModel @Inject constructor(
     companion object {
         private val DAEMON_LOG_PATHS = listOf(
             "/data/local/tmp/daemon.log",
-            "/sdcard/daemon.log",
+            "/storage/emulated/0/daemon.log",
         )
         private const val DAEMON_POLL_INTERVAL_MS = 3_000L
         private const val DAEMON_TAIL_LINES = 300

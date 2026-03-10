@@ -3,6 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_background"
+    android:baselineAligned="false"
     android:gravity="center"
     android:orientation="horizontal"
     android:padding="8dp">
@@ -19,7 +20,7 @@
             android:id="@+id/widget_cpu_label"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="CPU"
+            android:text="@string/widget_cpu_label"
             android:textColor="#AAFFFFFF"
             android:textSize="11sp" />
 
@@ -27,14 +28,14 @@
             android:id="@+id/widget_cpu_value"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="--%%"
+            android:text="@string/widget_placeholder_percent"
             android:textColor="#FFFFFFFF"
             android:textSize="18sp"
             android:textStyle="bold" />
     </LinearLayout>
 
     <!-- Divider -->
-    <View
+    <FrameLayout
         android:layout_width="1dp"
         android:layout_height="32dp"
         android:layout_gravity="center_vertical"
@@ -60,14 +61,14 @@
             android:id="@+id/widget_temp_value"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="--°C"
+            android:text="@string/widget_placeholder_temp"
             android:textColor="#FFFFFFFF"
             android:textSize="18sp"
             android:textStyle="bold" />
     </LinearLayout>
 
     <!-- Divider -->
-    <View
+    <FrameLayout
         android:layout_width="1dp"
         android:layout_height="32dp"
         android:layout_gravity="center_vertical"
@@ -85,7 +86,7 @@
             android:id="@+id/widget_mem_label"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="RAM"
+            android:text="@string/widget_ram_label"
             android:textColor="#AAFFFFFF"
             android:textSize="11sp" />
 
@@ -93,7 +94,7 @@
             android:id="@+id/widget_mem_value"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="--%%"
+            android:text="@string/widget_placeholder_percent"
             android:textColor="#FFFFFFFF"
             android:textSize="18sp"
             android:textStyle="bold" />
