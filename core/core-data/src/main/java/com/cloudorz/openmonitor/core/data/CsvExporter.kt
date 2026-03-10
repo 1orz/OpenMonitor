@@ -15,11 +15,11 @@ class CsvExporter @Inject constructor(
 ) {
     suspend fun exportPowerSession(sessionId: Long, outputStream: OutputStream) {
         outputStream.bufferedWriter().use { writer ->
-            writer.appendLine("timestamp,capacity,isCharging,ioBytes,packageName,isScreenOn,isFuzzy")
+            writer.appendLine("timestamp,capacity,isCharging,isScreenOn")
             val records = powerStatDao.getRecordsBySessionOnce(sessionId)
             for (r in records) {
                 writer.appendLine(
-                    "${r.startTime},${r.capacity},${r.isCharging},${r.ioBytes},${r.packageName},${r.isScreenOn},${r.isFuzzy}"
+                    "${r.startTime},${r.capacity},${r.isCharging},${r.isScreenOn}"
                 )
             }
         }

@@ -163,10 +163,16 @@ class ChargeViewModel @Inject constructor(
                 powerW = abs(battery.powerW),
             )
             val capacityDelta = battery.capacity - startCapacity
+            // Approximate energy: (delta% / 100) × capacityMah / 1000 × avgVoltage
+            val capacityWh = if (battery.capacityMah > 0 && battery.voltageV > 0) {
+                (capacityDelta / 100.0) * (battery.capacityMah / 1000.0) * battery.voltageV
+            } else {
+                0.0
+            }
             chargeRepository.endSession(
                 sessionId = sessionId,
                 capacityRatio = capacityDelta,
-                capacityWh = 0.0,
+                capacityWh = capacityWh,
             )
             currentRecords.value = emptyList()
         }

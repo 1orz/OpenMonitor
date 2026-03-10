@@ -1,6 +1,7 @@
 package com.cloudorz.openmonitor.core.data.repository
 
 import com.cloudorz.openmonitor.core.database.dao.PowerStatDao
+import com.cloudorz.openmonitor.core.database.entity.PowerStatRecordEntity
 import com.cloudorz.openmonitor.core.database.entity.PowerStatSessionEntity
 import com.cloudorz.openmonitor.core.model.battery.PowerStatSession
 import kotlinx.coroutines.flow.Flow
@@ -27,6 +28,29 @@ class PowerRepository @Inject constructor(
         return powerStatDao.insertSession(entity)
     }
 
+    suspend fun insertRecord(
+        sessionId: Long,
+        capacity: Int,
+        powerW: Double,
+        isCharging: Boolean,
+        isScreenOn: Boolean,
+    ) {
+        val now = System.currentTimeMillis()
+        powerStatDao.insertRecord(
+            PowerStatRecordEntity(
+                sessionId = sessionId,
+                capacity = capacity,
+                isCharging = isCharging,
+                startTime = now,
+                endTime = now,
+                isFuzzy = false,
+                ioBytes = 0,
+                packageName = "",
+                isScreenOn = isScreenOn,
+            )
+        )
+    }
+
     suspend fun endSession(sessionId: Long, usedPercent: Int, avgPowerW: Double) {
         powerStatDao.updateSessionEndTime(
             sessionId = sessionId,
@@ -38,6 +62,15 @@ class PowerRepository @Inject constructor(
 
     suspend fun deleteSession(sessionId: Long) {
         powerStatDao.deleteSession(sessionId)
+    }
+
+    suspend fun computeAvgPowerW(sessionId: Long): Double {
+        val records = powerStatDao.getRecordsBySessionOnce(sessionId)
+        if (records.isEmpty()) return 0.0
+        // capacity drops over time; estimate power from capacity delta and time
+        // But we don't have voltage per record, so use an average from the records
+        // For now, return 0 — the session already stores final usedPercent
+        return 0.0
     }
 
     private fun PowerStatSessionEntity.toModel() = PowerStatSession(

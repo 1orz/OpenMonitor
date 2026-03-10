@@ -14,6 +14,7 @@ import com.cloudorz.openmonitor.core.model.battery.PowerStatSession
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
 import javax.inject.Inject
+import kotlin.math.abs
 
 data class PowerUiState(
     val currentBattery: BatteryStatus = BatteryStatus(),
@@ -43,7 +45,9 @@ class PowerViewModel @Inject constructor(
 
     private var trackingSessionId: Long? = null
     private var trackingStartCapacity: Int = 0
-    private var trackingJob: Job? = null
+    private var samplingJob: Job? = null
+    private var powerAccumulator: Double = 0.0
+    private var powerSampleCount: Int = 0
 
     val uiState: StateFlow<PowerUiState> = combine(
         batteryFlow,
@@ -79,26 +83,64 @@ class PowerViewModel @Inject constructor(
 
     private fun startTracking() {
         isTracking.value = true
-        trackingJob = viewModelScope.launch {
+        powerAccumulator = 0.0
+        powerSampleCount = 0
+
+        viewModelScope.launch {
             val battery = batteryRepository.getBatteryStatus()
             trackingStartCapacity = battery.capacity
-            trackingSessionId = powerRepository.startSession(battery.capacity)
+            val sessionId = powerRepository.startSession(battery.capacity)
+            trackingSessionId = sessionId
+
+            // Record initial data point
+            recordDataPoint(battery)
+
+            // Start periodic sampling (every 30s, same as charge)
+            samplingJob = viewModelScope.launch {
+                while (true) {
+                    delay(SAMPLING_INTERVAL_MS)
+                    val currentBattery = batteryRepository.getBatteryStatus()
+                    recordDataPoint(currentBattery)
+                }
+            }
         }
+    }
+
+    private suspend fun recordDataPoint(battery: BatteryStatus) {
+        val sessionId = trackingSessionId ?: return
+        val power = abs(battery.powerW)
+        powerAccumulator += power
+        powerSampleCount++
+        powerRepository.insertRecord(
+            sessionId = sessionId,
+            capacity = battery.capacity,
+            powerW = power,
+            isCharging = battery.isCharging,
+            isScreenOn = battery.screenOn,
+        )
     }
 
     private fun stopTracking() {
         isTracking.value = false
-        trackingJob?.cancel()
+        samplingJob?.cancel()
+        samplingJob = null
         val sessionId = trackingSessionId ?: return
         trackingSessionId = null
 
         viewModelScope.launch {
             val battery = batteryRepository.getBatteryStatus()
+            // Record final data point
+            recordDataPoint(battery)
             val usedPercent = trackingStartCapacity - battery.capacity
+            val avgPowerW = if (powerSampleCount > 0) {
+                powerAccumulator / powerSampleCount
+            } else {
+                abs(battery.powerW)
+            }
             powerRepository.endSession(
                 sessionId = sessionId,
                 usedPercent = usedPercent,
-                avgPowerW = battery.powerW,
+                avgPowerW = avgPowerW,
             )
         }
     }
@@ -120,5 +162,14 @@ class PowerViewModel @Inject constructor(
             }
             onReady(Intent.createChooser(intent, null))
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        samplingJob?.cancel()
+    }
+
+    companion object {
+        private const val SAMPLING_INTERVAL_MS = 30_000L
     }
 }

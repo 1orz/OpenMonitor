@@ -89,7 +89,7 @@ fun FpsScreen(
 
     FpsContent(
         uiState = uiState,
-        onStartRecording = { viewModel.startRecording() },
+        onStartRecording = viewModel::startRecording,
         onStopRecording = viewModel::stopRecording,
         onDeleteSession = viewModel::deleteSession,
         onExportSession = { sessionId ->
@@ -234,6 +234,8 @@ private fun RealtimeRecordingTab(
             FpsCounterDisplay(
                 fps = uiState.currentFps?.fps,
                 isRecording = uiState.isRecording,
+                appName = uiState.currentAppName,
+                packageName = uiState.currentPackageName,
             )
 
             // FPS chart
@@ -316,6 +318,8 @@ private fun RealtimeRecordingTab(
 private fun FpsCounterDisplay(
     fps: Double?,
     isRecording: Boolean,
+    appName: String = "",
+    packageName: String = "",
 ) {
     val displayFps = fps ?: 0.0
     val fpsColor by animateColorAsState(
@@ -383,6 +387,27 @@ private fun FpsCounterDisplay(
                         text = stringResource(R.string.recording),
                         style = MaterialTheme.typography.labelMedium,
                         color = ChartRed.copy(alpha = 0.8f),
+                    )
+                }
+            }
+            // Show current foreground app
+            if (appName.isNotEmpty() || packageName.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = appName.ifEmpty { packageName },
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (appName.isNotEmpty() && packageName.isNotEmpty()) {
+                    Text(
+                        text = packageName,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }

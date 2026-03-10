@@ -43,6 +43,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cloudorz.openmonitor.core.model.cpu.CpuCacheInfo
 import com.cloudorz.openmonitor.core.model.cpu.CpuClusterStatus
 import com.cloudorz.openmonitor.core.model.cpu.CpuGlobalStatus
+import com.cloudorz.openmonitor.core.model.cpu.SocInfo
 import com.cloudorz.openmonitor.core.ui.R
 import com.cloudorz.openmonitor.core.ui.theme.ChartGreen
 import com.cloudorz.openmonitor.core.ui.theme.ChartRed
@@ -135,47 +136,160 @@ private fun CpuMonitorContent(
 
 @Composable
 private fun CpuOverviewHeader(cpuStatus: CpuGlobalStatus) {
+    val socInfo = cpuStatus.socInfo
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer,
         ),
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column {
-                Text(
-                    text = cpuStatus.cpuName.ifEmpty { "CPU" },
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
-                Spacer(modifier = Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = cpuStatus.cpuName.ifEmpty { "CPU" },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                    if (socInfo.hasData && socInfo.vendor.isNotBlank()) {
+                        Text(
+                            text = socInfo.vendor,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                        )
+                    }
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = "%.1f%%".format(cpuStatus.totalLoadPercent),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = loadColor(cpuStatus.totalLoadPercent),
+                    )
+                    Text(
+                        text = "%.0f MHz".format(cpuStatus.averageFreqMHz),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // SoC details row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
                 Text(
                     text = stringResource(R.string.online_cores_format, cpuStatus.onlineCoreCount, cpuStatus.coreCount),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
                 )
+                if (socInfo.fab.isNotBlank()) {
+                    Text(
+                        text = socInfo.fab,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                    )
+                }
             }
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = "%.1f%%".format(cpuStatus.totalLoadPercent),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = loadColor(cpuStatus.totalLoadPercent),
-                )
-                Text(
-                    text = "%.0f MHz".format(cpuStatus.averageFreqMHz),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-                )
+
+            if (socInfo.hasData) {
+                SocDetailSection(socInfo = socInfo)
             }
         }
+    }
+}
+
+@Composable
+private fun SocDetailSection(socInfo: SocInfo) {
+    Spacer(modifier = Modifier.height(8.dp))
+
+    val detailColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+
+    if (socInfo.hardwareId.isNotBlank()) {
+        SocDetailRow(
+            label = stringResource(R.string.soc_hardware_id),
+            value = socInfo.hardwareId,
+            valueColor = detailColor,
+        )
+    }
+    if (socInfo.architecture.isNotBlank()) {
+        SocDetailRow(
+            label = stringResource(R.string.soc_architecture),
+            value = socInfo.architecture,
+            valueColor = detailColor,
+        )
+    }
+    if (socInfo.abi.isNotBlank()) {
+        SocDetailRow(
+            label = stringResource(R.string.soc_abi),
+            value = socInfo.abi,
+            valueColor = detailColor,
+        )
+    }
+    if (socInfo.cpuDescription.isNotBlank()) {
+        SocDetailRow(
+            label = stringResource(R.string.soc_cpu_config),
+            value = socInfo.cpuDescription.replace("\n", " + "),
+            valueColor = detailColor,
+        )
+    }
+    if (socInfo.memoryType.isNotBlank()) {
+        SocDetailRow(
+            label = stringResource(R.string.soc_memory),
+            value = socInfo.memoryType,
+            valueColor = detailColor,
+        )
+    }
+    if (socInfo.bandwidth.isNotBlank()) {
+        SocDetailRow(
+            label = stringResource(R.string.soc_bandwidth),
+            value = socInfo.bandwidth,
+            valueColor = detailColor,
+        )
+    }
+    if (socInfo.channels.isNotBlank()) {
+        SocDetailRow(
+            label = stringResource(R.string.soc_channels),
+            value = socInfo.channels,
+            valueColor = detailColor,
+        )
+    }
+}
+
+@Composable
+private fun SocDetailRow(
+    label: String,
+    value: String,
+    valueColor: androidx.compose.ui.graphics.Color,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Medium,
+            color = valueColor,
+        )
     }
 }
 

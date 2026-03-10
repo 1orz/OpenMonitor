@@ -16,6 +16,7 @@ import javax.inject.Singleton
 class CpuDataSource @Inject constructor(
     private val sysfsReader: SysfsReader,
     private val cpuNativeInfo: CpuNativeInfo,
+    private val socDatabase: SocDatabase,
 ) {
     private val cpuBasePath = "/sys/devices/system/cpu"
     private val procStatPath = "/proc/stat"
@@ -141,8 +142,10 @@ class CpuDataSource @Inject constructor(
         }
         val clusters = clusterIndices.mapNotNull { getClusterStatus(it) }
 
+        val socInfo = socDatabase.getSocInfo()
+
         return CpuGlobalStatus(
-            cpuName = getCpuName(),
+            cpuName = if (socInfo.hasData) socInfo.name else getCpuName(),
             totalLoadPercent = loads.getOrElse(0) { 0.0 },
             temperatureCelsius = getCpuTemperature(),
             uptimeSeconds = getUptime(),
@@ -150,6 +153,7 @@ class CpuDataSource @Inject constructor(
             clusters = clusters,
             cacheInfo = getCacheInfo(),
             hasArmNeon = getArmNeon(),
+            socInfo = socInfo,
         )
     }
 

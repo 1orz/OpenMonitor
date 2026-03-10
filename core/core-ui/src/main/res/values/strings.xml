@@ -102,6 +102,13 @@
     <string name="supported">Supported</string>
     <string name="not_supported">Not Supported</string>
     <string name="cpu_features">CPU Features</string>
+    <string name="soc_hardware_id">Hardware</string>
+    <string name="soc_architecture">Architecture</string>
+    <string name="soc_abi">ABI</string>
+    <string name="soc_cpu_config">CPU Config</string>
+    <string name="soc_memory">Memory</string>
+    <string name="soc_bandwidth">Bandwidth</string>
+    <string name="soc_channels">Channels</string>
 
     <!-- Charge Screen -->
     <string name="charge_info">Charge Info</string>

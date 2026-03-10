@@ -348,7 +348,7 @@ private fun ChargeSessionItem(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        text = String.format(Locale.US, "%.1f%%", session.capacityRatio * 100),
+                        text = String.format(Locale.US, "%.0f%%", session.capacityRatio),
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Bold,
                     )

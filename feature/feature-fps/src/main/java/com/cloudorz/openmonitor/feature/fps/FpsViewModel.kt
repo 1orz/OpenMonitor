@@ -2,6 +2,7 @@ package com.cloudorz.openmonitor.feature.fps
 
 import android.app.Application
 import android.content.Intent
+import android.content.pm.PackageManager
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -34,6 +35,8 @@ data class FpsUiState(
     val sessions: List<FpsWatchSession> = emptyList(),
     val currentSessionId: Long? = null,
     val hasDaemon: Boolean = false,
+    val currentPackageName: String = "",
+    val currentAppName: String = "",
 )
 
 private const val MAX_HISTORY_SIZE = 60
@@ -77,13 +80,17 @@ class FpsViewModel @Inject constructor(
         }
     }
 
-    fun startRecording(packageName: String = "", appName: String = "") {
+    fun startRecording() {
         if (_uiState.value.isRecording) return
+
+        val state = _uiState.value
+        val packageName = state.currentPackageName.ifEmpty { "com.unknown" }
+        val appName = state.currentAppName.ifEmpty { "Unknown App" }
 
         viewModelScope.launch {
             val sessionId = fpsRepository.startSession(
-                packageName = packageName.ifEmpty { "com.unknown" },
-                appName = appName.ifEmpty { "Unknown App" },
+                packageName = packageName,
+                appName = appName,
                 mode = "DAEMON",
             )
             recordingStartTime = System.currentTimeMillis()
@@ -164,15 +171,27 @@ class FpsViewModel @Inject constructor(
                 fpsRepository.recordFrame(sessionId, fpsData)
             }
 
+            // Extract package name from fps_layer
+            val pkg = extractPackageFromLayer(fpsData.window)
+            val prevPkg = _uiState.value.currentPackageName
+
             _uiState.update { state ->
                 val newHistory = state.fpsHistory.toMutableList().apply {
                     add(fpsData.fps.toFloat())
                     if (size > MAX_HISTORY_SIZE) removeAt(0)
                 }
-                state.copy(
+                val updated = state.copy(
                     currentFps = fpsData,
                     fpsHistory = newHistory,
                 )
+                if (pkg.isNotEmpty() && pkg != prevPkg) {
+                    updated.copy(
+                        currentPackageName = pkg,
+                        currentAppName = resolveAppName(pkg),
+                    )
+                } else {
+                    updated
+                }
             }
         }
     }
@@ -224,10 +243,54 @@ class FpsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Resolves a human-readable app name from a package name via PackageManager.
+     */
+    private fun resolveAppName(packageName: String): String {
+        return try {
+            val pm = application.packageManager
+            val ai = pm.getApplicationInfo(packageName, 0)
+            pm.getApplicationLabel(ai).toString()
+        } catch (_: PackageManager.NameNotFoundException) {
+            packageName
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         fpsCollectionJob?.cancel()
         cpuCollectionJob?.cancel()
         batteryCollectionJob?.cancel()
+    }
+
+    companion object {
+        /**
+         * Extracts a package name from a SurfaceFlinger layer string.
+         *
+         * Examples:
+         *   "layerName = SurfaceView[com.tencent.lolm/com.tencent.lolm.MainActivity]#14149"
+         *     → "com.tencent.lolm"
+         *   "SurfaceView - com.example.app/com.example.app.Activity#123"
+         *     → "com.example.app"
+         *   "com.example.app/com.example.app.Activity#0"
+         *     → "com.example.app"
+         */
+        fun extractPackageFromLayer(layer: String): String {
+            if (layer.isBlank()) return ""
+
+            // Pattern 1: "SurfaceView[pkg/activity]#id" or "[pkg/activity]"
+            val bracketMatch = Regex("""\[([a-zA-Z][a-zA-Z0-9_.]*)/""").find(layer)
+            if (bracketMatch != null) return bracketMatch.groupValues[1]
+
+            // Pattern 2: "SurfaceView - pkg/activity#id"
+            val dashMatch = Regex("""- ([a-zA-Z][a-zA-Z0-9_.]*)/""").find(layer)
+            if (dashMatch != null) return dashMatch.groupValues[1]
+
+            // Pattern 3: bare "pkg/activity#id"
+            val slashMatch = Regex("""([a-zA-Z][a-zA-Z0-9_.]*)/[a-zA-Z]""").find(layer)
+            if (slashMatch != null) return slashMatch.groupValues[1]
+
+            return ""
+        }
     }
 }

@@ -102,6 +102,13 @@
     <string name="supported">支持</string>
     <string name="not_supported">不支持</string>
     <string name="cpu_features">CPU 特性</string>
+    <string name="soc_hardware_id">硬件代号</string>
+    <string name="soc_architecture">架构</string>
+    <string name="soc_abi">ABI</string>
+    <string name="soc_cpu_config">CPU 配置</string>
+    <string name="soc_memory">内存类型</string>
+    <string name="soc_bandwidth">带宽</string>
+    <string name="soc_channels">通道</string>
 
     <!-- Charge Screen -->
     <string name="charge_info">充电信息</string>
