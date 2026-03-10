@@ -185,10 +185,6 @@ class FloatMonitorService : LifecycleService() {
 
         if (savedMonitors.isNotEmpty()) {
             notifyWatchdog(true)
-            // Sync sampling rate to daemon
-            lifecycleScope.launch {
-                daemonClient.sendCommand("sample-interval", getPollInterval().toString())
-            }
         }
     }
 
@@ -429,11 +425,6 @@ class FloatMonitorService : LifecycleService() {
 
     /** Restart all active collection jobs with the new poll interval */
     private fun restartAllJobs() {
-        // Notify daemon to adjust sampling rate
-        val interval = getPollInterval()
-        lifecycleScope.launch {
-            daemonClient.sendCommand("sample-interval", interval.toString())
-        }
         // Restart shared FPS job
         if (sharedFpsJob?.isActive == true) {
             sharedFpsJob?.cancel()

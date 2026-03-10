@@ -10,7 +10,7 @@
 
 extern "C"
 JNIEXPORT jboolean JNICALL
-Java_com_cloudorz_monitor_core_common_CpuNativeInfo_nativeInit(JNIEnv *env, jobject thiz) {
+Java_com_cloudorz_openmonitor_core_common_CpuNativeInfo_nativeInit(JNIEnv *env, jobject thiz) {
     if (!cpuinfo_initialize()) {
         LOGI("cpuinfo initialization failed");
         return JNI_FALSE;
@@ -20,7 +20,7 @@ Java_com_cloudorz_monitor_core_common_CpuNativeInfo_nativeInit(JNIEnv *env, jobj
 
 extern "C"
 JNIEXPORT jstring JNICALL
-Java_com_cloudorz_monitor_core_common_CpuNativeInfo_nativeGetCpuName(JNIEnv *env, jobject thiz) {
+Java_com_cloudorz_openmonitor_core_common_CpuNativeInfo_nativeGetCpuName(JNIEnv *env, jobject thiz) {
     if (!cpuinfo_initialize()) {
         return env->NewStringUTF("");
     }
@@ -29,7 +29,7 @@ Java_com_cloudorz_monitor_core_common_CpuNativeInfo_nativeGetCpuName(JNIEnv *env
 
 extern "C"
 JNIEXPORT jint JNICALL
-Java_com_cloudorz_monitor_core_common_CpuNativeInfo_nativeGetCoreCount(JNIEnv *env, jobject thiz) {
+Java_com_cloudorz_openmonitor_core_common_CpuNativeInfo_nativeGetCoreCount(JNIEnv *env, jobject thiz) {
     if (!cpuinfo_initialize()) {
         return 0;
     }
@@ -38,7 +38,7 @@ Java_com_cloudorz_monitor_core_common_CpuNativeInfo_nativeGetCoreCount(JNIEnv *e
 
 extern "C"
 JNIEXPORT jboolean JNICALL
-Java_com_cloudorz_monitor_core_common_CpuNativeInfo_nativeHasArmNeon(JNIEnv *env, jobject thiz) {
+Java_com_cloudorz_openmonitor_core_common_CpuNativeInfo_nativeHasArmNeon(JNIEnv *env, jobject thiz) {
     if (!cpuinfo_initialize()) {
         return JNI_FALSE;
     }
@@ -47,7 +47,7 @@ Java_com_cloudorz_monitor_core_common_CpuNativeInfo_nativeHasArmNeon(JNIEnv *env
 
 extern "C"
 JNIEXPORT jintArray JNICALL
-Java_com_cloudorz_monitor_core_common_CpuNativeInfo_nativeGetL1dCaches(JNIEnv *env, jobject thiz) {
+Java_com_cloudorz_openmonitor_core_common_CpuNativeInfo_nativeGetL1dCaches(JNIEnv *env, jobject thiz) {
     if (!cpuinfo_initialize() || cpuinfo_get_l1d_caches_count() == 0) {
         return nullptr;
     }
@@ -65,7 +65,7 @@ Java_com_cloudorz_monitor_core_common_CpuNativeInfo_nativeGetL1dCaches(JNIEnv *e
 
 extern "C"
 JNIEXPORT jintArray JNICALL
-Java_com_cloudorz_monitor_core_common_CpuNativeInfo_nativeGetL1iCaches(JNIEnv *env, jobject thiz) {
+Java_com_cloudorz_openmonitor_core_common_CpuNativeInfo_nativeGetL1iCaches(JNIEnv *env, jobject thiz) {
     if (!cpuinfo_initialize() || cpuinfo_get_l1i_caches_count() == 0) {
         return nullptr;
     }
@@ -83,7 +83,7 @@ Java_com_cloudorz_monitor_core_common_CpuNativeInfo_nativeGetL1iCaches(JNIEnv *e
 
 extern "C"
 JNIEXPORT jintArray JNICALL
-Java_com_cloudorz_monitor_core_common_CpuNativeInfo_nativeGetL2Caches(JNIEnv *env, jobject thiz) {
+Java_com_cloudorz_openmonitor_core_common_CpuNativeInfo_nativeGetL2Caches(JNIEnv *env, jobject thiz) {
     if (!cpuinfo_initialize() || cpuinfo_get_l2_caches_count() == 0) {
         return nullptr;
     }
@@ -101,7 +101,7 @@ Java_com_cloudorz_monitor_core_common_CpuNativeInfo_nativeGetL2Caches(JNIEnv *en
 
 extern "C"
 JNIEXPORT jintArray JNICALL
-Java_com_cloudorz_monitor_core_common_CpuNativeInfo_nativeGetL3Caches(JNIEnv *env, jobject thiz) {
+Java_com_cloudorz_openmonitor_core_common_CpuNativeInfo_nativeGetL3Caches(JNIEnv *env, jobject thiz) {
     if (!cpuinfo_initialize() || cpuinfo_get_l3_caches_count() == 0) {
         return nullptr;
     }

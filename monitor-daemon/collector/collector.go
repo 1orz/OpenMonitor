@@ -8,23 +8,6 @@ import (
 	"time"
 )
 
-// sampleIntervalMs controls system sampling rate (default 1000ms).
-// Adjusted at runtime via SetSampleInterval when a stream client connects.
-var sampleIntervalMs int64 = 1000
-
-// SetSampleInterval adjusts the system sampling rate (minimum 200ms).
-func SetSampleInterval(ms int64) {
-	if ms < 200 {
-		ms = 200
-	}
-	atomic.StoreInt64(&sampleIntervalMs, ms)
-}
-
-// GetSampleInterval returns the current system sampling interval in ms.
-func GetSampleInterval() int64 {
-	return atomic.LoadInt64(&sampleIntervalMs)
-}
-
 // daemonRunner is the identity of the current process: "root" or "shell".
 var daemonRunner = func() string {
 	if os.Getuid() == 0 {
@@ -66,13 +49,30 @@ type Snapshot struct {
 	TimestampMs int64  `json:"timestamp_ms"`
 }
 
-// Collector coordinates all background sampling.
-type Collector struct {
-	mu sync.RWMutex
+// sampleIntervalMs is the background sampling rate, adjustable at runtime.
+var sampleIntervalMs int64 = 200
 
-	fps         *fpsCollector
-	prevCpu     []cpuStat
-	snap        Snapshot
+// SetSampleInterval adjusts the background sampling rate (minimum 100ms).
+func SetSampleInterval(ms int64) {
+	if ms < 100 {
+		ms = 100
+	}
+	atomic.StoreInt64(&sampleIntervalMs, ms)
+}
+
+// GetSampleInterval returns the current sampling interval in ms.
+func GetSampleInterval() int64 {
+	return atomic.LoadInt64(&sampleIntervalMs)
+}
+
+// Collector runs background high-frequency sampling.
+// Clients read the latest cached snapshot via GetSnapshot().
+type Collector struct {
+	mu      sync.RWMutex
+	fps     *fpsCollector
+	prevCpu []cpuStat
+	snap    Snapshot
+
 	initLogOnce sync.Once
 }
 
@@ -85,10 +85,10 @@ func New() *Collector {
 
 // Start launches background sampling goroutines.
 func (c *Collector) Start() {
-	// FPS: background 500ms sampling
+	// FPS: background 500ms sampling (SurfaceFlinger needs continuous tracking)
 	c.fps.start()
 
-	// System stats: dynamic interval (default 1s, adjustable via SetSampleInterval)
+	// System stats: high-frequency background sampling
 	go func() {
 		for {
 			c.sampleSystem()
@@ -144,7 +144,7 @@ func (c *Collector) sampleSystem() {
 	c.mu.Unlock()
 }
 
-// GetSnapshot returns the latest system snapshot.
+// GetSnapshot returns the latest cached snapshot (never blocks on I/O).
 func (c *Collector) GetSnapshot() Snapshot {
 	c.mu.RLock()
 	defer c.mu.RUnlock()

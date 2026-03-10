@@ -8,6 +8,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -143,10 +144,18 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
     val isServiceBound: Boolean get() = bound && shellService != null
 
     override suspend fun execute(command: String): CommandResult = withContext(Dispatchers.IO) {
-        val service = shellService
+        var service = shellService
         if (service == null) {
             bindService()
-            return@withContext CommandResult.failure("Shizuku service not bound yet")
+            // Wait up to 3s for service binding to complete
+            for (i in 1..30) {
+                delay(100)
+                service = shellService
+                if (service != null) break
+            }
+            if (service == null) {
+                return@withContext CommandResult.failure("Shizuku service not bound yet")
+            }
         }
 
         try {

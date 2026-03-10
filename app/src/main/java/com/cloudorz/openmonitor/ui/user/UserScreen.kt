@@ -193,8 +193,10 @@ fun UserScreen(
                                         coroutineScope.launch {
                                             val detected = permissionManager.detectBestMode()
                                             if (detected == PrivilegeMode.ROOT) {
-                                                viewModel.switchMode(oldMode, PrivilegeMode.ROOT) {
-                                                    permissionManager.setMode(PrivilegeMode.ROOT)
+                                                viewModel.switchMode(
+                                                    oldMode, PrivilegeMode.ROOT,
+                                                    applyNewMode = { permissionManager.setMode(PrivilegeMode.ROOT) },
+                                                ) {
                                                     isDetecting = false
                                                 }
                                             } else {
@@ -206,8 +208,10 @@ fun UserScreen(
                                         when (shizukuStatus) {
                                             ShizukuStatus.GRANTED -> {
                                                 isDetecting = true
-                                                viewModel.switchMode(oldMode, PrivilegeMode.SHIZUKU) {
-                                                    permissionManager.setMode(PrivilegeMode.SHIZUKU)
+                                                viewModel.switchMode(
+                                                    oldMode, PrivilegeMode.SHIZUKU,
+                                                    applyNewMode = { permissionManager.setMode(PrivilegeMode.SHIZUKU) },
+                                                ) {
                                                     isDetecting = false
                                                 }
                                             }
@@ -221,15 +225,19 @@ fun UserScreen(
                                     }
                                     PrivilegeMode.ADB -> {
                                         isDetecting = true
-                                        viewModel.switchMode(oldMode, PrivilegeMode.ADB) {
-                                            permissionManager.setMode(PrivilegeMode.ADB)
+                                        viewModel.switchMode(
+                                            oldMode, PrivilegeMode.ADB,
+                                            applyNewMode = { permissionManager.setMode(PrivilegeMode.ADB) },
+                                        ) {
                                             isDetecting = false
                                         }
                                     }
                                     PrivilegeMode.BASIC -> {
                                         isDetecting = true
-                                        viewModel.switchMode(oldMode, PrivilegeMode.BASIC) {
-                                            permissionManager.setMode(PrivilegeMode.BASIC)
+                                        viewModel.switchMode(
+                                            oldMode, PrivilegeMode.BASIC,
+                                            applyNewMode = { permissionManager.setMode(PrivilegeMode.BASIC) },
+                                        ) {
                                             isDetecting = false
                                         }
                                     }
@@ -551,8 +559,10 @@ private fun DaemonStatusCard(
                         modifier = Modifier.size(16.dp),
                     )
                     Spacer(modifier = Modifier.width(6.dp))
+                    val runnerLabel = status.runner?.uppercase() ?: "?"
+                    val uptimeLabel = status.uptimeSeconds?.let { formatUptime(it) } ?: "?"
                     Text(
-                        text = "Daemon 运行中",
+                        text = "Daemon $runnerLabel  |  $uptimeLabel",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -839,5 +849,18 @@ private fun DaemonLogLevelCard(
                 }
             }
         }
+    }
+}
+
+private fun formatUptime(seconds: Long): String {
+    val d = seconds / 86400
+    val h = (seconds % 86400) / 3600
+    val m = (seconds % 3600) / 60
+    val s = seconds % 60
+    return when {
+        d > 0 -> "${d}d ${h}h ${m}m"
+        h > 0 -> "${h}h ${m}m ${s}s"
+        m > 0 -> "${m}m ${s}s"
+        else -> "${s}s"
     }
 }

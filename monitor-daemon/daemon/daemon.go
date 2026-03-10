@@ -70,7 +70,7 @@ func resolveWritablePid() string {
 
 // Daemonize re-execs the current binary as a background child with stdio
 // redirected to the log file, then the parent exits immediately.
-func Daemonize(addr string) {
+func Daemonize(addr string, sampleMs int64) {
 	if err := CheckRunning(); err != nil {
 		fmt.Fprintf(os.Stderr, "monitor-daemon: %v\n", err)
 		os.Exit(1)
@@ -85,7 +85,8 @@ func Daemonize(addr string) {
 	pidPath := resolveWritablePid()
 
 	// Re-exec self with --no-detach so the child won't fork again
-	cmd := exec.Command(os.Args[0], "--no-detach", "--addr", addr)
+	cmd := exec.Command(os.Args[0], "--no-detach", "--addr", addr,
+		"--sample-ms", strconv.FormatInt(sampleMs, 10))
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}

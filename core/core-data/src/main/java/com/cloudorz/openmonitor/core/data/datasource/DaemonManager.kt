@@ -108,35 +108,36 @@ class DaemonManager @Inject constructor(
     }
 
     /**
-     * Handles mode transition: stops daemon if needed, restarts under new mode.
+     * Handles mode transition: stops daemon under OLD mode, sets new mode, relaunches.
+     * [applyNewMode] callback sets permissionManager.currentMode before relaunch.
      */
-    suspend fun switchMode(oldMode: PrivilegeMode, newMode: PrivilegeMode): DaemonState = withContext(Dispatchers.IO) {
+    suspend fun switchMode(
+        oldMode: PrivilegeMode,
+        newMode: PrivilegeMode,
+        applyNewMode: () -> Unit,
+    ): DaemonState = withContext(Dispatchers.IO) {
         Log.e(TAG, "switchMode: $oldMode → $newMode")
         val oldAutoLaunch = oldMode == PrivilegeMode.ROOT || oldMode == PrivilegeMode.SHIZUKU
         val newAutoLaunch = newMode == PrivilegeMode.ROOT || newMode == PrivilegeMode.SHIZUKU
 
-        // Case 1: BASIC ↔ ADB — no auto-launch daemon involved
-        if (!oldAutoLaunch && !newAutoLaunch) {
-            if (newMode == PrivilegeMode.ADB) return@withContext ensureRunning() // check if daemon is manually running
-            _state.value = DaemonState.NOT_NEEDED
-            return@withContext DaemonState.NOT_NEEDED
+        // Stop daemon under old mode first (uses old executor)
+        if (oldAutoLaunch || _state.value == DaemonState.RUNNING) {
+            stopDaemon()
         }
 
-        // Case 2: had auto-launch daemon, switching to non-auto mode → stop
-        if (oldAutoLaunch && !newAutoLaunch) {
-            stopDaemon()
+        // Switch executor to new mode BEFORE launching
+        applyNewMode()
+        daemonDataSource.resetDeadState()
+        daemonDataSource.invalidate()
+
+        if (!newAutoLaunch) {
             if (newMode == PrivilegeMode.ADB) return@withContext ensureRunning()
             _state.value = DaemonState.NOT_NEEDED
             return@withContext DaemonState.NOT_NEEDED
         }
 
-        // Case 3: didn't have auto-launch, now needs it → start
-        if (!oldAutoLaunch && newAutoLaunch) {
-            return@withContext ensureRunning()
-        }
-
-        // Case 4: both auto-launch (ROOT ↔ SHIZUKU) → restart with different executor
-        return@withContext restart()
+        // Launch under new mode
+        ensureRunning()
     }
 
     /**

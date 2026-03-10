@@ -14,19 +14,21 @@ import (
 
 func main() {
 	addr := flag.String("addr", "0.0.0.0:9876", "TCP listen address")
+	sampleMs := flag.Int64("sample-ms", 200, "system sampling interval in ms (min 100)")
 	noDetach := flag.Bool("no-detach", false, "stay foreground (dev)")
 	flag.Parse()
 
-	// Default: fork child and parent exits (like nginx).
-	// --no-detach: run in foreground (used by the forked child, or for dev).
 	if !*noDetach {
-		daemon.Daemonize(*addr) // never returns — parent exits
+		daemon.Daemonize(*addr, *sampleMs)
 	}
 
 	defer daemon.CleanupPidFile()
 
 	log.SetFlags(log.Ltime | log.Lmicroseconds)
-	log.Printf("[main] monitor-daemon starting, addr=%s commit=%s pid=%d", *addr, collector.GitCommit, os.Getpid())
+	log.Printf("[main] monitor-daemon starting, addr=%s sample=%dms commit=%s pid=%d",
+		*addr, *sampleMs, collector.GitCommit, os.Getpid())
+
+	collector.SetSampleInterval(*sampleMs)
 
 	c := collector.New()
 	c.Start()
@@ -41,6 +43,6 @@ func main() {
 		s.Shutdown()
 	}()
 
-	s.Start() // blocks until Shutdown
+	s.Start()
 	log.Printf("[main] exited")
 }

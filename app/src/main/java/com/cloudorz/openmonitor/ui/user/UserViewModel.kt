@@ -11,11 +11,14 @@ import com.cloudorz.openmonitor.core.data.datasource.DaemonState
 import com.cloudorz.openmonitor.service.FloatMonitorService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -35,6 +38,8 @@ class UserViewModel @Inject constructor(
         val version: String? = null,
         val currentCommit: String? = null,
         val expectedCommit: String? = null,
+        val runner: String? = null,
+        val uptimeSeconds: Long? = null,
         val checkedOnce: Boolean = false,
     )
 
@@ -63,46 +68,52 @@ class UserViewModel @Inject constructor(
     /** Daemon binary path for ADB instructions. */
     val daemonBinaryPath: String get() = daemonLauncher.binaryPath
 
+    private var refreshJob: Job? = null
+
     init {
         viewModelScope.launch {
             daemonManager.state.collect { state ->
                 if (state == DaemonState.RUNNING) {
-                    val versionInfo = withContext(Dispatchers.IO) { fetchVersionInfo() }
-                    _daemonStatus.value = DaemonStatus(
-                        connected = true,
-                        version = versionInfo.first,
-                        currentCommit = versionInfo.second,
-                        expectedCommit = daemonLauncher.expectedCommit.ifEmpty { null },
-                        checkedOnce = true,
-                    )
-                    // Send persisted log level to daemon
+                    _daemonStatus.value = buildStatus(alive = true)
                     sendLogLevel(_logLevel.value)
+                    startRefreshLoop()
                 } else if (state == DaemonState.FAILED || state == DaemonState.NOT_NEEDED) {
-                    _daemonStatus.value = DaemonStatus(
-                        connected = false,
-                        expectedCommit = daemonLauncher.expectedCommit.ifEmpty { null },
-                        checkedOnce = true,
+                    stopRefreshLoop()
+                    _daemonStatus.value = buildStatus(alive = false)
+                }
+            }
+        }
+    }
+
+    private fun startRefreshLoop() {
+        if (refreshJob?.isActive == true) return
+        refreshJob = viewModelScope.launch(Dispatchers.IO) {
+            while (isActive) {
+                delay(1000)
+                val info = fetchDaemonInfo()
+                _daemonStatus.update {
+                    it.copy(
+                        runner = info.runner,
+                        uptimeSeconds = info.uptimeSeconds,
+                        version = info.version ?: it.version,
+                        currentCommit = info.commit ?: it.currentCommit,
                     )
                 }
             }
         }
     }
 
+    private fun stopRefreshLoop() {
+        refreshJob?.cancel()
+        refreshJob = null
+    }
+
     fun checkDaemon() {
         if (_daemonStatus.value.checking) return
         viewModelScope.launch {
             _daemonStatus.value = _daemonStatus.value.copy(checking = true)
-            val result = daemonManager.ensureRunning()
-            val alive = result == DaemonState.RUNNING
-            val versionInfo = if (alive) withContext(Dispatchers.IO) { fetchVersionInfo() } else null
-            _daemonStatus.value = DaemonStatus(
-                checking = false,
-                connected = alive,
-                version = versionInfo?.first,
-                currentCommit = versionInfo?.second,
-                expectedCommit = daemonLauncher.expectedCommit.ifEmpty { null },
-                checkedOnce = true,
-            )
+            val alive = daemonManager.ensureRunning() == DaemonState.RUNNING
+            _daemonStatus.value = buildStatus(alive = alive)
         }
     }
 
@@ -110,18 +121,22 @@ class UserViewModel @Inject constructor(
         if (_daemonStatus.value.checking) return
         viewModelScope.launch {
             _daemonStatus.value = _daemonStatus.value.copy(checking = true)
-            val result = daemonManager.restart()
-            val alive = result == DaemonState.RUNNING
-            val versionInfo = if (alive) withContext(Dispatchers.IO) { fetchVersionInfo() } else null
-            _daemonStatus.value = DaemonStatus(
-                checking = false,
-                connected = alive,
-                version = versionInfo?.first,
-                currentCommit = versionInfo?.second,
-                expectedCommit = daemonLauncher.expectedCommit.ifEmpty { null },
-                checkedOnce = true,
-            )
+            val alive = daemonManager.restart() == DaemonState.RUNNING
+            _daemonStatus.value = buildStatus(alive = alive)
         }
+    }
+
+    private suspend fun buildStatus(alive: Boolean): DaemonStatus {
+        val info = if (alive) withContext(Dispatchers.IO) { fetchDaemonInfo() } else null
+        return DaemonStatus(
+            connected = alive,
+            version = info?.version,
+            currentCommit = info?.commit,
+            expectedCommit = daemonLauncher.expectedCommit.ifEmpty { null },
+            runner = info?.runner,
+            uptimeSeconds = info?.uptimeSeconds,
+            checkedOnce = true,
+        )
     }
 
     fun setPollInterval(intervalMs: Long) {
@@ -141,20 +156,17 @@ class UserViewModel @Inject constructor(
     /**
      * Switches privilege mode: stops daemon under old mode, restarts under new mode.
      */
-    fun switchMode(oldMode: PrivilegeMode, newMode: PrivilegeMode, onComplete: (DaemonState) -> Unit) {
+    fun switchMode(
+        oldMode: PrivilegeMode,
+        newMode: PrivilegeMode,
+        applyNewMode: () -> Unit,
+        onComplete: (DaemonState) -> Unit,
+    ) {
         viewModelScope.launch {
             _daemonStatus.update { it.copy(checking = true) }
-            val result = daemonManager.switchMode(oldMode, newMode)
+            val result = daemonManager.switchMode(oldMode, newMode, applyNewMode)
             val alive = result == DaemonState.RUNNING
-            val versionInfo = if (alive) withContext(Dispatchers.IO) { fetchVersionInfo() } else null
-            _daemonStatus.value = DaemonStatus(
-                checking = false,
-                connected = alive,
-                version = versionInfo?.first,
-                currentCommit = versionInfo?.second,
-                expectedCommit = daemonLauncher.expectedCommit.ifEmpty { null },
-                checkedOnce = true,
-            )
+            _daemonStatus.value = buildStatus(alive = alive)
             onComplete(result)
         }
     }
@@ -165,11 +177,23 @@ class UserViewModel @Inject constructor(
         }
     }
 
-    private fun fetchVersionInfo(): Pair<String?, String?> {
-        val raw = daemonClient.sendCommand("daemon-version")?.trim() ?: return null to null
-        val commit = try {
-            JSONObject(raw).optString("commit", "").ifEmpty { null }
-        } catch (_: Exception) { null }
-        return raw to commit
+    data class DaemonInfo(
+        val version: String? = null,
+        val commit: String? = null,
+        val runner: String? = null,
+        val uptimeSeconds: Long? = null,
+    )
+
+    private fun fetchDaemonInfo(): DaemonInfo {
+        val raw = daemonClient.sendCommand("ping")?.trim() ?: return DaemonInfo()
+        return try {
+            val json = JSONObject(raw)
+            DaemonInfo(
+                version = json.optString("version", "").ifEmpty { null },
+                commit = json.optString("commit", "").ifEmpty { null },
+                runner = json.optString("runner", "").ifEmpty { null },
+                uptimeSeconds = json.optLong("uptime_s", -1).takeIf { it >= 0 },
+            )
+        } catch (_: Exception) { DaemonInfo() }
     }
 }
