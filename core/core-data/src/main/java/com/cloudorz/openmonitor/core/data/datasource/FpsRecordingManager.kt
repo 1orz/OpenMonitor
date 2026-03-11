@@ -42,6 +42,10 @@ data class FpsRecordingInfo(
 class FpsRecordingManager @Inject constructor(
     private val fpsDataSource: FpsDataSource,
     private val fpsRepository: FpsRepository,
+    private val aggregatedMonitorDataSource: AggregatedMonitorDataSource,
+    private val batteryDataSource: BatteryDataSource,
+    private val cpuDataSource: CpuDataSource,
+    private val gpuDataSource: GpuDataSource,
 ) {
     companion object {
         private const val TAG = "FpsRecordingMgr"
@@ -58,6 +62,7 @@ class FpsRecordingManager @Inject constructor(
 
     private var recordingJob: Job? = null
     private var fpsAccumulator = mutableListOf<Double>()
+    private var powerAccumulator = mutableListOf<Double>()
     private var recordingStartTime = 0L
 
     fun startRecording(durationSeconds: Int) {
@@ -78,6 +83,7 @@ class FpsRecordingManager @Inject constructor(
 
             // Start actual recording
             fpsAccumulator.clear()
+            powerAccumulator.clear()
             recordingStartTime = System.currentTimeMillis()
 
             val sessionId = fpsRepository.startSession(
@@ -99,9 +105,44 @@ class FpsRecordingManager @Inject constructor(
             while (true) {
                 try {
                     val fpsData = fpsDataSource.getDaemonFps()
+
+                    // Collect system metrics in parallel with FPS
+                    val snapshot = try { aggregatedMonitorDataSource.collectSnapshot() } catch (_: Exception) { null }
+                    val battery = try { batteryDataSource.getBatteryStatus() } catch (_: Exception) { null }
+                    val gpuInfo = try { gpuDataSource.getGpuInfo() } catch (_: Exception) { null }
+
+                    // Per-core frequencies
+                    val coreCount = try { cpuDataSource.getCpuCoreCount() } catch (_: Exception) { 0 }
+                    val coreFreqs = mutableListOf<Long>()
+                    for (i in 0 until coreCount) {
+                        try {
+                            val info = cpuDataSource.getCoreInfo(i)
+                            coreFreqs.add(info.currentFreqKHz / 1000) // kHz → MHz
+                        } catch (_: Exception) {
+                            coreFreqs.add(0L)
+                        }
+                    }
+
                     if (fpsData != null) {
                         fpsAccumulator.add(fpsData.fps)
-                        fpsRepository.recordFrame(sessionId, fpsData)
+
+                        val pw = battery?.powerW ?: 0.0
+                        if (pw > 0) powerAccumulator.add(pw)
+
+                        fpsRepository.recordFrameRich(
+                            sessionId = sessionId,
+                            fpsData = fpsData,
+                            cpuLoad = snapshot?.cpuLoadPercent ?: 0.0,
+                            cpuTemp = snapshot?.cpuTempCelsius ?: 0.0,
+                            gpuLoad = snapshot?.gpuLoadPercent ?: gpuInfo?.loadPercent ?: 0.0,
+                            gpuFreqMhz = snapshot?.gpuFreqMhz ?: gpuInfo?.currentFreqMHz?.toInt() ?: 0,
+                            batteryCapacity = battery?.capacity ?: 0,
+                            batteryCurrentMa = battery?.currentMa ?: 0,
+                            batteryTemp = battery?.temperatureCelsius ?: 0.0,
+                            powerW = pw,
+                            cpuCoreLoads = snapshot?.cpuCoreLoads ?: emptyList(),
+                            cpuCoreFreqs = coreFreqs,
+                        )
 
                         // Extract package from fps layer
                         val pkg = extractPackageFromLayer(fpsData.window)
@@ -110,7 +151,7 @@ class FpsRecordingManager @Inject constructor(
                         }
                     }
                 } catch (e: Exception) {
-                    Log.w(TAG, "FPS sample failed", e)
+                    Log.w(TAG, "Sample failed", e)
                 }
 
                 val elapsed = (System.currentTimeMillis() - recordingStartTime) / 1000
@@ -140,7 +181,6 @@ class FpsRecordingManager @Inject constructor(
         recordingJob = null
 
         if (_state.value == FpsRecordingState.COUNTDOWN) {
-            // Cancelled during countdown, no session created
             _state.value = FpsRecordingState.IDLE
             _info.value = FpsRecordingInfo()
             return
@@ -154,12 +194,13 @@ class FpsRecordingManager @Inject constructor(
     private suspend fun finishRecording(sessionId: Long) {
         val durationSeconds = ((System.currentTimeMillis() - recordingStartTime) / 1000).toInt()
         val avgFps = if (fpsAccumulator.isNotEmpty()) fpsAccumulator.average() else 0.0
+        val avgPower = if (powerAccumulator.isNotEmpty()) powerAccumulator.average() else 0.0
 
         try {
             fpsRepository.endSession(
                 sessionId = sessionId,
                 avgFps = avgFps,
-                avgPowerW = 0.0,
+                avgPowerW = avgPower,
                 durationSeconds = durationSeconds,
             )
             Log.e(TAG, "Recording finished, sessionId=$sessionId, avgFps=%.1f, ${durationSeconds}s".format(avgFps))
@@ -170,6 +211,7 @@ class FpsRecordingManager @Inject constructor(
         _state.value = FpsRecordingState.IDLE
         _info.value = FpsRecordingInfo()
         fpsAccumulator.clear()
+        powerAccumulator.clear()
     }
 
     private fun extractPackageFromLayer(layer: String): String {

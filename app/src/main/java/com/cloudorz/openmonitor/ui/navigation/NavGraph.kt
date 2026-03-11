@@ -32,4 +32,7 @@ object FeatureRoute {
     const val SENSOR = "features/sensor"
     const val NETWORK = "features/network"
     const val LOG = "features/log"
+    const val FPS_SESSION_DETAIL = "features/fps/session/{sessionId}"
+
+    fun fpsSessionDetail(sessionId: String) = "features/fps/session/$sessionId"
 }

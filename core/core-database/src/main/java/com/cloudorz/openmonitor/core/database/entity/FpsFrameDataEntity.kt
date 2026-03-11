@@ -26,4 +26,15 @@ data class FpsFrameDataEntity(
     val bigJankCount: Int,
     val maxFrameTimeMs: Int,
     val frameTimesJson: String,
+    // System metrics collected alongside FPS
+    val cpuLoad: Double = 0.0,
+    val cpuTemp: Double = 0.0,
+    val gpuLoad: Double = 0.0,
+    val gpuFreqMhz: Int = 0,
+    val batteryCapacity: Int = 0,
+    val batteryCurrentMa: Int = 0,
+    val batteryTemp: Double = 0.0,
+    val powerW: Double = 0.0,
+    val cpuCoreLoadsJson: String = "",
+    val cpuCoreFreqsJson: String = "",
 )

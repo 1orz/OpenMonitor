@@ -6,6 +6,7 @@ import com.cloudorz.openmonitor.core.database.dao.FpsSessionDao
 import com.cloudorz.openmonitor.core.database.entity.FpsFrameDataEntity
 import com.cloudorz.openmonitor.core.database.entity.FpsSessionEntity
 import com.cloudorz.openmonitor.core.model.fps.FpsData
+import com.cloudorz.openmonitor.core.model.fps.FpsFrameRecord
 import com.cloudorz.openmonitor.core.model.fps.FpsWatchSession
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -54,6 +55,43 @@ class FpsRepository @Inject constructor(
         )
     }
 
+    suspend fun recordFrameRich(
+        sessionId: Long,
+        fpsData: FpsData,
+        cpuLoad: Double,
+        cpuTemp: Double,
+        gpuLoad: Double,
+        gpuFreqMhz: Int,
+        batteryCapacity: Int,
+        batteryCurrentMa: Int,
+        batteryTemp: Double,
+        powerW: Double,
+        cpuCoreLoads: List<Double>,
+        cpuCoreFreqs: List<Long>,
+    ) {
+        fpsSessionDao.insertFrameData(
+            FpsFrameDataEntity(
+                sessionId = sessionId,
+                timestamp = System.currentTimeMillis(),
+                fps = fpsData.fps,
+                jankCount = fpsData.jankCount,
+                bigJankCount = fpsData.bigJankCount,
+                maxFrameTimeMs = fpsData.maxFrameTimeMs,
+                frameTimesJson = fpsData.frameTimesMs.joinToString(","),
+                cpuLoad = cpuLoad,
+                cpuTemp = cpuTemp,
+                gpuLoad = gpuLoad,
+                gpuFreqMhz = gpuFreqMhz,
+                batteryCapacity = batteryCapacity,
+                batteryCurrentMa = batteryCurrentMa,
+                batteryTemp = batteryTemp,
+                powerW = powerW,
+                cpuCoreLoadsJson = cpuCoreLoads.joinToString(",") { "%.1f".format(it) },
+                cpuCoreFreqsJson = cpuCoreFreqs.joinToString(","),
+            )
+        )
+    }
+
     suspend fun endSession(sessionId: Long, avgFps: Double, avgPowerW: Double, durationSeconds: Int) {
         fpsSessionDao.updateSession(sessionId, avgFps, avgPowerW, durationSeconds)
     }
@@ -62,6 +100,17 @@ class FpsRepository @Inject constructor(
         fpsSessionDao.getAllSessions().map { entities ->
             entities.map { it.toModel() }
         }
+
+    fun getSessionById(sessionId: Long): Flow<FpsWatchSession?> =
+        fpsSessionDao.getSessionById(sessionId).map { it?.toModel() }
+
+    fun getSessionFrames(sessionId: Long): Flow<List<FpsFrameRecord>> =
+        fpsSessionDao.getFrameDataBySession(sessionId).map { entities ->
+            entities.map { it.toRecord() }
+        }
+
+    suspend fun getSessionFramesOnce(sessionId: Long): List<FpsFrameRecord> =
+        fpsSessionDao.getFrameDataBySessionOnce(sessionId).map { it.toRecord() }
 
     suspend fun deleteSession(sessionId: Long) = fpsSessionDao.deleteSession(sessionId)
 
@@ -83,5 +132,30 @@ class FpsRepository @Inject constructor(
         packageVersion = packageVersion,
         sessionDesc = sessionDesc,
         viewSize = viewSize
+    )
+
+    private fun FpsFrameDataEntity.toRecord() = FpsFrameRecord(
+        timestamp = timestamp,
+        fps = fps,
+        jankCount = jankCount,
+        bigJankCount = bigJankCount,
+        maxFrameTimeMs = maxFrameTimeMs,
+        frameTimesMs = if (frameTimesJson.isNotEmpty()) {
+            frameTimesJson.split(",").mapNotNull { it.trim().toIntOrNull() }
+        } else emptyList(),
+        cpuLoad = cpuLoad,
+        cpuTemp = cpuTemp,
+        gpuLoad = gpuLoad,
+        gpuFreqMhz = gpuFreqMhz,
+        batteryCapacity = batteryCapacity,
+        batteryCurrentMa = batteryCurrentMa,
+        batteryTemp = batteryTemp,
+        powerW = powerW,
+        cpuCoreLoads = if (cpuCoreLoadsJson.isNotEmpty()) {
+            cpuCoreLoadsJson.split(",").mapNotNull { it.trim().toDoubleOrNull() }
+        } else emptyList(),
+        cpuCoreFreqsMhz = if (cpuCoreFreqsJson.isNotEmpty()) {
+            cpuCoreFreqsJson.split(",").mapNotNull { it.trim().toLongOrNull() }
+        } else emptyList(),
     )
 }

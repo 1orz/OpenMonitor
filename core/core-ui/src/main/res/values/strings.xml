@@ -65,6 +65,14 @@
     <string name="fps_delete_confirm_msg">Are you sure you want to delete this recording session?</string>
     <string name="fps_countdown">Countdown %ds</string>
     <string name="fps_recording_progress">%1$s elapsed, %2$s remaining</string>
+    <string name="fps_chart_fps_temp">FPS / Temperature</string>
+    <string name="fps_chart_frame_time">Frame Time (ms)</string>
+    <string name="fps_chart_cpu_usage">CPU / GPU Usage (%%)</string>
+    <string name="fps_chart_gpu_freq">GPU Frequency (MHz)</string>
+    <string name="fps_chart_cpu_freq">CPU Core Frequency (MHz)</string>
+    <string name="fps_chart_power">Power / Battery</string>
+    <string name="fps_chart_battery_current">Battery Current (mA)</string>
+    <string name="fps_chart_temperature">Temperature</string>
 
     <!-- Float Monitor Screen -->
     <string name="float_monitor_title">Float Monitor</string>

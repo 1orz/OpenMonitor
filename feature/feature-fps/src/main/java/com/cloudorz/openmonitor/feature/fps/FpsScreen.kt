@@ -77,6 +77,7 @@ import java.util.Locale
 @Composable
 fun FpsScreen(
     viewModel: FpsViewModel = hiltViewModel(),
+    onSessionClick: (String) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -95,6 +96,7 @@ fun FpsScreen(
         onToggleSelection = viewModel::toggleSelection,
         onSelectAll = { viewModel.selectAll(uiState.sessions) },
         onDeleteSelected = viewModel::deleteSelected,
+        onSessionClick = onSessionClick,
     )
 }
 
@@ -110,6 +112,7 @@ private fun FpsContent(
     onToggleSelection: (Long) -> Unit,
     onSelectAll: () -> Unit,
     onDeleteSelected: () -> Unit,
+    onSessionClick: (String) -> Unit = {},
 ) {
     Scaffold(
         topBar = {
@@ -186,7 +189,11 @@ private fun FpsContent(
                         onRename = { newDesc -> onRenameSession(session.sessionId.toLongOrNull() ?: 0L, newDesc) },
                         onClick = {
                             val id = session.sessionId.toLongOrNull() ?: 0L
-                            if (uiState.isSelectionMode) onToggleSelection(id)
+                            if (uiState.isSelectionMode) {
+                                onToggleSelection(id)
+                            } else {
+                                onSessionClick(session.sessionId)
+                            }
                         },
                         onLongClick = {
                             if (!uiState.isSelectionMode) onToggleSelectionMode()

@@ -37,6 +37,7 @@ import com.cloudorz.openmonitor.feature.charge.ChargeScreen
 import com.cloudorz.openmonitor.feature.cpu.CpuScreen
 import com.cloudorz.openmonitor.feature.floatmonitor.FloatMonitorScreen
 import com.cloudorz.openmonitor.feature.fps.FpsScreen
+import com.cloudorz.openmonitor.feature.fps.FpsSessionDetailScreen
 import com.cloudorz.openmonitor.feature.overview.OverviewScreen
 import com.cloudorz.openmonitor.feature.power.PowerScreen
 import com.cloudorz.openmonitor.feature.process.ProcessScreen
@@ -247,7 +248,18 @@ private fun MainScreen(permissionManager: PermissionManager) {
                 ChargeScreen()
             }
             composable(FeatureRoute.FPS) {
-                FpsScreen()
+                FpsScreen(
+                    onSessionClick = { sessionId ->
+                        navController.navigate(FeatureRoute.fpsSessionDetail(sessionId))
+                    },
+                )
+            }
+            composable(FeatureRoute.FPS_SESSION_DETAIL) { backStackEntry ->
+                val sessionId = backStackEntry.arguments?.getString("sessionId") ?: return@composable
+                FpsSessionDetailScreen(
+                    sessionId = sessionId.toLongOrNull() ?: return@composable,
+                    onBack = { navController.popBackStack() },
+                )
             }
             composable(FeatureRoute.PROCESS) {
                 ProcessScreen()

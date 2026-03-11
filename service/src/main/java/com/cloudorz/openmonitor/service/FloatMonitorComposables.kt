@@ -315,19 +315,22 @@ fun FloatFpsContent(service: FloatMonitorService) {
         // Main FPS display
         Box(
             modifier = Modifier
-                .background(Color(0x44000000), shape)
                 .then(
                     when {
-                        isRecording -> Modifier.border(
-                            width = 2.dp,
-                            color = Color(0xFFF44336).copy(alpha = breathAlpha),
-                            shape = shape,
-                        )
-                        isCountdown -> Modifier.border(
-                            width = 2.dp,
-                            color = Color(0xFF2196F3).copy(alpha = breathAlpha),
-                            shape = shape,
-                        )
+                        isRecording -> Modifier
+                            .background(Color(0x22000000), shape)
+                            .border(
+                                width = 1.dp,
+                                color = Color(0xFFF44336).copy(alpha = breathAlpha),
+                                shape = shape,
+                            )
+                        isCountdown -> Modifier
+                            .background(Color(0x22000000), shape)
+                            .border(
+                                width = 1.dp,
+                                color = Color(0xFF2196F3).copy(alpha = breathAlpha),
+                                shape = shape,
+                            )
                         else -> Modifier
                     }
                 )
