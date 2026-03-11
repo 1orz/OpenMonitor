@@ -39,12 +39,43 @@ class CsvExporter @Inject constructor(
 
     suspend fun exportFpsSession(sessionId: Long, outputStream: OutputStream) {
         outputStream.bufferedWriter().use { writer ->
-            writer.appendLine("timestamp,fps,jankCount,bigJankCount,maxFrameTimeMs")
             val records = fpsSessionDao.getFrameDataBySessionOnce(sessionId)
-            for (r in records) {
-                writer.appendLine(
-                    "${r.timestamp},${r.fps},${r.jankCount},${r.bigJankCount},${r.maxFrameTimeMs}"
+            // Determine max CPU core count for dynamic columns
+            val maxCores = records.maxOfOrNull { r ->
+                maxOf(
+                    if (r.cpuCoreLoadsJson.isNotEmpty()) r.cpuCoreLoadsJson.split(",").size else 0,
+                    if (r.cpuCoreFreqsJson.isNotEmpty()) r.cpuCoreFreqsJson.split(",").size else 0,
                 )
+            } ?: 0
+
+            // Build header
+            val header = buildString {
+                append("timestamp,FPS,JANK,BigJANK,Max FrameTime(ms)")
+                append(",CPU(%),CPU(℃)")
+                for (i in 0 until maxCores) append(",CPU${i}(%)")
+                for (i in 0 until maxCores) append(",CPU${i}(MHz)")
+                append(",GPU(%),GPU(MHz)")
+                append(",Battery(%),Battery(℃),Current(mA),Power(mW)")
+            }
+            writer.appendLine(header)
+
+            for (r in records) {
+                val coreLoads = if (r.cpuCoreLoadsJson.isNotEmpty()) {
+                    r.cpuCoreLoadsJson.split(",").map { it.trim() }
+                } else emptyList()
+                val coreFreqs = if (r.cpuCoreFreqsJson.isNotEmpty()) {
+                    r.cpuCoreFreqsJson.split(",").map { it.trim() }
+                } else emptyList()
+
+                val row = buildString {
+                    append("${r.timestamp},${r.fps},${r.jankCount},${r.bigJankCount},${r.maxFrameTimeMs}")
+                    append(",${r.cpuLoad},${r.cpuTemp}")
+                    for (i in 0 until maxCores) append(",${coreLoads.getOrElse(i) { "0" }}")
+                    for (i in 0 until maxCores) append(",${coreFreqs.getOrElse(i) { "0" }}")
+                    append(",${r.gpuLoad},${r.gpuFreqMhz}")
+                    append(",${r.batteryCapacity},${r.batteryTemp},${r.batteryCurrentMa},${(r.powerW * 1000).toInt()}")
+                }
+                writer.appendLine(row)
             }
         }
     }
