@@ -151,16 +151,11 @@ class DaemonManager @Inject constructor(
         ensureRunning()
     }
 
-    /** Stops the daemon without relaunching. */
+    /** Fully stops the daemon: graceful exit → force kill → cleanup PID files. */
     private suspend fun stopDaemon() {
         stopHeartbeat()
         _state.value = DaemonState.LAUNCHING
-        try { daemonClient.sendCommand("daemon-exit") } catch (_: Exception) {}
-        delay(500)
-        if (daemonClient.isAlive()) {
-            try { daemonLauncher.stop() } catch (_: Exception) {}
-            delay(500)
-        }
+        daemonLauncher.fullStop()
     }
 
     private fun startHeartbeat() {

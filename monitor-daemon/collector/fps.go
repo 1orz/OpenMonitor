@@ -16,12 +16,13 @@ import (
 const cmdTimeout = 5 * time.Second
 
 // FpsResult is the current FPS snapshot exposed to callers.
+// Pointer fields are nil before the first successful collection (JSON null).
 type FpsResult struct {
-	FPS     float64 `json:"fps"`
-	Jank    int     `json:"jank"`
-	BigJank int     `json:"big_jank"`
-	Layer   string  `json:"layer"`
-	Source  string  `json:"source"`
+	FPS     *float64 `json:"fps"`
+	Jank    *int     `json:"jank"`
+	BigJank *int     `json:"big_jank"`
+	Layer   string   `json:"layer"`
+	Source  string   `json:"source"`
 }
 
 // fpsCollector samples SurfaceFlinger frame counts in the background.
@@ -183,7 +184,7 @@ func (fc *fpsCollector) sample() {
 	if len(counts) == 0 {
 		fc.zeroStreak++
 		if fc.zeroStreak >= 2 {
-			fc.result.FPS = 0
+			fc.result.FPS = float64Ptr(0)
 		}
 		return
 	}
@@ -195,9 +196,9 @@ func (fc *fpsCollector) sample() {
 		fc.prevCounts = make(map[string]int64)
 		fc.trackedLayer = ""
 		fc.prevTime = time.Time{}
-		fc.result.FPS = 0
-		fc.result.Jank = 0
-		fc.result.BigJank = 0
+		fc.result.FPS = float64Ptr(0)
+		fc.result.Jank = intPtr(0)
+		fc.result.BigJank = intPtr(0)
 		fc.zeroStreak = 0
 		fc.lastFrameNs = 0
 		fc.frameTimeFilled = false
@@ -244,7 +245,7 @@ func (fc *fpsCollector) sample() {
 		}
 		fc.zeroStreak++
 		if fc.zeroStreak >= 2 {
-			fc.result.FPS = 0
+			fc.result.FPS = float64Ptr(0)
 		}
 		return
 	}
@@ -260,7 +261,7 @@ func (fc *fpsCollector) sample() {
 	rawFps := float64(bestDelta) / dt
 
 	// ── No smoothing — direct output ──
-	fc.result.FPS = math.Round(rawFps*10) / 10
+	fc.result.FPS = float64Ptr(math.Round(rawFps*10) / 10)
 	fc.result.Layer = bestLayer
 	fc.result.Source = "timestats"
 
@@ -350,7 +351,7 @@ func (fc *fpsCollector) probeLatency() bool {
 	fc.lastFrameNs = latest
 
 	if dt >= 0.01 {
-		fc.result.FPS = math.Round(float64(newCount)/dt*10) / 10
+		fc.result.FPS = float64Ptr(math.Round(float64(newCount) / dt * 10) / 10)
 		fc.result.Layer = fc.trackedLayer
 		fc.result.Source = "latency"
 		fc.zeroStreak = 0
@@ -395,9 +396,13 @@ func (fc *fpsCollector) detectJank(curFrameTimeMs float64) {
 		avg := (fc.frameTimeHistory[0] + fc.frameTimeHistory[1] + fc.frameTimeHistory[2]) / 3.0
 		if curFrameTimeMs > 2*avg {
 			if curFrameTimeMs > 125.0 {
-				fc.result.BigJank++
+				if fc.result.BigJank != nil {
+					fc.result.BigJank = intPtr(*fc.result.BigJank + 1)
+				}
 			} else if curFrameTimeMs > 83.3 {
-				fc.result.Jank++
+				if fc.result.Jank != nil {
+					fc.result.Jank = intPtr(*fc.result.Jank + 1)
+				}
 			}
 		}
 	}

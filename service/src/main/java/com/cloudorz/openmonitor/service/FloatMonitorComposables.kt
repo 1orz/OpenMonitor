@@ -75,35 +75,36 @@ fun FloatLoadMonitorContent(service: FloatMonitorService) {
             .padding(10.dp),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            LoadBar("CPU", cpu.toFloat(), CpuColor)
-            LoadBar("GPU", gpu.toFloat(), GpuColor)
-            LoadBar("RAM", mem.toFloat(), MemColor)
+            LoadBar("CPU", cpu?.toFloat(), CpuColor)
+            LoadBar("GPU", gpu?.toFloat(), GpuColor)
+            LoadBar("RAM", mem?.toFloat(), MemColor)
             LoadBar("BAT", bat.toFloat(), BatColor)
-            if (temp > 0) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Image(
-                        painter = painterResource(R.drawable.ic_temperature),
-                        contentDescription = null,
-                        modifier = Modifier.size(10.dp),
-                        colorFilter = ColorFilter.tint(tempColor(temp)),
-                    )
-                    Text(
-                        text = "${"%.1f".format(temp)}\u00B0C",
-                        style = MonoStyle.copy(fontSize = 10.sp, color = tempColor(temp)),
-                    )
-                }
+            val tempVal = temp
+            val showTemp = tempVal != null && tempVal > 0
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                val tColor = if (showTemp) tempColor(tempVal!!) else TextSecondary
+                Image(
+                    painter = painterResource(R.drawable.ic_temperature),
+                    contentDescription = null,
+                    modifier = Modifier.size(10.dp),
+                    colorFilter = ColorFilter.tint(tColor),
+                )
+                Text(
+                    text = if (showTemp) "${"%.1f".format(tempVal)}\u00B0C" else "--\u00B0C",
+                    style = MonoStyle.copy(fontSize = 10.sp, color = tColor),
+                )
             }
         }
     }
 }
 
 @Composable
-private fun LoadBar(label: String, value: Float, color: Color) {
-    val clamped = value.coerceIn(0f, 100f)
+private fun LoadBar(label: String, value: Float?, color: Color) {
+    val clamped = (value ?: 0f).coerceIn(0f, 100f)
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -128,7 +129,7 @@ private fun LoadBar(label: String, value: Float, color: Color) {
             )
         }
         Text(
-            text = "%3d%%".format(clamped.toInt()),
+            text = if (value != null) "%3d%%".format(clamped.toInt()) else " --%",
             style = MonoStyle.copy(fontSize = 9.sp, color = TextPrimary),
             modifier = Modifier.width(34.dp),
             textAlign = TextAlign.End,
@@ -143,7 +144,6 @@ fun FloatMiniMonitorContent(service: FloatMonitorService) {
     val temp by service.cpuTemp.collectAsState()
     val fps by service.currentFps.collectAsState()
     val hasShell by service.hasShellAccess.collectAsState()
-    val hasRoot by service.hasRootAccess.collectAsState()
     val mA by service.currentMa.collectAsState()
     val coreLoads by service.cpuCoreLoads.collectAsState()
     val batTemp by service.batteryTemp.collectAsState()
@@ -174,28 +174,42 @@ fun FloatMiniMonitorContent(service: FloatMonitorService) {
                 modifier = Modifier.size(8.dp),
                 colorFilter = ColorFilter.tint(Color.White),
             )
-            if (coreLoads.isNotEmpty()) {
+            val cores = coreLoads
+            if (cores != null && cores.isNotEmpty()) {
                 CpuCoreBarChart(
-                    coreLoads = coreLoads,
+                    coreLoads = cores,
                     modifier = Modifier
                         .width(28.dp)
                         .height(8.dp),
                 )
             }
-            MiniText("%3d%%".format(cpu.toInt()))
+            val cpuVal = cpu
+            MiniText(if (cpuVal != null) "%3d%%".format(cpuVal.toInt()) else " --%")
 
-            if (hasRoot) {
-                MiniIconLabel(R.drawable.ic_gpu, "%3d%%".format(gpu.toInt()), Color.White)
+            val gpuVal = gpu
+            if (gpuVal != null) {
+                MiniIconLabel(R.drawable.ic_gpu, "%3d%%".format(gpuVal.toInt()), Color.White)
             }
-            MiniIconLabel(R.drawable.ic_temperature, "%3.0f\u00B0".format(temp), Color.White)
-            val fpsText = if (fps > 0) "%5.1f".format(fps) else if (hasShell) "  0.0" else "   --"
+            val tempVal = temp
+            val tempText = if (tempVal != null) "%3.0f\u00B0".format(tempVal) else " --\u00B0"
+            MiniIconLabel(R.drawable.ic_temperature, tempText, Color.White)
+            val fpsVal = fps
+            val fpsText = when {
+                fpsVal == null -> "   --"
+                fpsVal > 0.0 -> "%5.1f".format(fpsVal)
+                else -> "  0.0"
+            }
             MiniIconLabel(R.drawable.ic_frame, fpsText, Color.White)
 
             // Alternating: battery current ↔ battery temp (same icon & color)
-            if (showBatTemp && batTemp > 0) {
-                MiniIconLabel(R.drawable.ic_current, "%.1f\u00B0".format(batTemp), Color.White)
+            val batTempVal = batTemp
+            val mAVal = mA
+            if (showBatTemp && batTempVal != null && batTempVal > 0.0) {
+                MiniIconLabel(R.drawable.ic_current, "%.1f\u00B0".format(batTempVal), Color.White)
+            } else if (mAVal != null) {
+                MiniIconLabel(R.drawable.ic_current, "%dmA".format(mAVal), Color.White)
             } else {
-                MiniIconLabel(R.drawable.ic_current, "%dmA".format(mA), Color.White)
+                MiniIconLabel(R.drawable.ic_current, "--mA", Color.White)
             }
         }
     }
@@ -269,7 +283,8 @@ private fun CpuCoreBarChart(coreLoads: List<Double>, modifier: Modifier = Modifi
 
 @Composable
 fun FloatFpsContent(service: FloatMonitorService) {
-    val fps by service.currentFps.collectAsState()
+    val fpsRaw by service.currentFps.collectAsState()
+    val fps = fpsRaw
     val interacting by service.fpsInteracting.collectAsState()
     val bgAlpha by animateFloatAsState(
         targetValue = if (interacting) 1f else 0f,
@@ -290,11 +305,12 @@ fun FloatFpsContent(service: FloatMonitorService) {
             )
             .padding(horizontal = 6.dp, vertical = 2.dp),
     ) {
+        val text = if (fps != null) "%.1f".format(fps) else "--"
         Text(
-            text = "%.1f".format(fps),
+            text = text,
             style = MonoStyle.copy(
                 fontSize = 18.sp,
-                color = fpsColor(fps),
+                color = if (fps != null) fpsColor(fps) else TextSecondary,
             ),
             textAlign = TextAlign.End,
         )

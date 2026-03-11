@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.os.IBinder
+import android.provider.Settings
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
@@ -28,10 +29,13 @@ import android.view.WindowManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.core.content.edit
 import javax.inject.Inject
 
@@ -99,28 +103,30 @@ class FloatMonitorService : LifecycleService() {
     @Inject lateinit var daemonDataSource: DaemonDataSource
     @Inject lateinit var daemonManager: DaemonManager
     @Inject lateinit var daemonClient: com.cloudorz.openmonitor.core.data.datasource.DaemonClient
+    @Inject lateinit var shellExecutor: com.cloudorz.openmonitor.core.common.ShellExecutor
 
     private lateinit var floatWindowManager: FloatWindowManager
+    private var restoreJob: Job? = null
     private val dataCollectionJobs = mutableMapOf<String, Job>()
 
     // Shared FPS collection: single writer to currentFps
     private var sharedFpsJob: Job? = null
 
-    // Shared data states for composables
-    val cpuLoad = MutableStateFlow(0.0)
-    val gpuLoad = MutableStateFlow(0.0)
-    val memUsed = MutableStateFlow(0.0)
+    // Shared data states for composables (null = data not yet available)
+    val cpuLoad = MutableStateFlow<Double?>(null)
+    val gpuLoad = MutableStateFlow<Double?>(null)
+    val memUsed = MutableStateFlow<Double?>(null)
     val batteryLevel = MutableStateFlow(0)
-    val cpuTemp = MutableStateFlow(0.0)
-    val currentFps = MutableStateFlow(0.0)
+    val cpuTemp = MutableStateFlow<Double?>(null)
+    val currentFps = MutableStateFlow<Double?>(null)
     val currentJank = MutableStateFlow(0)
     val thermalZones = MutableStateFlow<List<ThermalZone>>(emptyList())
     val topProcesses = MutableStateFlow<List<ProcessInfo>>(emptyList())
     val topThreads = MutableStateFlow<List<ThreadInfo>>(emptyList())
     val foregroundApp = MutableStateFlow("")
-    val currentMa = MutableStateFlow(0)
-    val cpuCoreLoads = MutableStateFlow<List<Double>>(emptyList())
-    val batteryTemp = MutableStateFlow(0.0)
+    val currentMa = MutableStateFlow<Int?>(null)
+    val cpuCoreLoads = MutableStateFlow<List<Double>?>(null)
+    val batteryTemp = MutableStateFlow<Double?>(null)
     val hasShellAccess = MutableStateFlow(false)
     val hasRootAccess = MutableStateFlow(false)
     val fpsInteracting = MutableStateFlow(false)
@@ -178,15 +184,67 @@ class FloatMonitorService : LifecycleService() {
 
         startForeground(NOTIFICATION_ID, notification)
 
-        // Auto-restore saved monitors (supports daemon watchdog restart)
-        val savedMonitors = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-            .getStringSet(KEY_ENABLED_MONITORS, emptySet()) ?: emptySet()
-        for (type in savedMonitors) {
-            addMonitor(type)
+        // Async: ensure accessibility service → restore monitors (cancel previous if re-entered)
+        restoreJob?.cancel()
+        restoreJob = lifecycleScope.launch { restoreMonitorsWithAccessibility() }
+    }
+
+    /**
+     * Ensures highest overlay priority by enabling accessibility service first,
+     * then restores saved float windows. Falls back to TYPE_APPLICATION_OVERLAY
+     * if accessibility is unavailable.
+     */
+    private suspend fun restoreMonitorsWithAccessibility() {
+        // 1. Try to enable accessibility service for TYPE_ACCESSIBILITY_OVERLAY
+        if (AccessibilityMonitorService.instance == null) {
+            val mode = permissionManager.currentMode.value
+            if (mode == PrivilegeMode.ROOT || mode == PrivilegeMode.SHIZUKU || mode == PrivilegeMode.ADB) {
+                try {
+                    val enabled = withContext(Dispatchers.IO) {
+                        AccessibilityMonitorService.enableViaShell(this@FloatMonitorService, shellExecutor)
+                    }
+                    if (enabled) {
+                        // Wait for system to bind the accessibility service (up to 3s)
+                        val connected = withTimeoutOrNull(3000L) {
+                            while (AccessibilityMonitorService.instance == null) {
+                                delay(100)
+                            }
+                            true
+                        }
+                        if (connected == true) {
+                            Log.i(TAG, "accessibility service enabled, upgrading to TYPE_ACCESSIBILITY_OVERLAY")
+                        } else {
+                            Log.w(TAG, "accessibility service enabled but not connected within timeout")
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "failed to enable accessibility service via shell", e)
+                }
+            }
         }
 
-        if (savedMonitors.isNotEmpty()) {
-            notifyWatchdog(true)
+        // 2. Reinitialize FloatWindowManager with accessibility context if available
+        val accessibilityCtx = AccessibilityMonitorService.instance
+        if (accessibilityCtx != null) {
+            // Clean up any windows created by the old (non-accessibility) manager
+            withContext(Dispatchers.Main) { floatWindowManager.removeAllWindows() }
+            floatWindowManager = FloatWindowManager(accessibilityCtx)
+            Log.i(TAG, "FloatWindowManager upgraded to accessibility context")
+        } else if (!Settings.canDrawOverlays(this@FloatMonitorService)) {
+            Log.e(TAG, "no accessibility and no overlay permission, skipping window restore")
+            return
+        }
+
+        // 3. Restore saved monitors on main thread
+        val savedMonitors = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            .getStringSet(KEY_ENABLED_MONITORS, emptySet()) ?: emptySet()
+        withContext(Dispatchers.Main) {
+            for (type in savedMonitors) {
+                addMonitor(type)
+            }
+            if (savedMonitors.isNotEmpty()) {
+                notifyWatchdog(true)
+            }
         }
     }
 
@@ -219,6 +277,9 @@ class FloatMonitorService : LifecycleService() {
     private fun addMonitor(type: String) {
         if (floatWindowManager.isWindowActive(type)) return
 
+        // Ensure watchdog is running whenever a monitor is added
+        notifyWatchdog(true)
+
         // Start shared FPS collection for FPS-consuming monitors
         if (type == TYPE_FPS || type == TYPE_MINI) {
             ensureSharedFpsJob()
@@ -232,9 +293,9 @@ class FloatMonitorService : LifecycleService() {
             dataCollectionJobs[type] = job
         }
 
-        // Create floating window
+        // Create floating window (catch BadTokenException to avoid crash loop from watchdog)
         val service = this
-        when (type) {
+        try { when (type) {
             TYPE_LOAD -> {
                 floatWindowManager.addWindow(
                     id = type,
@@ -311,6 +372,10 @@ class FloatMonitorService : LifecycleService() {
                     FloatThreadContent(service)
                 }
             }
+        } } catch (e: Exception) {
+            Log.e(TAG, "addMonitor($type) failed to add window, overlay permission may be revoked", e)
+            dataCollectionJobs.remove(type)?.cancel()
+            return
         }
 
         saveEnabledMonitors()
@@ -386,12 +451,6 @@ class FloatMonitorService : LifecycleService() {
 
     private suspend fun collectMiniData() {
         val snapshot = aggregatedMonitorDataSource.collectSnapshot()
-        // Diagnostic: log when key values are zero/empty (data "disappears")
-        if (snapshot.cpuLoadPercent == 0.0 || snapshot.cpuTempCelsius == 0.0 || snapshot.cpuCoreLoads.isEmpty()) {
-            Log.e(TAG, "collectMiniData: ANOMALY cpu=%.1f temp=%.1f cores=%d runner=%s".format(
-                snapshot.cpuLoadPercent, snapshot.cpuTempCelsius,
-                snapshot.cpuCoreLoads.size, snapshot.daemonRunner.ifEmpty { "none" }))
-        }
         cpuLoad.value = snapshot.cpuLoadPercent
         gpuLoad.value = snapshot.gpuLoadPercent
         cpuTemp.value = snapshot.cpuTempCelsius

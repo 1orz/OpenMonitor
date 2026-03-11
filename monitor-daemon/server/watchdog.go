@@ -9,10 +9,10 @@ import (
 )
 
 const (
-	watchdogInterval = 5 * time.Second
-	appPackage       = "com.cloudorz.openmonitor"
-	serviceAction    = "com.cloudorz.openmonitor.service.FLOAT_START"
-	serviceComponent = appPackage + "/" + appPackage + ".service.FloatMonitorService"
+	watchdogInterval   = 5 * time.Second
+	appPackage         = "com.cloudorz.openmonitor"
+	watchdogAction     = "com.cloudorz.openmonitor.WATCHDOG_RESTART"
+	receiverComponent  = appPackage + "/" + appPackage + ".service.BootReceiver"
 )
 
 // Watchdog monitors the app process and restarts the float service if it dies.
@@ -79,12 +79,13 @@ func isAppAlive() bool {
 }
 
 func restartFloatService() {
-	cmd := exec.Command("am", "start-foreground-service",
-		"-a", serviceAction,
-		serviceComponent)
-	if err := cmd.Run(); err != nil {
-		log.Printf("[watchdog] restart failed: %v", err)
+	cmd := exec.Command("am", "broadcast",
+		"-a", watchdogAction,
+		"-n", receiverComponent)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("[watchdog] broadcast failed: %v, output: %s", err, string(out))
 	} else {
-		log.Printf("[watchdog] float service restarted")
+		log.Printf("[watchdog] broadcast sent: %s", strings.TrimSpace(string(out)))
 	}
 }

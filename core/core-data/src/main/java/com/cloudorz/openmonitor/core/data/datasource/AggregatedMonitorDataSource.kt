@@ -59,13 +59,13 @@ class AggregatedMonitorDataSource @Inject constructor(
             val snap = daemonDataSource.collectSnapshot()
             if (snap != null) {
                 val rawUa = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
-                val currentMa = if (rawUa != Int.MIN_VALUE) {
+                val currentMa: Int? = if (rawUa != Int.MIN_VALUE) {
                     val ma = MonitorParser.normalizeCurrentToMa(rawUa.toLong())
                     val status = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_STATUS)
                     val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
                         status == BatteryManager.BATTERY_STATUS_FULL
                     MonitorParser.ensureCurrentSign(ma, isCharging)
-                } else 0
+                } else null
                 val result = snap.copy(batteryCurrentMa = currentMa)
                 lastDaemonSnapshot = result
                 return@withContext result
@@ -89,22 +89,22 @@ class AggregatedMonitorDataSource @Inject constructor(
     // ---- BASIC mode fallback ----
 
     private suspend fun collectBasic(): MonitorSnapshot = withContext(Dispatchers.IO) {
-        val cpuLoad = try {
+        val cpuLoad: Double? = try {
             parseCpuLoad(File("/proc/stat").readText())
         } catch (e: Exception) {
             Log.d(TAG, "collectBasic: read /proc/stat failed", e)
-            0.0
+            null
         }
 
-        val gpuLoad = try {
+        val gpuLoad: Double? = try {
             resolveGpuLoadPath()
             val path = gpuLoadPath
             if (path != null) {
-                File(path).readText().replace("%", "").trim().toDoubleOrNull() ?: 0.0
-            } else 0.0
+                File(path).readText().replace("%", "").trim().toDoubleOrNull()
+            } else null
         } catch (e: Exception) {
             Log.d(TAG, "collectBasic: read GPU load failed", e)
-            0.0
+            null
         }
 
         val temp = getBatteryTempFromApi()
@@ -142,7 +142,7 @@ class AggregatedMonitorDataSource @Inject constructor(
     // ---- Android API fallbacks ----
 
     @Suppress("UnspecifiedRegisterReceiverFlag")
-    private fun getBatteryCurrentFromApi(): Int {
+    private fun getBatteryCurrentFromApi(): Int? {
         val status = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_STATUS)
         val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
             status == BatteryManager.BATTERY_STATUS_FULL
@@ -160,22 +160,22 @@ class AggregatedMonitorDataSource @Inject constructor(
             if (raw != 0) {
                 val ma = MonitorParser.normalizeCurrentToMa(raw.toLong())
                 MonitorParser.ensureCurrentSign(ma, isCharging)
-            } else 0
+            } else null
         } catch (e: Exception) {
             Log.d(TAG, "getBatteryCurrentFromIntent failed", e)
-            0
+            null
         }
     }
 
     @Suppress("UnspecifiedRegisterReceiverFlag")
-    private fun getBatteryTempFromApi(): Double {
+    private fun getBatteryTempFromApi(): Double? {
         return try {
             val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
             val tempRaw = intent?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) ?: 0
-            tempRaw / 10.0
+            if (tempRaw != 0) tempRaw / 10.0 else null
         } catch (e: Exception) {
             Log.d(TAG, "getBatteryTempFromApi failed", e)
-            0.0
+            null
         }
     }
 }

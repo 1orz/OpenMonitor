@@ -57,47 +57,50 @@ func resolveGpuPaths() {
 	})
 }
 
-// readGpuFreqMhz returns GPU frequency in MHz.
-func readGpuFreqMhz() int {
+// readGpuFreqMhz returns GPU frequency in MHz, or nil if unavailable.
+func readGpuFreqMhz() *int {
 	resolveGpuPaths()
 	if cachedFreqPath == "" {
-		return 0
+		return nil
 	}
 	b, err := os.ReadFile(cachedFreqPath)
 	if err != nil {
-		return 0
+		return nil
 	}
 	fields := strings.Fields(strings.TrimSpace(string(b)))
 	if len(fields) == 0 {
-		return 0
+		return nil
 	}
 	hz, err := strconv.ParseInt(fields[0], 10, 64)
 	if err != nil {
-		return 0
+		return nil
 	}
+	var mhz int
 	if hz > 100_000 {
-		return int(hz / 1_000_000) // Hz → MHz
+		mhz = int(hz / 1_000_000)
+	} else {
+		mhz = int(hz)
 	}
-	return int(hz) // already in MHz
+	return &mhz
 }
 
-// readGpuLoad returns GPU load as integer percentage 0-100.
-func readGpuLoad() int {
+// readGpuLoad returns GPU load as integer percentage 0-100, or nil if unavailable.
+func readGpuLoad() *int {
 	resolveGpuPaths()
 	if cachedLoadPath == "" {
-		return 0
+		return nil
 	}
 	b, err := os.ReadFile(cachedLoadPath)
 	if err != nil {
-		return 0
+		return nil
 	}
 	fields := strings.Fields(strings.TrimSpace(string(b)))
 	if len(fields) == 0 {
-		return 0
+		return nil
 	}
 	v, err := strconv.Atoi(fields[0])
 	if err != nil {
-		return 0
+		return nil
 	}
-	return v
+	return &v
 }

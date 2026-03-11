@@ -8,6 +8,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -35,17 +36,27 @@ class DaemonLauncher @Inject constructor(
         private const val TAG = "DaemonLauncher"
         private const val LIB_NAME = "libmonitor-daemon.so"
         private const val COMMIT_ASSET_PATH = "daemon/daemon-commit.txt"
+        private const val DAEMON_DIR_NAME = "daemon"
         private const val LAUNCH_WAIT_MS = 2_000L
         private const val PING_RETRIES = 3
         private const val LAUNCH_RETRIES = 5
         private const val LAUNCH_RETRY_MS = 600L
-        /** Daemon stdout/stderr log path. */
-        // Daemon handles log path fallback internally (daemon/daemon.go)
     }
 
     /** Path to daemon binary in the APK's native library directory. */
     val binaryPath: String
         get() = "${context.applicationInfo.nativeLibraryDir}/$LIB_NAME"
+
+    /** Directory for daemon PID and log files (inside app's private storage). */
+    val dataDir: File by lazy {
+        context.filesDir.resolve(DAEMON_DIR_NAME).also { dir ->
+            if (!dir.exists()) dir.mkdirs()
+            // Ensure both root and shell users can write
+            dir.setReadable(true, false)
+            dir.setWritable(true, false)
+            dir.setExecutable(true, false)
+        }
+    }
 
     /** Expected daemon commit from bundled assets. Empty if no version file. */
     val expectedCommit: String by lazy {
@@ -68,8 +79,7 @@ class DaemonLauncher @Inject constructor(
         if (daemonClient.isAlive()) {
             if (isVersionMatch()) return@withContext true
             Log.e(TAG, "daemon version mismatch, upgrading")
-            stop()
-            delay(500)
+            fullStop()
         }
 
         var launched = false
@@ -89,18 +99,21 @@ class DaemonLauncher @Inject constructor(
         false
     }
 
-    suspend fun stop() = withContext(Dispatchers.IO) {
+    /**
+     * Fully stops any running daemon: graceful TCP exit → force kill → cleanup PID files.
+     * Safe to call even if no daemon is running.
+     */
+    suspend fun fullStop() = withContext(Dispatchers.IO) {
+        // 1. Try graceful TCP shutdown
         try { daemonClient.sendCommand("daemon-exit") } catch (_: Exception) {}
-        delay(300)
+        delay(500)
+
+        // 2. Force kill + cleanup via shell
         if (daemonClient.isAlive()) {
-            val cmd = "pkill -f monitor-daemon 2>/dev/null"
-            when (shellExecutor.mode) {
-                PrivilegeMode.ROOT -> shellExecutor.executeAsRoot(cmd)
-                PrivilegeMode.ADB,
-                PrivilegeMode.SHIZUKU -> shellExecutor.execute(cmd)
-                PrivilegeMode.BASIC -> Unit
-            }
+            Log.e(TAG, "daemon still alive after exit command, force killing")
         }
+        execCleanup()
+        delay(300)
     }
 
     /** Returns true if the running daemon's commit matches the bundled version. */
@@ -114,12 +127,13 @@ class DaemonLauncher @Inject constructor(
 
     /**
      * Launches the daemon from nativeLibraryDir.
-     * ROOT:    su -c '<binary>'
-     * SHIZUKU: shell exec '<binary>'
+     * ROOT:    su -c '<binary> --data-dir <dir>'
+     * SHIZUKU: shell exec '<binary> --data-dir <dir>'
      */
     private suspend fun launch(): Boolean {
         val binary = binaryPath
-        val cmd = "'$binary'"
+        val dir = dataDir.absolutePath
+        val cmd = "'$binary' --data-dir '$dir'"
         return when (shellExecutor.mode) {
             PrivilegeMode.ROOT -> {
                 val result = shellExecutor.executeAsRoot(cmd)
@@ -131,6 +145,23 @@ class DaemonLauncher @Inject constructor(
             }
             PrivilegeMode.ADB,
             PrivilegeMode.BASIC -> false
+        }
+    }
+
+    /**
+     * Force-kills daemon processes and cleans up PID files.
+     */
+    private suspend fun execCleanup() {
+        val dir = dataDir.absolutePath
+        val cmd = "pkill -9 -f libmonitor-daemon 2>/dev/null; " +
+            "pkill -9 -f monitor-daemon 2>/dev/null; " +
+            "rm -f '$dir/monitor-daemon.pid' 2>/dev/null; " +
+            "chmod 777 '$dir' 2>/dev/null"
+        when (shellExecutor.mode) {
+            PrivilegeMode.ROOT -> shellExecutor.executeAsRoot(cmd)
+            PrivilegeMode.SHIZUKU,
+            PrivilegeMode.ADB -> shellExecutor.execute(cmd)
+            PrivilegeMode.BASIC -> Unit
         }
     }
 

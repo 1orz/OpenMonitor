@@ -4,89 +4,101 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
 )
 
 var (
-	logCandidates = []string{
-		"/data/local/tmp/daemon.log",
-		"/sdcard/daemon.log",
-	}
-	pidCandidates = []string{
-		"/data/local/tmp/monitor-daemon.pid",
-		"/sdcard/monitor-daemon.pid",
-	}
-
-	// Resolved at runtime by openOrFallback / resolveWritablePath
+	// Resolved at runtime by Daemonize / openLogFile / resolveWritablePid
 	LogPath string
 	PidPath string
 )
 
 // CheckRunning returns an error if another daemon instance is already running.
-func CheckRunning() error {
-	for _, p := range pidCandidates {
-		data, err := os.ReadFile(p)
-		if err != nil {
-			continue
-		}
-		pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
-		if err != nil {
-			continue
-		}
-		if err := syscall.Kill(pid, 0); err == nil {
-			return fmt.Errorf("already running (pid %d)", pid)
-		}
+// It verifies both that the PID is alive AND that it belongs to monitor-daemon,
+// preventing false positives from PID reuse by unrelated processes.
+func CheckRunning(dataDir string) error {
+	pidPath := filepath.Join(dataDir, "monitor-daemon.pid")
+	data, err := os.ReadFile(pidPath)
+	if err != nil {
+		return nil // no PID file — not running
 	}
-	return nil
+	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil {
+		os.Remove(pidPath)
+		return nil
+	}
+	if err := syscall.Kill(pid, 0); err != nil {
+		// Process dead — remove stale PID file
+		os.Remove(pidPath)
+		return nil
+	}
+	// Process alive — verify it's actually monitor-daemon (not PID reuse)
+	if !isMonitorDaemon(pid) {
+		os.Remove(pidPath)
+		return nil
+	}
+	return fmt.Errorf("already running (pid %d)", pid)
 }
 
-// openLogFile tries each candidate path and returns the first writable file.
-func openLogFile() (*os.File, error) {
-	for _, p := range logCandidates {
-		f, err := os.OpenFile(p, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+// isMonitorDaemon checks if the given PID belongs to a monitor-daemon process
+// by reading /proc/<pid>/cmdline.
+func isMonitorDaemon(pid int) bool {
+	cmdline, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid))
+	if err != nil {
+		return false
+	}
+	// cmdline uses NUL as separator
+	return strings.Contains(string(cmdline), "monitor-daemon")
+}
+
+// openLogFile opens the log file in dataDir.
+// Uses 0666 permissions so both root and shell users can write.
+func openLogFile(dataDir string) (*os.File, error) {
+	p := filepath.Join(dataDir, "daemon.log")
+	f, err := os.OpenFile(p, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err == nil {
+		LogPath = p
+		return f, nil
+	}
+	// If file exists but wrong owner, remove and retry
+	if os.IsPermission(err) {
+		os.Remove(p)
+		f, err = os.OpenFile(p, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 		if err == nil {
 			LogPath = p
 			return f, nil
 		}
 	}
-	return nil, fmt.Errorf("no writable log path among %v", logCandidates)
-}
-
-// resolveWritablePid picks the first writable PID path.
-func resolveWritablePid() string {
-	for _, p := range pidCandidates {
-		f, err := os.OpenFile(p, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-		if err == nil {
-			f.Close()
-			PidPath = p
-			return p
-		}
-	}
-	PidPath = pidCandidates[0]
-	return PidPath
+	return nil, fmt.Errorf("cannot open log file %s: %v", p, err)
 }
 
 // Daemonize re-execs the current binary as a background child with stdio
 // redirected to the log file, then the parent exits immediately.
-func Daemonize(addr string, sampleMs int64) {
-	if err := CheckRunning(); err != nil {
+func Daemonize(addr string, sampleMs int64, dataDir string) {
+	os.MkdirAll(dataDir, 0777)
+
+	if err := CheckRunning(dataDir); err != nil {
 		fmt.Fprintf(os.Stderr, "monitor-daemon: %v\n", err)
 		os.Exit(1)
 	}
 
-	logFile, err := openLogFile()
+	logFile, err := openLogFile(dataDir)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "monitor-daemon: %v\n", err)
-		os.Exit(1)
+		// Fall back to /dev/null — daemon should still run even without logs
+		fmt.Fprintf(os.Stderr, "monitor-daemon: %v, using /dev/null\n", err)
+		logFile, _ = os.Open(os.DevNull)
 	}
 
-	pidPath := resolveWritablePid()
+	pidPath := filepath.Join(dataDir, "monitor-daemon.pid")
+	PidPath = pidPath
 
 	// Re-exec self with --no-detach so the child won't fork again
 	cmd := exec.Command(os.Args[0], "--no-detach", "--addr", addr,
-		"--sample-ms", strconv.FormatInt(sampleMs, 10))
+		"--sample-ms", strconv.FormatInt(sampleMs, 10),
+		"--data-dir", dataDir)
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
@@ -97,14 +109,14 @@ func Daemonize(addr string, sampleMs int64) {
 		os.Exit(1)
 	}
 
-	os.WriteFile(pidPath, []byte(strconv.Itoa(cmd.Process.Pid)), 0644)
+	os.WriteFile(pidPath, []byte(strconv.Itoa(cmd.Process.Pid)), 0666)
 	logFile.Close()
 	os.Exit(0)
 }
 
 // CleanupPidFile removes the PID file on exit.
 func CleanupPidFile() {
-	for _, p := range pidCandidates {
-		os.Remove(p)
+	if PidPath != "" {
+		os.Remove(PidPath)
 	}
 }

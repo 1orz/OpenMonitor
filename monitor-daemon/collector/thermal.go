@@ -48,11 +48,11 @@ func resolveThermalPath() {
 	})
 }
 
-// readCpuTemp returns CPU/SoC temperature in °C.
-func readCpuTemp() float64 {
+// readCpuTemp returns CPU/SoC temperature in °C, or nil if unavailable.
+func readCpuTemp() *float64 {
 	resolveThermalPath()
 	if cachedTempPath == "" {
-		return 0
+		return nil
 	}
 	return readTempFile(cachedTempPath)
 }
@@ -67,18 +67,21 @@ func matchesCpuType(t string) bool {
 	return false
 }
 
-func readTempFile(path string) float64 {
+func readTempFile(path string) *float64 {
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return 0
+		return nil
 	}
 	raw, err := strconv.ParseFloat(strings.TrimSpace(string(b)), 64)
 	if err != nil {
-		return 0
+		return nil
 	}
 	// Kernel reports millidegrees or degrees depending on driver
+	var v float64
 	if raw > 1000 {
-		return float64(int(raw/100)) / 10.0
+		v = float64(int(raw/100)) / 10.0
+	} else {
+		v = float64(int(raw*10)) / 10.0
 	}
-	return float64(int(raw*10)) / 10.0
+	return &v
 }

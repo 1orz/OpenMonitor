@@ -96,20 +96,19 @@ class DaemonDataSource @Inject constructor(
                 return null
             }
 
-            val cpuLoadsArr = obj.optJSONArray("cpu_load")
+            val cpuLoadsArr = if (!obj.isNull("cpu_load")) obj.optJSONArray("cpu_load") else null
             val cpuCoreLoads = if (cpuLoadsArr != null && cpuLoadsArr.length() > 0) {
                 (0 until cpuLoadsArr.length()).map { cpuLoadsArr.getDouble(it) }
-            } else emptyList()
-            val cpuLoad = if (cpuCoreLoads.isNotEmpty()) {
-                cpuCoreLoads.average()
-            } else 0.0
+            } else null
+            val cpuLoad = cpuCoreLoads?.average()
 
-            val fps = obj.optDouble("fps", 0.0)
-            val fpsData = if (fps > 0.0) {
+            // FPS: null in JSON → null FpsData; 0.0 → valid FpsData(fps=0)
+            val fpsData = if (!obj.isNull("fps")) {
+                val fps = obj.getDouble("fps")
                 FpsData(
                     fps = fps,
-                    jankCount = obj.optInt("jank", 0),
-                    bigJankCount = obj.optInt("big_jank", 0),
+                    jankCount = if (!obj.isNull("jank")) obj.getInt("jank") else 0,
+                    bigJankCount = if (!obj.isNull("big_jank")) obj.getInt("big_jank") else 0,
                     window = obj.optString("fps_layer", ""),
                 )
             } else null
@@ -120,20 +119,19 @@ class DaemonDataSource @Inject constructor(
                 Log.e(TAG, "daemon runner: $runner")
             }
 
-            val temp = obj.optDouble("cpu_temp", 0.0)
-            if (cpuLoad == 0.0 && temp == 0.0 && cpuCoreLoads.isEmpty()) {
-                Log.e(TAG, "parseSnapshot: all-zero from daemon, json=${json.take(200)}")
-            }
+            val temp = if (!obj.isNull("cpu_temp")) obj.getDouble("cpu_temp") else null
+            val gpuLoad = if (!obj.isNull("gpu_load")) obj.getDouble("gpu_load") else null
+            val gpuFreq = if (!obj.isNull("gpu_freq")) obj.getInt("gpu_freq") else null
 
             MonitorSnapshot(
                 cpuLoadPercent = cpuLoad,
                 cpuCoreLoads = cpuCoreLoads,
-                gpuLoadPercent = obj.optDouble("gpu_load", 0.0),
-                gpuFreqMhz = obj.optInt("gpu_freq", 0),
+                gpuLoadPercent = gpuLoad,
+                gpuFreqMhz = gpuFreq,
                 cpuTempCelsius = temp,
                 fpsData = fpsData,
                 daemonRunner = runner,
-                // batteryCurrentMa intentionally left 0 — filled by caller from BatteryManager
+                // batteryCurrentMa intentionally left null — filled by caller from BatteryManager
             )
         } catch (e: Exception) {
             Log.e(TAG, "parseSnapshot failed: ${e.message}")

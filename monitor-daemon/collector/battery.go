@@ -9,13 +9,14 @@ import (
 )
 
 // BatteryInfo holds real-time battery metrics.
+// Pointer fields are null (JSON null) when the corresponding data cannot be read.
 type BatteryInfo struct {
-	CurrentMA int     `json:"current_ma"` // mA, negative=discharging
-	VoltageMV int     `json:"voltage_mv"` // mV
-	Temp      float64 `json:"temp"`       // °C
-	Capacity  int     `json:"capacity"`   // %
-	Status    string  `json:"status"`     // Charging / Discharging / Full / Not charging
-	PowerMW   int     `json:"power_mw"`   // abs(current_ma) * voltage_mv / 1000
+	CurrentMA *int     `json:"current_ma"` // mA, negative=discharging
+	VoltageMV *int     `json:"voltage_mv"` // mV
+	Temp      *float64 `json:"temp"`       // °C
+	Capacity  *int     `json:"capacity"`   // %
+	Status    *string  `json:"status"`     // Charging / Discharging / Full / Not charging
+	PowerMW   *int     `json:"power_mw"`   // abs(current_ma) * voltage_mv / 1000
 }
 
 // batteryBases lists candidate sysfs directories in priority order.
@@ -28,9 +29,9 @@ var batteryBases = []string{
 }
 
 var (
-	batteryOnce        sync.Once
-	cachedBatteryBase  string
-	batteryUseDumpsys  bool
+	batteryOnce       sync.Once
+	cachedBatteryBase string
+	batteryUseDumpsys bool
 )
 
 func initBattery() {
@@ -48,7 +49,8 @@ func initBattery() {
 func readBattery() BatteryInfo {
 	initBattery()
 	if cachedBatteryBase != "" {
-		if info := readBatterySysfs(cachedBatteryBase); info.Capacity > 0 {
+		info := readBatterySysfs(cachedBatteryBase)
+		if info.Capacity != nil && *info.Capacity > 0 {
 			return info
 		}
 		// sysfs base exists but read failed (e.g. current_now locked by vendor)
@@ -61,40 +63,49 @@ func readBatterySysfs(base string) BatteryInfo {
 	info := BatteryInfo{}
 
 	if v, ok := readSysInt(base + "/current_now"); ok {
-		info.CurrentMA = v / 1000
+		ma := v / 1000
+		info.CurrentMA = &ma
 	}
 	if v, ok := readSysInt(base + "/voltage_now"); ok {
-		info.VoltageMV = v / 1000
+		mv := v / 1000
+		info.VoltageMV = &mv
 	}
 	if v, ok := readSysInt(base + "/temp"); ok {
-		info.Temp = float64(v) / 10.0
+		t := float64(v) / 10.0
+		info.Temp = &t
 	}
 	if v, ok := readSysInt(base + "/capacity"); ok {
-		info.Capacity = v
+		info.Capacity = &v
 	}
 	if b, err := os.ReadFile(base + "/status"); err == nil {
-		info.Status = strings.TrimSpace(string(b))
+		s := strings.TrimSpace(string(b))
+		info.Status = &s
 	}
 
 	// Normalize: negative = discharging, positive = charging.
-	if info.Status == "Discharging" && info.CurrentMA > 0 {
-		info.CurrentMA = -info.CurrentMA
-	} else if (info.Status == "Charging" || info.Status == "Full") && info.CurrentMA < 0 {
-		info.CurrentMA = -info.CurrentMA
+	if info.Status != nil && info.CurrentMA != nil {
+		if *info.Status == "Discharging" && *info.CurrentMA > 0 {
+			neg := -(*info.CurrentMA)
+			info.CurrentMA = &neg
+		} else if (*info.Status == "Charging" || *info.Status == "Full") && *info.CurrentMA < 0 {
+			pos := -(*info.CurrentMA)
+			info.CurrentMA = &pos
+		}
 	}
 
-	if info.CurrentMA != 0 && info.VoltageMV != 0 {
-		cur := info.CurrentMA
+	if info.CurrentMA != nil && info.VoltageMV != nil {
+		cur := *info.CurrentMA
 		if cur < 0 {
 			cur = -cur
 		}
-		info.PowerMW = cur * info.VoltageMV / 1000
+		pw := cur * (*info.VoltageMV) / 1000
+		info.PowerMW = &pw
 	}
 	return info
 }
 
 // readBatteryDumpsys parses `dumpsys battery` output.
-// current_ma is not available via this path (requires root sysfs).
+// current_ma is not available via this path — stays nil.
 func readBatteryDumpsys() BatteryInfo {
 	out, err := exec.Command("dumpsys", "battery").Output()
 	if err != nil {
@@ -109,12 +120,18 @@ func readBatteryDumpsys() BatteryInfo {
 		line := strings.TrimSpace(raw)
 		switch {
 		case strings.HasPrefix(line, "level:"):
-			info.Capacity, _ = strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(line, "level:")))
+			if v, e := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(line, "level:"))); e == nil {
+				info.Capacity = &v
+			}
 		case strings.HasPrefix(line, "voltage:"):
-			info.VoltageMV, _ = strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(line, "voltage:")))
+			if v, e := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(line, "voltage:"))); e == nil {
+				info.VoltageMV = &v
+			}
 		case strings.HasPrefix(line, "temperature:"):
-			v, _ := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(line, "temperature:")))
-			info.Temp = float64(v) / 10.0
+			if v, e := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(line, "temperature:"))); e == nil {
+				t := float64(v) / 10.0
+				info.Temp = &t
+			}
 		case strings.HasPrefix(line, "status:"):
 			statusCode, _ = strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(line, "status:")))
 		case line == "AC powered: true":
@@ -126,22 +143,25 @@ func readBatteryDumpsys() BatteryInfo {
 		}
 	}
 
+	var status string
 	switch statusCode {
 	case 2:
-		info.Status = "Charging"
+		status = "Charging"
 	case 3:
-		info.Status = "Discharging"
+		status = "Discharging"
 	case 4:
-		info.Status = "Not charging"
+		status = "Not charging"
 	case 5:
-		info.Status = "Full"
+		status = "Full"
 	default:
 		if acPowered || usbPowered || wirelessPowered {
-			info.Status = "Charging"
+			status = "Charging"
 		} else {
-			info.Status = "Discharging"
+			status = "Discharging"
 		}
 	}
+	info.Status = &status
+
 	return info
 }
 

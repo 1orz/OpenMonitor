@@ -59,6 +59,9 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
                 {
                     _binderAlive.value = true
                     Log.i(TAG, "binder received")
+                    // Pre-bind UserService as soon as binder is available
+                    // (init-time bindService() often fails because binder isn't attached yet)
+                    bindService()
                 },
                 handler,
             )
@@ -100,12 +103,16 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
             if (service != null && service.pingBinder()) {
                 shellService = IShellService.Stub.asInterface(service)
                 bound = true
+                Log.i(TAG, "onServiceConnected: UserService bound successfully")
+            } else {
+                Log.e(TAG, "onServiceConnected: service null or binder dead")
             }
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
             shellService = null
             bound = false
+            Log.w(TAG, "onServiceDisconnected")
         }
     }
 
@@ -114,13 +121,23 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
      * Safe to call multiple times — skips if already bound.
      */
     fun bindService() {
-        if (bound && shellService != null) return
+        if (bound && shellService != null) {
+            Log.d(TAG, "bindService: already bound, skipping")
+            return
+        }
         try {
-            if (Shizuku.pingBinder() &&
-                Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
-            ) {
-                Shizuku.bindUserService(userServiceArgs, serviceConnection)
+            val binderAlive = Shizuku.pingBinder()
+            if (!binderAlive) {
+                Log.w(TAG, "bindService: binder not alive, skipping")
+                return
             }
+            val granted = Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
+            if (!granted) {
+                Log.w(TAG, "bindService: permission not granted, skipping")
+                return
+            }
+            Log.i(TAG, "bindService: calling Shizuku.bindUserService()")
+            Shizuku.bindUserService(userServiceArgs, serviceConnection)
         } catch (e: Exception) {
             Log.d(TAG, "bindService failed", e)
         }
@@ -146,16 +163,20 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
     override suspend fun execute(command: String): CommandResult = withContext(Dispatchers.IO) {
         var service = shellService
         if (service == null) {
+            Log.i(TAG, "shellService null, calling bindService and waiting...")
             bindService()
-            // Wait up to 3s for service binding to complete
-            for (i in 1..30) {
+            // Wait up to 10s for service binding to complete
+            // (UserService needs app_process startup which can be slow on some devices)
+            for (i in 1..100) {
                 delay(100)
                 service = shellService
                 if (service != null) break
             }
             if (service == null) {
+                Log.e(TAG, "service still null after 10s wait")
                 return@withContext CommandResult.failure("Shizuku service not bound yet")
             }
+            Log.i(TAG, "shellService connected after waiting")
         }
 
         try {

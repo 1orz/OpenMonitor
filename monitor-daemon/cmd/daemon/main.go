@@ -16,17 +16,20 @@ func main() {
 	addr := flag.String("addr", "0.0.0.0:9876", "TCP listen address")
 	sampleMs := flag.Int64("sample-ms", 200, "system sampling interval in ms (min 100)")
 	noDetach := flag.Bool("no-detach", false, "stay foreground (dev)")
+	dataDir := flag.String("data-dir", "/data/local/tmp", "directory for PID and log files")
 	flag.Parse()
 
 	if !*noDetach {
-		daemon.Daemonize(*addr, *sampleMs)
+		daemon.Daemonize(*addr, *sampleMs, *dataDir)
 	}
 
+	// Set PidPath for child process (passed via --data-dir)
+	daemon.PidPath = *dataDir + "/monitor-daemon.pid"
 	defer daemon.CleanupPidFile()
 
 	log.SetFlags(log.Ltime | log.Lmicroseconds)
-	log.Printf("[main] monitor-daemon starting, addr=%s sample=%dms commit=%s pid=%d",
-		*addr, *sampleMs, collector.GitCommit, os.Getpid())
+	log.Printf("[main] monitor-daemon starting, addr=%s sample=%dms commit=%s pid=%d data-dir=%s",
+		*addr, *sampleMs, collector.GitCommit, os.Getpid(), *dataDir)
 
 	collector.SetSampleInterval(*sampleMs)
 

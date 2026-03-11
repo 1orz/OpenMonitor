@@ -8,26 +8,33 @@ import (
 )
 
 // readMemInfo reads /proc/meminfo and returns MemTotal/MemAvailable in MB.
-func readMemInfo() (totalMB, availMB int64) {
+// Returns nil pointers when the file cannot be read.
+func readMemInfo() (*int64, *int64) {
 	f, err := os.Open("/proc/meminfo")
 	if err != nil {
-		return
+		return nil, nil
 	}
 	defer f.Close()
 
+	var totalKB, availKB int64
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
 		line := sc.Text()
 		if strings.HasPrefix(line, "MemTotal:") {
-			totalMB = parseMemLine(line) / 1024
+			totalKB = parseMemLine(line)
 		} else if strings.HasPrefix(line, "MemAvailable:") {
-			availMB = parseMemLine(line) / 1024
+			availKB = parseMemLine(line)
 		}
-		if totalMB > 0 && availMB > 0 {
+		if totalKB > 0 && availKB > 0 {
 			break
 		}
 	}
-	return
+	if totalKB == 0 {
+		return nil, nil
+	}
+	totalMB := totalKB / 1024
+	availMB := availKB / 1024
+	return &totalMB, &availMB
 }
 
 func parseMemLine(line string) int64 {

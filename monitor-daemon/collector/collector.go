@@ -19,33 +19,40 @@ var daemonRunner = func() string {
 // Runner returns the privilege identity of the running daemon process.
 func Runner() string { return daemonRunner }
 
-// Snapshot is the full system performance data returned to clients.
-type Snapshot struct {
-	// FPS
-	FPS      float64 `json:"fps"`
-	Jank     int     `json:"jank"`
-	BigJank  int     `json:"big_jank"`
-	FpsLayer string  `json:"fps_layer,omitempty"`
-	FpsSrc   string  `json:"fps_source,omitempty"`
+// Pointer helpers for nullable JSON fields.
+func intPtr(v int) *int             { return &v }
+func int64Ptr(v int64) *int64       { return &v }
+func float64Ptr(v float64) *float64 { return &v }
+func stringPtr(v string) *string    { return &v }
 
-	// CPU
+// Snapshot is the full system performance data returned to clients.
+// Pointer fields marshal to JSON null when the underlying data is unavailable.
+type Snapshot struct {
+	// FPS — nil before first successful collection
+	FPS      *float64 `json:"fps"`
+	Jank     *int     `json:"jank"`
+	BigJank  *int     `json:"big_jank"`
+	FpsLayer string   `json:"fps_layer,omitempty"`
+	FpsSrc   string   `json:"fps_source,omitempty"`
+
+	// CPU — nil slices marshal to JSON null
 	CpuLoads []float64 `json:"cpu_load"`
 	CpuFreqs []int     `json:"cpu_freq"`
-	CpuTemp  float64   `json:"cpu_temp"`
+	CpuTemp  *float64  `json:"cpu_temp"`
 
-	// GPU
-	GpuFreq int `json:"gpu_freq"` // MHz
-	GpuLoad int `json:"gpu_load"` // %
+	// GPU — nil when sysfs paths are inaccessible
+	GpuFreq *int `json:"gpu_freq"`
+	GpuLoad *int `json:"gpu_load"`
 
-	// Memory (MB)
-	MemTotalMB int64 `json:"memory_total_mb"`
-	MemAvailMB int64 `json:"memory_avail_mb"`
+	// Memory (MB) — nil when /proc/meminfo unreadable
+	MemTotalMB *int64 `json:"memory_total_mb"`
+	MemAvailMB *int64 `json:"memory_avail_mb"`
 
 	// Battery
 	Battery BatteryInfo `json:"battery"`
 
 	// Meta
-	Runner      string `json:"runner"`       // "root" or "shell"
+	Runner      string `json:"runner"`
 	TimestampMs int64  `json:"timestamp_ms"`
 }
 
@@ -106,8 +113,12 @@ func (c *Collector) sampleSystem() {
 			cores = len(currCpu) - 1
 		}
 		totalMB, _ := readMemInfo()
+		var totalVal int64
+		if totalMB != nil {
+			totalVal = *totalMB
+		}
 		logInfo("collector", "runner=%s uid=%d cores=%d mem_total=%dMB",
-			daemonRunner, os.Getuid(), cores, totalMB)
+			daemonRunner, os.Getuid(), cores, totalVal)
 	})
 
 	c.mu.Lock()
