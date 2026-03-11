@@ -50,6 +50,7 @@ class FloatWindowManager(private val context: Context) {
         draggable: Boolean = true,
         aboveStatusBar: Boolean = false,
         onInteraction: ((Boolean) -> Unit)? = null,
+        onClick: (() -> Unit)? = null,
         content: @Composable () -> Unit,
     ) {
         if (activeWindows.containsKey(id)) {
@@ -110,7 +111,7 @@ class FloatWindowManager(private val context: Context) {
 
         // Wrap in DraggableFrameLayout for proper drag + Compose click coexistence
         val rootView: View = if (draggable) {
-            DraggableFrameLayout(context, onInteraction, onDragEnd = { px, py ->
+            DraggableFrameLayout(context, onInteraction, onClick, onDragEnd = { px, py ->
                 posPrefs.edit {
                     putInt("${id}_x", px)
                     putInt("${id}_y", py)
@@ -158,6 +159,7 @@ class FloatWindowManager(private val context: Context) {
     private class DraggableFrameLayout(
         context: Context,
         private val onInteraction: ((Boolean) -> Unit)? = null,
+        private val onClick: (() -> Unit)? = null,
         private val onDragEnd: ((Int, Int) -> Unit)? = null,
     ) : FrameLayout(context) {
         var windowParams: WindowManager.LayoutParams? = null
@@ -223,6 +225,7 @@ class FloatWindowManager(private val context: Context) {
                         val p = windowParams
                         if (p != null) onDragEnd?.invoke(p.x, p.y)
                     } else if (event.actionMasked == MotionEvent.ACTION_UP) {
+                        onClick?.invoke()
                         performClick()
                     }
                     isDragging = false

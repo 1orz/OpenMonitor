@@ -104,6 +104,7 @@ class FloatMonitorService : LifecycleService() {
     @Inject lateinit var daemonManager: DaemonManager
     @Inject lateinit var daemonClient: com.cloudorz.openmonitor.core.data.datasource.DaemonClient
     @Inject lateinit var shellExecutor: com.cloudorz.openmonitor.core.common.ShellExecutor
+    @Inject lateinit var fpsRecordingManager: com.cloudorz.openmonitor.core.data.datasource.FpsRecordingManager
 
     private lateinit var floatWindowManager: FloatWindowManager
     private var restoreJob: Job? = null
@@ -130,7 +131,43 @@ class FloatMonitorService : LifecycleService() {
     val hasShellAccess = MutableStateFlow(false)
     val hasRootAccess = MutableStateFlow(false)
     val fpsInteracting = MutableStateFlow(false)
+    val fpsShowDurationMenu = MutableStateFlow(false)
+    val fpsRecordingState get() = fpsRecordingManager.state
+    val fpsRecordingInfo get() = fpsRecordingManager.info
     private var fpsInteractionJob: Job? = null
+    private var fpsDurationMenuJob: Job? = null
+
+    fun onFpsWindowClick() {
+        when (fpsRecordingManager.state.value) {
+            com.cloudorz.openmonitor.core.data.datasource.FpsRecordingState.IDLE -> {
+                // Toggle duration menu
+                val show = !fpsShowDurationMenu.value
+                fpsShowDurationMenu.value = show
+                fpsDurationMenuJob?.cancel()
+                if (show) {
+                    // Auto-hide after 5s
+                    fpsDurationMenuJob = lifecycleScope.launch {
+                        delay(5000)
+                        fpsShowDurationMenu.value = false
+                    }
+                }
+            }
+            com.cloudorz.openmonitor.core.data.datasource.FpsRecordingState.COUNTDOWN -> {
+                fpsRecordingManager.stopRecording()
+                fpsShowDurationMenu.value = false
+            }
+            com.cloudorz.openmonitor.core.data.datasource.FpsRecordingState.RECORDING -> {
+                fpsRecordingManager.stopRecording()
+                fpsShowDurationMenu.value = false
+            }
+        }
+    }
+
+    fun onFpsDurationSelected(minutes: Int) {
+        fpsShowDurationMenu.value = false
+        fpsDurationMenuJob?.cancel()
+        fpsRecordingManager.startRecording(minutes * 60)
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -338,6 +375,7 @@ class FloatMonitorService : LifecycleService() {
                             }
                         }
                     },
+                    onClick = { onFpsWindowClick() },
                 ) {
                     FloatFpsContent(service)
                 }

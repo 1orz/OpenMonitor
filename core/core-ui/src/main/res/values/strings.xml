@@ -21,6 +21,17 @@
     <string name="duration">Duration</string>
     <string name="no_power_records">No power records</string>
     <string name="start_tracking_hint">Tap the button above to start tracking power usage</string>
+    <string name="tracking_active">Tracking</string>
+    <string name="power_stats">Power Statistics</string>
+    <string name="used_time">Usage Time</string>
+    <string name="est_battery_life">Est. Battery Life</string>
+    <string name="power_over_time">Power / Time</string>
+    <string name="battery_over_time">Battery Level / Time</string>
+    <string name="temp_over_time">Temperature / Time</string>
+    <string name="power_chart_hint">Charts will appear when tracking starts</string>
+    <string name="power_w_label">W</string>
+    <string name="battery_pct_label">%%</string>
+    <string name="temp_c_label">\u00B0C</string>
 
     <!-- FPS Screen -->
     <string name="tab_realtime_recording">Live Recording</string>
@@ -42,6 +53,18 @@
     <string name="start_recording_hint">Start recording to view historical data</string>
     <string name="avg_fps_format">Avg %.1f FPS</string>
     <string name="delete">Delete</string>
+    <string name="fps_selected_count">%d selected</string>
+    <string name="fps_select_all">Select All</string>
+    <string name="fps_cancel">Cancel</string>
+    <string name="fps_confirm">OK</string>
+    <string name="fps_rename">Rename</string>
+    <string name="fps_session_name">Session Name</string>
+    <string name="fps_unknown_app">Unknown App</string>
+    <string name="fps_start_from_float">Tap FPS float window to start recording</string>
+    <string name="fps_delete_confirm_title">Delete Session</string>
+    <string name="fps_delete_confirm_msg">Are you sure you want to delete this recording session?</string>
+    <string name="fps_countdown">Countdown %ds</string>
+    <string name="fps_recording_progress">%1$s elapsed, %2$s remaining</string>
 
     <!-- Float Monitor Screen -->
     <string name="float_monitor_title">Float Monitor</string>

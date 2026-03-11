@@ -15,8 +15,15 @@ data class ChargeStatSession(
     val capacityRatio: Double = 0.0,
     val capacityWh: Double = 0.0,
 ) {
+    val isActive: Boolean
+        get() = endTime == 0L
+
     val durationMs: Long
-        get() = endTime - beginTime
+        get() = if (isActive) {
+            System.currentTimeMillis() - beginTime
+        } else {
+            endTime - beginTime
+        }
 
     val durationSeconds: Long
         get() = durationMs / 1000

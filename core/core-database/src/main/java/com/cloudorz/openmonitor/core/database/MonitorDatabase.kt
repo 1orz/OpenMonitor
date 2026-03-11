@@ -21,7 +21,7 @@ import com.cloudorz.openmonitor.core.database.entity.PowerStatSessionEntity
         FpsSessionEntity::class,
         FpsFrameDataEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class MonitorDatabase : RoomDatabase() {

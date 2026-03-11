@@ -21,6 +21,17 @@
     <string name="duration">时长</string>
     <string name="no_power_records">暂无耗电记录</string>
     <string name="start_tracking_hint">点击上方按钮开始追踪耗电情况</string>
+    <string name="tracking_active">追踪中</string>
+    <string name="power_stats">耗电统计</string>
+    <string name="used_time">已使用</string>
+    <string name="est_battery_life">预估续航</string>
+    <string name="power_over_time">功率 / 时间</string>
+    <string name="battery_over_time">电量 / 时间</string>
+    <string name="temp_over_time">温度 / 时间</string>
+    <string name="power_chart_hint">开始追踪后将显示图表</string>
+    <string name="power_w_label">W</string>
+    <string name="battery_pct_label">%%</string>
+    <string name="temp_c_label">\u00B0C</string>
 
     <!-- FPS Screen -->
     <string name="tab_realtime_recording">实时录制</string>
@@ -42,6 +53,18 @@
     <string name="start_recording_hint">开始录制以查看历史数据</string>
     <string name="avg_fps_format">平均 %.1f FPS</string>
     <string name="delete">删除</string>
+    <string name="fps_selected_count">已选 %d 项</string>
+    <string name="fps_select_all">全选</string>
+    <string name="fps_cancel">取消</string>
+    <string name="fps_confirm">确定</string>
+    <string name="fps_rename">重命名</string>
+    <string name="fps_session_name">会话名称</string>
+    <string name="fps_unknown_app">未知应用</string>
+    <string name="fps_start_from_float">点击 FPS 悬浮窗开始录制</string>
+    <string name="fps_delete_confirm_title">删除会话</string>
+    <string name="fps_delete_confirm_msg">确定要删除这条录制记录吗？</string>
+    <string name="fps_countdown">倒计时 %d 秒</string>
+    <string name="fps_recording_progress">已录 %1$s，剩余 %2$s</string>
 
     <!-- Float Monitor Screen -->
     <string name="float_monitor_title">悬浮监视器</string>

@@ -52,4 +52,10 @@ interface FpsSessionDao {
 
     @Query("SELECT * FROM fps_frame_data WHERE sessionId = :sessionId ORDER BY timestamp ASC")
     suspend fun getFrameDataBySessionOnce(sessionId: Long): List<FpsFrameDataEntity>
+
+    @Query("UPDATE fps_sessions SET sessionDesc = :desc WHERE sessionId = :sessionId")
+    suspend fun updateSessionDesc(sessionId: Long, desc: String)
+
+    @Query("DELETE FROM fps_sessions WHERE sessionId IN (:ids)")
+    suspend fun deleteSessionsByIds(ids: List<Long>)
 }

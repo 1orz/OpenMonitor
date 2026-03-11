@@ -1,11 +1,16 @@
 package com.cloudorz.openmonitor.service
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -285,36 +290,110 @@ private fun CpuCoreBarChart(coreLoads: List<Double>, modifier: Modifier = Modifi
 fun FloatFpsContent(service: FloatMonitorService) {
     val fpsRaw by service.currentFps.collectAsState()
     val fps = fpsRaw
-    val interacting by service.fpsInteracting.collectAsState()
-    val bgAlpha by animateFloatAsState(
-        targetValue = if (interacting) 1f else 0f,
-        animationSpec = tween(durationMillis = if (interacting) 150 else 300),
-        label = "fpsBg",
+    val recordingState by service.fpsRecordingState.collectAsState()
+    val recordingInfo by service.fpsRecordingInfo.collectAsState()
+    val showDurationMenu by service.fpsShowDurationMenu.collectAsState()
+
+    val isRecording = recordingState == com.cloudorz.openmonitor.core.data.datasource.FpsRecordingState.RECORDING
+    val isCountdown = recordingState == com.cloudorz.openmonitor.core.data.datasource.FpsRecordingState.COUNTDOWN
+
+    // Red breathing border animation for recording state
+    val breathTransition = rememberInfiniteTransition(label = "breathBorder")
+    val breathAlpha by breathTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200),
+            repeatMode = androidx.compose.animation.core.RepeatMode.Reverse,
+        ),
+        label = "breathAlpha",
     )
+
     val shape = RoundedCornerShape(6.dp)
 
-    Box(
-        modifier = Modifier
-            .background(Color(0x33000000).copy(alpha = 0.2f * bgAlpha), shape)
-            .then(
-                if (bgAlpha > 0.01f) Modifier.border(
-                    width = 1.dp,
-                    color = Color.White.copy(alpha = 0.3f * bgAlpha),
-                    shape = shape,
-                ) else Modifier
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        // Main FPS display
+        Box(
+            modifier = Modifier
+                .background(Color(0x44000000), shape)
+                .then(
+                    when {
+                        isRecording -> Modifier.border(
+                            width = 2.dp,
+                            color = Color(0xFFF44336).copy(alpha = breathAlpha),
+                            shape = shape,
+                        )
+                        isCountdown -> Modifier.border(
+                            width = 2.dp,
+                            color = Color(0xFF2196F3).copy(alpha = breathAlpha),
+                            shape = shape,
+                        )
+                        else -> Modifier
+                    }
+                )
+                .padding(horizontal = 6.dp, vertical = 2.dp),
+        ) {
+            val text = when {
+                isCountdown -> "${recordingInfo.countdownSeconds}"
+                fps != null -> "%.1f".format(fps)
+                else -> "--"
+            }
+            val textColor = when {
+                isCountdown -> Color(0xFF2196F3)
+                fps != null -> fpsColor(fps!!)
+                else -> TextSecondary
+            }
+            Text(
+                text = text,
+                style = MonoStyle.copy(fontSize = 18.sp, color = textColor),
+                textAlign = TextAlign.End,
             )
-            .padding(horizontal = 6.dp, vertical = 2.dp),
-    ) {
-        val text = if (fps != null) "%.1f".format(fps) else "--"
-        Text(
-            text = text,
-            style = MonoStyle.copy(
-                fontSize = 18.sp,
-                color = if (fps != null) fpsColor(fps) else TextSecondary,
-            ),
-            textAlign = TextAlign.End,
-        )
+        }
+
+        // Duration selection menu (shown on tap when idle)
+        if (showDurationMenu) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(
+                modifier = Modifier
+                    .background(Color(0xCC000000), RoundedCornerShape(4.dp))
+                    .padding(horizontal = 4.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                listOf(5, 10, 15, 20).forEach { minutes ->
+                    Box(
+                        modifier = Modifier
+                            .clickable { service.onFpsDurationSelected(minutes) }
+                            .background(Color(0x33FFFFFF), RoundedCornerShape(3.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "${minutes}m",
+                            style = MonoStyle.copy(fontSize = 10.sp, color = Color.White),
+                        )
+                    }
+                }
+            }
+        }
+
+        // Recording elapsed time indicator
+        if (isRecording) {
+            val elapsed = recordingInfo.elapsedSeconds
+            val limit = recordingInfo.durationLimitSeconds
+            val remaining = recordingInfo.remainingSeconds
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = if (limit > 0) formatCompactDuration(remaining) else formatCompactDuration(elapsed),
+                style = MonoStyle.copy(fontSize = 8.sp, color = Color(0xFFF44336).copy(alpha = 0.9f)),
+            )
+        }
     }
+}
+
+private fun formatCompactDuration(seconds: Long): String {
+    val m = seconds / 60
+    val s = seconds % 60
+    return if (m > 0) "%d:%02d".format(m, s) else "${s}s"
 }
 
 @Composable

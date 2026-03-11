@@ -65,6 +65,12 @@ class FpsRepository @Inject constructor(
 
     suspend fun deleteSession(sessionId: Long) = fpsSessionDao.deleteSession(sessionId)
 
+    suspend fun renameSession(sessionId: Long, desc: String) =
+        fpsSessionDao.updateSessionDesc(sessionId, desc)
+
+    suspend fun deleteSessionsByIds(ids: List<Long>) =
+        fpsSessionDao.deleteSessionsByIds(ids)
+
     private fun FpsSessionEntity.toModel() = FpsWatchSession(
         sessionId = sessionId.toString(),
         packageName = packageName,

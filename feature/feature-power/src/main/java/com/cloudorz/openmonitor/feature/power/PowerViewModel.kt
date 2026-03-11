@@ -10,6 +10,7 @@ import com.cloudorz.openmonitor.core.data.CsvExporter
 import com.cloudorz.openmonitor.core.data.repository.BatteryRepository
 import com.cloudorz.openmonitor.core.data.repository.PowerRepository
 import com.cloudorz.openmonitor.core.model.battery.BatteryStatus
+import com.cloudorz.openmonitor.core.model.battery.PowerStatRecord
 import com.cloudorz.openmonitor.core.model.battery.PowerStatSession
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -29,6 +30,8 @@ data class PowerUiState(
     val currentBattery: BatteryStatus = BatteryStatus(),
     val sessions: List<PowerStatSession> = emptyList(),
     val isTracking: Boolean = false,
+    val currentRecords: List<PowerStatRecord> = emptyList(),
+    val trackingStartCapacity: Int = 0,
 )
 
 @HiltViewModel
@@ -42,10 +45,13 @@ class PowerViewModel @Inject constructor(
     private val batteryFlow = batteryRepository.observeBatteryStatus(3000L)
     private val isTracking = MutableStateFlow(false)
     private val sessions = MutableStateFlow<List<PowerStatSession>>(emptyList())
+    private val currentRecords = MutableStateFlow<List<PowerStatRecord>>(emptyList())
+    private val startCapacityFlow = MutableStateFlow(0)
 
     private var trackingSessionId: Long? = null
     private var trackingStartCapacity: Int = 0
     private var samplingJob: Job? = null
+    private var recordsCollectionJob: Job? = null
     private var powerAccumulator: Double = 0.0
     private var powerSampleCount: Int = 0
 
@@ -53,11 +59,15 @@ class PowerViewModel @Inject constructor(
         batteryFlow,
         sessions,
         isTracking,
-    ) { battery, sessionList, tracking ->
+        currentRecords,
+        startCapacityFlow,
+    ) { battery, sessionList, tracking, records, startCap ->
         PowerUiState(
             currentBattery = battery,
             sessions = sessionList,
             isTracking = tracking,
+            currentRecords = records,
+            trackingStartCapacity = startCap,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -85,17 +95,26 @@ class PowerViewModel @Inject constructor(
         isTracking.value = true
         powerAccumulator = 0.0
         powerSampleCount = 0
+        currentRecords.value = emptyList()
 
         viewModelScope.launch {
             val battery = batteryRepository.getBatteryStatus()
             trackingStartCapacity = battery.capacity
+            startCapacityFlow.value = battery.capacity
             val sessionId = powerRepository.startSession(battery.capacity)
             trackingSessionId = sessionId
 
             // Record initial data point
             recordDataPoint(battery)
 
-            // Start periodic sampling (every 30s, same as charge)
+            // Start collecting records for real-time charts
+            recordsCollectionJob = viewModelScope.launch {
+                powerRepository.getRecordsBySession(sessionId).collect { records ->
+                    currentRecords.value = records
+                }
+            }
+
+            // Start periodic sampling (every 30s)
             samplingJob = viewModelScope.launch {
                 while (true) {
                     delay(SAMPLING_INTERVAL_MS)
@@ -115,6 +134,7 @@ class PowerViewModel @Inject constructor(
             sessionId = sessionId,
             capacity = battery.capacity,
             powerW = power,
+            temperature = battery.temperatureCelsius,
             isCharging = battery.isCharging,
             isScreenOn = battery.screenOn,
         )
@@ -124,6 +144,8 @@ class PowerViewModel @Inject constructor(
         isTracking.value = false
         samplingJob?.cancel()
         samplingJob = null
+        recordsCollectionJob?.cancel()
+        recordsCollectionJob = null
         val sessionId = trackingSessionId ?: return
         trackingSessionId = null
 
@@ -142,6 +164,7 @@ class PowerViewModel @Inject constructor(
                 usedPercent = usedPercent,
                 avgPowerW = avgPowerW,
             )
+            currentRecords.value = emptyList()
         }
     }
 
@@ -167,6 +190,7 @@ class PowerViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         samplingJob?.cancel()
+        recordsCollectionJob?.cancel()
     }
 
     companion object {

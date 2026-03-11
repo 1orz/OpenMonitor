@@ -318,7 +318,11 @@ private fun ChargeSessionItem(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "${dateFormat.format(Date(session.beginTime))} - ${dateFormat.format(Date(session.endTime))}",
+                    text = if (session.isActive) {
+                        "${dateFormat.format(Date(session.beginTime))} - ${stringResource(R.string.charging)}"
+                    } else {
+                        "${dateFormat.format(Date(session.beginTime))} - ${dateFormat.format(Date(session.endTime))}"
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.weight(1f),

@@ -34,18 +34,22 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cloudorz.openmonitor.core.model.battery.BatteryStatus
+import com.cloudorz.openmonitor.core.model.battery.PowerStatRecord
 import com.cloudorz.openmonitor.core.model.battery.PowerStatSession
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import com.cloudorz.openmonitor.core.ui.R
+import com.cloudorz.openmonitor.core.ui.chart.LineChart
+import com.cloudorz.openmonitor.core.ui.chart.LineChartSeries
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -99,6 +103,21 @@ private fun PowerScreenContent(
             )
         }
 
+        // Real-time statistics and charts during tracking
+        if (uiState.isTracking && uiState.currentRecords.isNotEmpty()) {
+            item {
+                PowerStatsCard(
+                    battery = uiState.currentBattery,
+                    records = uiState.currentRecords,
+                    startCapacity = uiState.trackingStartCapacity,
+                )
+            }
+
+            item {
+                PowerChartsSection(records = uiState.currentRecords)
+            }
+        }
+
         if (uiState.sessions.isNotEmpty()) {
             item {
                 Text(
@@ -118,7 +137,7 @@ private fun PowerScreenContent(
                     onExport = { onExportSession(session.sessionId.toLongOrNull() ?: 0L) },
                 )
             }
-        } else {
+        } else if (!uiState.isTracking) {
             item {
                 EmptySessionsHint()
             }
@@ -369,6 +388,211 @@ private fun TrackingButton(
     }
 }
 
+/**
+ * Real-time power statistics card shown during active tracking.
+ * Displays: avg power, usage time, estimated battery life.
+ */
+@Composable
+private fun PowerStatsCard(
+    battery: BatteryStatus,
+    records: List<PowerStatRecord>,
+    startCapacity: Int,
+) {
+    val avgPowerW = remember(records) {
+        if (records.isEmpty()) 0.0
+        else records.map { it.powerW }.average()
+    }
+    val usedPercent = startCapacity - battery.capacity
+    val elapsedMs = if (records.size >= 2) {
+        records.last().startTime - records.first().startTime
+    } else {
+        0L
+    }
+    val elapsedSeconds = elapsedMs / 1000
+    // Estimate battery life: remaining% / drain rate per second
+    val estBatteryLifeSeconds = if (usedPercent > 0 && elapsedSeconds > 0) {
+        (battery.capacity.toLong() * elapsedSeconds) / usedPercent
+    } else if (avgPowerW > 0.1 && battery.capacityMah > 0) {
+        // Fallback: capacityMah * voltageV / powerW * 3600 * (remaining / 100)
+        val totalWh = battery.capacityMah / 1000.0 * battery.voltageV
+        val remainingWh = totalWh * battery.capacity / 100.0
+        (remainingWh / avgPowerW * 3600).toLong()
+    } else {
+        0L
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.power_stats),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) {
+                StatItem(
+                    value = String.format(Locale.US, "%.2fW", avgPowerW),
+                    label = stringResource(R.string.avg_power),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                StatItem(
+                    value = formatDuration(elapsedSeconds),
+                    label = stringResource(R.string.used_time),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                StatItem(
+                    value = if (estBatteryLifeSeconds > 0) formatDuration(estBatteryLifeSeconds) else "--",
+                    label = stringResource(R.string.est_battery_life),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatItem(
+    value: String,
+    label: String,
+    color: Color,
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = color,
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/**
+ * Real-time charts section: Power/Time, Battery Level/Time, Temperature/Time
+ */
+@Composable
+private fun PowerChartsSection(records: List<PowerStatRecord>) {
+    val powerData = remember(records) {
+        records.map { it.powerW.toFloat() }
+    }
+    val batteryData = remember(records) {
+        records.map { it.capacity.toFloat() }
+    }
+    val tempData = remember(records) {
+        records.map { it.temperature.toFloat() }
+    }
+
+    // Power / Time chart
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.power_over_time),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            LineChart(
+                dataSeries = listOf(
+                    LineChartSeries(
+                        label = stringResource(R.string.power),
+                        data = powerData,
+                        color = Color(0xFF2196F3),
+                    ),
+                ),
+                maxDataPoints = 120,
+                yAxisLabel = stringResource(R.string.power_w_label),
+                showLegend = false,
+            )
+        }
+    }
+
+    // Battery Level / Time chart
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.battery_over_time),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            LineChart(
+                dataSeries = listOf(
+                    LineChartSeries(
+                        label = stringResource(R.string.battery_level),
+                        data = batteryData,
+                        color = Color(0xFF4CAF50),
+                    ),
+                ),
+                maxDataPoints = 120,
+                yAxisLabel = stringResource(R.string.battery_pct_label),
+                showLegend = false,
+            )
+        }
+    }
+
+    // Temperature / Time chart
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.temp_over_time),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            LineChart(
+                dataSeries = listOf(
+                    LineChartSeries(
+                        label = stringResource(R.string.temperature),
+                        data = tempData,
+                        color = Color(0xFFF44336),
+                    ),
+                ),
+                maxDataPoints = 120,
+                yAxisLabel = stringResource(R.string.temp_c_label),
+                showLegend = false,
+            )
+        }
+    }
+}
+
 @Composable
 private fun SessionItem(
     session: PowerStatSession,
@@ -400,22 +624,28 @@ private fun SessionItem(
                         imageVector = Icons.Default.Timer,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = if (session.isActive) Color(0xFFF44336) else MaterialTheme.colorScheme.primary,
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "${dateFormat.format(Date(session.beginTime))} - ${dateFormat.format(Date(session.endTime))}",
+                        text = if (session.isActive) {
+                            "${dateFormat.format(Date(session.beginTime))} - ${stringResource(R.string.tracking_active)}"
+                        } else {
+                            "${dateFormat.format(Date(session.beginTime))} - ${dateFormat.format(Date(session.endTime))}"
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
                     )
                 }
-                IconButton(onClick = onExport) {
-                    Icon(
-                        imageVector = Icons.Default.Share,
-                        contentDescription = "CSV",
-                        modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
+                if (!session.isActive) {
+                    IconButton(onClick = onExport) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = "CSV",
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 }
             }
 
@@ -434,7 +664,7 @@ private fun SessionItem(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        text = String.format(Locale.US, "%.1f%%", session.usedPercent),
+                        text = if (session.isActive) "--" else String.format(Locale.US, "%.1f%%", session.usedPercent),
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Bold,
                     )
@@ -446,7 +676,7 @@ private fun SessionItem(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        text = String.format(Locale.US, "%.2f W", session.avgPowerW),
+                        text = if (session.isActive) "--" else String.format(Locale.US, "%.2f W", session.avgPowerW),
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Bold,
                     )
@@ -506,9 +736,10 @@ private fun EmptySessionsHint() {
 private fun formatDuration(totalSeconds: Long): String {
     val hours = totalSeconds / 3600
     val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
     return when {
         hours > 0 -> "${hours}h ${minutes}m"
-        minutes > 0 -> "${minutes}m"
+        minutes > 0 -> "${minutes}m ${seconds}s"
         else -> "${totalSeconds}s"
     }
 }

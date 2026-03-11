@@ -28,4 +28,6 @@ data class PowerStatRecordEntity(
     val ioBytes: Long,
     val packageName: String,
     val isScreenOn: Boolean,
+    val powerW: Double = 0.0,
+    val temperature: Double = 0.0,
 )
