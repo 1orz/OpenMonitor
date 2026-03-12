@@ -1,7 +1,7 @@
 package com.cloudorz.openmonitor.core.common
 
 import android.os.Process
-import android.util.Log
+import com.elvishew.xlog.XLog
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -60,7 +60,7 @@ class ShellUserService : IShellService.Stub() {
                 } else if (process.exitValue() == 0) output else null
             }
         } catch (e: Exception) {
-            Log.d(TAG, "readFileContent failed: $path", e)
+            XLog.tag(TAG).d("readFileContent failed: $path", e)
             null
         }
     }

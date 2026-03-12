@@ -1,6 +1,6 @@
 package com.cloudorz.openmonitor.core.common
 
-import android.util.Log
+import com.elvishew.xlog.XLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -59,7 +59,7 @@ class BasicExecutor @Inject constructor() : ShellExecutor {
                 null
             }
         } catch (e: Exception) {
-            Log.d(TAG, "readFile failed: $path", e)
+            XLog.tag(TAG).d("readFile failed: $path", e)
             null
         }
     }

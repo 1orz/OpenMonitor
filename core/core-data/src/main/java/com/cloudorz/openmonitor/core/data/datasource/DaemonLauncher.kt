@@ -1,7 +1,7 @@
 package com.cloudorz.openmonitor.core.data.datasource
 
 import android.content.Context
-import android.util.Log
+import com.elvishew.xlog.XLog
 import com.cloudorz.openmonitor.core.common.PrivilegeMode
 import com.cloudorz.openmonitor.core.common.ShellExecutor
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -78,7 +78,7 @@ class DaemonLauncher @Inject constructor(
             shellExecutor.mode == PrivilegeMode.ADB) return@withContext false
         if (daemonClient.isAlive()) {
             if (isVersionMatch()) return@withContext true
-            Log.e(TAG, "daemon version mismatch, upgrading")
+            XLog.tag(TAG).e("daemon version mismatch, upgrading")
             fullStop()
         }
 
@@ -95,7 +95,7 @@ class DaemonLauncher @Inject constructor(
             if (daemonClient.isAlive()) return@withContext true
             delay(500L)
         }
-        Log.e(TAG, "daemon did not respond after launch")
+        XLog.tag(TAG).e("daemon did not respond after launch")
         false
     }
 
@@ -110,7 +110,7 @@ class DaemonLauncher @Inject constructor(
 
         // 2. Force kill + cleanup via shell
         if (daemonClient.isAlive()) {
-            Log.e(TAG, "daemon still alive after exit command, force killing")
+            XLog.tag(TAG).e("daemon still alive after exit command, force killing")
         }
         execCleanup()
         delay(300)
@@ -121,7 +121,7 @@ class DaemonLauncher @Inject constructor(
         if (expectedCommit.isEmpty()) return true
         val resp = daemonClient.sendCommand("daemon-version") ?: return false
         val match = resp.contains(expectedCommit)
-        if (!match) Log.e(TAG, "version mismatch: expected=$expectedCommit, got=$resp")
+        if (!match) XLog.tag(TAG).e("version mismatch: expected=$expectedCommit, got=$resp")
         return match
     }
 
@@ -167,10 +167,10 @@ class DaemonLauncher @Inject constructor(
 
     private fun logResult(result: com.cloudorz.openmonitor.core.common.CommandResult, binary: String): Boolean {
         return if (result.isSuccess) {
-            Log.e(TAG, "daemon launched via ${shellExecutor.mode} ($binary)")
+            XLog.tag(TAG).e("daemon launched via ${shellExecutor.mode} ($binary)")
             true
         } else {
-            Log.e(TAG, "daemon launch failed (${shellExecutor.mode}): ${result.stderr}")
+            XLog.tag(TAG).e("daemon launch failed (${shellExecutor.mode}): ${result.stderr}")
             false
         }
     }

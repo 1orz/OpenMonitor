@@ -1,6 +1,6 @@
 package com.cloudorz.openmonitor.core.common
 
-import android.util.Log
+import com.elvishew.xlog.XLog
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -16,7 +16,7 @@ class CpuNativeInfo @Inject constructor() {
             val name = nativeGetCpuName()
             name.ifEmpty { null }
         } catch (e: Exception) {
-            Log.d(TAG, "getCpuName failed", e)
+            XLog.tag(TAG).d("getCpuName failed", e)
             null
         }
     }
@@ -27,7 +27,7 @@ class CpuNativeInfo @Inject constructor() {
             val count = nativeGetCoreCount()
             if (count > 0) count else null
         } catch (e: Exception) {
-            Log.d(TAG, "getCoreCount failed", e)
+            XLog.tag(TAG).d("getCoreCount failed", e)
             null
         }
     }
@@ -37,7 +37,7 @@ class CpuNativeInfo @Inject constructor() {
         return try {
             nativeHasArmNeon()
         } catch (e: Exception) {
-            Log.d(TAG, "hasArmNeon failed", e)
+            XLog.tag(TAG).d("hasArmNeon failed", e)
             null
         }
     }
@@ -47,7 +47,7 @@ class CpuNativeInfo @Inject constructor() {
         return try {
             nativeGetL1dCaches()
         } catch (e: Exception) {
-            Log.d(TAG, "getL1dCacheSizes failed", e)
+            XLog.tag(TAG).d("getL1dCacheSizes failed", e)
             null
         }
     }
@@ -57,7 +57,7 @@ class CpuNativeInfo @Inject constructor() {
         return try {
             nativeGetL1iCaches()
         } catch (e: Exception) {
-            Log.d(TAG, "getL1iCacheSizes failed", e)
+            XLog.tag(TAG).d("getL1iCacheSizes failed", e)
             null
         }
     }
@@ -67,7 +67,7 @@ class CpuNativeInfo @Inject constructor() {
         return try {
             nativeGetL2Caches()
         } catch (e: Exception) {
-            Log.d(TAG, "getL2CacheSizes failed", e)
+            XLog.tag(TAG).d("getL2CacheSizes failed", e)
             null
         }
     }
@@ -77,7 +77,7 @@ class CpuNativeInfo @Inject constructor() {
         return try {
             nativeGetL3Caches()
         } catch (e: Exception) {
-            Log.d(TAG, "getL3CacheSizes failed", e)
+            XLog.tag(TAG).d("getL3CacheSizes failed", e)
             null
         }
     }
@@ -100,7 +100,7 @@ class CpuNativeInfo @Inject constructor() {
                 System.loadLibrary("cpuinfo-bridge")
                 libraryLoaded = true
             } catch (e: UnsatisfiedLinkError) {
-                Log.w(TAG, "Failed to load cpuinfo-bridge native library", e)
+                XLog.tag(TAG).w("Failed to load cpuinfo-bridge native library", e)
                 libraryLoaded = false
             }
         }

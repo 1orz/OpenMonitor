@@ -1,6 +1,6 @@
 package com.cloudorz.openmonitor.core.data.datasource
 
-import android.util.Log
+import com.elvishew.xlog.XLog
 import com.cloudorz.openmonitor.core.model.fps.FpsData
 import com.cloudorz.openmonitor.core.model.monitor.MonitorSnapshot
 import kotlinx.coroutines.Dispatchers
@@ -40,11 +40,11 @@ class DaemonDataSource @Inject constructor(
         val alive = client.isAlive()
         val wasAlive = cachedAlive
         if (alive) {
-            if (!wasAlive) Log.e(TAG, "daemon connected (runner=${daemonRunner.ifEmpty { "unknown" }})")
+            if (!wasAlive) XLog.tag(TAG).e("daemon connected (runner=${daemonRunner.ifEmpty { "unknown" }})")
             everAlive = true
             consecutiveFailures = 0
         } else {
-            if (wasAlive) Log.e(TAG, "daemon disconnected")
+            if (wasAlive) XLog.tag(TAG).e("daemon disconnected")
             if (everAlive) consecutiveFailures++
         }
         cachedAlive = alive
@@ -92,7 +92,7 @@ class DaemonDataSource @Inject constructor(
         return try {
             val obj = JSONObject(json)
             if (obj.has("error")) {
-                Log.e(TAG, "daemon error: ${obj.optString("error")}")
+                XLog.tag(TAG).e("daemon error: ${obj.optString("error")}")
                 return null
             }
 
@@ -116,7 +116,7 @@ class DaemonDataSource @Inject constructor(
             val runner = obj.optString("runner", "")
             if (runner.isNotEmpty() && daemonRunner != runner) {
                 daemonRunner = runner
-                Log.e(TAG, "daemon runner: $runner")
+                XLog.tag(TAG).e("daemon runner: $runner")
             }
 
             val temp = if (!obj.isNull("cpu_temp")) obj.getDouble("cpu_temp") else null
@@ -134,7 +134,7 @@ class DaemonDataSource @Inject constructor(
                 // batteryCurrentMa intentionally left null — filled by caller from BatteryManager
             )
         } catch (e: Exception) {
-            Log.e(TAG, "parseSnapshot failed: ${e.message}")
+            XLog.tag(TAG).e("parseSnapshot failed: ${e.message}")
             null
         }
     }

@@ -1,7 +1,7 @@
 package com.cloudorz.openmonitor.core.common
 
 import android.content.Context
-import android.util.Log
+import com.elvishew.xlog.XLog
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -121,7 +121,7 @@ class PermissionManager @Inject constructor(
             val result = adbExecutor.execute("cat /data/system/packages.xml | head -c 1")
             result.isSuccess && result.stdout.isNotEmpty()
         } catch (e: Exception) {
-            Log.d(TAG, "hasElevatedShellAccess check failed", e)
+            XLog.tag(TAG).d("hasElevatedShellAccess check failed", e)
             false
         }
     }

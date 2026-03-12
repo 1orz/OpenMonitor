@@ -6,6 +6,7 @@ import androidx.work.Configuration
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.cloudorz.openmonitor.core.common.AppLogger
 import com.cloudorz.openmonitor.worker.DatabaseCleanupWorker
 import com.cloudorz.openmonitor.worker.MonitorAlertWorker
 import com.topjohnwu.superuser.Shell
@@ -26,6 +27,7 @@ class MonitorApp : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+        AppLogger.init(this)
         scheduleDatabaseCleanup()
         scheduleMonitorAlerts()
     }

@@ -33,6 +33,8 @@ dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 
+    api(libs.xlog)
+
     implementation(libs.libsu.core)
     implementation(libs.libsu.service)
     implementation(libs.shizuku.api)

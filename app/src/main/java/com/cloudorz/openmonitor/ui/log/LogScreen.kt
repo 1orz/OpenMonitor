@@ -1,27 +1,34 @@
 package com.cloudorz.openmonitor.ui.log
 
+import android.content.ClipData
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ClearAll
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.PauseCircle
 import androidx.compose.material.icons.outlined.PlayCircle
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -32,21 +39,22 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import android.content.ClipData
-import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import kotlinx.coroutines.launch
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cloudorz.openmonitor.core.common.AppLogEntry
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,6 +62,8 @@ fun LogScreen(viewModel: LogViewModel = hiltViewModel()) {
     val appLogs by viewModel.appLogs.collectAsStateWithLifecycle()
     val daemonLogs by viewModel.daemonLogs.collectAsStateWithLifecycle()
     val daemonLogStatus by viewModel.daemonLogStatus.collectAsStateWithLifecycle()
+    val logDates by viewModel.logDates.collectAsStateWithLifecycle()
+    val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
 
     var selectedTab by remember { mutableIntStateOf(0) }
     var autoScroll by remember { mutableStateOf(true) }
@@ -63,7 +73,6 @@ fun LogScreen(viewModel: LogViewModel = hiltViewModel()) {
     val appListState = rememberLazyListState()
     val daemonListState = rememberLazyListState()
 
-    // Auto-scroll to bottom when new entries arrive
     LaunchedEffect(appLogs.size) {
         if (autoScroll && selectedTab == 0 && appLogs.isNotEmpty()) {
             appListState.animateScrollToItem(appLogs.size - 1)
@@ -128,7 +137,7 @@ fun LogScreen(viewModel: LogViewModel = hiltViewModel()) {
             )
         },
     ) { padding ->
-        androidx.compose.foundation.layout.Column(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
@@ -147,8 +156,70 @@ fun LogScreen(viewModel: LogViewModel = hiltViewModel()) {
             }
 
             when (selectedTab) {
-                0 -> AppLogTab(entries = appLogs, listState = appListState)
+                0 -> {
+                    // Date selector bar
+                    DateSelectorBar(
+                        dates = logDates,
+                        selectedDate = selectedDate,
+                        onSelect = { viewModel.selectDate(it) },
+                    )
+                    AppLogTab(entries = appLogs, listState = appListState)
+                }
                 1 -> DaemonLogTab(lines = daemonLogs, status = daemonLogStatus, listState = daemonListState)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DateSelectorBar(
+    dates: List<String>,
+    selectedDate: String?,
+    onSelect: (String?) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val label = selectedDate ?: "实时"
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            "日志来源:",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Box {
+            Text(
+                text = label,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer)
+                    .clickable { expanded = true }
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                DropdownMenuItem(
+                    text = {
+                        Text("实时 (logcat)", fontWeight = if (selectedDate == null) FontWeight.Bold else FontWeight.Normal)
+                    },
+                    onClick = { onSelect(null); expanded = false },
+                )
+                dates.forEach { date ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(date, fontWeight = if (date == selectedDate) FontWeight.Bold else FontWeight.Normal)
+                        },
+                        onClick = { onSelect(date); expanded = false },
+                    )
+                }
             }
         }
     }
@@ -160,7 +231,7 @@ private fun AppLogTab(
     listState: androidx.compose.foundation.lazy.LazyListState,
 ) {
     if (entries.isEmpty()) {
-        EmptyState("暂无 App 日志")
+        EmptyState("暂无日志")
         return
     }
     LazyColumn(

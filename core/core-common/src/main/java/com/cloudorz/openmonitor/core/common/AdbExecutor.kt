@@ -1,6 +1,6 @@
 package com.cloudorz.openmonitor.core.common
 
-import android.util.Log
+import com.elvishew.xlog.XLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -57,7 +57,7 @@ class AdbExecutor @Inject constructor() : ShellExecutor {
                 return@withContext file.readText()
             }
         } catch (e: Exception) {
-            Log.d(TAG, "readFile direct IO failed: $path", e)
+            XLog.tag(TAG).d("readFile direct IO failed: $path", e)
             // Fall through to shell-based read.
         }
 
@@ -72,7 +72,7 @@ class AdbExecutor @Inject constructor() : ShellExecutor {
             }
             if (process.exitValue() == 0) output else null
         } catch (e: Exception) {
-            Log.d(TAG, "readFile shell fallback failed: $path", e)
+            XLog.tag(TAG).d("readFile shell fallback failed: $path", e)
             null
         }
     }

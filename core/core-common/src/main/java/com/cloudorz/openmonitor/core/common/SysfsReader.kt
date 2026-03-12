@@ -1,6 +1,6 @@
 package com.cloudorz.openmonitor.core.common
 
-import android.util.Log
+import com.elvishew.xlog.XLog
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.Dispatchers
@@ -40,7 +40,7 @@ class SysfsReader @Inject constructor(
             val file = File(path)
             if (file.exists() && file.canRead()) file.readText() else null
         } catch (e: Exception) {
-            Log.d(TAG, "readFileDirect failed: $path", e)
+            XLog.tag(TAG).d("readFileDirect failed: $path", e)
             null
         }
     }
@@ -84,7 +84,7 @@ class SysfsReader @Inject constructor(
         try {
             readFileContent(path)?.trim()?.toIntOrNull()
         } catch (e: Exception) {
-            Log.d(TAG, "readInt failed: $path", e)
+            XLog.tag(TAG).d("readInt failed: $path", e)
             null
         }
     }
@@ -99,7 +99,7 @@ class SysfsReader @Inject constructor(
         try {
             readFileContent(path)?.trim()?.toLongOrNull()
         } catch (e: Exception) {
-            Log.d(TAG, "readLong failed: $path", e)
+            XLog.tag(TAG).d("readLong failed: $path", e)
             null
         }
     }
@@ -114,7 +114,7 @@ class SysfsReader @Inject constructor(
         try {
             readFileContent(path)?.trim()
         } catch (e: Exception) {
-            Log.d(TAG, "readString failed: $path", e)
+            XLog.tag(TAG).d("readString failed: $path", e)
             null
         }
     }
@@ -134,7 +134,7 @@ class SysfsReader @Inject constructor(
                 ?.map { it.trim() }
                 ?: emptyList()
         } catch (e: Exception) {
-            Log.d(TAG, "readLines failed: $path", e)
+            XLog.tag(TAG).d("readLines failed: $path", e)
             emptyList()
         }
     }

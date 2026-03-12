@@ -1,6 +1,6 @@
 package com.cloudorz.openmonitor.core.data.datasource
 
-import android.util.Log
+import com.elvishew.xlog.XLog
 import com.cloudorz.openmonitor.core.common.PermissionManager
 import com.cloudorz.openmonitor.core.common.PrivilegeMode
 import kotlinx.coroutines.CoroutineScope
@@ -71,11 +71,11 @@ class DaemonManager @Inject constructor(
             if (daemonDataSource.isAvailable()) {
                 _state.value = DaemonState.RUNNING
                 startHeartbeat()
-                Log.e(TAG, "ADB mode: daemon already running")
+                XLog.tag(TAG).e("ADB mode: daemon already running")
                 return@withContext DaemonState.RUNNING
             }
             _state.value = DaemonState.IDLE // Not FAILED — user hasn't started it yet
-            Log.e(TAG, "ADB mode: daemon not running (user must start manually)")
+            XLog.tag(TAG).e("ADB mode: daemon not running (user must start manually)")
             return@withContext DaemonState.IDLE
         }
 
@@ -84,26 +84,26 @@ class DaemonManager @Inject constructor(
             if (daemonLauncher.isVersionMatch()) {
                 _state.value = DaemonState.RUNNING
                 startHeartbeat()
-                Log.e(TAG, "daemon already running")
+                XLog.tag(TAG).e("daemon already running")
                 return@withContext DaemonState.RUNNING
             }
-            Log.e(TAG, "daemon alive but version mismatch, will upgrade")
+            XLog.tag(TAG).e("daemon alive but version mismatch, will upgrade")
         }
 
         _state.value = DaemonState.LAUNCHING
-        Log.e(TAG, "launching daemon (mode=$mode)")
+        XLog.tag(TAG).e("launching daemon (mode=$mode)")
 
         val launched = daemonLauncher.ensureRunning()
         if (launched) {
             _state.value = DaemonState.RUNNING
             daemonDataSource.resetDeadState()
             startHeartbeat()
-            Log.e(TAG, "daemon launched successfully")
+            XLog.tag(TAG).e("daemon launched successfully")
             return@withContext DaemonState.RUNNING
         }
 
         _state.value = DaemonState.FAILED
-        Log.e(TAG, "daemon launch failed")
+        XLog.tag(TAG).e("daemon launch failed")
         DaemonState.FAILED
     }
 
@@ -116,7 +116,7 @@ class DaemonManager @Inject constructor(
         newMode: PrivilegeMode,
         applyNewMode: () -> Unit,
     ): DaemonState = withContext(Dispatchers.IO) {
-        Log.e(TAG, "switchMode: $oldMode → $newMode")
+        XLog.tag(TAG).e("switchMode: $oldMode → $newMode")
         val oldAutoLaunch = oldMode == PrivilegeMode.ROOT || oldMode == PrivilegeMode.SHIZUKU
         val newAutoLaunch = newMode == PrivilegeMode.ROOT || newMode == PrivilegeMode.SHIZUKU
 
@@ -144,7 +144,7 @@ class DaemonManager @Inject constructor(
      * Gracefully stops the daemon and relaunches it.
      */
     suspend fun restart(): DaemonState = withContext(Dispatchers.IO) {
-        Log.e(TAG, "restart requested")
+        XLog.tag(TAG).e("restart requested")
         stopDaemon()
         daemonDataSource.resetDeadState()
         daemonDataSource.invalidate()
@@ -172,9 +172,9 @@ class DaemonManager @Inject constructor(
                     }
                 } else {
                     failures++
-                    Log.e(TAG, "heartbeat failed ($failures/$HEARTBEAT_FAIL_THRESHOLD)")
+                    XLog.tag(TAG).e("heartbeat failed ($failures/$HEARTBEAT_FAIL_THRESHOLD)")
                     if (failures >= HEARTBEAT_FAIL_THRESHOLD) {
-                        Log.e(TAG, "daemon dead, attempting restart")
+                        XLog.tag(TAG).e("daemon dead, attempting restart")
                         _state.value = DaemonState.LAUNCHING
                         daemonDataSource.resetDeadState()
                         if (canAutoLaunchDaemon()) {
@@ -182,16 +182,16 @@ class DaemonManager @Inject constructor(
                             if (restarted) {
                                 _state.value = DaemonState.RUNNING
                                 failures = 0
-                                Log.e(TAG, "daemon restarted successfully")
+                                XLog.tag(TAG).e("daemon restarted successfully")
                             } else {
                                 _state.value = DaemonState.FAILED
-                                Log.e(TAG, "daemon restart failed, stopping heartbeat")
+                                XLog.tag(TAG).e("daemon restart failed, stopping heartbeat")
                                 return@launch
                             }
                         } else {
                             // ADB mode: can't auto-restart
                             _state.value = DaemonState.FAILED
-                            Log.e(TAG, "ADB mode: daemon lost, user must restart manually")
+                            XLog.tag(TAG).e("ADB mode: daemon lost, user must restart manually")
                             return@launch
                         }
                     }

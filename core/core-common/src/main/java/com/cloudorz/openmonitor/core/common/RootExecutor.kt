@@ -1,6 +1,6 @@
 package com.cloudorz.openmonitor.core.common
 
-import android.util.Log
+import com.elvishew.xlog.XLog
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -40,7 +40,7 @@ class RootExecutor @Inject constructor() : ShellExecutor {
             val result = Shell.cmd("cat '$path'").exec()
             if (result.code == 0) result.out.joinToString("\n") else null
         } catch (e: Exception) {
-            Log.d(TAG, "readFile failed: $path", e)
+            XLog.tag(TAG).d("readFile failed: $path", e)
             null
         }
     }
@@ -62,7 +62,7 @@ class RootExecutor @Inject constructor() : ShellExecutor {
             val shell = Shell.getShell() // This is the key call — triggers su binary
             shell.isRoot
         } catch (e: Exception) {
-            Log.d(TAG, "isAvailable check failed", e)
+            XLog.tag(TAG).d("isAvailable check failed", e)
             false
         }
     }

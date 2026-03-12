@@ -1,13 +1,15 @@
 package com.cloudorz.openmonitor.core.common
 
-import android.util.Log
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import android.content.Context
+import com.elvishew.xlog.LogConfiguration
+import com.elvishew.xlog.LogLevel
+import com.elvishew.xlog.XLog
+import com.elvishew.xlog.printer.AndroidPrinter
+import com.elvishew.xlog.printer.file.FilePrinter
+import com.elvishew.xlog.printer.file.backup.FileSizeBackupStrategy
+import com.elvishew.xlog.printer.file.clean.FileLastModifiedCleanStrategy
+import com.elvishew.xlog.printer.file.naming.DateFileNameGenerator
+import java.io.File
 
 data class AppLogEntry(
     val time: String,
@@ -16,41 +18,48 @@ data class AppLogEntry(
     val message: String,
 )
 
+/**
+ * xLog-based logger. Call [init] once from Application.onCreate().
+ *
+ * - Logcat output via AndroidPrinter
+ * - Rolling file logs: one file per day, 5 MB backup, 7-day retention
+ * - [logDir] exposes the directory so LogViewModel can read history files
+ */
 object AppLogger {
-    private const val MAX_ENTRIES = 500
 
-    private val _entries = MutableStateFlow<List<AppLogEntry>>(emptyList())
-    val entries: StateFlow<List<AppLogEntry>> = _entries.asStateFlow()
+    /** Directory where xLog writes daily log files. Null until [init]. */
+    var logDir: File? = null
+        private set
 
-    fun d(tag: String, msg: String) {
-        Log.d(tag, msg)
-        append('D', tag, msg)
-    }
+    private const val MAX_FILE_SIZE = 5L * 1024 * 1024 // 5 MB
+    private const val RETENTION_MS = 7L * 24 * 3600 * 1000 // 7 days
 
-    fun w(tag: String, msg: String) {
-        Log.w(tag, msg)
-        append('W', tag, msg)
-    }
-
-    fun i(tag: String, msg: String) {
-        Log.i(tag, msg)
-        append('I', tag, msg)
-    }
-
-    fun e(tag: String, msg: String) {
-        Log.e(tag, msg)
-        append('E', tag, msg)
-    }
-
-    fun clear() {
-        _entries.value = emptyList()
-    }
-
-    private fun append(level: Char, tag: String, msg: String) {
-        val time = SimpleDateFormat("HH:mm:ss.SSS", Locale.US).format(Date())
-        _entries.update { list ->
-            val base = if (list.size >= MAX_ENTRIES) list.drop(1) else list
-            base + AppLogEntry(time, level, tag, msg)
+    fun init(context: Context) {
+        val dir = File(context.filesDir, "logs").also {
+            it.mkdirs()
+            logDir = it
         }
+
+        val config = LogConfiguration.Builder()
+            .logLevel(LogLevel.ALL)
+            .tag("OpenMonitor")
+            .build()
+
+        val filePrinter = FilePrinter.Builder(dir.absolutePath)
+            .fileNameGenerator(DateFileNameGenerator())
+            .backupStrategy(FileSizeBackupStrategy(MAX_FILE_SIZE))
+            .cleanStrategy(FileLastModifiedCleanStrategy(RETENTION_MS))
+            .build()
+
+        XLog.init(config, AndroidPrinter(), filePrinter)
+    }
+
+    /** List all log files sorted by date descending (newest first). */
+    fun listLogFiles(): List<File> {
+        val dir = logDir ?: return emptyList()
+        return dir.listFiles()
+            ?.filter { it.isFile && it.name.endsWith(".log") }
+            ?.sortedByDescending { it.name }
+            ?: emptyList()
     }
 }

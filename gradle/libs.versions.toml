@@ -18,6 +18,7 @@ appcompat = "1.7.1"
 junit = "4.13.2"
 mockk = "1.14.9"
 vico = "3.0.3"
+xlog = "1.11.1"
 googleServices = "4.4.2"
 firebaseBom = "34.10.0"
 
@@ -73,6 +74,9 @@ shizuku-provider = { module = "dev.rikka.shizuku:provider", version.ref = "shizu
 work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "workmanager" }
 hilt-work = { module = "androidx.hilt:hilt-work", version.ref = "hiltNavigationCompose" }
 hilt-work-compiler = { module = "androidx.hilt:hilt-compiler", version.ref = "hiltNavigationCompose" }
+
+# xLog
+xlog = { module = "com.elvishew:xlog", version.ref = "xlog" }
 
 # Firebase
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }

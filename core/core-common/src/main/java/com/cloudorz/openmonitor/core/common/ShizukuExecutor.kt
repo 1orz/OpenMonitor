@@ -6,7 +6,7 @@ import android.content.pm.PackageManager
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.util.Log
+import com.elvishew.xlog.XLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -51,14 +51,14 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
             Shizuku.addBinderDeadListener(
                 {
                     _binderAlive.value = false
-                    Log.w(TAG, "binder dead")
+                    XLog.tag(TAG).w("binder dead")
                 },
                 handler,
             )
             Shizuku.addBinderReceivedListener(
                 {
                     _binderAlive.value = true
-                    Log.i(TAG, "binder received")
+                    XLog.tag(TAG).i("binder received")
                     // Pre-bind UserService as soon as binder is available
                     // (init-time bindService() often fails because binder isn't attached yet)
                     bindService()
@@ -69,13 +69,13 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
                 { _, grantResult ->
                     val granted = grantResult == PackageManager.PERMISSION_GRANTED
                     _permissionResult.value = granted
-                    Log.i(TAG, "permission result: granted=$granted")
+                    XLog.tag(TAG).i("permission result: granted=$granted")
                     if (granted) bindService()
                 },
                 handler,
             )
         } catch (e: Exception) {
-            Log.d(TAG, "addListeners failed (Shizuku not yet attached)", e)
+            XLog.tag(TAG).d("addListeners failed (Shizuku not yet attached)", e)
         }
     }
 
@@ -103,16 +103,16 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
             if (service != null && service.pingBinder()) {
                 shellService = IShellService.Stub.asInterface(service)
                 bound = true
-                Log.i(TAG, "onServiceConnected: UserService bound successfully")
+                XLog.tag(TAG).i("onServiceConnected: UserService bound successfully")
             } else {
-                Log.e(TAG, "onServiceConnected: service null or binder dead")
+                XLog.tag(TAG).e("onServiceConnected: service null or binder dead")
             }
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
             shellService = null
             bound = false
-            Log.w(TAG, "onServiceDisconnected")
+            XLog.tag(TAG).w("onServiceDisconnected")
         }
     }
 
@@ -122,24 +122,24 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
      */
     fun bindService() {
         if (bound && shellService != null) {
-            Log.d(TAG, "bindService: already bound, skipping")
+            XLog.tag(TAG).d("bindService: already bound, skipping")
             return
         }
         try {
             val binderAlive = Shizuku.pingBinder()
             if (!binderAlive) {
-                Log.w(TAG, "bindService: binder not alive, skipping")
+                XLog.tag(TAG).w("bindService: binder not alive, skipping")
                 return
             }
             val granted = Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
             if (!granted) {
-                Log.w(TAG, "bindService: permission not granted, skipping")
+                XLog.tag(TAG).w("bindService: permission not granted, skipping")
                 return
             }
-            Log.i(TAG, "bindService: calling Shizuku.bindUserService()")
+            XLog.tag(TAG).i("bindService: calling Shizuku.bindUserService()")
             Shizuku.bindUserService(userServiceArgs, serviceConnection)
         } catch (e: Exception) {
-            Log.d(TAG, "bindService failed", e)
+            XLog.tag(TAG).d("bindService failed", e)
         }
     }
 
@@ -152,7 +152,7 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
                 Shizuku.unbindUserService(userServiceArgs, serviceConnection, true)
             }
         } catch (e: Exception) {
-            Log.d(TAG, "unbindService failed", e)
+            XLog.tag(TAG).d("unbindService failed", e)
         }
         shellService = null
         bound = false
@@ -163,7 +163,7 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
     override suspend fun execute(command: String): CommandResult = withContext(Dispatchers.IO) {
         var service = shellService
         if (service == null) {
-            Log.i(TAG, "shellService null, calling bindService and waiting...")
+            XLog.tag(TAG).i("shellService null, calling bindService and waiting...")
             bindService()
             // Wait up to 10s for service binding to complete
             // (UserService needs app_process startup which can be slow on some devices)
@@ -173,10 +173,10 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
                 if (service != null) break
             }
             if (service == null) {
-                Log.e(TAG, "service still null after 10s wait")
+                XLog.tag(TAG).e("service still null after 10s wait")
                 return@withContext CommandResult.failure("Shizuku service not bound yet")
             }
-            Log.i(TAG, "shellService connected after waiting")
+            XLog.tag(TAG).i("shellService connected after waiting")
         }
 
         try {
@@ -202,7 +202,7 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
         try {
             shellService?.readFileContent(path)
         } catch (e: Exception) {
-            Log.d(TAG, "readFile failed: $path", e)
+            XLog.tag(TAG).d("readFile failed: $path", e)
             null
         }
     }
@@ -213,7 +213,7 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
             if (!binderAlive) return@withContext false
             Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
         } catch (e: Exception) {
-            Log.d(TAG, "isAvailable check failed", e)
+            XLog.tag(TAG).d("isAvailable check failed", e)
             false
         }
     }
@@ -266,7 +266,7 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
                 Shizuku.requestPermission(SHIZUKU_PERMISSION_REQUEST_CODE)
             }
         } catch (e: Exception) {
-            Log.d(TAG, "requestPermissionIfNeeded failed", e)
+            XLog.tag(TAG).d("requestPermissionIfNeeded failed", e)
         }
     }
 }
