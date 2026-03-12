@@ -129,9 +129,13 @@ class FpsRecordingManager @Inject constructor(
                         val pw = battery?.powerW ?: 0.0
                         if (pw > 0) powerAccumulator.add(pw)
 
+                        // Compute frame time from FPS (daemon doesn't provide per-frame data)
+                        val computedFrameTimeMs = if (fpsData.fps > 0) (1000.0 / fpsData.fps).toInt() else 0
+                        val enrichedFpsData = fpsData.copy(maxFrameTimeMs = computedFrameTimeMs)
+
                         fpsRepository.recordFrameRich(
                             sessionId = sessionId,
-                            fpsData = fpsData,
+                            fpsData = enrichedFpsData,
                             cpuLoad = snapshot?.cpuLoadPercent ?: 0.0,
                             cpuTemp = snapshot?.cpuTempCelsius ?: 0.0,
                             gpuLoad = snapshot?.gpuLoadPercent ?: gpuInfo?.loadPercent ?: 0.0,

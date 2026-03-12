@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,6 +33,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -47,10 +50,13 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -65,8 +71,6 @@ import com.cloudorz.openmonitor.core.ui.R
 import com.cloudorz.openmonitor.core.ui.theme.ChartGreen
 import com.cloudorz.openmonitor.core.ui.theme.ChartRed
 import com.cloudorz.openmonitor.core.ui.theme.ChartYellow
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.painter.BitmapPainter
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
 import com.patrykandpatrick.vico.compose.cartesian.Scroll
 import com.patrykandpatrick.vico.compose.cartesian.Zoom
@@ -78,19 +82,23 @@ import com.patrykandpatrick.vico.compose.cartesian.data.lineSeries
 import com.patrykandpatrick.vico.compose.cartesian.layer.LineCartesianLayer
 import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLine
 import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLineCartesianLayer
+import com.patrykandpatrick.vico.compose.cartesian.marker.CartesianMarkerController
+import com.patrykandpatrick.vico.compose.cartesian.marker.rememberDefaultCartesianMarker
 import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
 import com.patrykandpatrick.vico.compose.cartesian.rememberVicoScrollState
 import com.patrykandpatrick.vico.compose.cartesian.rememberVicoZoomState
 import com.patrykandpatrick.vico.compose.common.Fill
 import com.patrykandpatrick.vico.compose.common.Insets
 import com.patrykandpatrick.vico.compose.common.LegendItem
+import com.patrykandpatrick.vico.compose.common.ProvideVicoTheme
 import com.patrykandpatrick.vico.compose.common.component.ShapeComponent
+import com.patrykandpatrick.vico.compose.common.component.rememberLineComponent
+import com.patrykandpatrick.vico.compose.common.component.rememberShapeComponent
 import com.patrykandpatrick.vico.compose.common.component.rememberTextComponent
 import com.patrykandpatrick.vico.compose.common.data.ExtraStore
 import com.patrykandpatrick.vico.compose.common.rememberHorizontalLegend
 import com.patrykandpatrick.vico.compose.common.vicoTheme
 import com.patrykandpatrick.vico.compose.m3.common.rememberM3VicoTheme
-import com.patrykandpatrick.vico.compose.common.ProvideVicoTheme
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -105,9 +113,15 @@ private val BatteryColor = Color(0xFF66BB6A)
 private val CurrentColor = Color(0xFF29B6F6)
 private val BatTempColor = Color(0xFFFFA726)
 
+private val CoreColors = listOf(
+    Color(0xFF42A5F5), Color(0xFFFF7043), Color(0xFF66BB6A),
+    Color(0xFFAB47BC), Color(0xFFFFA726), Color(0xFFEF5350),
+    Color(0xFF26C6DA), Color(0xFF8D6E63),
+)
+
 private val LegendLabelKey = ExtraStore.Key<List<String>>()
 
-private enum class ChartOption(val label: String) {
+private enum class ChartSection(val label: String) {
     FPS_TEMP("FPS"),
     FRAME_TIME("Frame Time"),
     CPU_GPU("CPU / GPU"),
@@ -147,8 +161,10 @@ private fun FpsSessionDetailContent(
 ) {
     val session = state.session
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()) }
-    val chartVisibility = remember { mutableStateMapOf<ChartOption, Boolean>().apply { ChartOption.entries.forEach { put(it, true) } } }
-    var showChartOptions by remember { mutableStateOf(false) }
+    val sectionVisibility = remember {
+        mutableStateMapOf<ChartSection, Boolean>().apply { ChartSection.entries.forEach { put(it, true) } }
+    }
+    var showSectionOptions by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -168,7 +184,7 @@ private fun FpsSessionDetailContent(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showChartOptions = true }) {
+                    IconButton(onClick = { showSectionOptions = true }) {
                         Icon(Icons.Default.Tune, contentDescription = "Chart Options")
                     }
                     IconButton(onClick = onExport) {
@@ -181,17 +197,14 @@ private fun FpsSessionDetailContent(
             )
         },
     ) { paddingValues ->
-        if (showChartOptions) {
-            ChartOptionsDialog(
-                visibility = chartVisibility,
-                onDismiss = { showChartOptions = false },
+        if (showSectionOptions) {
+            SectionOptionsDialog(
+                visibility = sectionVisibility,
+                onDismiss = { showSectionOptions = false },
             )
         }
         if (state.loading) {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(paddingValues),
-                contentAlignment = Alignment.Center,
-            ) {
+            Box(Modifier.fillMaxSize().padding(paddingValues), Alignment.Center) {
                 CircularProgressIndicator()
             }
             return@Scaffold
@@ -199,14 +212,8 @@ private fun FpsSessionDetailContent(
 
         val records = state.records
         if (records.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(paddingValues),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = stringResource(R.string.no_recording_sessions),
-                    color = MaterialTheme.colorScheme.outline,
-                )
+            Box(Modifier.fillMaxSize().padding(paddingValues), Alignment.Center) {
+                Text(stringResource(R.string.no_recording_sessions), color = MaterialTheme.colorScheme.outline)
             }
             return@Scaffold
         }
@@ -220,18 +227,16 @@ private fun FpsSessionDetailContent(
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                if (session != null) {
-                    SessionHeaderCard(session, dateFormat)
-                }
+                if (session != null) SessionHeaderCard(session, dateFormat)
                 StatsGridCard(records)
-                if (chartVisibility[ChartOption.FPS_TEMP] != false) FpsTempChart(records)
-                if (chartVisibility[ChartOption.FRAME_TIME] != false) FrameTimeChart(records)
-                if (chartVisibility[ChartOption.CPU_GPU] != false) CpuGpuUsageChart(records)
-                if (chartVisibility[ChartOption.GPU_FREQ] != false) GpuFreqChart(records)
-                if (chartVisibility[ChartOption.CPU_FREQ] != false) CpuCoreFreqChart(records)
-                if (chartVisibility[ChartOption.POWER] != false) PowerBatteryChart(records)
-                if (chartVisibility[ChartOption.CURRENT] != false) BatteryCurrentChart(records)
-                if (chartVisibility[ChartOption.TEMPERATURE] != false) TemperatureChart(records)
+                if (sectionVisibility[ChartSection.FPS_TEMP] != false) FpsTempChart(records)
+                if (sectionVisibility[ChartSection.FRAME_TIME] != false) FrameTimeChart(records)
+                if (sectionVisibility[ChartSection.CPU_GPU] != false) CpuGpuUsageChart(records)
+                if (sectionVisibility[ChartSection.GPU_FREQ] != false) GpuFreqChart(records)
+                if (sectionVisibility[ChartSection.CPU_FREQ] != false) CpuCoreFreqChart(records)
+                if (sectionVisibility[ChartSection.POWER] != false) PowerBatteryChart(records)
+                if (sectionVisibility[ChartSection.CURRENT] != false) BatteryCurrentChart(records)
+                if (sectionVisibility[ChartSection.TEMPERATURE] != false) TemperatureChart(records)
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
@@ -241,65 +246,40 @@ private fun FpsSessionDetailContent(
 // ---- Session Header ----
 
 @Composable
-private fun SessionHeaderCard(
-    session: FpsWatchSession,
-    dateFormat: SimpleDateFormat,
-) {
+private fun SessionHeaderCard(session: FpsWatchSession, dateFormat: SimpleDateFormat) {
     val context = LocalContext.current
     val appIcon: Drawable? = remember(session.packageName) {
         if (session.packageName.isEmpty()) null
-        else try {
-            context.packageManager.getApplicationIcon(session.packageName)
-        } catch (_: Exception) { null }
+        else try { context.packageManager.getApplicationIcon(session.packageName) } catch (_: Exception) { null }
     }
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             if (appIcon != null) {
                 val bitmap = remember(appIcon) { appIcon.toBitmap(96, 96) }
                 Image(
                     painter = BitmapPainter(bitmap.asImageBitmap()),
                     contentDescription = null,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(12.dp)),
+                    modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)),
                 )
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(Modifier.width(12.dp))
             }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = dateFormat.format(Date(session.beginTime)),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                )
+            Column(Modifier.weight(1f)) {
+                Text(dateFormat.format(Date(session.beginTime)), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 if (session.packageName.isNotEmpty()) {
                     Text(
-                        text = session.appName.ifEmpty { session.packageName },
+                        session.appName.ifEmpty { session.packageName },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                     if (session.appName.isNotEmpty()) {
-                        Text(
-                            text = session.packageName,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.outline,
-                        )
+                        Text(session.packageName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                     }
                 }
-                Row(
-                    modifier = Modifier.padding(top = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
+                Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text(
-                        text = stringResource(R.string.duration) + ": " + formatDuration(session.durationSeconds),
+                        stringResource(R.string.duration) + ": " + formatDuration(session.durationSeconds),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -318,28 +298,19 @@ private fun StatsGridCard(records: List<FpsFrameRecord>) {
     val maxFps = fpsList.maxOrNull() ?: 0.0
     val minFps = fpsList.minOrNull() ?: 0.0
     val avgFps = fpsList.average()
-    val variance = if (fpsList.size > 1) {
-        sqrt(fpsList.sumOf { (it - avgFps) * (it - avgFps) } / fpsList.size)
-    } else 0.0
-    val smoothness = if (fpsList.isNotEmpty()) {
-        fpsList.count { it >= 45.0 } * 100.0 / fpsList.size
-    } else 0.0
+    val variance = if (fpsList.size > 1) sqrt(fpsList.sumOf { (it - avgFps) * (it - avgFps) } / fpsList.size) else 0.0
+    val smoothness = if (fpsList.isNotEmpty()) fpsList.count { it >= 45.0 } * 100.0 / fpsList.size else 0.0
     val fivePercentLow = if (fpsList.size >= 20) {
-        val sorted = fpsList.sorted()
-        sorted.take((fpsList.size * 0.05).toInt().coerceAtLeast(1)).average()
+        fpsList.sorted().take((fpsList.size * 0.05).toInt().coerceAtLeast(1)).average()
     } else fpsList.minOrNull() ?: 0.0
     val totalJank = records.sumOf { it.jankCount }
-    val totalBigJank = records.sumOf { it.bigJankCount }
     val maxTemp = records.maxOfOrNull { it.cpuTemp } ?: 0.0
     val powers = records.map { it.powerW }.filter { it > 0 }
     val avgPower = if (powers.isNotEmpty()) powers.average() else 0.0
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-    ) {
+    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         FlowRow(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            Modifier.fillMaxWidth().padding(16.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalArrangement = Arrangement.spacedBy(12.dp),
             maxItemsInEachRow = 4,
@@ -350,7 +321,8 @@ private fun StatsGridCard(records: List<FpsFrameRecord>) {
             StatCell("VARIANCE", "%.1f".format(variance), "FPS", MaterialTheme.colorScheme.onSurfaceVariant)
             StatCell("\u226545FPS", "%.1f%%".format(smoothness), "Smoothness", smoothnessColor(smoothness))
             StatCell("5% Low", "%.1f".format(fivePercentLow), "FPS", fpsStatColor(fivePercentLow))
-            if (maxTemp > 0) StatCell("MAX", "%.1f".format(maxTemp), "Temperature", tempStatColor(maxTemp))
+            StatCell("Jank", "$totalJank", "", ChartRed)
+            if (maxTemp > 0) StatCell("MAX", "%.1f".format(maxTemp), "Temp", tempStatColor(maxTemp))
             if (avgPower > 0) StatCell("AVG", "%.2f".format(avgPower), "Power(W)", PowerColor)
         }
     }
@@ -359,15 +331,13 @@ private fun StatsGridCard(records: List<FpsFrameRecord>) {
 @Composable
 private fun StatCell(label: String, value: String, unit: String, valueColor: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(80.dp)) {
-        Text(text = label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, fontSize = 9.sp)
-        Text(text = value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = valueColor)
-        if (unit.isNotEmpty()) {
-            Text(text = unit, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, fontSize = 9.sp)
-        }
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, fontSize = 9.sp)
+        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = valueColor)
+        if (unit.isNotEmpty()) Text(unit, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, fontSize = 9.sp)
     }
 }
 
-// ---- Vico Chart Helpers ----
+// ---- Vico Chart Core ----
 
 private fun timeFormatter(records: List<FpsFrameRecord>): CartesianValueFormatter {
     if (records.isEmpty()) return CartesianValueFormatter.decimal()
@@ -382,22 +352,40 @@ private fun timeFormatter(records: List<FpsFrameRecord>): CartesianValueFormatte
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ChartCard(
     title: String,
+    allLabels: List<String>? = null,
+    allColors: List<Color>? = null,
+    seriesVisibility: SnapshotStateMap<String, Boolean>? = null,
     content: @Composable () -> Unit,
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
+    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.padding(12.dp)) {
+            Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // Per-chart series toggles
+            if (allLabels != null && allColors != null && seriesVisibility != null && allLabels.size > 1) {
+                FlowRow(
+                    Modifier.fillMaxWidth().padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    allLabels.forEachIndexed { idx, label ->
+                        val visible = seriesVisibility[label] != false
+                        FilterChip(
+                            selected = visible,
+                            onClick = { seriesVisibility[label] = !visible },
+                            label = { Text(label, fontSize = 10.sp, maxLines = 1) },
+                            modifier = Modifier.height(28.dp),
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = allColors[idx].copy(alpha = 0.2f),
+                                selectedLabelColor = allColors[idx],
+                            ),
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
             content()
         }
     }
@@ -419,20 +407,27 @@ private fun VicoLineChart(
         CartesianValueFormatter.decimal()
     }
 
-    LaunchedEffect(records) {
+    LaunchedEffect(seriesData) {
+        if (seriesData.isEmpty() || seriesData.all { it.isEmpty() }) return@LaunchedEffect
         modelProducer.runTransaction {
-            lineSeries {
-                seriesData.forEach { data -> series(data) }
-            }
+            lineSeries { seriesData.forEach { data -> series(data) } }
             extras { it[LegendLabelKey] = seriesLabels }
         }
     }
 
     val legendLabel = rememberTextComponent(
-        style = androidx.compose.ui.text.TextStyle(
-            color = vicoTheme.textColor,
-            fontSize = 11.sp,
+        style = androidx.compose.ui.text.TextStyle(color = vicoTheme.textColor, fontSize = 11.sp),
+    )
+
+    val markerLabelColor = MaterialTheme.colorScheme.onSurface
+    val guidelineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+    val marker = rememberDefaultCartesianMarker(
+        label = rememberTextComponent(
+            style = androidx.compose.ui.text.TextStyle(color = markerLabelColor, fontSize = 10.sp),
         ),
+        indicator = { color -> ShapeComponent(Fill(color), CircleShape) },
+        indicatorSize = 6.dp,
+        guideline = rememberLineComponent(fill = Fill(guidelineColor), thickness = 1.dp),
     )
 
     CartesianChartHost(
@@ -442,13 +437,15 @@ private fun VicoLineChart(
                     seriesColors.map { color ->
                         LineCartesianLayer.rememberLine(
                             fill = LineCartesianLayer.LineFill.single(Fill(color)),
-                            areaFill = LineCartesianLayer.AreaFill.single(Fill(color.copy(alpha = 0.12f))),
+                            areaFill = LineCartesianLayer.AreaFill.single(Fill(color.copy(alpha = 0.08f))),
                         )
                     }
                 ),
             ),
             startAxis = VerticalAxis.rememberStart(valueFormatter = startFormatter),
             bottomAxis = HorizontalAxis.rememberBottom(valueFormatter = bottomFormatter),
+            marker = marker,
+            markerController = CartesianMarkerController.rememberShowOnPress(),
             legend = rememberHorizontalLegend(
                 items = { extraStore ->
                     extraStore[LegendLabelKey].forEachIndexed { index, label ->
@@ -470,10 +467,7 @@ private fun VicoLineChart(
         ),
         modelProducer = modelProducer,
         modifier = Modifier.fillMaxWidth().height(200.dp),
-        scrollState = rememberVicoScrollState(
-            scrollEnabled = true,
-            initialScroll = Scroll.Absolute.Start,
-        ),
+        scrollState = rememberVicoScrollState(scrollEnabled = true, initialScroll = Scroll.Absolute.Start),
         zoomState = rememberVicoZoomState(zoomEnabled = true, initialZoom = Zoom.Content),
     )
 }
@@ -483,40 +477,53 @@ private fun VicoLineChart(
 @Composable
 private fun FpsTempChart(records: List<FpsFrameRecord>) {
     val hasTemp = records.any { it.cpuTemp > 0.0 }
-    val series = mutableListOf<List<Number>>(records.map { it.fps })
-    val colors = mutableListOf(FpsColor)
-    val labels = mutableListOf("FPS")
-    if (hasTemp) {
-        series.add(records.map { it.cpuTemp })
-        colors.add(TempColor)
-        labels.add("TEMP(\u00B0C)")
-    }
     val hasCpu = records.any { it.cpuLoad > 0.0 }
-    if (hasCpu) {
-        series.add(records.map { it.cpuLoad })
-        colors.add(CpuColor)
-        labels.add("CPU(%)")
-    }
     val hasGpu = records.any { it.gpuLoad > 0.0 }
-    if (hasGpu) {
-        series.add(records.map { it.gpuLoad })
-        colors.add(GpuColor)
-        labels.add("GPU(%)")
+
+    val allLabels = mutableListOf("FPS")
+    val allColors = mutableListOf(FpsColor)
+    if (hasTemp) { allLabels.add("TEMP(\u00B0C)"); allColors.add(TempColor) }
+    if (hasCpu) { allLabels.add("CPU(%)"); allColors.add(CpuColor) }
+    if (hasGpu) { allLabels.add("GPU(%)"); allColors.add(GpuColor) }
+
+    val seriesVis = remember { mutableStateMapOf<String, Boolean>() }
+
+    // Build visible series
+    val visLabels = mutableListOf<String>()
+    val visColors = mutableListOf<Color>()
+    val visData = mutableListOf<List<Number>>()
+
+    if (seriesVis["FPS"] != false) {
+        visLabels.add("FPS"); visColors.add(FpsColor); visData.add(records.map { it.fps })
     }
-    ChartCard(title = "FPS") {
-        VicoLineChart(records, series, colors, labels)
+    if (hasTemp && seriesVis["TEMP(\u00B0C)"] != false) {
+        visLabels.add("TEMP(\u00B0C)"); visColors.add(TempColor); visData.add(records.map { it.cpuTemp })
+    }
+    if (hasCpu && seriesVis["CPU(%)"] != false) {
+        visLabels.add("CPU(%)"); visColors.add(CpuColor); visData.add(records.map { it.cpuLoad })
+    }
+    if (hasGpu && seriesVis["GPU(%)"] != false) {
+        visLabels.add("GPU(%)"); visColors.add(GpuColor); visData.add(records.map { it.gpuLoad })
+    }
+
+    if (visData.isEmpty()) return
+
+    ChartCard("FPS", allLabels, allColors, seriesVis) {
+        VicoLineChart(records, visData, visColors, visLabels)
     }
 }
 
 @Composable
 private fun FrameTimeChart(records: List<FpsFrameRecord>) {
+    if (records.none { it.maxFrameTimeMs > 0 }) return
     val maxFt = records.maxOfOrNull { it.maxFrameTimeMs } ?: 0
-    ChartCard(title = stringResource(R.string.fps_chart_frame_time) + if (maxFt > 0) "  MAX: ${maxFt}ms" else "") {
+    val avgFt = records.filter { it.maxFrameTimeMs > 0 }.map { it.maxFrameTimeMs }.average()
+    val subtitle = "MAX: ${maxFt}ms  AVG: %.1fms".format(avgFt)
+
+    ChartCard(stringResource(R.string.fps_chart_frame_time) + "\n$subtitle") {
         VicoLineChart(
-            records = records,
-            seriesData = listOf(records.map { it.maxFrameTimeMs }),
-            seriesColors = listOf(ChartRed),
-            seriesLabels = listOf("Max(ms)"),
+            records, listOf(records.map { it.maxFrameTimeMs }),
+            listOf(ChartRed), listOf("FrameTime(ms)"),
             yAxisSuffix = "ms",
         )
     }
@@ -525,55 +532,56 @@ private fun FrameTimeChart(records: List<FpsFrameRecord>) {
 @Composable
 private fun CpuGpuUsageChart(records: List<FpsFrameRecord>) {
     if (records.none { it.cpuLoad > 0.0 }) return
-    val series = mutableListOf<List<Number>>(records.map { it.cpuLoad })
-    val colors = mutableListOf(CpuColor)
-    val labels = mutableListOf("CPU(%)")
-    // Add per-cluster averages if available
-    val maxCores = records.maxOf { it.cpuCoreLoads.size }
-    if (maxCores > 0) {
-        // Detect clusters by grouping cores with similar max freq
-        val clusterColors = listOf(Color(0xFF42A5F5), Color(0xFFFF7043), Color(0xFF66BB6A))
-        // Simplified: show total + big/little if 8 cores (0-5 little, 6-7 big typical)
-        if (maxCores >= 6) {
-            val littleAvg = records.map { rec ->
-                val loads = rec.cpuCoreLoads.take(maxCores - 2)
-                if (loads.isNotEmpty()) loads.average() else 0.0
-            }
-            val bigAvg = records.map { rec ->
-                val loads = rec.cpuCoreLoads.drop(maxCores - 2)
-                if (loads.isNotEmpty()) loads.average() else 0.0
-            }
-            series.add(littleAvg)
-            colors.add(clusterColors[0])
-            labels.add("CPU 0~${maxCores - 3}")
-            series.add(bigAvg)
-            colors.add(clusterColors[1])
-            labels.add("CPU ${maxCores - 2}~${maxCores - 1}")
-        }
+
+    val allLabels = mutableListOf("CPU(%)")
+    val allColors = mutableListOf(CpuColor)
+    val hasGpu = records.any { it.gpuLoad > 0.0 }
+    if (hasGpu) { allLabels.add("GPU(%)"); allColors.add(GpuColor) }
+
+    val seriesVis = remember { mutableStateMapOf<String, Boolean>() }
+    val visLabels = mutableListOf<String>()
+    val visColors = mutableListOf<Color>()
+    val visData = mutableListOf<List<Number>>()
+
+    if (seriesVis["CPU(%)"] != false) {
+        visLabels.add("CPU(%)"); visColors.add(CpuColor); visData.add(records.map { it.cpuLoad })
     }
-    if (records.any { it.gpuLoad > 0.0 }) {
-        series.add(records.map { it.gpuLoad })
-        colors.add(GpuColor)
-        labels.add("GPU(%)")
+    if (hasGpu && seriesVis["GPU(%)"] != false) {
+        visLabels.add("GPU(%)"); visColors.add(GpuColor); visData.add(records.map { it.gpuLoad })
     }
-    ChartCard(title = stringResource(R.string.fps_chart_cpu_usage)) {
-        VicoLineChart(records, series, colors, labels, yAxisSuffix = "%")
+
+    if (visData.isEmpty()) return
+
+    ChartCard(stringResource(R.string.fps_chart_cpu_usage), allLabels, allColors, seriesVis) {
+        VicoLineChart(records, visData, visColors, visLabels, yAxisSuffix = "%")
     }
 }
 
 @Composable
 private fun GpuFreqChart(records: List<FpsFrameRecord>) {
     if (records.none { it.gpuFreqMhz > 0 }) return
-    val series = mutableListOf<List<Number>>(records.map { it.gpuFreqMhz })
-    val colors = mutableListOf(GpuColor)
-    val labels = mutableListOf("Frequency(MHz)")
-    if (records.any { it.gpuLoad > 0.0 }) {
-        series.add(records.map { it.gpuLoad })
-        colors.add(Color(0xFF5C6BC0))
-        labels.add("Usage(%)")
+    val hasUsage = records.any { it.gpuLoad > 0.0 }
+
+    val allLabels = mutableListOf("Freq(MHz)")
+    val allColors = mutableListOf(GpuColor)
+    if (hasUsage) { allLabels.add("Usage(%)"); allColors.add(Color(0xFF5C6BC0)) }
+
+    val seriesVis = remember { mutableStateMapOf<String, Boolean>() }
+    val visLabels = mutableListOf<String>()
+    val visColors = mutableListOf<Color>()
+    val visData = mutableListOf<List<Number>>()
+
+    if (seriesVis["Freq(MHz)"] != false) {
+        visLabels.add("Freq(MHz)"); visColors.add(GpuColor); visData.add(records.map { it.gpuFreqMhz })
     }
-    ChartCard(title = stringResource(R.string.fps_chart_gpu_freq)) {
-        VicoLineChart(records, series, colors, labels)
+    if (hasUsage && seriesVis["Usage(%)"] != false) {
+        visLabels.add("Usage(%)"); visColors.add(Color(0xFF5C6BC0)); visData.add(records.map { it.gpuLoad })
+    }
+
+    if (visData.isEmpty()) return
+
+    ChartCard(stringResource(R.string.fps_chart_gpu_freq), allLabels, allColors, seriesVis) {
+        VicoLineChart(records, visData, visColors, visLabels)
     }
 }
 
@@ -583,43 +591,27 @@ private fun CpuCoreFreqChart(records: List<FpsFrameRecord>) {
     val maxCores = records.maxOf { it.cpuCoreFreqsMhz.size }
     if (maxCores == 0) return
 
-    val clusterColors = listOf(
-        Color(0xFF42A5F5), Color(0xFFFF7043), Color(0xFF66BB6A),
-        Color(0xFFAB47BC), Color(0xFFFFA726), Color(0xFFEF5350),
-        Color(0xFF26C6DA), Color(0xFF8D6E63),
-    )
+    val allLabels = (0 until maxCores).map { "Core $it" }
+    val allColors = (0 until maxCores).map { CoreColors[it % CoreColors.size] }
+    val seriesVis = remember { mutableStateMapOf<String, Boolean>() }
 
-    // Show cluster averages if many cores
-    if (maxCores >= 6) {
-        val littleSize = maxCores - 2
-        val littleFreq = records.map { rec ->
-            val freqs = rec.cpuCoreFreqsMhz.take(littleSize)
-            if (freqs.isNotEmpty()) freqs.average() else 0.0
+    val visLabels = mutableListOf<String>()
+    val visColors = mutableListOf<Color>()
+    val visData = mutableListOf<List<Number>>()
+
+    for (i in 0 until maxCores) {
+        val label = "Core $i"
+        if (seriesVis[label] != false) {
+            visLabels.add(label)
+            visColors.add(CoreColors[i % CoreColors.size])
+            visData.add(records.map { it.cpuCoreFreqsMhz.getOrElse(i) { 0L } })
         }
-        val bigFreq = records.map { rec ->
-            val freqs = rec.cpuCoreFreqsMhz.drop(littleSize)
-            if (freqs.isNotEmpty()) freqs.average() else 0.0
-        }
-        ChartCard(title = stringResource(R.string.fps_chart_cpu_freq)) {
-            VicoLineChart(
-                records, listOf(littleFreq, bigFreq),
-                listOf(clusterColors[0], clusterColors[1]),
-                listOf("CPU 0~${littleSize - 1}", "CPU ${littleSize}~${maxCores - 1}"),
-                yAxisSuffix = "MHz",
-            )
-        }
-    } else {
-        val series = (0 until maxCores).map { idx ->
-            records.map { it.cpuCoreFreqsMhz.getOrNull(idx) ?: 0L }
-        }
-        ChartCard(title = stringResource(R.string.fps_chart_cpu_freq)) {
-            VicoLineChart(
-                records, series,
-                (0 until maxCores).map { clusterColors[it % clusterColors.size] },
-                (0 until maxCores).map { "Core $it" },
-                yAxisSuffix = "MHz",
-            )
-        }
+    }
+
+    if (visData.isEmpty()) return
+
+    ChartCard(stringResource(R.string.fps_chart_cpu_freq), allLabels, allColors, seriesVis) {
+        VicoLineChart(records, visData, visColors, visLabels, yAxisSuffix = "MHz")
     }
 }
 
@@ -629,26 +621,32 @@ private fun PowerBatteryChart(records: List<FpsFrameRecord>) {
     val hasBattery = records.any { it.batteryCapacity > 0 }
     if (!hasPower && !hasBattery) return
 
-    val series = mutableListOf<List<Number>>()
-    val colors = mutableListOf<Color>()
-    val labels = mutableListOf<String>()
-    if (hasPower) {
-        series.add(records.map { it.powerW })
-        colors.add(PowerColor)
-        labels.add("Power(W)")
+    val allLabels = mutableListOf<String>()
+    val allColors = mutableListOf<Color>()
+    if (hasPower) { allLabels.add("Power(W)"); allColors.add(PowerColor) }
+    if (hasBattery) { allLabels.add("Capacity(%)"); allColors.add(BatteryColor) }
+
+    val seriesVis = remember { mutableStateMapOf<String, Boolean>() }
+    val visLabels = mutableListOf<String>()
+    val visColors = mutableListOf<Color>()
+    val visData = mutableListOf<List<Number>>()
+
+    if (hasPower && seriesVis["Power(W)"] != false) {
+        visLabels.add("Power(W)"); visColors.add(PowerColor); visData.add(records.map { it.powerW })
     }
-    if (hasBattery) {
-        series.add(records.map { it.batteryCapacity })
-        colors.add(BatteryColor)
-        labels.add("Capacity(%)")
+    if (hasBattery && seriesVis["Capacity(%)"] != false) {
+        visLabels.add("Capacity(%)"); visColors.add(BatteryColor); visData.add(records.map { it.batteryCapacity })
     }
+
+    if (visData.isEmpty()) return
+
     val subtitle = if (hasPower) {
         val pws = records.map { it.powerW }.filter { it > 0 }
         if (pws.isNotEmpty()) "MAX: %.2fW  MIN: %.2fW  AVG: %.2fW".format(pws.max(), pws.min(), pws.average()) else ""
     } else ""
 
-    ChartCard(title = stringResource(R.string.fps_chart_power) + if (subtitle.isNotEmpty()) "\n$subtitle" else "") {
-        VicoLineChart(records, series, colors, labels)
+    ChartCard(stringResource(R.string.fps_chart_power) + if (subtitle.isNotEmpty()) "\n$subtitle" else "", allLabels, allColors, seriesVis) {
+        VicoLineChart(records, visData, visColors, visLabels)
     }
 }
 
@@ -658,12 +656,8 @@ private fun BatteryCurrentChart(records: List<FpsFrameRecord>) {
     val curData = records.map { it.batteryCurrentMa }
     val subtitle = "MAX: ${curData.max()}mA  MIN: ${curData.min()}mA  AVG: ${curData.average().toInt()}mA"
 
-    ChartCard(title = stringResource(R.string.fps_chart_battery_current) + "\n$subtitle") {
-        VicoLineChart(
-            records, listOf(curData),
-            listOf(CurrentColor), listOf("Current(mA)"),
-            yAxisSuffix = "mA",
-        )
+    ChartCard(stringResource(R.string.fps_chart_battery_current) + "\n$subtitle") {
+        VicoLineChart(records, listOf(curData), listOf(CurrentColor), listOf("Current(mA)"), yAxisSuffix = "mA")
     }
 }
 
@@ -673,34 +667,43 @@ private fun TemperatureChart(records: List<FpsFrameRecord>) {
     val hasBat = records.any { it.batteryTemp > 0.0 }
     if (!hasCpu && !hasBat) return
 
-    val series = mutableListOf<List<Number>>()
-    val colors = mutableListOf<Color>()
-    val labels = mutableListOf<String>()
-    if (hasCpu) {
-        series.add(records.map { it.cpuTemp })
-        colors.add(TempColor)
-        labels.add("CPU(\u00B0C)")
+    val allLabels = mutableListOf<String>()
+    val allColors = mutableListOf<Color>()
+    if (hasCpu) { allLabels.add("CPU(\u00B0C)"); allColors.add(TempColor) }
+    if (hasBat) { allLabels.add("Battery(\u00B0C)"); allColors.add(BatTempColor) }
+
+    val seriesVis = remember { mutableStateMapOf<String, Boolean>() }
+    val visLabels = mutableListOf<String>()
+    val visColors = mutableListOf<Color>()
+    val visData = mutableListOf<List<Number>>()
+
+    if (hasCpu && seriesVis["CPU(\u00B0C)"] != false) {
+        visLabels.add("CPU(\u00B0C)"); visColors.add(TempColor); visData.add(records.map { it.cpuTemp })
     }
-    if (hasBat) {
-        series.add(records.map { it.batteryTemp })
-        colors.add(BatTempColor)
-        labels.add("Battery(\u00B0C)")
+    if (hasBat && seriesVis["Battery(\u00B0C)"] != false) {
+        visLabels.add("Battery(\u00B0C)"); visColors.add(BatTempColor); visData.add(records.map { it.batteryTemp })
     }
+
+    if (visData.isEmpty()) return
+
     val cpuTemps = records.map { it.cpuTemp }.filter { it > 0 }
     val subtitle = if (cpuTemps.isNotEmpty()) {
         "MAX: %.1f\u00B0C  MIN: %.1f\u00B0C  AVG: %.1f\u00B0C".format(cpuTemps.max(), cpuTemps.min(), cpuTemps.average())
     } else ""
 
-    ChartCard(title = stringResource(R.string.fps_chart_temperature) + if (subtitle.isNotEmpty()) "\n$subtitle" else "") {
-        VicoLineChart(records, series, colors, labels, yAxisSuffix = "\u00B0C")
+    ChartCard(
+        stringResource(R.string.fps_chart_temperature) + if (subtitle.isNotEmpty()) "\n$subtitle" else "",
+        allLabels, allColors, seriesVis,
+    ) {
+        VicoLineChart(records, visData, visColors, visLabels, yAxisSuffix = "\u00B0C")
     }
 }
 
-// ---- Chart Options Dialog ----
+// ---- Section Options Dialog ----
 
 @Composable
-private fun ChartOptionsDialog(
-    visibility: MutableMap<ChartOption, Boolean>,
+private fun SectionOptionsDialog(
+    visibility: MutableMap<ChartSection, Boolean>,
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
@@ -708,28 +711,16 @@ private fun ChartOptionsDialog(
         title = { Text("Chart Options") },
         text = {
             Column {
-                ChartOption.entries.forEach { option ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Checkbox(
-                            checked = visibility[option] != false,
-                            onCheckedChange = { visibility[option] = it },
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(option.label, style = MaterialTheme.typography.bodyMedium)
+                ChartSection.entries.forEach { section ->
+                    Row(Modifier.fillMaxWidth().clickable { visibility[section] = visibility[section] == false }, verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = visibility[section] != false, onCheckedChange = { visibility[section] = it })
+                        Spacer(Modifier.width(8.dp))
+                        Text(section.label, style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }
         },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.fps_confirm))
-            }
-        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.fps_confirm)) } },
     )
 }
 
