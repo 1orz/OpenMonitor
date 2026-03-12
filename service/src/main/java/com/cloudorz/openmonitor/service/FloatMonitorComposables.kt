@@ -1,11 +1,16 @@
 package com.cloudorz.openmonitor.service
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
@@ -354,25 +359,23 @@ fun FloatFpsContent(service: FloatMonitorService) {
         }
 
         // Duration selection menu (shown on tap when idle)
-        if (showDurationMenu) {
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(
-                modifier = Modifier
-                    .background(Color(0xCC000000), RoundedCornerShape(4.dp))
-                    .padding(horizontal = 4.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                listOf(5, 10, 15, 20).forEach { minutes ->
-                    Box(
-                        modifier = Modifier
-                            .clickable { service.onFpsDurationSelected(minutes) }
-                            .background(Color(0x33FFFFFF), RoundedCornerShape(3.dp))
-                            .padding(horizontal = 6.dp, vertical = 2.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = "${minutes}m",
-                            style = MonoStyle.copy(fontSize = 10.sp, color = Color.White),
+        AnimatedVisibility(
+            visible = showDurationMenu,
+            enter = fadeIn(tween(150)) + scaleIn(tween(150), initialScale = 0.8f),
+            exit = fadeOut(tween(100)) + scaleOut(tween(100), targetScale = 0.8f),
+        ) {
+            Column {
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier
+                        .background(Color(0xDD000000), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 6.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    listOf(5, 10, 15, 30).forEach { minutes ->
+                        DurationButton(
+                            label = "${minutes}m",
+                            onClick = { service.onFpsDurationSelected(minutes) },
                         )
                     }
                 }
@@ -389,6 +392,44 @@ fun FloatFpsContent(service: FloatMonitorService) {
                 text = if (limit > 0) formatCompactDuration(remaining) else formatCompactDuration(elapsed),
                 style = MonoStyle.copy(fontSize = 8.sp, color = Color(0xFFF44336).copy(alpha = 0.9f)),
             )
+        }
+    }
+}
+
+@Composable
+private fun DurationButton(label: String, onClick: () -> Unit) {
+    var pressed by remember { mutableStateOf(false) }
+    val alpha by animateFloatAsState(
+        targetValue = if (pressed) 1.0f else 0.5f,
+        animationSpec = tween(100),
+        label = "btnAlpha",
+    )
+
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(4.dp))
+            .background(Color.White.copy(alpha = alpha * 0.25f))
+            .clickable {
+                pressed = true
+                onClick()
+            }
+            .padding(horizontal = 8.dp, vertical = 3.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            style = MonoStyle.copy(
+                fontSize = 11.sp,
+                color = Color.White.copy(alpha = 0.7f + alpha * 0.3f),
+            ),
+        )
+    }
+
+    // Reset pressed state after brief highlight
+    LaunchedEffect(pressed) {
+        if (pressed) {
+            delay(200)
+            pressed = false
         }
     }
 }

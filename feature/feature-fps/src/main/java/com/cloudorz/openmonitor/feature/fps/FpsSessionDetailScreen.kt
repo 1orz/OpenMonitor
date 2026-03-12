@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
@@ -33,8 +35,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -352,7 +352,6 @@ private fun timeFormatter(records: List<FpsFrameRecord>): CartesianValueFormatte
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ChartCard(
     title: String,
@@ -361,26 +360,39 @@ private fun ChartCard(
     seriesVisibility: SnapshotStateMap<String, Boolean>? = null,
     content: @Composable () -> Unit,
 ) {
+    var showSeriesDialog by remember { mutableStateOf(false) }
+
+    if (showSeriesDialog && allLabels != null && allColors != null && seriesVisibility != null) {
+        SeriesSelectDialog(
+            labels = allLabels,
+            colors = allColors,
+            visibility = seriesVisibility,
+            onDismiss = { showSeriesDialog = false },
+        )
+    }
+
     Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.padding(12.dp)) {
-            Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            // Per-chart series toggles
-            if (allLabels != null && allColors != null && seriesVisibility != null && allLabels.size > 1) {
-                FlowRow(
-                    Modifier.fillMaxWidth().padding(top = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    allLabels.forEachIndexed { idx, label ->
-                        val visible = seriesVisibility[label] != false
-                        FilterChip(
-                            selected = visible,
-                            onClick = { seriesVisibility[label] = !visible },
-                            label = { Text(label, fontSize = 10.sp, maxLines = 1) },
-                            modifier = Modifier.height(28.dp),
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = allColors[idx].copy(alpha = 0.2f),
-                                selectedLabelColor = allColors[idx],
-                            ),
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                if (allLabels != null && allLabels.size > 1 && seriesVisibility != null) {
+                    IconButton(
+                        onClick = { showSeriesDialog = true },
+                        modifier = Modifier.size(28.dp),
+                    ) {
+                        Icon(
+                            Icons.Default.Settings,
+                            contentDescription = "Series Options",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -389,6 +401,44 @@ private fun ChartCard(
             content()
         }
     }
+}
+
+@Composable
+private fun SeriesSelectDialog(
+    labels: List<String>,
+    colors: List<Color>,
+    visibility: SnapshotStateMap<String, Boolean>,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.fps_chart_series_options)) },
+        text = {
+            Column {
+                labels.forEachIndexed { idx, label ->
+                    val checked = visibility[label] != false
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { visibility[label] = !checked },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(checked = checked, onCheckedChange = { visibility[label] = it })
+                        Spacer(Modifier.width(4.dp))
+                        Box(
+                            Modifier
+                                .size(10.dp)
+                                .clip(CircleShape)
+                                .background(colors[idx]),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(label, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.fps_confirm)) } },
+    )
 }
 
 @Composable

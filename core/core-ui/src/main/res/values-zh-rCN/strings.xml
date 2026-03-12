@@ -57,6 +57,7 @@
     <string name="fps_select_all">全选</string>
     <string name="fps_cancel">取消</string>
     <string name="fps_confirm">确定</string>
+    <string name="fps_chart_series_options">显示系列</string>
     <string name="fps_rename">重命名</string>
     <string name="fps_session_name">会话名称</string>
     <string name="fps_unknown_app">未知应用</string>
