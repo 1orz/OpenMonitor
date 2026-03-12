@@ -18,6 +18,8 @@ appcompat = "1.7.1"
 junit = "4.13.2"
 mockk = "1.14.9"
 vico = "3.0.3"
+googleServices = "4.4.2"
+firebaseBom = "34.10.0"
 
 [libraries]
 # Kotlin & Coroutines
@@ -72,6 +74,10 @@ work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "w
 hilt-work = { module = "androidx.hilt:hilt-work", version.ref = "hiltNavigationCompose" }
 hilt-work-compiler = { module = "androidx.hilt:hilt-compiler", version.ref = "hiltNavigationCompose" }
 
+# Firebase
+firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
+firebase-analytics = { module = "com.google.firebase:firebase-analytics" }
+
 # Vico Charts
 vico-compose = { module = "com.patrykandpatrick.vico:compose", version.ref = "vico" }
 vico-compose-m3 = { module = "com.patrykandpatrick.vico:compose-m3", version.ref = "vico" }
@@ -88,3 +94,4 @@ kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "ko
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 room = { id = "androidx.room", version.ref = "room" }
+google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
