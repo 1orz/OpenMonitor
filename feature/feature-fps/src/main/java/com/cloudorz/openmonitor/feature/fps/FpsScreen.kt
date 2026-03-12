@@ -55,6 +55,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.foundation.Image
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -363,31 +366,7 @@ private fun SessionCard(
                     tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                 )
             } else {
-                // FPS circle
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(
-                            when {
-                                session.avgFps >= 50.0 -> ChartGreen.copy(alpha = 0.15f)
-                                session.avgFps >= 30.0 -> ChartYellow.copy(alpha = 0.15f)
-                                else -> ChartRed.copy(alpha = 0.15f)
-                            },
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = "%.0f".format(session.avgFps),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = when {
-                            session.avgFps >= 50.0 -> ChartGreen
-                            session.avgFps >= 30.0 -> ChartYellow
-                            else -> ChartRed
-                        },
-                    )
-                }
+                SessionIcon(session)
             }
 
             Spacer(modifier = Modifier.width(12.dp))
@@ -536,6 +515,60 @@ private fun RenameDialog(
             }
         },
     )
+}
+
+@Composable
+private fun SessionIcon(session: FpsWatchSession) {
+    val context = LocalContext.current
+    val appIcon: android.graphics.drawable.Drawable? = remember(session.packageName) {
+        if (session.packageName.isEmpty()) null
+        else try { context.packageManager.getApplicationIcon(session.packageName) } catch (_: Exception) { null }
+    }
+
+    if (appIcon != null) {
+        val bitmap = remember(appIcon) {
+            if (appIcon is android.graphics.drawable.BitmapDrawable && appIcon.bitmap != null) {
+                appIcon.bitmap
+            } else {
+                val bmp = android.graphics.Bitmap.createBitmap(96, 96, android.graphics.Bitmap.Config.ARGB_8888)
+                val canvas = android.graphics.Canvas(bmp)
+                appIcon.setBounds(0, 0, 96, 96)
+                appIcon.draw(canvas)
+                bmp
+            }
+        }
+        Image(
+            painter = BitmapPainter(bitmap.asImageBitmap()),
+            contentDescription = session.appName,
+            modifier = Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)),
+        )
+    } else {
+        // Fallback: FPS circle
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(
+                    when {
+                        session.avgFps >= 50.0 -> ChartGreen.copy(alpha = 0.15f)
+                        session.avgFps >= 30.0 -> ChartYellow.copy(alpha = 0.15f)
+                        else -> ChartRed.copy(alpha = 0.15f)
+                    },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "%.0f".format(session.avgFps),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = when {
+                    session.avgFps >= 50.0 -> ChartGreen
+                    session.avgFps >= 30.0 -> ChartYellow
+                    else -> ChartRed
+                },
+            )
+        }
+    }
 }
 
 private fun formatDuration(seconds: Long): String {

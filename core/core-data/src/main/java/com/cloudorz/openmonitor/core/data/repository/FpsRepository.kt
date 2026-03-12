@@ -112,6 +112,9 @@ class FpsRepository @Inject constructor(
     suspend fun getSessionFramesOnce(sessionId: Long): List<FpsFrameRecord> =
         fpsSessionDao.getFrameDataBySessionOnce(sessionId).map { it.toRecord() }
 
+    suspend fun updateSessionAppInfo(sessionId: Long, packageName: String, appName: String) =
+        fpsSessionDao.updateSessionAppInfo(sessionId, packageName, appName)
+
     suspend fun deleteSession(sessionId: Long) = fpsSessionDao.deleteSession(sessionId)
 
     suspend fun renameSession(sessionId: Long, desc: String) =

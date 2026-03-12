@@ -1,7 +1,10 @@
 package com.cloudorz.openmonitor.core.data.datasource
 
+import android.content.Context
+import android.content.pm.PackageManager
 import android.util.Log
 import com.cloudorz.openmonitor.core.data.repository.FpsRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
 import com.cloudorz.openmonitor.core.model.fps.FpsData
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -46,6 +49,7 @@ class FpsRecordingManager @Inject constructor(
     private val batteryDataSource: BatteryDataSource,
     private val cpuDataSource: CpuDataSource,
     private val gpuDataSource: GpuDataSource,
+    @param:ApplicationContext private val context: Context,
 ) {
     companion object {
         private const val TAG = "FpsRecordingMgr"
@@ -148,10 +152,17 @@ class FpsRecordingManager @Inject constructor(
                             cpuCoreFreqs = coreFreqs,
                         )
 
-                        // Extract package from fps layer
+                        // Extract package from fps layer and resolve app name
                         val pkg = extractPackageFromLayer(fpsData.window)
                         if (pkg.isNotEmpty() && pkg != _info.value.packageName) {
-                            _info.value = _info.value.copy(packageName = pkg)
+                            val name = resolveAppName(pkg)
+                            _info.value = _info.value.copy(packageName = pkg, appName = name)
+                            // Persist to DB session
+                            try {
+                                fpsRepository.updateSessionAppInfo(sessionId, pkg, name)
+                            } catch (e: Exception) {
+                                Log.w(TAG, "Failed to update session app info", e)
+                            }
                         }
                     }
                 } catch (e: Exception) {
@@ -227,5 +238,15 @@ class FpsRecordingManager @Inject constructor(
         val slashMatch = Regex("""([a-zA-Z][a-zA-Z0-9_.]*)/[a-zA-Z]""").find(layer)
         if (slashMatch != null) return slashMatch.groupValues[1]
         return ""
+    }
+
+    private fun resolveAppName(packageName: String): String {
+        return try {
+            val pm = context.packageManager
+            val appInfo = pm.getApplicationInfo(packageName, 0)
+            pm.getApplicationLabel(appInfo).toString()
+        } catch (_: PackageManager.NameNotFoundException) {
+            packageName
+        }
     }
 }
