@@ -301,13 +301,6 @@ fun UserScreen(
             onRestart = { viewModel.restartDaemon() },
         )
 
-        // Daemon log level card
-        val logLevel by viewModel.logLevel.collectAsState()
-        DaemonLogLevelCard(
-            currentLevel = logLevel,
-            onLevelSelected = viewModel::setDaemonLogLevel,
-        )
-
         // Poll interval settings card
         val pollSettings by viewModel.pollSettings.collectAsState()
         PollSettingsCard(
@@ -799,53 +792,6 @@ private fun AdbSetupCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-            }
-        }
-    }
-}
-
-@Composable
-private fun DaemonLogLevelCard(
-    currentLevel: String,
-    onLevelSelected: (String) -> Unit,
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        ),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Outlined.Cable,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Daemon 日志级别",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("debug", "info", "warning", "error").forEach { level ->
-                    FilterChip(
-                        selected = currentLevel == level,
-                        onClick = { onLevelSelected(level) },
-                        label = { Text(level.replaceFirstChar { it.uppercase() }) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        ),
-                    )
-                }
             }
         }
     }

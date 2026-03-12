@@ -60,12 +60,6 @@ class UserViewModel @Inject constructor(
     )
     val pollSettings: StateFlow<PollSettings> = _pollSettings.asStateFlow()
 
-    // Daemon log level
-    private val _logLevel = MutableStateFlow(
-        prefs.getString("daemon_log_level", "warning") ?: "warning"
-    )
-    val logLevel: StateFlow<String> = _logLevel.asStateFlow()
-
     /** Daemon binary path for ADB instructions. */
     val daemonBinaryPath: String get() = daemonLauncher.binaryPath
 
@@ -76,7 +70,7 @@ class UserViewModel @Inject constructor(
             daemonManager.state.collect { state ->
                 if (state == DaemonState.RUNNING) {
                     _daemonStatus.value = buildStatus(alive = true)
-                    sendLogLevel(_logLevel.value)
+                    sendLogLevel("debug")
                     startRefreshLoop()
                 } else if (state == DaemonState.FAILED || state == DaemonState.NOT_NEEDED) {
                     stopRefreshLoop()
@@ -146,12 +140,6 @@ class UserViewModel @Inject constructor(
         try {
             context.startService(FloatMonitorService.updatePollSettingsIntent(context))
         } catch (_: Exception) {}
-    }
-
-    fun setDaemonLogLevel(level: String) {
-        prefs.edit { putString("daemon_log_level", level) }
-        _logLevel.value = level
-        sendLogLevel(level)
     }
 
     /**

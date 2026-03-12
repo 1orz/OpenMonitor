@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,6 +25,8 @@ import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -64,6 +67,7 @@ fun LogScreen(viewModel: LogViewModel = hiltViewModel()) {
     val daemonLogStatus by viewModel.daemonLogStatus.collectAsStateWithLifecycle()
     val logDates by viewModel.logDates.collectAsStateWithLifecycle()
     val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
+    val filterLevel by viewModel.filterLevel.collectAsStateWithLifecycle()
 
     var selectedTab by remember { mutableIntStateOf(0) }
     var autoScroll by remember { mutableStateOf(true) }
@@ -155,16 +159,18 @@ fun LogScreen(viewModel: LogViewModel = hiltViewModel()) {
                 )
             }
 
+            // Filter bar (shared by both tabs)
+            FilterBar(
+                dates = if (selectedTab == 0) logDates else emptyList(),
+                selectedDate = if (selectedTab == 0) selectedDate else null,
+                onSelectDate = { viewModel.selectDate(it) },
+                filterLevel = filterLevel,
+                onFilterLevel = { viewModel.setFilterLevel(it) },
+                showDateSelector = selectedTab == 0,
+            )
+
             when (selectedTab) {
-                0 -> {
-                    // Date selector bar
-                    DateSelectorBar(
-                        dates = logDates,
-                        selectedDate = selectedDate,
-                        onSelect = { viewModel.selectDate(it) },
-                    )
-                    AppLogTab(entries = appLogs, listState = appListState)
-                }
+                0 -> AppLogTab(entries = appLogs, listState = appListState)
                 1 -> DaemonLogTab(lines = daemonLogs, status = daemonLogStatus, listState = daemonListState)
             }
         }
@@ -172,57 +178,98 @@ fun LogScreen(viewModel: LogViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun DateSelectorBar(
+private fun FilterBar(
     dates: List<String>,
     selectedDate: String?,
-    onSelect: (String?) -> Unit,
+    onSelectDate: (String?) -> Unit,
+    filterLevel: LogLevelFilter,
+    onFilterLevel: (LogLevelFilter) -> Unit,
+    showDateSelector: Boolean,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    val label = selectedDate ?: "实时"
-
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
             .padding(horizontal = 12.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Text(
-            "日志来源:",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Box {
-            Text(
-                text = label,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(MaterialTheme.colorScheme.primaryContainer)
-                    .clickable { expanded = true }
-                    .padding(horizontal = 10.dp, vertical = 4.dp),
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-            )
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                DropdownMenuItem(
-                    text = {
-                        Text("实时 (logcat)", fontWeight = if (selectedDate == null) FontWeight.Bold else FontWeight.Normal)
-                    },
-                    onClick = { onSelect(null); expanded = false },
+        // Row 1: date selector (App tab only) + level filter
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            if (showDateSelector) {
+                var expanded by remember { mutableStateOf(false) }
+                val label = selectedDate ?: "实时"
+
+                Text(
+                    "来源:",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                dates.forEach { date ->
-                    DropdownMenuItem(
-                        text = {
-                            Text(date, fontWeight = if (date == selectedDate) FontWeight.Bold else FontWeight.Normal)
-                        },
-                        onClick = { onSelect(date); expanded = false },
+                Box {
+                    Text(
+                        text = label,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .clickable { expanded = true }
+                            .padding(horizontal = 8.dp, vertical = 3.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
+                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                        DropdownMenuItem(
+                            text = { Text("实时 (logcat)", fontWeight = if (selectedDate == null) FontWeight.Bold else FontWeight.Normal) },
+                            onClick = { onSelectDate(null); expanded = false },
+                        )
+                        dates.forEach { date ->
+                            DropdownMenuItem(
+                                text = { Text(date, fontWeight = if (date == selectedDate) FontWeight.Bold else FontWeight.Normal) },
+                                onClick = { onSelectDate(date); expanded = false },
+                            )
+                        }
+                    }
                 }
+
+                // Separator
+                Box(
+                    Modifier
+                        .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                        .padding(horizontal = 1.dp),
+                )
+            }
+
+            Text(
+                "级别:",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            LogLevelFilter.entries.forEach { level ->
+                FilterChip(
+                    selected = filterLevel == level,
+                    onClick = { onFilterLevel(level) },
+                    label = { Text(level.label, style = MaterialTheme.typography.labelSmall) },
+                    modifier = Modifier.height(28.dp),
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = levelChipColor(level),
+                        selectedLabelColor = Color.White,
+                    ),
+                )
             }
         }
     }
+}
+
+@Composable
+private fun levelChipColor(level: LogLevelFilter): Color = when (level) {
+    LogLevelFilter.VERBOSE -> MaterialTheme.colorScheme.outline
+    LogLevelFilter.DEBUG -> MaterialTheme.colorScheme.onSurfaceVariant
+    LogLevelFilter.INFO -> MaterialTheme.colorScheme.primary
+    LogLevelFilter.WARN -> Color(0xFFFFAB40)
+    LogLevelFilter.ERROR -> Color(0xFFFF5252)
 }
 
 @Composable
