@@ -447,6 +447,7 @@ private fun VicoLineChart(
     seriesData: List<List<Number>>,
     seriesColors: List<Color>,
     seriesLabels: List<String>,
+    seriesVisibility: SnapshotStateMap<String, Boolean>? = null,
     yAxisSuffix: String = "",
 ) {
     val modelProducer = remember { CartesianChartModelProducer() }
@@ -455,6 +456,12 @@ private fun VicoLineChart(
         CartesianValueFormatter { _, value, _ -> "${value.toInt()}$yAxisSuffix" }
     } else {
         CartesianValueFormatter.decimal()
+    }
+
+    // Determine effective colors: hidden series get fully transparent
+    val effectiveColors = seriesLabels.mapIndexed { idx, label ->
+        val visible = seriesVisibility?.get(label) != false
+        if (visible) seriesColors[idx] else seriesColors[idx].copy(alpha = 0f)
     }
 
     LaunchedEffect(seriesData) {
@@ -484,10 +491,10 @@ private fun VicoLineChart(
         chart = rememberCartesianChart(
             rememberLineCartesianLayer(
                 LineCartesianLayer.LineProvider.series(
-                    seriesColors.map { color ->
+                    effectiveColors.map { color ->
                         LineCartesianLayer.rememberLine(
                             fill = LineCartesianLayer.LineFill.single(Fill(color)),
-                            areaFill = LineCartesianLayer.AreaFill.single(Fill(color.copy(alpha = 0.08f))),
+                            areaFill = LineCartesianLayer.AreaFill.single(Fill(color.copy(alpha = if (color.alpha > 0f) 0.08f else 0f))),
                         )
                     }
                 ),
@@ -499,9 +506,13 @@ private fun VicoLineChart(
             legend = rememberHorizontalLegend(
                 items = { extraStore ->
                     extraStore[LegendLabelKey].forEachIndexed { index, label ->
+                        val visible = seriesVisibility?.get(label) != false
                         add(
                             LegendItem(
-                                icon = ShapeComponent(Fill(seriesColors[index]), CircleShape),
+                                icon = ShapeComponent(
+                                    Fill(if (visible) seriesColors[index] else seriesColors[index].copy(alpha = 0.3f)),
+                                    CircleShape,
+                                ),
                                 labelComponent = legendLabel,
                                 label = label,
                             )
@@ -532,34 +543,15 @@ private fun FpsTempChart(records: List<FpsFrameRecord>) {
 
     val allLabels = mutableListOf("FPS")
     val allColors = mutableListOf(FpsColor)
-    if (hasTemp) { allLabels.add("TEMP(\u00B0C)"); allColors.add(TempColor) }
-    if (hasCpu) { allLabels.add("CPU(%)"); allColors.add(CpuColor) }
-    if (hasGpu) { allLabels.add("GPU(%)"); allColors.add(GpuColor) }
+    val allData = mutableListOf<List<Number>>(records.map { it.fps })
+    if (hasTemp) { allLabels.add("TEMP(\u00B0C)"); allColors.add(TempColor); allData.add(records.map { it.cpuTemp }) }
+    if (hasCpu) { allLabels.add("CPU(%)"); allColors.add(CpuColor); allData.add(records.map { it.cpuLoad }) }
+    if (hasGpu) { allLabels.add("GPU(%)"); allColors.add(GpuColor); allData.add(records.map { it.gpuLoad }) }
 
     val seriesVis = remember { mutableStateMapOf<String, Boolean>() }
 
-    // Build visible series
-    val visLabels = mutableListOf<String>()
-    val visColors = mutableListOf<Color>()
-    val visData = mutableListOf<List<Number>>()
-
-    if (seriesVis["FPS"] != false) {
-        visLabels.add("FPS"); visColors.add(FpsColor); visData.add(records.map { it.fps })
-    }
-    if (hasTemp && seriesVis["TEMP(\u00B0C)"] != false) {
-        visLabels.add("TEMP(\u00B0C)"); visColors.add(TempColor); visData.add(records.map { it.cpuTemp })
-    }
-    if (hasCpu && seriesVis["CPU(%)"] != false) {
-        visLabels.add("CPU(%)"); visColors.add(CpuColor); visData.add(records.map { it.cpuLoad })
-    }
-    if (hasGpu && seriesVis["GPU(%)"] != false) {
-        visLabels.add("GPU(%)"); visColors.add(GpuColor); visData.add(records.map { it.gpuLoad })
-    }
-
-    if (visData.isEmpty()) return
-
     ChartCard("FPS", allLabels, allColors, seriesVis) {
-        VicoLineChart(records, visData, visColors, visLabels)
+        VicoLineChart(records, allData, allColors, allLabels, seriesVis)
     }
 }
 
@@ -585,25 +577,14 @@ private fun CpuGpuUsageChart(records: List<FpsFrameRecord>) {
 
     val allLabels = mutableListOf("CPU(%)")
     val allColors = mutableListOf(CpuColor)
+    val allData = mutableListOf<List<Number>>(records.map { it.cpuLoad })
     val hasGpu = records.any { it.gpuLoad > 0.0 }
-    if (hasGpu) { allLabels.add("GPU(%)"); allColors.add(GpuColor) }
+    if (hasGpu) { allLabels.add("GPU(%)"); allColors.add(GpuColor); allData.add(records.map { it.gpuLoad }) }
 
     val seriesVis = remember { mutableStateMapOf<String, Boolean>() }
-    val visLabels = mutableListOf<String>()
-    val visColors = mutableListOf<Color>()
-    val visData = mutableListOf<List<Number>>()
-
-    if (seriesVis["CPU(%)"] != false) {
-        visLabels.add("CPU(%)"); visColors.add(CpuColor); visData.add(records.map { it.cpuLoad })
-    }
-    if (hasGpu && seriesVis["GPU(%)"] != false) {
-        visLabels.add("GPU(%)"); visColors.add(GpuColor); visData.add(records.map { it.gpuLoad })
-    }
-
-    if (visData.isEmpty()) return
 
     ChartCard(stringResource(R.string.fps_chart_cpu_usage), allLabels, allColors, seriesVis) {
-        VicoLineChart(records, visData, visColors, visLabels, yAxisSuffix = "%")
+        VicoLineChart(records, allData, allColors, allLabels, seriesVis, yAxisSuffix = "%")
     }
 }
 
@@ -614,24 +595,13 @@ private fun GpuFreqChart(records: List<FpsFrameRecord>) {
 
     val allLabels = mutableListOf("Freq(MHz)")
     val allColors = mutableListOf(GpuColor)
-    if (hasUsage) { allLabels.add("Usage(%)"); allColors.add(Color(0xFF5C6BC0)) }
+    val allData = mutableListOf<List<Number>>(records.map { it.gpuFreqMhz })
+    if (hasUsage) { allLabels.add("Usage(%)"); allColors.add(Color(0xFF5C6BC0)); allData.add(records.map { it.gpuLoad }) }
 
     val seriesVis = remember { mutableStateMapOf<String, Boolean>() }
-    val visLabels = mutableListOf<String>()
-    val visColors = mutableListOf<Color>()
-    val visData = mutableListOf<List<Number>>()
-
-    if (seriesVis["Freq(MHz)"] != false) {
-        visLabels.add("Freq(MHz)"); visColors.add(GpuColor); visData.add(records.map { it.gpuFreqMhz })
-    }
-    if (hasUsage && seriesVis["Usage(%)"] != false) {
-        visLabels.add("Usage(%)"); visColors.add(Color(0xFF5C6BC0)); visData.add(records.map { it.gpuLoad })
-    }
-
-    if (visData.isEmpty()) return
 
     ChartCard(stringResource(R.string.fps_chart_gpu_freq), allLabels, allColors, seriesVis) {
-        VicoLineChart(records, visData, visColors, visLabels)
+        VicoLineChart(records, allData, allColors, allLabels, seriesVis)
     }
 }
 
@@ -643,25 +613,11 @@ private fun CpuCoreFreqChart(records: List<FpsFrameRecord>) {
 
     val allLabels = (0 until maxCores).map { "Core $it" }
     val allColors = (0 until maxCores).map { CoreColors[it % CoreColors.size] }
+    val allData = (0 until maxCores).map { i -> records.map { it.cpuCoreFreqsMhz.getOrElse(i) { 0L } } }
     val seriesVis = remember { mutableStateMapOf<String, Boolean>() }
 
-    val visLabels = mutableListOf<String>()
-    val visColors = mutableListOf<Color>()
-    val visData = mutableListOf<List<Number>>()
-
-    for (i in 0 until maxCores) {
-        val label = "Core $i"
-        if (seriesVis[label] != false) {
-            visLabels.add(label)
-            visColors.add(CoreColors[i % CoreColors.size])
-            visData.add(records.map { it.cpuCoreFreqsMhz.getOrElse(i) { 0L } })
-        }
-    }
-
-    if (visData.isEmpty()) return
-
     ChartCard(stringResource(R.string.fps_chart_cpu_freq), allLabels, allColors, seriesVis) {
-        VicoLineChart(records, visData, visColors, visLabels, yAxisSuffix = "MHz")
+        VicoLineChart(records, allData, allColors, allLabels, seriesVis, yAxisSuffix = "MHz")
     }
 }
 
@@ -673,22 +629,11 @@ private fun PowerBatteryChart(records: List<FpsFrameRecord>) {
 
     val allLabels = mutableListOf<String>()
     val allColors = mutableListOf<Color>()
-    if (hasPower) { allLabels.add("Power(W)"); allColors.add(PowerColor) }
-    if (hasBattery) { allLabels.add("Capacity(%)"); allColors.add(BatteryColor) }
+    val allData = mutableListOf<List<Number>>()
+    if (hasPower) { allLabels.add("Power(W)"); allColors.add(PowerColor); allData.add(records.map { it.powerW }) }
+    if (hasBattery) { allLabels.add("Capacity(%)"); allColors.add(BatteryColor); allData.add(records.map { it.batteryCapacity }) }
 
     val seriesVis = remember { mutableStateMapOf<String, Boolean>() }
-    val visLabels = mutableListOf<String>()
-    val visColors = mutableListOf<Color>()
-    val visData = mutableListOf<List<Number>>()
-
-    if (hasPower && seriesVis["Power(W)"] != false) {
-        visLabels.add("Power(W)"); visColors.add(PowerColor); visData.add(records.map { it.powerW })
-    }
-    if (hasBattery && seriesVis["Capacity(%)"] != false) {
-        visLabels.add("Capacity(%)"); visColors.add(BatteryColor); visData.add(records.map { it.batteryCapacity })
-    }
-
-    if (visData.isEmpty()) return
 
     val subtitle = if (hasPower) {
         val pws = records.map { it.powerW }.filter { it > 0 }
@@ -696,7 +641,7 @@ private fun PowerBatteryChart(records: List<FpsFrameRecord>) {
     } else ""
 
     ChartCard(stringResource(R.string.fps_chart_power) + if (subtitle.isNotEmpty()) "\n$subtitle" else "", allLabels, allColors, seriesVis) {
-        VicoLineChart(records, visData, visColors, visLabels)
+        VicoLineChart(records, allData, allColors, allLabels, seriesVis)
     }
 }
 
@@ -719,22 +664,11 @@ private fun TemperatureChart(records: List<FpsFrameRecord>) {
 
     val allLabels = mutableListOf<String>()
     val allColors = mutableListOf<Color>()
-    if (hasCpu) { allLabels.add("CPU(\u00B0C)"); allColors.add(TempColor) }
-    if (hasBat) { allLabels.add("Battery(\u00B0C)"); allColors.add(BatTempColor) }
+    val allData = mutableListOf<List<Number>>()
+    if (hasCpu) { allLabels.add("CPU(\u00B0C)"); allColors.add(TempColor); allData.add(records.map { it.cpuTemp }) }
+    if (hasBat) { allLabels.add("Battery(\u00B0C)"); allColors.add(BatTempColor); allData.add(records.map { it.batteryTemp }) }
 
     val seriesVis = remember { mutableStateMapOf<String, Boolean>() }
-    val visLabels = mutableListOf<String>()
-    val visColors = mutableListOf<Color>()
-    val visData = mutableListOf<List<Number>>()
-
-    if (hasCpu && seriesVis["CPU(\u00B0C)"] != false) {
-        visLabels.add("CPU(\u00B0C)"); visColors.add(TempColor); visData.add(records.map { it.cpuTemp })
-    }
-    if (hasBat && seriesVis["Battery(\u00B0C)"] != false) {
-        visLabels.add("Battery(\u00B0C)"); visColors.add(BatTempColor); visData.add(records.map { it.batteryTemp })
-    }
-
-    if (visData.isEmpty()) return
 
     val cpuTemps = records.map { it.cpuTemp }.filter { it > 0 }
     val subtitle = if (cpuTemps.isNotEmpty()) {
@@ -745,7 +679,7 @@ private fun TemperatureChart(records: List<FpsFrameRecord>) {
         stringResource(R.string.fps_chart_temperature) + if (subtitle.isNotEmpty()) "\n$subtitle" else "",
         allLabels, allColors, seriesVis,
     ) {
-        VicoLineChart(records, visData, visColors, visLabels, yAxisSuffix = "\u00B0C")
+        VicoLineChart(records, allData, allColors, allLabels, seriesVis, yAxisSuffix = "\u00B0C")
     }
 }
 
