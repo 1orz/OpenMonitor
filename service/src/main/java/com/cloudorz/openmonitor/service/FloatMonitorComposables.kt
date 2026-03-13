@@ -298,9 +298,17 @@ fun FloatFpsContent(service: FloatMonitorService) {
     val recordingState by service.fpsRecordingState.collectAsState()
     val recordingInfo by service.fpsRecordingInfo.collectAsState()
     val showDurationMenu by service.fpsShowDurationMenu.collectAsState()
+    val isInteracting by service.fpsInteracting.collectAsState()
 
     val isRecording = recordingState == com.cloudorz.openmonitor.core.data.datasource.FpsRecordingState.RECORDING
     val isCountdown = recordingState == com.cloudorz.openmonitor.core.data.datasource.FpsRecordingState.COUNTDOWN
+
+    // Shadow background that appears during drag and fades out 1s after release
+    val bgAlpha by animateFloatAsState(
+        targetValue = if (isInteracting) 1f else 0f,
+        animationSpec = tween(durationMillis = if (isInteracting) 150 else 600),
+        label = "dragBgAlpha",
+    )
 
     // Red breathing border animation for recording state
     val breathTransition = rememberInfiniteTransition(label = "breathBorder")
@@ -320,6 +328,13 @@ fun FloatFpsContent(service: FloatMonitorService) {
         // Main FPS display
         Box(
             modifier = Modifier
+                .then(
+                    if (bgAlpha > 0f) {
+                        Modifier.background(Color(0xFF000000).copy(alpha = bgAlpha * 0.35f), shape)
+                    } else {
+                        Modifier
+                    }
+                )
                 .then(
                     when {
                         isRecording -> Modifier

@@ -3,6 +3,7 @@ package com.cloudorz.openmonitor.feature.floatmonitor
 import android.content.Context
 import android.provider.Settings
 import android.util.Log
+import androidx.core.content.edit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cloudorz.openmonitor.core.common.PermissionManager
@@ -21,12 +22,24 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+enum class OverlayMode {
+    AUTO,
+    OVERLAY_ONLY,
+    ACCESSIBILITY_ONLY,
+}
+
 data class FloatMonitorUiState(
     val hasOverlayPermission: Boolean = false,
     val hasAccessibilityService: Boolean = false,
     val enabledMonitors: Set<FloatMonitorType> = emptySet(),
+    val overlayMode: OverlayMode = OverlayMode.AUTO,
 ) {
-    val canShowOverlay: Boolean get() = hasOverlayPermission || hasAccessibilityService
+    val canShowOverlay: Boolean get() = when (overlayMode) {
+        OverlayMode.AUTO -> hasOverlayPermission || hasAccessibilityService
+        OverlayMode.OVERLAY_ONLY -> hasOverlayPermission
+        OverlayMode.ACCESSIBILITY_ONLY -> hasAccessibilityService
+    }
+    val bothPermissionsGranted: Boolean get() = hasOverlayPermission && hasAccessibilityService
 }
 
 @HiltViewModel
@@ -37,9 +50,11 @@ class FloatMonitorViewModel @Inject constructor(
 
     companion object {
         private const val TAG = "FloatMonitorVM"
+        private const val PREFS_NAME = "monitor_settings"
+        private const val KEY_OVERLAY_MODE = "overlay_mode"
     }
 
-    private val prefs = context.getSharedPreferences("monitor_settings", Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     private val _snackbarEvent = MutableSharedFlow<Int>(extraBufferCapacity = 1)
     val snackbarEvent: SharedFlow<Int> = _snackbarEvent.asSharedFlow()
@@ -49,6 +64,7 @@ class FloatMonitorViewModel @Inject constructor(
             hasOverlayPermission = Settings.canDrawOverlays(context),
             hasAccessibilityService = AccessibilityMonitorService.isEnabled(context),
             enabledMonitors = restoreEnabledMonitors(),
+            overlayMode = restoreOverlayMode(),
         )
     )
     val uiState: StateFlow<FloatMonitorUiState> = _uiState
@@ -72,6 +88,23 @@ class FloatMonitorViewModel @Inject constructor(
         }
     }
 
+    fun onOverlayModeChanged(mode: OverlayMode) {
+        prefs.edit { putString(KEY_OVERLAY_MODE, mode.name) }
+        _uiState.update { it.copy(overlayMode = mode) }
+
+        // If monitors are running, restart the service to apply the new mode
+        val activeMonitors = _uiState.value.enabledMonitors
+        if (activeMonitors.isNotEmpty()) {
+            // Stop current service
+            context.startService(FloatMonitorService.stopIntent(context))
+            // Restart with new mode after a brief delay
+            viewModelScope.launch {
+                delay(500)
+                ensureMonitorsRunning(activeMonitors)
+            }
+        }
+    }
+
     fun refreshPermission() {
         val savedMonitors = restoreEnabledMonitors()
         _uiState.update {
@@ -85,7 +118,7 @@ class FloatMonitorViewModel @Inject constructor(
         // Auto-enable accessibility via shell if no overlay capability
         if (!_uiState.value.canShowOverlay) {
             val mode = permissionManager.currentMode.value
-            if (mode != PrivilegeMode.BASIC) {
+            if (mode != PrivilegeMode.BASIC && _uiState.value.overlayMode != OverlayMode.OVERLAY_ONLY) {
                 viewModelScope.launch { tryAutoEnableAccessibility(savedMonitors) }
             }
             return
@@ -128,6 +161,15 @@ class FloatMonitorViewModel @Inject constructor(
         return saved.mapNotNull { name ->
             FloatMonitorType.entries.find { it.name == name }
         }.toSet()
+    }
+
+    private fun restoreOverlayMode(): OverlayMode {
+        val name = prefs.getString(KEY_OVERLAY_MODE, OverlayMode.AUTO.name) ?: OverlayMode.AUTO.name
+        return try {
+            OverlayMode.valueOf(name)
+        } catch (_: Exception) {
+            OverlayMode.AUTO
+        }
     }
 
     private fun startMonitor(type: FloatMonitorType) {

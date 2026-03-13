@@ -49,4 +49,7 @@ interface PowerStatDao {
 
     @Query("SELECT * FROM power_stat_records WHERE sessionId = :sessionId ORDER BY startTime ASC")
     suspend fun getRecordsBySessionOnce(sessionId: Long): List<PowerStatRecordEntity>
+
+    @Query("SELECT * FROM power_stat_sessions WHERE endTime = 0 ORDER BY beginTime DESC LIMIT 1")
+    suspend fun getActiveSession(): PowerStatSessionEntity?
 }

@@ -87,6 +87,19 @@
     <string name="overlay_not_granted">悬浮窗权限未授予</string>
     <string name="go_authorize">去授权</string>
     <string name="permission_required_toast">请先授予悬浮窗权限或启用无障碍服务</string>
+    <string name="overlay_mode_title">悬浮窗模式</string>
+    <string name="overlay_mode_auto">自动</string>
+    <string name="overlay_mode_overlay_only">仅悬浮窗</string>
+    <string name="overlay_mode_accessibility_only">仅无障碍</string>
+    <string name="overlay_mode_desc_auto">自动选择最佳方式（优先无障碍）</string>
+    <string name="overlay_mode_desc_overlay">仅使用标准悬浮窗权限。避免触发支付类应用对无障碍服务的风控检测。</string>
+    <string name="overlay_mode_desc_accessibility">仅使用无障碍服务。无需悬浮窗权限。</string>
+    <string name="session_chart_power">功率(W)</string>
+    <string name="session_chart_battery">电量(%%)</string>
+    <string name="session_chart_temp">温度(\u00B0C)</string>
+    <string name="session_chart_current">电流(mA)</string>
+    <string name="session_chart_capacity">电量(%%)</string>
+    <string name="tap_to_view_chart">点击展开图表</string>
 
     <!-- FloatMonitorType display names -->
     <string name="monitor_load">负载监视器</string>

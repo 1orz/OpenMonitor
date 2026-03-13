@@ -73,14 +73,11 @@ class PowerRepository @Inject constructor(
         powerStatDao.deleteSession(sessionId)
     }
 
-    suspend fun computeAvgPowerW(sessionId: Long): Double {
-        val records = powerStatDao.getRecordsBySessionOnce(sessionId)
-        if (records.isEmpty()) return 0.0
-        // capacity drops over time; estimate power from capacity delta and time
-        // But we don't have voltage per record, so use an average from the records
-        // For now, return 0 — the session already stores final usedPercent
-        return 0.0
-    }
+    suspend fun getRecordsBySessionOnce(sessionId: Long): List<PowerStatRecord> =
+        powerStatDao.getRecordsBySessionOnce(sessionId).map { it.toRecordModel() }
+
+    suspend fun getActiveSession(): PowerStatSession? =
+        powerStatDao.getActiveSession()?.toModel()
 
     private fun PowerStatSessionEntity.toModel() = PowerStatSession(
         sessionId = sessionId.toString(),

@@ -87,6 +87,19 @@
     <string name="overlay_not_granted">Overlay permission not granted</string>
     <string name="go_authorize">Authorize</string>
     <string name="permission_required_toast">Please grant overlay or accessibility permission first</string>
+    <string name="overlay_mode_title">Float Window Mode</string>
+    <string name="overlay_mode_auto">Auto</string>
+    <string name="overlay_mode_overlay_only">Overlay Only</string>
+    <string name="overlay_mode_accessibility_only">Accessibility Only</string>
+    <string name="overlay_mode_desc_auto">Auto-select best method (prefer accessibility)</string>
+    <string name="overlay_mode_desc_overlay">Use standard overlay permission only. Avoids triggering risk controls in payment apps that detect accessibility services.</string>
+    <string name="overlay_mode_desc_accessibility">Use accessibility service only. No overlay permission needed.</string>
+    <string name="session_chart_power">Power(W)</string>
+    <string name="session_chart_battery">Battery(%%)</string>
+    <string name="session_chart_temp">Temp(\u00B0C)</string>
+    <string name="session_chart_current">Current(mA)</string>
+    <string name="session_chart_capacity">Capacity(%%)</string>
+    <string name="tap_to_view_chart">Tap to expand chart</string>
 
     <!-- FloatMonitorType display names -->
     <string name="monitor_load">Load Monitor</string>

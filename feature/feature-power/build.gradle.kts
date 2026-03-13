@@ -52,5 +52,8 @@ dependencies {
 
     implementation(libs.navigation.compose)
 
+    implementation(libs.vico.compose)
+    implementation(libs.vico.compose.m3)
+
     debugImplementation(libs.compose.ui.tooling)
 }

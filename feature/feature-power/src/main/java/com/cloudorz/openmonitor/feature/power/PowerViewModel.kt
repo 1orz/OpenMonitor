@@ -32,6 +32,7 @@ data class PowerUiState(
     val isTracking: Boolean = false,
     val currentRecords: List<PowerStatRecord> = emptyList(),
     val trackingStartCapacity: Int = 0,
+    val expandedSessionRecords: Map<String, List<PowerStatRecord>> = emptyMap(),
 )
 
 @HiltViewModel
@@ -47,6 +48,7 @@ class PowerViewModel @Inject constructor(
     private val sessions = MutableStateFlow<List<PowerStatSession>>(emptyList())
     private val currentRecords = MutableStateFlow<List<PowerStatRecord>>(emptyList())
     private val startCapacityFlow = MutableStateFlow(0)
+    private val expandedSessionRecords = MutableStateFlow<Map<String, List<PowerStatRecord>>>(emptyMap())
 
     private var trackingSessionId: Long? = null
     private var trackingStartCapacity: Int = 0
@@ -61,13 +63,16 @@ class PowerViewModel @Inject constructor(
         isTracking,
         currentRecords,
         startCapacityFlow,
-    ) { battery, sessionList, tracking, records, startCap ->
+        expandedSessionRecords,
+    ) { values ->
+        @Suppress("UNCHECKED_CAST")
         PowerUiState(
-            currentBattery = battery,
-            sessions = sessionList,
-            isTracking = tracking,
-            currentRecords = records,
-            trackingStartCapacity = startCap,
+            currentBattery = values[0] as BatteryStatus,
+            sessions = values[1] as List<PowerStatSession>,
+            isTracking = values[2] as Boolean,
+            currentRecords = values[3] as List<PowerStatRecord>,
+            trackingStartCapacity = values[4] as Int,
+            expandedSessionRecords = values[5] as Map<String, List<PowerStatRecord>>,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -79,6 +84,45 @@ class PowerViewModel @Inject constructor(
         viewModelScope.launch {
             powerRepository.getAllSessions().collect { list ->
                 sessions.value = list
+            }
+        }
+        // Restore active tracking session if ViewModel was recreated
+        viewModelScope.launch {
+            restoreActiveSession()
+        }
+    }
+
+    private suspend fun restoreActiveSession() {
+        val activeSession = powerRepository.getActiveSession() ?: return
+        val sessionId = activeSession.sessionId.toLongOrNull() ?: return
+
+        trackingSessionId = sessionId
+        trackingStartCapacity = 0 // We don't know original start capacity, use records
+        isTracking.value = true
+
+        // Load existing records to estimate start capacity
+        val existingRecords = powerRepository.getRecordsBySessionOnce(sessionId)
+        if (existingRecords.isNotEmpty()) {
+            trackingStartCapacity = existingRecords.first().capacity
+            startCapacityFlow.value = trackingStartCapacity
+            // Restore power accumulator from existing records
+            powerAccumulator = existingRecords.sumOf { it.powerW }
+            powerSampleCount = existingRecords.size
+        }
+
+        // Start collecting records for real-time charts
+        recordsCollectionJob = viewModelScope.launch {
+            powerRepository.getRecordsBySession(sessionId).collect { records ->
+                currentRecords.value = records
+            }
+        }
+
+        // Resume periodic sampling
+        samplingJob = viewModelScope.launch {
+            while (true) {
+                delay(SAMPLING_INTERVAL_MS)
+                val currentBattery = batteryRepository.getBatteryStatus()
+                recordDataPoint(currentBattery)
             }
         }
     }
@@ -165,6 +209,19 @@ class PowerViewModel @Inject constructor(
                 avgPowerW = avgPowerW,
             )
             currentRecords.value = emptyList()
+        }
+    }
+
+    fun onToggleSessionExpand(sessionId: String) {
+        val current = expandedSessionRecords.value
+        if (current.containsKey(sessionId)) {
+            expandedSessionRecords.value = current - sessionId
+        } else {
+            viewModelScope.launch {
+                val id = sessionId.toLongOrNull() ?: return@launch
+                val records = powerRepository.getRecordsBySessionOnce(id)
+                expandedSessionRecords.value = expandedSessionRecords.value + (sessionId to records)
+            }
         }
     }
 

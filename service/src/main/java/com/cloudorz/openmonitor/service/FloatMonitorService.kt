@@ -171,11 +171,20 @@ class FloatMonitorService : LifecycleService() {
 
     override fun onCreate() {
         super.onCreate()
-        val windowContext = AccessibilityMonitorService.instance ?: this
+        val overlayMode = getOverlayMode()
+        val windowContext = when (overlayMode) {
+            "OVERLAY_ONLY" -> this
+            "ACCESSIBILITY_ONLY" -> AccessibilityMonitorService.instance ?: this
+            else -> AccessibilityMonitorService.instance ?: this // AUTO
+        }
         floatWindowManager = FloatWindowManager(windowContext)
         createNotificationChannel()
         updateShellAccess()
     }
+
+    private fun getOverlayMode(): String =
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            .getString("overlay_mode", "AUTO") ?: "AUTO"
 
     private fun updateShellAccess() {
         val mode = permissionManager.currentMode.value
@@ -232,8 +241,10 @@ class FloatMonitorService : LifecycleService() {
      * if accessibility is unavailable.
      */
     private suspend fun restoreMonitorsWithAccessibility() {
-        // 1. Try to enable accessibility service for TYPE_ACCESSIBILITY_OVERLAY
-        if (AccessibilityMonitorService.instance == null) {
+        val overlayMode = getOverlayMode()
+
+        // 1. Try to enable accessibility service (skip if OVERLAY_ONLY mode)
+        if (overlayMode != "OVERLAY_ONLY" && AccessibilityMonitorService.instance == null) {
             val mode = permissionManager.currentMode.value
             if (mode == PrivilegeMode.ROOT || mode == PrivilegeMode.SHIZUKU || mode == PrivilegeMode.ADB) {
                 try {
@@ -260,16 +271,40 @@ class FloatMonitorService : LifecycleService() {
             }
         }
 
-        // 2. Reinitialize FloatWindowManager with accessibility context if available
+        // 2. Reinitialize FloatWindowManager based on overlay mode preference
         val accessibilityCtx = AccessibilityMonitorService.instance
-        if (accessibilityCtx != null) {
-            // Clean up any windows created by the old (non-accessibility) manager
-            withContext(Dispatchers.Main) { floatWindowManager.removeAllWindows() }
-            floatWindowManager = FloatWindowManager(accessibilityCtx)
-            Log.i(TAG, "FloatWindowManager upgraded to accessibility context")
-        } else if (!Settings.canDrawOverlays(this@FloatMonitorService)) {
-            Log.e(TAG, "no accessibility and no overlay permission, skipping window restore")
-            return
+        when (overlayMode) {
+            "OVERLAY_ONLY" -> {
+                // Force standard overlay, never use accessibility context
+                if (!Settings.canDrawOverlays(this@FloatMonitorService)) {
+                    Log.e(TAG, "OVERLAY_ONLY mode but no overlay permission, skipping")
+                    return
+                }
+                withContext(Dispatchers.Main) { floatWindowManager.removeAllWindows() }
+                floatWindowManager = FloatWindowManager(this@FloatMonitorService)
+                Log.i(TAG, "FloatWindowManager set to standard overlay (OVERLAY_ONLY mode)")
+            }
+            "ACCESSIBILITY_ONLY" -> {
+                if (accessibilityCtx != null) {
+                    withContext(Dispatchers.Main) { floatWindowManager.removeAllWindows() }
+                    floatWindowManager = FloatWindowManager(accessibilityCtx)
+                    Log.i(TAG, "FloatWindowManager set to accessibility (ACCESSIBILITY_ONLY mode)")
+                } else {
+                    Log.e(TAG, "ACCESSIBILITY_ONLY mode but service not available, skipping")
+                    return
+                }
+            }
+            else -> {
+                // AUTO: prefer accessibility
+                if (accessibilityCtx != null) {
+                    withContext(Dispatchers.Main) { floatWindowManager.removeAllWindows() }
+                    floatWindowManager = FloatWindowManager(accessibilityCtx)
+                    Log.i(TAG, "FloatWindowManager upgraded to accessibility context (AUTO)")
+                } else if (!Settings.canDrawOverlays(this@FloatMonitorService)) {
+                    Log.e(TAG, "no accessibility and no overlay permission, skipping window restore")
+                    return
+                }
+            }
         }
 
         // 3. Restore saved monitors on main thread

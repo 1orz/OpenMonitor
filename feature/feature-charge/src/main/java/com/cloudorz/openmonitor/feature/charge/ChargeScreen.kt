@@ -1,5 +1,8 @@
 package com.cloudorz.openmonitor.feature.charge
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,9 +15,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Card
@@ -27,23 +33,57 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.LocalContext
 import com.cloudorz.openmonitor.core.ui.R
 import com.cloudorz.openmonitor.core.model.battery.BatteryStatus
+import com.cloudorz.openmonitor.core.model.battery.ChargeStatRecord
 import com.cloudorz.openmonitor.core.model.battery.ChargeStatSession
+import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
+import com.patrykandpatrick.vico.compose.cartesian.Scroll
+import com.patrykandpatrick.vico.compose.cartesian.Zoom
+import com.patrykandpatrick.vico.compose.cartesian.axis.HorizontalAxis
+import com.patrykandpatrick.vico.compose.cartesian.axis.VerticalAxis
+import com.patrykandpatrick.vico.compose.cartesian.data.CartesianChartModelProducer
+import com.patrykandpatrick.vico.compose.cartesian.data.CartesianValueFormatter
+import com.patrykandpatrick.vico.compose.cartesian.data.lineSeries
+import com.patrykandpatrick.vico.compose.cartesian.layer.LineCartesianLayer
+import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLine
+import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLineCartesianLayer
+import com.patrykandpatrick.vico.compose.cartesian.marker.CartesianMarkerController
+import com.patrykandpatrick.vico.compose.cartesian.marker.rememberDefaultCartesianMarker
+import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
+import com.patrykandpatrick.vico.compose.cartesian.rememberVicoScrollState
+import com.patrykandpatrick.vico.compose.cartesian.rememberVicoZoomState
+import com.patrykandpatrick.vico.compose.common.Fill
+import com.patrykandpatrick.vico.compose.common.Insets
+import com.patrykandpatrick.vico.compose.common.LegendItem
+import com.patrykandpatrick.vico.compose.common.ProvideVicoTheme
+import com.patrykandpatrick.vico.compose.common.component.ShapeComponent
+import com.patrykandpatrick.vico.compose.common.component.rememberLineComponent
+import com.patrykandpatrick.vico.compose.common.component.rememberTextComponent
+import com.patrykandpatrick.vico.compose.common.data.ExtraStore
+import com.patrykandpatrick.vico.compose.common.rememberHorizontalLegend
+import com.patrykandpatrick.vico.compose.common.vicoTheme
+import com.patrykandpatrick.vico.compose.m3.common.rememberM3VicoTheme
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
+
+private val LegendLabelKey = ExtraStore.Key<List<String>>()
 
 @Composable
 fun ChargeScreen(
@@ -56,6 +96,7 @@ fun ChargeScreen(
     ChargeScreenContent(
         uiState = uiState,
         onSessionClick = onSessionClick,
+        onToggleSessionExpand = viewModel::onToggleSessionExpand,
         onExportSession = { sessionId ->
             viewModel.getExportIntent(sessionId) { intent ->
                 context.startActivity(intent)
@@ -68,6 +109,7 @@ fun ChargeScreen(
 private fun ChargeScreenContent(
     uiState: ChargeUiState,
     onSessionClick: (String) -> Unit,
+    onToggleSessionExpand: (String) -> Unit,
     onExportSession: (Long) -> Unit = {},
 ) {
     LazyColumn(
@@ -100,9 +142,18 @@ private fun ChargeScreenContent(
                 items = uiState.sessions,
                 key = { it.sessionId },
             ) { session ->
+                val isExpanded = uiState.expandedSessionRecords.containsKey(session.sessionId)
+                val records = uiState.expandedSessionRecords[session.sessionId]
+
                 ChargeSessionItem(
                     session = session,
-                    onClick = { onSessionClick(session.sessionId) },
+                    isExpanded = isExpanded,
+                    expandedRecords = records,
+                    onClick = {
+                        if (!session.isActive) {
+                            onToggleSessionExpand(session.sessionId)
+                        }
+                    },
                     onExport = { onExportSession(session.sessionId.toLongOrNull() ?: 0L) },
                 )
             }
@@ -291,6 +342,8 @@ private fun ChargeCurveSection(
 @Composable
 private fun ChargeSessionItem(
     session: ChargeStatSession,
+    isExpanded: Boolean,
+    expandedRecords: List<ChargeStatRecord>?,
     onClick: () -> Unit,
     onExport: () -> Unit = {},
 ) {
@@ -327,6 +380,14 @@ private fun ChargeSessionItem(
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.weight(1f),
                 )
+                if (!session.isActive) {
+                    Icon(
+                        imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 IconButton(onClick = onExport) {
                     Icon(
                         imageVector = Icons.Default.Share,
@@ -382,7 +443,123 @@ private fun ChargeSessionItem(
                     )
                 }
             }
+
+            // Expandable Vico chart
+            AnimatedVisibility(
+                visible = isExpanded && expandedRecords != null && expandedRecords.size >= 2,
+                enter = expandVertically(),
+                exit = shrinkVertically(),
+            ) {
+                if (expandedRecords != null && expandedRecords.size >= 2) {
+                    Column {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        HorizontalDivider()
+                        Spacer(modifier = Modifier.height(8.dp))
+                        ChargeSessionVicoChart(records = expandedRecords)
+                    }
+                }
+            }
         }
+    }
+}
+
+private val CapacityColor = Color(0xFF4CAF50)
+private val CurrentColor = Color(0xFF2196F3)
+private val TempColor = Color(0xFFF44336)
+
+@Composable
+private fun ChargeSessionVicoChart(records: List<ChargeStatRecord>) {
+    val capacityData = remember(records) { records.map { it.capacity.toDouble() } }
+    val currentData = remember(records) { records.map { it.currentMa.toDouble() } }
+    val tempData = remember(records) { records.map { it.temperatureCelsius } }
+
+    val seriesColors = listOf(CapacityColor, CurrentColor, TempColor)
+    val seriesLabels = listOf(
+        stringResource(R.string.session_chart_capacity),
+        stringResource(R.string.session_chart_current),
+        stringResource(R.string.session_chart_temp),
+    )
+
+    val modelProducer = remember { CartesianChartModelProducer() }
+    val bottomFormatter = remember(records) {
+        val dateFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+        CartesianValueFormatter { _, value, _ ->
+            val index = value.toInt().coerceIn(0, records.size - 1)
+            dateFormat.format(Date(records[index].timestamp))
+        }
+    }
+
+    LaunchedEffect(records) {
+        if (records.size < 2) return@LaunchedEffect
+        modelProducer.runTransaction {
+            lineSeries {
+                series(capacityData)
+                series(currentData)
+                series(tempData)
+            }
+            extras { it[LegendLabelKey] = seriesLabels }
+        }
+    }
+
+    ProvideVicoTheme(rememberM3VicoTheme()) {
+        val legendLabel = rememberTextComponent(
+            style = TextStyle(color = vicoTheme.textColor, fontSize = 11.sp),
+        )
+        val markerLabelColor = MaterialTheme.colorScheme.onSurface
+        val guidelineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+        val marker = rememberDefaultCartesianMarker(
+            label = rememberTextComponent(
+                style = TextStyle(color = markerLabelColor, fontSize = 10.sp),
+            ),
+            indicator = { color -> ShapeComponent(Fill(color), CircleShape) },
+            indicatorSize = 6.dp,
+            guideline = rememberLineComponent(fill = Fill(guidelineColor), thickness = 1.dp),
+        )
+
+        CartesianChartHost(
+            chart = rememberCartesianChart(
+                rememberLineCartesianLayer(
+                    LineCartesianLayer.LineProvider.series(
+                        seriesColors.map { color ->
+                            LineCartesianLayer.rememberLine(
+                                fill = LineCartesianLayer.LineFill.single(Fill(color)),
+                                areaFill = LineCartesianLayer.AreaFill.single(Fill(color.copy(alpha = 0.08f))),
+                            )
+                        }
+                    ),
+                ),
+                startAxis = VerticalAxis.rememberStart(
+                    valueFormatter = CartesianValueFormatter.decimal(),
+                ),
+                bottomAxis = HorizontalAxis.rememberBottom(
+                    valueFormatter = bottomFormatter,
+                ),
+                marker = marker,
+                markerController = CartesianMarkerController.rememberShowOnPress(),
+                legend = rememberHorizontalLegend(
+                    items = { extraStore ->
+                        extraStore[LegendLabelKey].forEachIndexed { index, label ->
+                            add(
+                                LegendItem(
+                                    icon = ShapeComponent(Fill(seriesColors[index]), CircleShape),
+                                    labelComponent = legendLabel,
+                                    label = label,
+                                )
+                            )
+                        }
+                    },
+                    iconSize = 8.dp,
+                    iconLabelSpacing = 4.dp,
+                    rowSpacing = 4.dp,
+                    columnSpacing = 12.dp,
+                    padding = Insets(top = 8.dp),
+                ),
+            ),
+            modelProducer = modelProducer,
+            modifier = Modifier.fillMaxWidth().height(200.dp),
+            scrollState = rememberVicoScrollState(scrollEnabled = true, initialScroll = Scroll.Absolute.Start),
+            zoomState = rememberVicoZoomState(zoomEnabled = true, initialZoom = Zoom.Content),
+        )
     }
 }
 

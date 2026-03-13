@@ -31,6 +31,7 @@ data class ChargeUiState(
     val sessions: List<ChargeStatSession> = emptyList(),
     val currentRecords: List<ChargeChartPoint> = emptyList(),
     val isChargeTracking: Boolean = false,
+    val expandedSessionRecords: Map<String, List<ChargeStatRecord>> = emptyMap(),
 )
 
 @HiltViewModel
@@ -45,6 +46,7 @@ class ChargeViewModel @Inject constructor(
     private val sessions = MutableStateFlow<List<ChargeStatSession>>(emptyList())
     private val currentRecords = MutableStateFlow<List<ChargeChartPoint>>(emptyList())
     private val isChargeTracking = MutableStateFlow(false)
+    private val expandedSessionRecords = MutableStateFlow<Map<String, List<ChargeStatRecord>>>(emptyMap())
 
     private var activeSessionId: Long? = null
     private var startCapacity: Int = 0
@@ -57,12 +59,15 @@ class ChargeViewModel @Inject constructor(
         sessions,
         currentRecords,
         isChargeTracking,
-    ) { battery, sessionList, records, tracking ->
+        expandedSessionRecords,
+    ) { values ->
+        @Suppress("UNCHECKED_CAST")
         ChargeUiState(
-            currentBattery = battery,
-            sessions = sessionList,
-            currentRecords = records,
-            isChargeTracking = tracking,
+            currentBattery = values[0] as BatteryStatus,
+            sessions = values[1] as List<ChargeStatSession>,
+            currentRecords = values[2] as List<ChargeChartPoint>,
+            isChargeTracking = values[3] as Boolean,
+            expandedSessionRecords = values[4] as Map<String, List<ChargeStatRecord>>,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -175,6 +180,19 @@ class ChargeViewModel @Inject constructor(
                 capacityWh = capacityWh,
             )
             currentRecords.value = emptyList()
+        }
+    }
+
+    fun onToggleSessionExpand(sessionId: String) {
+        val current = expandedSessionRecords.value
+        if (current.containsKey(sessionId)) {
+            expandedSessionRecords.value = current - sessionId
+        } else {
+            viewModelScope.launch {
+                val id = sessionId.toLongOrNull() ?: return@launch
+                val records = chargeRepository.getRecordsBySessionOnce(id)
+                expandedSessionRecords.value = expandedSessionRecords.value + (sessionId to records)
+            }
         }
     }
 
