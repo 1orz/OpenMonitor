@@ -6,7 +6,7 @@ import com.elvishew.xlog.LogLevel
 import com.elvishew.xlog.XLog
 import com.elvishew.xlog.printer.AndroidPrinter
 import com.elvishew.xlog.printer.file.FilePrinter
-import com.elvishew.xlog.printer.file.backup.FileSizeBackupStrategy
+import com.elvishew.xlog.printer.file.backup.FileSizeBackupStrategy2
 import com.elvishew.xlog.printer.file.clean.FileLastModifiedCleanStrategy
 import com.elvishew.xlog.printer.file.naming.DateFileNameGenerator
 import java.io.File
@@ -47,7 +47,7 @@ object AppLogger {
 
         val filePrinter = FilePrinter.Builder(dir.absolutePath)
             .fileNameGenerator(DateFileNameGenerator())
-            .backupStrategy(FileSizeBackupStrategy(MAX_FILE_SIZE))
+            .backupStrategy(FileSizeBackupStrategy2(MAX_FILE_SIZE, 3))
             .cleanStrategy(FileLastModifiedCleanStrategy(RETENTION_MS))
             .build()
 

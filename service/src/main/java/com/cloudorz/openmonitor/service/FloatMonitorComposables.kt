@@ -96,7 +96,7 @@ fun FloatLoadMonitorContent(service: FloatMonitorService) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                val tColor = if (showTemp) tempColor(tempVal!!) else TextSecondary
+                val tColor = if (showTemp) tempColor(tempVal) else TextSecondary
                 Image(
                     painter = painterResource(R.drawable.ic_temperature),
                     contentDescription = null,
@@ -363,7 +363,7 @@ fun FloatFpsContent(service: FloatMonitorService) {
             }
             val textColor = when {
                 isCountdown -> Color(0xFF2196F3)
-                fps != null -> fpsColor(fps!!)
+                fps != null -> fpsColor(fps)
                 else -> TextSecondary
             }
             Text(
