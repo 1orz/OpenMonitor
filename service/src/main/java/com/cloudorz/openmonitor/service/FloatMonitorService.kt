@@ -2,8 +2,10 @@ package com.cloudorz.openmonitor.service
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import android.os.IBinder
 import android.provider.Settings
 import android.util.Log
@@ -20,8 +22,11 @@ import com.cloudorz.openmonitor.core.data.datasource.DaemonManager
 import com.cloudorz.openmonitor.core.data.datasource.BatteryDataSource
 import com.cloudorz.openmonitor.core.data.datasource.CpuDataSource
 import com.cloudorz.openmonitor.core.data.datasource.GpuDataSource
+import com.cloudorz.openmonitor.core.data.datasource.AppInfoResolver
+import com.cloudorz.openmonitor.core.data.datasource.ProcessActionDataSource
 import com.cloudorz.openmonitor.core.data.datasource.ProcessDataSource
 import com.cloudorz.openmonitor.core.data.datasource.ThermalDataSource
+import com.cloudorz.openmonitor.core.model.process.ProcessFilterMode
 import com.cloudorz.openmonitor.core.model.process.ProcessInfo
 import com.cloudorz.openmonitor.core.model.process.ThreadInfo
 import com.cloudorz.openmonitor.core.model.thermal.ThermalZone
@@ -52,6 +57,7 @@ class FloatMonitorService : LifecycleService() {
         const val ACTION_ADD_MONITOR = "com.cloudorz.openmonitor.service.FLOAT_ADD"
         const val ACTION_REMOVE_MONITOR = "com.cloudorz.openmonitor.service.FLOAT_REMOVE"
         const val ACTION_UPDATE_POLL_SETTINGS = "com.cloudorz.openmonitor.service.UPDATE_POLL"
+        const val ACTION_SHOW_PANEL = "com.cloudorz.openmonitor.service.FLOAT_SHOW_PANEL"
         const val EXTRA_MONITOR_TYPE = "monitor_type"
 
         const val TYPE_LOAD = "LOAD_MONITOR"
@@ -60,6 +66,9 @@ class FloatMonitorService : LifecycleService() {
         const val TYPE_TEMPERATURE = "TEMPERATURE_MONITOR"
         const val TYPE_PROCESS = "PROCESS_MONITOR"
         const val TYPE_THREAD = "THREAD_MONITOR"
+
+        private const val CONTROL_PANEL_ID = "_control_panel"
+        private const val CONTROL_PANEL_BACKDROP_ID = "_control_panel_backdrop"
 
         private const val PREFS_NAME = "monitor_settings"
         private const val KEY_ENABLED_MONITORS = "enabled_monitors"
@@ -97,6 +106,8 @@ class FloatMonitorService : LifecycleService() {
     @Inject lateinit var thermalDataSource: ThermalDataSource
     @Inject lateinit var fpsDataSource: FpsDataSource
     @Inject lateinit var processDataSource: ProcessDataSource
+    @Inject lateinit var processActionDataSource: ProcessActionDataSource
+    @Inject lateinit var appInfoResolver: AppInfoResolver
     @Inject lateinit var permissionManager: PermissionManager
     @Inject lateinit var aggregatedMonitorDataSource: AggregatedMonitorDataSource
     @Inject lateinit var daemonLauncher: DaemonLauncher
@@ -127,15 +138,150 @@ class FloatMonitorService : LifecycleService() {
     val foregroundApp = MutableStateFlow("")
     val currentMa = MutableStateFlow<Int?>(null)
     val cpuCoreLoads = MutableStateFlow<List<Double>?>(null)
+    val cpuCoreFreqs = MutableStateFlow<List<Int>?>(null)
+    val gpuFreqMhz = MutableStateFlow<Int?>(null)
     val batteryTemp = MutableStateFlow<Double?>(null)
     val hasShellAccess = MutableStateFlow(false)
     val hasRootAccess = MutableStateFlow(false)
+    val activeMonitorIds = MutableStateFlow<Set<String>>(emptySet())
+
+    // Interactive process float state
+    val processFilterMode = MutableStateFlow(ProcessFilterMode.ALL)
+    val selectedProcessPid = MutableStateFlow<Int?>(null)
+    val killHintVisible = MutableStateFlow(false)
+    val processMinimized = MutableStateFlow(false)
+    val processLocked = MutableStateFlow(false)
+    val processAppIcons = MutableStateFlow<Map<String, Bitmap?>>(emptyMap())
+    private var lastKillTapPid: Int? = null
+    private var lastKillTapTime: Long = 0L
     val fpsInteracting = MutableStateFlow(false)
     val fpsShowDurationMenu = MutableStateFlow(false)
     val fpsRecordingState get() = fpsRecordingManager.state
     val fpsRecordingInfo get() = fpsRecordingManager.info
     private var fpsInteractionJob: Job? = null
     private var fpsDurationMenuJob: Job? = null
+
+    fun onProcessMinimizeToggle() {
+        processMinimized.value = !processMinimized.value
+        // Overlay windows with WRAP_CONTENT may not auto-resize when Compose content changes.
+        // Post a relayout after Compose recomposes to force the window to remeasure.
+        lifecycleScope.launch {
+            delay(50)
+            floatWindowManager.refreshWindowLayout(TYPE_PROCESS)
+        }
+    }
+
+    fun onProcessLockToggle() {
+        val newLocked = !processLocked.value
+        processLocked.value = newLocked
+        floatWindowManager.setWindowLocked(TYPE_PROCESS, newLocked)
+    }
+
+    fun onProcessClose() {
+        removeMonitor(TYPE_PROCESS)
+    }
+
+    fun moveProcessWindow(dx: Float, dy: Float) {
+        if (processLocked.value) return
+        val pos = floatWindowManager.getWindowPosition(TYPE_PROCESS) ?: return
+        floatWindowManager.updateWindowPosition(TYPE_PROCESS, pos.first + dx.toInt(), pos.second + dy.toInt())
+    }
+
+    fun saveProcessWindowPosition() {
+        floatWindowManager.saveWindowPosition(TYPE_PROCESS)
+    }
+
+    fun onProcessTapped(process: ProcessInfo) {
+        val now = System.currentTimeMillis()
+        if (process.pid == lastKillTapPid && now - lastKillTapTime < 3000L) {
+            // Second tap within 3s → kill
+            lifecycleScope.launch(Dispatchers.IO) {
+                processActionDataSource.killProcessSmart(process)
+            }
+            lastKillTapPid = null
+            selectedProcessPid.value = null
+            killHintVisible.value = false
+        } else {
+            // First tap → select
+            lastKillTapPid = process.pid
+            lastKillTapTime = now
+            selectedProcessPid.value = process.pid
+            killHintVisible.value = true
+            // Auto-hide hint after 3s
+            lifecycleScope.launch {
+                delay(3000)
+                if (selectedProcessPid.value == process.pid) {
+                    selectedProcessPid.value = null
+                    killHintVisible.value = false
+                    lastKillTapPid = null
+                }
+            }
+        }
+    }
+
+    fun onProcessFilterToggle() {
+        processFilterMode.value = when (processFilterMode.value) {
+            ProcessFilterMode.ALL -> ProcessFilterMode.APP_ONLY
+            ProcessFilterMode.APP_ONLY -> ProcessFilterMode.ALL
+        }
+    }
+
+    fun showControlPanel() {
+        if (floatWindowManager.isWindowActive(CONTROL_PANEL_ID)) {
+            dismissControlPanel()
+            return
+        }
+
+        val service = this
+
+        // Backdrop: full-screen, semi-transparent, clicking dismisses
+        floatWindowManager.addWindow(
+            id = CONTROL_PANEL_BACKDROP_ID,
+            width = WindowManager.LayoutParams.MATCH_PARENT,
+            height = WindowManager.LayoutParams.MATCH_PARENT,
+            x = 0, y = 0,
+            draggable = false,
+            onClick = { dismissControlPanel() },
+        ) {
+            FloatControlPanelBackdropContent()
+        }
+
+        // Update active monitor IDs for the panel to observe
+        updateActiveMonitorIds()
+
+        // Control panel: centered, not draggable
+        floatWindowManager.addWindow(
+            id = CONTROL_PANEL_ID,
+            width = WindowManager.LayoutParams.WRAP_CONTENT,
+            height = WindowManager.LayoutParams.WRAP_CONTENT,
+            centerHorizontal = true,
+            y = 300,
+            draggable = false,
+            onClick = { /* absorb clicks so they don't pass to backdrop */ },
+        ) {
+            FloatControlPanelContent(service)
+        }
+    }
+
+    fun dismissControlPanel() {
+        floatWindowManager.removeWindow(CONTROL_PANEL_ID)
+        floatWindowManager.removeWindow(CONTROL_PANEL_BACKDROP_ID)
+    }
+
+    fun toggleMonitorFromPanel(type: String) {
+        if (floatWindowManager.isWindowActive(type)) {
+            removeMonitor(type)
+        } else {
+            addMonitor(type)
+        }
+        updateActiveMonitorIds()
+    }
+
+    private fun updateActiveMonitorIds() {
+        activeMonitorIds.value = floatWindowManager.getActiveWindowIds()
+            .filter { !it.startsWith("_") }
+            .toSet()
+    }
 
     fun onFpsWindowClick() {
         when (fpsRecordingManager.state.value) {
@@ -211,6 +357,9 @@ class FloatMonitorService : LifecycleService() {
             ACTION_UPDATE_POLL_SETTINGS -> {
                 restartAllJobs()
             }
+            ACTION_SHOW_PANEL -> {
+                showControlPanel()
+            }
         }
 
         return START_STICKY
@@ -220,10 +369,23 @@ class FloatMonitorService : LifecycleService() {
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
             .edit { putBoolean(KEY_SERVICE_ACTIVE, true) }
 
+        val showPanelIntent = Intent(this, FloatMonitorService::class.java)
+            .setAction(ACTION_SHOW_PANEL)
+        val pendingIntent = PendingIntent.getService(
+            this, 0, showPanelIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.float_notification_title))
             .setContentText(getString(R.string.float_notification_text))
-            .setSmallIcon(android.R.drawable.ic_menu_info_details)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentIntent(pendingIntent)
+            .addAction(
+                R.drawable.ic_notification,
+                getString(R.string.float_notification_action_panel),
+                pendingIntent,
+            )
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
@@ -374,6 +536,7 @@ class FloatMonitorService : LifecycleService() {
                     width = WindowManager.LayoutParams.WRAP_CONTENT,
                     height = WindowManager.LayoutParams.WRAP_CONTENT,
                     y = 200,
+                    onDoubleTap = { removeMonitor(type) },
                 ) {
                     FloatLoadMonitorContent(service)
                 }
@@ -421,6 +584,7 @@ class FloatMonitorService : LifecycleService() {
                     width = WindowManager.LayoutParams.WRAP_CONTENT,
                     height = WindowManager.LayoutParams.WRAP_CONTENT,
                     y = 200,
+                    onDoubleTap = { removeMonitor(type) },
                 ) {
                     FloatTemperatureContent(service)
                 }
@@ -431,6 +595,8 @@ class FloatMonitorService : LifecycleService() {
                     width = WindowManager.LayoutParams.WRAP_CONTENT,
                     height = WindowManager.LayoutParams.WRAP_CONTENT,
                     y = 200,
+                    draggable = false,
+                    onClick = { /* touchable but not draggable — drag handled in Compose header */ },
                 ) {
                     FloatProcessContent(service)
                 }
@@ -441,6 +607,7 @@ class FloatMonitorService : LifecycleService() {
                     width = WindowManager.LayoutParams.WRAP_CONTENT,
                     height = WindowManager.LayoutParams.WRAP_CONTENT,
                     y = 200,
+                    onDoubleTap = { removeMonitor(type) },
                 ) {
                     FloatThreadContent(service)
                 }
@@ -472,14 +639,20 @@ class FloatMonitorService : LifecycleService() {
 
         saveEnabledMonitors()
 
-        if (floatWindowManager.getActiveWindowIds().isEmpty()) {
+        val remainingMonitors = floatWindowManager.getActiveWindowIds()
+            .filter { !it.startsWith("_") }
+        if (remainingMonitors.isEmpty()) {
+            dismissControlPanel()
             stopFloatService()
         }
     }
 
     private fun saveEnabledMonitors() {
+        val monitorIds = floatWindowManager.getActiveWindowIds()
+            .filter { !it.startsWith("_") }
+            .toSet()
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-            .edit { putStringSet(KEY_ENABLED_MONITORS, floatWindowManager.getActiveWindowIds()) }
+            .edit { putStringSet(KEY_ENABLED_MONITORS, monitorIds) }
     }
 
     private fun getPollInterval(): Long =
@@ -515,6 +688,8 @@ class FloatMonitorService : LifecycleService() {
         cpuLoad.value = snapshot.cpuLoadPercent
         gpuLoad.value = snapshot.gpuLoadPercent
         cpuTemp.value = snapshot.cpuTempCelsius
+        cpuCoreFreqs.value = snapshot.cpuCoreFreqs
+        gpuFreqMhz.value = snapshot.gpuFreqMhz
 
         val batteryInfo = batteryDataSource.getBatteryStatus()
         batteryLevel.value = batteryInfo.capacity
@@ -529,6 +704,8 @@ class FloatMonitorService : LifecycleService() {
         cpuTemp.value = snapshot.cpuTempCelsius
         currentMa.value = snapshot.batteryCurrentMa
         cpuCoreLoads.value = snapshot.cpuCoreLoads
+        cpuCoreFreqs.value = snapshot.cpuCoreFreqs
+        gpuFreqMhz.value = snapshot.gpuFreqMhz
 
         try {
             batteryTemp.value = batteryDataSource.getBatteryStatus().temperatureCelsius
@@ -576,7 +753,25 @@ class FloatMonitorService : LifecycleService() {
     }
 
     private suspend fun collectProcessData() {
-        topProcesses.value = processDataSource.getTopProcesses(8)
+        if (processMinimized.value) return // Skip collection when minimized
+        val all = processDataSource.getProcessList()
+        val filtered = when (processFilterMode.value) {
+            ProcessFilterMode.ALL -> all
+            ProcessFilterMode.APP_ONLY -> all.filter { it.isAndroidApp }
+        }
+        val result = filtered.take(15)
+        topProcesses.value = result
+
+        // Load app icons for Android apps
+        val iconMap = processAppIcons.value.toMutableMap()
+        var changed = false
+        result.forEach { proc ->
+            if (proc.isAndroidApp && proc.packageName !in iconMap) {
+                iconMap[proc.packageName] = appInfoResolver.resolveIcon(proc.packageName)
+                changed = true
+            }
+        }
+        if (changed) processAppIcons.value = iconMap
     }
 
     private suspend fun collectThreadData() {
@@ -593,8 +788,34 @@ class FloatMonitorService : LifecycleService() {
 
     private suspend fun getForegroundAppPid(): Pair<Int, String>? {
         return try {
-            val top = processDataSource.getTopProcesses(1).firstOrNull()
-            top?.let { it.pid to it.name }
+            val processes = processDataSource.getProcessList()
+
+            // 1. 从 AccessibilityService 获取前台包名
+            val fgPackage = if (AccessibilityMonitorService.isActive) {
+                AccessibilityMonitorService.foregroundPackage
+            } else ""
+            if (fgPackage.isNotEmpty()) {
+                val match = processes.firstOrNull { it.packageName == fgPackage }
+                    ?: processes.firstOrNull { it.name == fgPackage }
+                if (match != null) return match.pid to (match.packageName.ifEmpty { match.name })
+            }
+
+            // 2. 回退：通过 dumpsys 获取前台应用
+            val result = withContext(Dispatchers.IO) {
+                shellExecutor.execute("dumpsys activity activities 2>/dev/null | grep mResumedActivity")
+            }
+            if (result.isSuccess && result.stdout.isNotBlank()) {
+                // 格式: mResumedActivity: ActivityRecord{hash u0 com.example.app/.Activity tN}
+                val line = result.stdout.trim()
+                val componentPart = line.split("\\s+".toRegex()).find { it.contains("/") }
+                val pkg = componentPart?.substringBefore("/")?.takeIf { it.contains(".") }
+                if (pkg != null) {
+                    val match = processes.firstOrNull { it.packageName == pkg }
+                        ?: processes.firstOrNull { it.name == pkg }
+                    if (match != null) return match.pid to (match.packageName.ifEmpty { match.name })
+                }
+            }
+            null
         } catch (e: Exception) {
             Log.w(TAG, "getForegroundAppPid failed", e)
             null

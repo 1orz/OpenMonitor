@@ -11,6 +11,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
@@ -21,6 +22,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -51,7 +56,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.shape.CircleShape
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 
@@ -77,6 +86,8 @@ fun FloatLoadMonitorContent(service: FloatMonitorService) {
     val mem by service.memUsed.collectAsState()
     val bat by service.batteryLevel.collectAsState()
     val temp by service.cpuTemp.collectAsState()
+    val coreFreqs by service.cpuCoreFreqs.collectAsState()
+    val gpuFreq by service.gpuFreqMhz.collectAsState()
 
     Box(
         modifier = Modifier
@@ -86,7 +97,23 @@ fun FloatLoadMonitorContent(service: FloatMonitorService) {
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
             LoadBar("CPU", cpu?.toFloat(), CpuColor)
+            val freqs = coreFreqs
+            if (freqs != null && freqs.isNotEmpty()) {
+                Text(
+                    text = "${freqs.min()}-${freqs.max()} MHz",
+                    style = MonoStyle.copy(fontSize = 8.sp, color = TextSecondary),
+                    modifier = Modifier.padding(start = 28.dp),
+                )
+            }
             LoadBar("GPU", gpu?.toFloat(), GpuColor)
+            val gpuFreqVal = gpuFreq
+            if (gpuFreqVal != null && gpuFreqVal > 0) {
+                Text(
+                    text = "$gpuFreqVal MHz",
+                    style = MonoStyle.copy(fontSize = 8.sp, color = TextSecondary),
+                    modifier = Modifier.padding(start = 28.dp),
+                )
+            }
             LoadBar("RAM", mem?.toFloat(), MemColor)
             LoadBar("BAT", bat.toFloat(), BatColor)
             val tempVal = temp
@@ -156,6 +183,8 @@ fun FloatMiniMonitorContent(service: FloatMonitorService) {
     val hasShell by service.hasShellAccess.collectAsState()
     val mA by service.currentMa.collectAsState()
     val coreLoads by service.cpuCoreLoads.collectAsState()
+    val coreFreqs by service.cpuCoreFreqs.collectAsState()
+    val gpuFreq by service.gpuFreqMhz.collectAsState()
     val batTemp by service.batteryTemp.collectAsState()
 
     // Alternate between battery current and battery temp every 3s
@@ -195,10 +224,20 @@ fun FloatMiniMonitorContent(service: FloatMonitorService) {
             }
             val cpuVal = cpu
             MiniText(if (cpuVal != null) "%3d%%".format(cpuVal.toInt()) else " --%")
+            val freqs = coreFreqs
+            if (freqs != null && freqs.isNotEmpty()) {
+                MiniText("${freqs.max()}M", TextSecondary)
+            }
 
             val gpuVal = gpu
+            val gpuFreqVal = gpuFreq
             if (gpuVal != null) {
-                MiniIconLabel(R.drawable.ic_gpu, "%3d%%".format(gpuVal.toInt()), Color.White)
+                val gpuText = if (gpuFreqVal != null && gpuFreqVal > 0) {
+                    "%d%%/%dM".format(gpuVal.toInt(), gpuFreqVal)
+                } else {
+                    "%3d%%".format(gpuVal.toInt())
+                }
+                MiniIconLabel(R.drawable.ic_gpu, gpuText, Color.White)
             }
             val tempVal = temp
             val tempText = if (tempVal != null) "%3.0f\u00B0".format(tempVal) else " --\u00B0"
@@ -461,7 +500,7 @@ fun FloatTemperatureContent(service: FloatMonitorService) {
 
     Box(
         modifier = Modifier
-            .width(220.dp)
+            .width(160.dp)
             .background(BG, RoundedCornerShape(8.dp))
             .padding(10.dp),
     ) {
@@ -516,35 +555,164 @@ private fun ThermalRow(label: String, temp: Double) {
     }
 }
 
+// ---- Process Monitor (Scene-style) ----
+
+private val ProcessBG = Color(0xDDFFFFFF)
+private val ProcessTextPrimary = Color(0xFF1A1A1A)
+private val ProcessTextSecondary = Color(0xFF666666)
+private val ProcessHeaderIcon = Color(0xFF888888)
+
 @Composable
 fun FloatProcessContent(service: FloatMonitorService) {
     val processes by service.topProcesses.collectAsState()
     val hasShell by service.hasShellAccess.collectAsState()
+    val filterMode by service.processFilterMode.collectAsState()
+    val selectedPid by service.selectedProcessPid.collectAsState()
+    val minimized by service.processMinimized.collectAsState()
+    val locked by service.processLocked.collectAsState()
+    val appIcons by service.processAppIcons.collectAsState()
+
+    val shape = RoundedCornerShape(if (minimized) 6.dp else 10.dp)
 
     Box(
         modifier = Modifier
-            .width(240.dp)
-            .background(BG, RoundedCornerShape(8.dp))
-            .padding(10.dp),
+            .then(if (minimized) Modifier else Modifier.width(185.dp))
+            .background(ProcessBG, shape)
+            .padding(
+                top = if (minimized) 3.dp else 6.dp,
+                bottom = if (minimized) 3.dp else 8.dp,
+                start = if (minimized) 6.dp else 8.dp,
+                end = if (minimized) 4.dp else 8.dp,
+            ),
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = "TOP PROCESSES",
-                style = MonoStyle.copy(fontSize = 10.sp, color = TextSecondary, letterSpacing = 0.5.sp),
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-
-            if (!hasShell) {
-                Text("需要 Shell 权限", style = TextStyle(fontSize = 9.sp, color = Color(0xFFFFC107)))
-            } else if (processes.isEmpty()) {
-                Text("加载中...", style = TextStyle(fontSize = 9.sp, color = TextSecondary))
-            } else {
-                processes.forEach { proc ->
-                    ProcessRow(
-                        name = proc.name.substringAfterLast('/').substringAfterLast(':'),
-                        cpu = proc.cpuPercent,
-                        memMb = proc.rssKB / 1024.0,
+        Column(modifier = if (minimized) Modifier else Modifier.fillMaxWidth()) {
+            if (minimized) {
+                // 折叠态：紧凑一行 [ 📌 进程管理  ↗ ]
+                Row(
+                    modifier = Modifier
+                        .pointerInput(locked) {
+                            if (!locked) {
+                                detectDragGestures(
+                                    onDrag = { _, d -> service.moveProcessWindow(d.x, d.y) },
+                                    onDragEnd = { service.saveProcessWindowPosition() },
+                                )
+                            }
+                        },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.dialog_pin),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(14.dp)
+                            .alpha(if (locked) 1f else 0.3f)
+                            .clickable { service.onProcessLockToggle() },
                     )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "进程管理",
+                        style = TextStyle(fontSize = 10.sp, color = ProcessTextPrimary),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Image(
+                        painter = painterResource(R.drawable.dialog_maximize),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(14.dp)
+                            .clickable { service.onProcessMinimizeToggle() },
+                    )
+                }
+            } else {
+                // 展开态完整 header — 可拖拽
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .pointerInput(locked) {
+                            if (!locked) {
+                                detectDragGestures(
+                                    onDrag = { _, d -> service.moveProcessWindow(d.x, d.y) },
+                                    onDragEnd = { service.saveProcessWindowPosition() },
+                                )
+                            }
+                        },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.dialog_pin),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(14.dp)
+                            .alpha(if (locked) 1f else 0.3f)
+                            .clickable { service.onProcessLockToggle() },
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "进程管理",
+                        style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Medium, color = ProcessTextPrimary),
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (hasShell) {
+                        Text(
+                            text = when (filterMode) {
+                                com.cloudorz.openmonitor.core.model.process.ProcessFilterMode.ALL -> "全部"
+                                com.cloudorz.openmonitor.core.model.process.ProcessFilterMode.APP_ONLY -> "应用"
+                            },
+                            style = TextStyle(fontSize = 9.sp, color = Color(0xFF2196F3)),
+                            modifier = Modifier
+                                .clickable { service.onProcessFilterToggle() }
+                                .padding(horizontal = 4.dp, vertical = 2.dp),
+                        )
+                    }
+                    Image(
+                        painter = painterResource(R.drawable.dialog_minimize),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(14.dp)
+                            .clickable { service.onProcessMinimizeToggle() }
+                            .padding(1.dp),
+                    )
+                    Spacer(modifier = Modifier.width(2.dp))
+                    Image(
+                        painter = painterResource(R.drawable.dialog_close),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(14.dp)
+                            .clickable { service.onProcessClose() }
+                            .padding(1.dp),
+                    )
+                }
+
+                // 进程列表
+                Spacer(modifier = Modifier.height(4.dp))
+                Box(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFFE0E0E0)))
+                Spacer(modifier = Modifier.height(3.dp))
+
+                if (!hasShell) {
+                    Text("需要 Shell 权限", style = TextStyle(fontSize = 10.sp, color = Color(0xFFFFC107)), modifier = Modifier.padding(vertical = 8.dp))
+                } else if (processes.isEmpty()) {
+                    Text("加载中...", style = TextStyle(fontSize = 10.sp, color = ProcessTextSecondary), modifier = Modifier.padding(vertical = 8.dp))
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 160.dp),
+                    ) {
+                        items(processes, key = { it.pid }) { proc ->
+                            ProcessRow(
+                                name = proc.displayName,
+                                cpu = proc.cpuPercent,
+                                icon = if (proc.isAndroidApp) appIcons[proc.packageName] else null,
+                                isSelected = proc.pid == selectedPid,
+                                onClick = { service.onProcessTapped(proc) },
+                            )
+                        }
+                    }
+                    if (selectedPid != null) {
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = "再次点击结束",
+                            style = TextStyle(fontSize = 8.sp, color = Color(0xFFF44336).copy(alpha = 0.7f)),
+                            modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
+                        )
+                    }
                 }
             }
         }
@@ -552,36 +720,58 @@ fun FloatProcessContent(service: FloatMonitorService) {
 }
 
 @Composable
-private fun ProcessRow(name: String, cpu: Double, memMb: Double) {
+private fun ProcessRow(
+    name: String,
+    cpu: Double,
+    icon: Bitmap? = null,
+    isSelected: Boolean = false,
+    onClick: () -> Unit,
+) {
+    val bgColor = if (isSelected) Color(0x22F44336) else Color.Transparent
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 1.dp),
+            .background(bgColor, RoundedCornerShape(4.dp))
+            .clickable { onClick() }
+            .padding(vertical = 3.dp, horizontal = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // App icon
+        if (icon != null) {
+            Image(
+                bitmap = icon.asImageBitmap(),
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+            )
+        } else {
+            Image(
+                painter = painterResource(R.drawable.ic_cpu),
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                colorFilter = ColorFilter.tint(Color(0xFF999999)),
+            )
+        }
+        Spacer(modifier = Modifier.width(6.dp))
+        // Name (up to 2 lines)
         Text(
             text = name,
-            style = TextStyle(fontSize = 9.sp, color = TextPrimary),
-            maxLines = 1,
+            style = TextStyle(fontSize = 9.sp, color = ProcessTextPrimary),
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        Spacer(modifier = Modifier.width(4.dp))
+        Spacer(modifier = Modifier.width(6.dp))
+        // CPU %
         Text(
-            text = "%4.1f%%".format(cpu),
+            text = if (cpu >= 10) "%.1f%%".format(cpu) else "%.1f%%".format(cpu),
             style = MonoStyle.copy(
                 fontSize = 9.sp,
                 color = when {
                     cpu >= 20 -> Color(0xFFF44336)
                     cpu >= 5 -> Color(0xFFFFC107)
-                    else -> Color(0xFF4CAF50)
+                    else -> ProcessTextSecondary
                 },
             ),
-        )
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(
-            text = "%3dM".format(memMb.toInt()),
-            style = MonoStyle.copy(fontSize = 9.sp, color = TextSecondary),
         )
     }
 }
@@ -594,7 +784,7 @@ fun FloatThreadContent(service: FloatMonitorService) {
 
     Box(
         modifier = Modifier
-            .width(220.dp)
+            .width(180.dp)
             .background(BG, RoundedCornerShape(8.dp))
             .padding(10.dp),
     ) {
@@ -653,6 +843,109 @@ fun FloatThreadContent(service: FloatMonitorService) {
                 }
             }
         }
+    }
+}
+
+// ---- Control Panel ----
+
+@Composable
+fun FloatControlPanelBackdropContent() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .fillMaxHeight()
+            .background(Color(0x55000000)),
+    )
+}
+
+@Composable
+fun FloatControlPanelContent(service: FloatMonitorService) {
+    val activeIds by service.activeMonitorIds.collectAsState()
+
+    val monitorTypes = listOf(
+        FloatMonitorService.TYPE_LOAD to "负载",
+        FloatMonitorService.TYPE_MINI to "迷你",
+        FloatMonitorService.TYPE_FPS to "FPS",
+        FloatMonitorService.TYPE_TEMPERATURE to "温度",
+        FloatMonitorService.TYPE_PROCESS to "进程",
+        FloatMonitorService.TYPE_THREAD to "线程",
+    )
+
+    Box(
+        modifier = Modifier
+            .width(220.dp)
+            .background(Color(0xF0FFFFFF), RoundedCornerShape(12.dp))
+            .padding(14.dp),
+    ) {
+        Column {
+            // 标题 + 关闭
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = "OpenMonitor",
+                    style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color(0xFF1A1A1A)),
+                )
+                Image(
+                    painter = painterResource(R.drawable.dialog_close),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clickable { service.dismissControlPanel() },
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            // 2x3 toggle grid
+            val rows = monitorTypes.chunked(3)
+            rows.forEach { row ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    row.forEach { (typeId, name) ->
+                        val isActive = typeId in activeIds
+                        PanelToggleButton(
+                            name = name,
+                            isActive = isActive,
+                            onClick = { service.toggleMonitorFromPanel(typeId) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    // 填充不满的列
+                    repeat(3 - row.size) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun PanelToggleButton(
+    name: String,
+    isActive: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val bg = if (isActive) Color(0xFF42A5F5) else Color(0xFFE0E0E0)
+    val textColor = if (isActive) Color.White else Color(0xFF888888)
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(bg)
+            .clickable { onClick() }
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = name,
+            style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Medium, color = textColor),
+        )
     }
 }
 

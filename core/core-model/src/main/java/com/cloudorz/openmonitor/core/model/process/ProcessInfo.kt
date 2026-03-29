@@ -1,5 +1,10 @@
 package com.cloudorz.openmonitor.core.model.process
 
+enum class ProcessFilterMode {
+    ALL,
+    APP_ONLY,
+}
+
 enum class ProcessState(val code: Char, val displayName: String) {
     RUNNING('R', "Running"),
     SLEEPING('S', "Sleeping"),
@@ -37,6 +42,8 @@ data class ProcessInfo(
     val oomAdj: Int = 0,
     val oomScore: Int = 0,
     val oomScoreAdj: Int = 0,
+    val packageName: String = "",
+    val appLabel: String = "",
 ) {
     val isZombie: Boolean
         get() = state == ProcessState.ZOMBIE
@@ -44,8 +51,11 @@ data class ProcessInfo(
     val isRunning: Boolean
         get() = state == ProcessState.RUNNING
 
+    val isAndroidApp: Boolean
+        get() = packageName.isNotEmpty()
+
     val displayName: String
-        get() = friendlyName.ifEmpty { name.ifEmpty { command } }
+        get() = appLabel.ifEmpty { friendlyName.ifEmpty { name.ifEmpty { command } } }
 
     val memMB: Double
         get() = memKB / 1024.0

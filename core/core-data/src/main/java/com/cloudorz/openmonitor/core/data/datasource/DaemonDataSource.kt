@@ -102,6 +102,11 @@ class DaemonDataSource @Inject constructor(
             } else null
             val cpuLoad = cpuCoreLoads?.average()
 
+            val cpuFreqArr = if (!obj.isNull("cpu_freq")) obj.optJSONArray("cpu_freq") else null
+            val cpuCoreFreqs = if (cpuFreqArr != null && cpuFreqArr.length() > 0) {
+                (0 until cpuFreqArr.length()).map { cpuFreqArr.getInt(it) }
+            } else null
+
             // FPS: null in JSON → null FpsData; 0.0 → valid FpsData(fps=0)
             val fpsData = if (!obj.isNull("fps")) {
                 val fps = obj.getDouble("fps")
@@ -126,6 +131,7 @@ class DaemonDataSource @Inject constructor(
             MonitorSnapshot(
                 cpuLoadPercent = cpuLoad,
                 cpuCoreLoads = cpuCoreLoads,
+                cpuCoreFreqs = cpuCoreFreqs,
                 gpuLoadPercent = gpuLoad,
                 gpuFreqMhz = gpuFreq,
                 cpuTempCelsius = temp,

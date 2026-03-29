@@ -2,11 +2,16 @@ package com.cloudorz.openmonitor.feature.process
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.cloudorz.openmonitor.core.common.PermissionManager
+import com.cloudorz.openmonitor.core.common.PrivilegeMode
 import com.cloudorz.openmonitor.core.data.repository.ProcessRepository
+import com.cloudorz.openmonitor.core.model.process.ProcessFilterMode
 import com.cloudorz.openmonitor.core.model.process.ProcessInfo
 import com.cloudorz.openmonitor.core.model.process.ThreadInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -23,18 +28,25 @@ data class ProcessUiState(
     val threads: List<ThreadInfo> = emptyList(),
     val searchQuery: String = "",
     val sortBy: SortBy = SortBy.CPU,
+    val filterMode: ProcessFilterMode = ProcessFilterMode.ALL,
+    val canKill: Boolean = false,
     val isLoading: Boolean = true,
 )
 
 @HiltViewModel
 class ProcessViewModel @Inject constructor(
     private val processRepository: ProcessRepository,
+    private val permissionManager: PermissionManager,
 ) : ViewModel() {
 
     private val searchQuery = MutableStateFlow("")
     private val sortBy = MutableStateFlow(SortBy.CPU)
+    private val filterMode = MutableStateFlow(ProcessFilterMode.ALL)
     private val selectedProcess = MutableStateFlow<ProcessInfo?>(null)
     private val threads = MutableStateFlow<List<ThreadInfo>>(emptyList())
+
+    private val _killResult = MutableSharedFlow<String>()
+    val killResult: SharedFlow<String> = _killResult
 
     private val processFlow = processRepository.observeProcessList(3000L)
 
@@ -43,10 +55,15 @@ class ProcessViewModel @Inject constructor(
         searchQuery,
         sortBy,
         selectedProcess,
-        threads,
-    ) { processes, query, sort, selected, threadList ->
+        combine(threads, filterMode) { t, f -> t to f },
+    ) { processes, query, sort, selected, (threadList, filter) ->
+        val canKill = permissionManager.currentMode.value.let {
+            it == PrivilegeMode.ROOT || it == PrivilegeMode.ADB || it == PrivilegeMode.SHIZUKU
+        }
+
         val filtered = processes
             .filter { process ->
+                if (filter == ProcessFilterMode.APP_ONLY && !process.isAndroidApp) return@filter false
                 if (query.isBlank()) true
                 else {
                     val lowerQuery = query.lowercase()
@@ -76,6 +93,8 @@ class ProcessViewModel @Inject constructor(
             threads = threadList,
             searchQuery = query,
             sortBy = sort,
+            filterMode = filter,
+            canKill = canKill,
             isLoading = false,
         )
     }.stateIn(
@@ -92,6 +111,10 @@ class ProcessViewModel @Inject constructor(
         sortBy.value = sort
     }
 
+    fun onFilterModeChanged(mode: ProcessFilterMode) {
+        filterMode.value = mode
+    }
+
     fun onProcessSelected(process: ProcessInfo) {
         selectedProcess.value = process
         threads.value = emptyList()
@@ -103,5 +126,16 @@ class ProcessViewModel @Inject constructor(
     fun onProcessDismissed() {
         selectedProcess.value = null
         threads.value = emptyList()
+    }
+
+    fun killProcess(process: ProcessInfo) {
+        viewModelScope.launch {
+            val result = processRepository.killProcess(process)
+            _killResult.emit(
+                if (result.isSuccess) "已结束 ${process.displayName}"
+                else "结束失败: ${result.stderr}"
+            )
+            selectedProcess.value = null
+        }
     }
 }

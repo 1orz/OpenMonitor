@@ -47,6 +47,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.cloudorz.openmonitor.core.model.process.ProcessFilterMode
 import com.cloudorz.openmonitor.core.model.process.ProcessInfo
 import com.cloudorz.openmonitor.core.ui.component.SectionHeader
 import com.cloudorz.openmonitor.core.ui.theme.ChartGreen
@@ -63,6 +64,7 @@ fun ProcessScreen(
         uiState = uiState,
         onSearchQueryChanged = viewModel::onSearchQueryChanged,
         onSortByChanged = viewModel::onSortByChanged,
+        onFilterModeChanged = viewModel::onFilterModeChanged,
         onProcessSelected = viewModel::onProcessSelected,
         modifier = Modifier,
     )
@@ -71,6 +73,8 @@ fun ProcessScreen(
         ProcessDetailSheet(
             process = uiState.selectedProcess!!,
             threads = uiState.threads,
+            canKill = uiState.canKill,
+            onKillProcess = viewModel::killProcess,
             onDismiss = viewModel::onProcessDismissed,
         )
     }
@@ -82,6 +86,7 @@ private fun ProcessScreenContent(
     uiState: ProcessUiState,
     onSearchQueryChanged: (String) -> Unit,
     onSortByChanged: (SortBy) -> Unit,
+    onFilterModeChanged: (ProcessFilterMode) -> Unit,
     onProcessSelected: (ProcessInfo) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -95,10 +100,12 @@ private fun ProcessScreenContent(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         )
 
-        // Sort chips row
-        SortChipsRow(
+        // Filter + Sort chips row
+        FilterAndSortChipsRow(
             selectedSort = uiState.sortBy,
+            selectedFilter = uiState.filterMode,
             onSortSelected = onSortByChanged,
+            onFilterSelected = onFilterModeChanged,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 4.dp),
@@ -196,15 +203,39 @@ private fun ProcessSearchBar(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SortChipsRow(
+private fun FilterAndSortChipsRow(
     selectedSort: SortBy,
+    selectedFilter: ProcessFilterMode,
     onSortSelected: (SortBy) -> Unit,
+    onFilterSelected: (ProcessFilterMode) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     FlowRow(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        // Filter: All / App
+        ProcessFilterMode.entries.forEach { mode ->
+            FilterChip(
+                selected = selectedFilter == mode,
+                onClick = { onFilterSelected(mode) },
+                label = {
+                    Text(
+                        text = when (mode) {
+                            ProcessFilterMode.ALL -> "All"
+                            ProcessFilterMode.APP_ONLY -> "App"
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    selectedLabelColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                ),
+            )
+        }
+
+        // Sort chips
         SortBy.entries.forEach { sort ->
             FilterChip(
                 selected = selectedSort == sort,

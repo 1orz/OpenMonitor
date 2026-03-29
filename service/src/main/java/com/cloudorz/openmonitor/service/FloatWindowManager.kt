@@ -9,6 +9,8 @@ import android.util.Log
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.os.Handler
+import android.os.Looper
 import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.widget.FrameLayout
@@ -51,6 +53,8 @@ class FloatWindowManager(private val context: Context) {
         aboveStatusBar: Boolean = false,
         onInteraction: ((Boolean) -> Unit)? = null,
         onClick: (() -> Unit)? = null,
+        onLongClick: (() -> Unit)? = null,
+        onDoubleTap: (() -> Unit)? = null,
         content: @Composable () -> Unit,
     ) {
         if (activeWindows.containsKey(id)) {
@@ -60,17 +64,16 @@ class FloatWindowManager(private val context: Context) {
         val baseFlags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
 
-        val flags = if (aboveStatusBar) {
-            baseFlags or
+        val flags = when {
+            aboveStatusBar -> baseFlags or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
                 @Suppress("DEPRECATION")
                 WindowManager.LayoutParams.FLAG_FULLSCREEN or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-        } else if (draggable) {
-            baseFlags
-        } else {
-            baseFlags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+            draggable -> baseFlags
+            onClick != null -> baseFlags // touchable but non-draggable (control panel)
+            else -> baseFlags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
         }
 
         val windowType = if (useAccessibilityOverlay) {
@@ -110,19 +113,33 @@ class FloatWindowManager(private val context: Context) {
         }
 
         // Wrap in DraggableFrameLayout for proper drag + Compose click coexistence
-        val rootView: View = if (draggable) {
-            DraggableFrameLayout(context, onInteraction, onClick, onDragEnd = { px, py ->
-                posPrefs.edit {
-                    putInt("${id}_x", px)
-                    putInt("${id}_y", py)
+        val rootView: View = when {
+            draggable -> {
+                DraggableFrameLayout(context, onInteraction, onClick, onLongClick, onDoubleTap, onDragEnd = { px, py ->
+                    posPrefs.edit {
+                        putInt("${id}_x", px)
+                        putInt("${id}_y", py)
+                    }
+                }).apply {
+                    windowParams = params
+                    this.windowMgr = this@FloatWindowManager.windowManager
+                    addView(composeView, FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.WRAP_CONTENT,
+                        FrameLayout.LayoutParams.WRAP_CONTENT,
+                    ))
                 }
-            }).apply {
-                windowParams = params
-                this.windowMgr = this@FloatWindowManager.windowManager
-                addView(composeView)
             }
-        } else {
-            composeView
+            onClick != null -> {
+                // Touchable but non-draggable (e.g. control panel backdrop)
+                FrameLayout(context).apply {
+                    setOnClickListener { onClick.invoke() }
+                    addView(composeView, FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.WRAP_CONTENT,
+                        FrameLayout.LayoutParams.WRAP_CONTENT,
+                    ))
+                }
+            }
+            else -> composeView
         }
 
         // Set lifecycle on root view so Compose's WindowRecomposer can find it
@@ -156,14 +173,59 @@ class FloatWindowManager(private val context: Context) {
 
     fun getActiveWindowIds(): Set<String> = activeWindows.keys.toSet()
 
+    fun updateWindowPosition(id: String, x: Int, y: Int) {
+        val window = activeWindows[id] ?: return
+        window.params.x = x
+        window.params.y = y
+        try {
+            windowManager.updateViewLayout(window.view, window.params)
+        } catch (e: Exception) {
+            Log.d(TAG, "updateWindowPosition($id) failed", e)
+        }
+    }
+
+    fun getWindowPosition(id: String): Pair<Int, Int>? {
+        val window = activeWindows[id] ?: return null
+        return window.params.x to window.params.y
+    }
+
+    fun saveWindowPosition(id: String) {
+        val window = activeWindows[id] ?: return
+        posPrefs.edit {
+            putInt("${id}_x", window.params.x)
+            putInt("${id}_y", window.params.y)
+        }
+    }
+
+    fun refreshWindowLayout(id: String) {
+        val window = activeWindows[id] ?: return
+        try {
+            window.view.requestLayout()
+            windowManager.updateViewLayout(window.view, window.params)
+        } catch (e: Exception) {
+            Log.d(TAG, "refreshWindowLayout($id) failed", e)
+        }
+    }
+
+    fun setWindowLocked(id: String, locked: Boolean) {
+        val window = activeWindows[id] ?: return
+        val rootView = window.view
+        if (rootView is DraggableFrameLayout) {
+            rootView.isLocked = locked
+        }
+    }
+
     private class DraggableFrameLayout(
         context: Context,
         private val onInteraction: ((Boolean) -> Unit)? = null,
         private val onClick: (() -> Unit)? = null,
+        private val onLongClick: (() -> Unit)? = null,
+        private val onDoubleTap: (() -> Unit)? = null,
         private val onDragEnd: ((Int, Int) -> Unit)? = null,
     ) : FrameLayout(context) {
         var windowParams: WindowManager.LayoutParams? = null
         var windowMgr: WindowManager? = null
+        var isLocked: Boolean = false
 
         private var initialX = 0
         private var initialY = 0
@@ -171,6 +233,20 @@ class FloatWindowManager(private val context: Context) {
         private var initialTouchY = 0f
         private var isDragging = false
         private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+
+        // Long-press detection
+        private val handler = Handler(Looper.getMainLooper())
+        private var longPressTriggered = false
+        private val longPressRunnable = Runnable {
+            if (!isDragging) {
+                longPressTriggered = true
+                onLongClick?.invoke()
+            }
+        }
+
+        // Double-tap detection
+        private var lastClickTime = 0L
+        private val doubleTapTimeout = ViewConfiguration.getDoubleTapTimeout().toLong()
 
         override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
             when (ev.actionMasked) {
@@ -180,15 +256,24 @@ class FloatWindowManager(private val context: Context) {
                     initialTouchX = ev.rawX
                     initialTouchY = ev.rawY
                     isDragging = false
+                    longPressTriggered = false
                     onInteraction?.invoke(true)
+                    if (onLongClick != null) {
+                        handler.postDelayed(longPressRunnable, ViewConfiguration.getLongPressTimeout().toLong())
+                    }
                 }
                 MotionEvent.ACTION_MOVE -> {
+                    if (isLocked) return false // Don't intercept drag when locked
                     val dx = ev.rawX - initialTouchX
                     val dy = ev.rawY - initialTouchY
                     if (dx * dx + dy * dy > touchSlop * touchSlop) {
                         isDragging = true
+                        handler.removeCallbacks(longPressRunnable)
                         return true // Steal the gesture for drag
                     }
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    handler.removeCallbacks(longPressRunnable)
                 }
             }
             return false
@@ -202,6 +287,7 @@ class FloatWindowManager(private val context: Context) {
                         val dy = event.rawY - initialTouchY
                         if (dx * dx + dy * dy > touchSlop * touchSlop) {
                             isDragging = true
+                            handler.removeCallbacks(longPressRunnable)
                         }
                     }
                     val params = windowParams ?: return true
@@ -221,14 +307,23 @@ class FloatWindowManager(private val context: Context) {
                     }
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    handler.removeCallbacks(longPressRunnable)
                     if (isDragging) {
                         val p = windowParams
                         if (p != null) onDragEnd?.invoke(p.x, p.y)
-                    } else if (event.actionMasked == MotionEvent.ACTION_UP) {
-                        onClick?.invoke()
-                        performClick()
+                    } else if (event.actionMasked == MotionEvent.ACTION_UP && !longPressTriggered) {
+                        val now = System.currentTimeMillis()
+                        if (onDoubleTap != null && now - lastClickTime < doubleTapTimeout) {
+                            onDoubleTap.invoke()
+                            lastClickTime = 0L
+                        } else {
+                            onClick?.invoke()
+                            performClick()
+                            lastClickTime = now
+                        }
                     }
                     isDragging = false
+                    longPressTriggered = false
                     onInteraction?.invoke(false)
                 }
             }

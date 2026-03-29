@@ -1,5 +1,7 @@
 package com.cloudorz.openmonitor.core.data.repository
 
+import com.cloudorz.openmonitor.core.common.CommandResult
+import com.cloudorz.openmonitor.core.data.datasource.ProcessActionDataSource
 import com.cloudorz.openmonitor.core.data.datasource.ProcessDataSource
 import com.cloudorz.openmonitor.core.data.pollingFlow
 import com.cloudorz.openmonitor.core.model.process.ProcessInfo
@@ -10,7 +12,8 @@ import javax.inject.Singleton
 
 @Singleton
 class ProcessRepository @Inject constructor(
-    private val processDataSource: ProcessDataSource
+    private val processDataSource: ProcessDataSource,
+    private val processActionDataSource: ProcessActionDataSource,
 ) {
     fun observeProcessList(intervalMs: Long = 3000L): Flow<List<ProcessInfo>> =
         pollingFlow(intervalMs) { processDataSource.getProcessList() }
@@ -21,4 +24,5 @@ class ProcessRepository @Inject constructor(
     suspend fun getProcessList(): List<ProcessInfo> = processDataSource.getProcessList()
     suspend fun getProcessDetail(pid: Int): ProcessInfo? = processDataSource.getProcessDetail(pid)
     suspend fun getThreads(pid: Int): List<ThreadInfo> = processDataSource.getThreads(pid)
+    suspend fun killProcess(process: ProcessInfo): CommandResult = processActionDataSource.killProcessSmart(process)
 }

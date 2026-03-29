@@ -21,13 +21,23 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,6 +60,8 @@ import com.cloudorz.openmonitor.core.ui.theme.ChartYellow
 fun ProcessDetailSheet(
     process: ProcessInfo,
     threads: List<ThreadInfo>,
+    canKill: Boolean = false,
+    onKillProcess: (ProcessInfo) -> Unit = {},
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -63,6 +75,8 @@ fun ProcessDetailSheet(
         ProcessDetailContent(
             process = process,
             threads = threads,
+            canKill = canKill,
+            onKillProcess = onKillProcess,
         )
     }
 }
@@ -71,7 +85,34 @@ fun ProcessDetailSheet(
 private fun ProcessDetailContent(
     process: ProcessInfo,
     threads: List<ThreadInfo>,
+    canKill: Boolean = false,
+    onKillProcess: (ProcessInfo) -> Unit = {},
 ) {
+    var showKillConfirmation by remember { mutableStateOf(false) }
+
+    if (showKillConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showKillConfirmation = false },
+            title = { Text("Force Stop") },
+            text = { Text("确定要强制结束 ${process.displayName} (PID ${process.pid})？") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onKillProcess(process)
+                        showKillConfirmation = false
+                    },
+                ) {
+                    Text("结束", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showKillConfirmation = false }) {
+                    Text("取消")
+                }
+            },
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -80,6 +121,25 @@ private fun ProcessDetailContent(
             .padding(bottom = 32.dp),
     ) {
         ProcessDetailHeader(process = process)
+
+        if (canKill) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(
+                onClick = { showKillConfirmation = true },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Force Stop")
+            }
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 

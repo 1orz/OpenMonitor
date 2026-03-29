@@ -87,9 +87,10 @@ val buildMonitorDaemon by tasks.registering(Exec::class) {
     workingDir = daemonSrcDir
 
     // Use hash of daemon source tree (no longer a submodule)
+    // --no-show-signature avoids GPG verification text polluting stdout
     val daemonHash = providers.exec {
         workingDir = rootProject.projectDir
-        commandLine("git", "log", "-1", "--format=%h", "--", "monitor-daemon")
+        commandLine("git", "log", "-1", "--format=%h", "--no-show-signature", "--", "monitor-daemon")
     }.standardOutput.asText.map { it.trim() }.getOrElse("unknown")
 
     val ldflags = "-s -w -X monitor-daemon/collector.GitCommit=$daemonHash"

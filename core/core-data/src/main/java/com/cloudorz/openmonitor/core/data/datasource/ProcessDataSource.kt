@@ -13,8 +13,12 @@ import javax.inject.Singleton
 @Singleton
 class ProcessDataSource @Inject constructor(
     private val sysfsReader: SysfsReader,
-    private val shellExecutor: ShellExecutor
+    private val shellExecutor: ShellExecutor,
+    private val appInfoResolver: AppInfoResolver,
 ) {
+    // Android app user pattern: u0_a123, u10_a456 etc.
+    private val androidUserPattern = Regex("u\\d+_a\\d+")
+
     suspend fun getProcessList(): List<ProcessInfo> = withContext(Dispatchers.IO) {
         val result = shellExecutor.execute("ps -A -o PID,PPID,USER,%CPU,RSS,NAME --sort=-%cpu")
         if (!result.isSuccess) return@withContext emptyList()
@@ -24,19 +28,34 @@ class ProcessDataSource @Inject constructor(
             .filter { it.isNotBlank() }
             .take(200)
             .mapNotNull { parsePsLine(it) }
+            .map { enrichWithAppInfo(it) }
     }
 
     private fun parsePsLine(line: String): ProcessInfo? {
         val parts = line.trim().split("\\s+".toRegex(), limit = 6)
         if (parts.size < 6) return null
+        val user = parts[2]
+        val name = parts[5]
+
+        // Android app detection: user matches u0_aXXX pattern and name has dot (package name)
+        val isApp = androidUserPattern.matches(user) && name.contains('.')
+        val packageName = if (isApp) name.substringBefore(":") else ""
+
         return ProcessInfo(
             pid = parts[0].toIntOrNull() ?: return null,
             ppid = parts[1].toIntOrNull() ?: 0,
-            user = parts[2],
+            user = user,
             cpuPercent = parts[3].toDoubleOrNull() ?: 0.0,
             rssKB = parts[4].toLongOrNull() ?: 0L,
-            name = parts[5]
+            name = name,
+            packageName = packageName,
         )
+    }
+
+    private fun enrichWithAppInfo(process: ProcessInfo): ProcessInfo {
+        if (process.packageName.isEmpty()) return process
+        val label = appInfoResolver.resolveLabel(process.packageName)
+        return if (label.isNotEmpty()) process.copy(appLabel = label) else process
     }
 
     suspend fun getProcessDetail(pid: Int): ProcessInfo? = withContext(Dispatchers.IO) {
