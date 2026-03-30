@@ -56,6 +56,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.asImageBitmap
@@ -81,96 +82,235 @@ private val MonoStyle = TextStyle(
 
 @Composable
 fun FloatLoadMonitorContent(service: FloatMonitorService) {
+    val compact by service.loadMonitorCompact.collectAsState()
     val cpu by service.cpuLoad.collectAsState()
     val gpu by service.gpuLoad.collectAsState()
     val mem by service.memUsed.collectAsState()
     val bat by service.batteryLevel.collectAsState()
     val temp by service.cpuTemp.collectAsState()
+    val coreLoads by service.cpuCoreLoads.collectAsState()
     val coreFreqs by service.cpuCoreFreqs.collectAsState()
     val gpuFreq by service.gpuFreqMhz.collectAsState()
+    val mA by service.currentMa.collectAsState()
+    val batTemp by service.batteryTemp.collectAsState()
+    val fps by service.currentFps.collectAsState()
+    val memTotalMB by service.memTotalMB.collectAsState()
+    val memUsedMB by service.memUsedMB.collectAsState()
 
-    Box(
-        modifier = Modifier
-            .width(200.dp)
-            .background(BG, RoundedCornerShape(8.dp))
-            .padding(10.dp),
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            LoadBar("CPU", cpu?.toFloat(), CpuColor)
-            val freqs = coreFreqs
-            if (freqs != null && freqs.isNotEmpty()) {
-                Text(
-                    text = "${freqs.min()}-${freqs.max()} MHz",
-                    style = MonoStyle.copy(fontSize = 8.sp, color = TextSecondary),
-                    modifier = Modifier.padding(start = 28.dp),
+    if (compact) {
+        // 简洁模式：三个圆环横排
+        Box(
+            modifier = Modifier
+                .background(BG, RoundedCornerShape(8.dp))
+                .padding(8.dp),
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val maxFreq = coreFreqs?.maxOrNull()
+                FloatRingGauge(
+                    percentage = (cpu ?: 0.0).toFloat(),
+                    color = CpuColor,
+                    label = "CPU",
+                    bottomLabel = if (maxFreq != null) "${maxFreq}MHz" else "",
+                )
+                FloatRingGauge(
+                    percentage = (gpu ?: 0.0).toFloat(),
+                    color = GpuColor,
+                    label = "GPU",
+                    bottomLabel = if (gpuFreq != null && gpuFreq!! > 0) "${gpuFreq}MHz" else "0MHz",
+                )
+                FloatRingGauge(
+                    percentage = (mem ?: 0.0).toFloat(),
+                    color = MemColor,
+                    label = "",
+                    bottomLabel = if (temp != null && temp!! > 0) "%.1f\u00B0C".format(temp) else "",
                 )
             }
-            LoadBar("GPU", gpu?.toFloat(), GpuColor)
-            val gpuFreqVal = gpuFreq
-            if (gpuFreqVal != null && gpuFreqVal > 0) {
-                Text(
-                    text = "$gpuFreqVal MHz",
-                    style = MonoStyle.copy(fontSize = 8.sp, color = TextSecondary),
-                    modifier = Modifier.padding(start = 28.dp),
-                )
-            }
-            LoadBar("RAM", mem?.toFloat(), MemColor)
-            LoadBar("BAT", bat.toFloat(), BatColor)
-            val tempVal = temp
-            val showTemp = tempVal != null && tempVal > 0
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                val tColor = if (showTemp) tempColor(tempVal) else TextSecondary
-                Image(
-                    painter = painterResource(R.drawable.ic_temperature),
-                    contentDescription = null,
-                    modifier = Modifier.size(10.dp),
-                    colorFilter = ColorFilter.tint(tColor),
-                )
-                Text(
-                    text = if (showTemp) "${"%.1f".format(tempVal)}\u00B0C" else "--\u00B0C",
-                    style = MonoStyle.copy(fontSize = 10.sp, color = tColor),
-                )
+        }
+    } else {
+        // 完整模式：左侧圆环 + 右侧详细文字
+        Box(
+            modifier = Modifier
+                .width(280.dp)
+                .background(BG, RoundedCornerShape(10.dp))
+                .padding(10.dp),
+        ) {
+            Row {
+                // 左侧三个圆环
+                Column(
+                    modifier = Modifier.width(70.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    val maxFreq = coreFreqs?.maxOrNull()
+                    FloatRingGauge(
+                        percentage = (cpu ?: 0.0).toFloat(),
+                        color = CpuColor,
+                        label = "CPU",
+                        size = 56.dp,
+                        bottomLabel = if (maxFreq != null) "${maxFreq}MHz" else "",
+                    )
+                    FloatRingGauge(
+                        percentage = (gpu ?: 0.0).toFloat(),
+                        color = GpuColor,
+                        label = "GPU",
+                        size = 56.dp,
+                        bottomLabel = if (gpuFreq != null && gpuFreq!! > 0) "${gpuFreq}MHz" else "0MHz",
+                    )
+                    FloatRingGauge(
+                        percentage = (mem ?: 0.0).toFloat(),
+                        color = MemColor,
+                        label = "${(mem ?: 0.0).toInt()}%",
+                        size = 56.dp,
+                        bottomLabel = if (temp != null && temp!! > 0) "%.1f\u00B0C".format(temp) else "",
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                // 右侧详细信息
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    // RAM
+                    val memPct = (mem ?: 0.0).toInt()
+                    DetailLine("#RAM", "%d%%  %.0fMB/%.0fMB".format(memPct, memUsedMB, memTotalMB), MemColor)
+                    // CPU temp
+                    val tempVal = temp
+                    DetailLine("#CPU", if (tempVal != null && tempVal > 0) "%.1f\u00B0C".format(tempVal) else "--\u00B0C", if (tempVal != null) tempColor(tempVal) else TextSecondary)
+                    // Per-core info
+                    val cores = coreLoads
+                    val freqs = coreFreqs
+                    if (cores != null && cores.isNotEmpty()) {
+                        // 分组显示核心
+                        val grouped = groupCoresByFreq(freqs)
+                        grouped.forEach { (range, freq) ->
+                            DetailLine(range, if (freq > 0) "${freq}MHz" else "", TextSecondary)
+                        }
+                        // 各核心负载
+                        val coreTexts = cores.mapIndexed { i, load -> "C$i %d%%".format(load.toInt()) }
+                        val rows = coreTexts.chunked(4)
+                        rows.forEach { row ->
+                            Text(
+                                text = row.joinToString("  "),
+                                style = MonoStyle.copy(fontSize = 7.sp, color = TextSecondary),
+                            )
+                        }
+                    }
+                    // FPS
+                    val fpsVal = fps
+                    if (fpsVal != null) {
+                        DetailLine("#FPS", "%.1f".format(fpsVal), fpsColor(fpsVal))
+                    }
+                    // Power
+                    val mAVal = mA
+                    if (mAVal != null) {
+                        DetailLine("#PWR", "%dmA".format(mAVal), CurrentColor)
+                    }
+                    // Battery temp
+                    val batTempVal = batTemp
+                    if (batTempVal != null && batTempVal > 0) {
+                        DetailLine("#BAT", "%.1f\u00B0C  %d%%".format(batTempVal, bat), BatColor)
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun LoadBar(label: String, value: Float?, color: Color) {
-    val clamped = (value ?: 0f).coerceIn(0f, 100f)
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+private fun DetailLine(label: String, value: String, valueColor: Color) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             text = label,
-            style = MonoStyle.copy(fontSize = 9.sp, color = TextSecondary),
-            modifier = Modifier.width(28.dp),
+            style = MonoStyle.copy(fontSize = 8.sp, color = TextSecondary),
+            modifier = Modifier.width(34.dp),
         )
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .height(6.dp)
-                .clip(RoundedCornerShape(3.dp))
-                .background(Track),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .fillMaxWidth(fraction = (clamped / 100f).coerceIn(0f, 1f))
-                    .background(color, RoundedCornerShape(3.dp)),
+        Text(
+            text = value,
+            style = MonoStyle.copy(fontSize = 8.sp, color = valueColor),
+        )
+    }
+}
+
+private fun groupCoresByFreq(freqs: List<Int>?): List<Pair<String, Int>> {
+    if (freqs == null || freqs.isEmpty()) return emptyList()
+    val result = mutableListOf<Pair<String, Int>>()
+    var start = 0
+    var currentFreq = freqs[0]
+    for (i in 1 until freqs.size) {
+        if (freqs[i] != currentFreq) {
+            val range = if (start == i - 1) "#$start" else "#$start~${i - 1}"
+            result.add(range to currentFreq)
+            start = i
+            currentFreq = freqs[i]
+        }
+    }
+    val range = if (start == freqs.size - 1) "#$start" else "#$start~${freqs.size - 1}"
+    result.add(range to currentFreq)
+    return result
+}
+
+@Composable
+private fun FloatRingGauge(
+    percentage: Float,
+    color: Color,
+    label: String,
+    size: Dp = 48.dp,
+    strokeWidth: Dp = 4.dp,
+    bottomLabel: String = "",
+) {
+    val clamped = percentage.coerceIn(0f, 100f)
+    val gaugeColor = when {
+        clamped >= 80 -> Color(0xFFF44336)
+        clamped >= 60 -> Color(0xFFFFC107)
+        else -> color
+    }
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(modifier = Modifier.size(size), contentAlignment = Alignment.Center) {
+            Canvas(modifier = Modifier.size(size)) {
+                val stroke = strokeWidth.toPx()
+                val arcSize = Size(this.size.width - stroke, this.size.height - stroke)
+                val topLeft = Offset(stroke / 2, stroke / 2)
+                // 背景轨道 (270°弧)
+                drawArc(
+                    color = Track,
+                    startAngle = 135f,
+                    sweepAngle = 270f,
+                    useCenter = false,
+                    topLeft = topLeft,
+                    size = arcSize,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round),
+                )
+                // 前景填充弧
+                drawArc(
+                    color = gaugeColor,
+                    startAngle = 135f,
+                    sweepAngle = 270f * (clamped / 100f),
+                    useCenter = false,
+                    topLeft = topLeft,
+                    size = arcSize,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round),
+                )
+            }
+            // 中心文字
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                if (label.isNotEmpty()) {
+                    Text(
+                        text = label,
+                        style = MonoStyle.copy(fontSize = 8.sp, color = TextSecondary),
+                    )
+                }
+                Text(
+                    text = "%d%%".format(clamped.toInt()),
+                    style = MonoStyle.copy(fontSize = 10.sp, color = gaugeColor),
+                )
+            }
+        }
+        if (bottomLabel.isNotEmpty()) {
+            Text(
+                text = bottomLabel,
+                style = MonoStyle.copy(fontSize = 7.sp, color = TextSecondary),
             )
         }
-        Text(
-            text = if (value != null) "%3d%%".format(clamped.toInt()) else " --%",
-            style = MonoStyle.copy(fontSize = 9.sp, color = TextPrimary),
-            modifier = Modifier.width(34.dp),
-            textAlign = TextAlign.End,
-        )
     }
 }
 
@@ -719,6 +859,7 @@ fun FloatProcessContent(service: FloatMonitorService) {
                                 name = proc.displayName,
                                 cpu = proc.cpuPercent,
                                 icon = if (proc.isAndroidApp) appIcons[proc.packageName] else null,
+                                isAndroidApp = proc.isAndroidApp,
                                 isSelected = proc.pid == selectedPid,
                                 onClick = { service.onProcessTapped(proc) },
                             )
@@ -743,6 +884,7 @@ private fun ProcessRow(
     name: String,
     cpu: Double,
     icon: Bitmap? = null,
+    isAndroidApp: Boolean = true,
     isSelected: Boolean = false,
     onClick: () -> Unit,
 ) {
@@ -755,12 +897,18 @@ private fun ProcessRow(
             .padding(vertical = 3.dp, horizontal = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // App icon
         if (icon != null) {
             Image(
                 bitmap = icon.asImageBitmap(),
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
+            )
+        } else if (!isAndroidApp) {
+            Image(
+                painter = painterResource(R.drawable.ic_system_process),
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                colorFilter = ColorFilter.tint(Color(0xFF78909C)),
             )
         } else {
             Image(
@@ -803,24 +951,30 @@ fun FloatThreadContent(service: FloatMonitorService) {
 
     Box(
         modifier = Modifier
-            .width(180.dp)
+            .width(210.dp)
             .background(BG, RoundedCornerShape(8.dp))
             .padding(10.dp),
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = "THREADS",
-                style = MonoStyle.copy(fontSize = 10.sp, color = TextSecondary, letterSpacing = 0.5.sp),
-            )
             if (fgApp.isNotEmpty()) {
                 Text(
                     text = fgApp,
-                    style = TextStyle(fontSize = 8.sp, color = CpuColor),
+                    style = TextStyle(fontSize = 9.sp, color = CpuColor),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "CPU% Top15",
+                style = MonoStyle.copy(fontSize = 8.sp, color = TextSecondary, letterSpacing = 0.5.sp),
+            )
+            Spacer(modifier = Modifier.height(3.dp))
+            // 表头
+            Row(modifier = Modifier.fillMaxWidth().padding(bottom = 2.dp)) {
+                Text("CPU%", style = MonoStyle.copy(fontSize = 7.sp, color = TextSecondary), modifier = Modifier.width(36.dp))
+                Text("TID", style = MonoStyle.copy(fontSize = 7.sp, color = TextSecondary), modifier = Modifier.width(42.dp))
+                Text("COMM", style = MonoStyle.copy(fontSize = 7.sp, color = TextSecondary))
+            }
 
             if (!hasShell) {
                 Text("需要 Shell 权限", style = TextStyle(fontSize = 9.sp, color = Color(0xFFFFC107)))
@@ -835,28 +989,28 @@ fun FloatThreadContent(service: FloatMonitorService) {
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            text = thread.name.ifEmpty { "tid:${thread.tid}" },
-                            style = TextStyle(fontSize = 9.sp, color = TextPrimary),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "%4.1f%%".format(thread.cpuLoadPercent),
+                            text = "%4.1f".format(thread.cpuLoadPercent),
                             style = MonoStyle.copy(
-                                fontSize = 9.sp,
+                                fontSize = 8.sp,
                                 color = when {
                                     thread.cpuLoadPercent >= 20 -> Color(0xFFF44336)
                                     thread.cpuLoadPercent >= 5 -> Color(0xFFFFC107)
                                     else -> Color(0xFF4CAF50)
                                 },
                             ),
+                            modifier = Modifier.width(36.dp),
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = thread.tid.toString(),
                             style = MonoStyle.copy(fontSize = 8.sp, color = TextSecondary),
+                            modifier = Modifier.width(42.dp),
+                        )
+                        Text(
+                            text = thread.name.ifEmpty { "tid:${thread.tid}" },
+                            style = TextStyle(fontSize = 8.sp, color = TextPrimary),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
                         )
                     }
                 }

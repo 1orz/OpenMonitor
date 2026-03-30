@@ -116,6 +116,29 @@ class ProcessDataSource @Inject constructor(
             }
     }
 
+    /**
+     * 使用 top -H 获取线程列表及 CPU 使用率，失败时回退到 [getThreads]。
+     */
+    suspend fun getThreadsWithCpu(pid: Int): List<ThreadInfo> = withContext(Dispatchers.IO) {
+        val result = shellExecutor.execute("top -H -b -q -n 1 -p $pid -o TID,%CPU,CMD")
+        if (!result.isSuccess || result.stdout.isBlank()) return@withContext getThreads(pid)
+
+        val threads = result.stdout.lines()
+            .filter { it.isNotBlank() }
+            .mapNotNull { line ->
+                val trimmed = line.trim()
+                val cols = trimmed.split("\\s+".toRegex(), limit = 3)
+                if (cols.size < 2) return@mapNotNull null
+                val tid = cols[0].toIntOrNull() ?: return@mapNotNull null
+                val cpuLoad = cols[1].toDoubleOrNull() ?: 0.0
+                val name = if (cols.size >= 3) cols[2].trim() else ""
+                ThreadInfo(tid = tid, name = name, cpuLoadPercent = cpuLoad)
+            }
+            .sortedByDescending { it.cpuLoadPercent }
+
+        threads.ifEmpty { getThreads(pid) }
+    }
+
     private fun parseState(c: Char): ProcessState = when (c) {
         'R' -> ProcessState.RUNNING
         'S' -> ProcessState.SLEEPING

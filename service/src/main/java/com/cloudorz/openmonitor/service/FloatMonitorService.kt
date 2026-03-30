@@ -1,5 +1,6 @@
 package com.cloudorz.openmonitor.service
 
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -9,6 +10,7 @@ import android.graphics.Bitmap
 import android.os.IBinder
 import android.provider.Settings
 import android.util.Log
+import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
@@ -49,7 +51,7 @@ class FloatMonitorService : LifecycleService() {
 
     companion object {
         private const val TAG = "FloatMonitorService"
-        const val CHANNEL_ID = "float_monitor"
+        const val CHANNEL_ID = "float_monitor_v2"
         const val NOTIFICATION_ID = 1002
 
         const val ACTION_START = "com.cloudorz.openmonitor.service.FLOAT_START"
@@ -160,6 +162,19 @@ class FloatMonitorService : LifecycleService() {
     val fpsRecordingInfo get() = fpsRecordingManager.info
     private var fpsInteractionJob: Job? = null
     private var fpsDurationMenuJob: Job? = null
+    private var notificationUpdateJob: Job? = null
+    private val batteryVoltage = MutableStateFlow(0.0)
+    val memTotalMB = MutableStateFlow(0.0)
+    val memUsedMB = MutableStateFlow(0.0)
+    val loadMonitorCompact = MutableStateFlow(true)
+
+    fun onLoadMonitorModeToggle() {
+        loadMonitorCompact.value = !loadMonitorCompact.value
+        lifecycleScope.launch {
+            delay(50)
+            floatWindowManager.refreshWindowLayout(TYPE_LOAD)
+        }
+    }
 
     fun onProcessMinimizeToggle() {
         processMinimized.value = !processMinimized.value
@@ -369,32 +384,77 @@ class FloatMonitorService : LifecycleService() {
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
             .edit { putBoolean(KEY_SERVICE_ACTIVE, true) }
 
-        val showPanelIntent = Intent(this, FloatMonitorService::class.java)
-            .setAction(ACTION_SHOW_PANEL)
-        val pendingIntent = PendingIntent.getService(
-            this, 0, showPanelIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(getString(R.string.float_notification_title))
-            .setContentText(getString(R.string.float_notification_text))
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentIntent(pendingIntent)
-            .addAction(
-                R.drawable.ic_notification,
-                getString(R.string.float_notification_action_panel),
-                pendingIntent,
-            )
-            .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
-
-        startForeground(NOTIFICATION_ID, notification)
+        startForeground(NOTIFICATION_ID, buildCustomNotification())
+        startNotificationUpdateJob()
 
         // Async: ensure accessibility service → restore monitors (cancel previous if re-entered)
         restoreJob?.cancel()
         restoreJob = lifecycleScope.launch { restoreMonitorsWithAccessibility() }
+    }
+
+    private fun getShowPanelPendingIntent(): PendingIntent {
+        val showPanelIntent = Intent(this, FloatMonitorService::class.java)
+            .setAction(ACTION_SHOW_PANEL)
+        return PendingIntent.getService(
+            this, 0, showPanelIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
+    private fun buildCustomNotification(): Notification {
+        val pendingIntent = getShowPanelPendingIntent()
+
+        val mA = currentMa.value ?: 0
+        val voltage = batteryVoltage.value
+        val powerW = if (voltage > 0) (mA * voltage / 1000.0) else 0.0
+        val bat = batteryLevel.value
+        val batTempVal = batteryTemp.value ?: 0.0
+        val fgApp = foregroundApp.value
+        val dataText = "%.2fW  %d%%  %.1f\u00B0C".format(powerW, bat, batTempVal)
+
+        val remoteViews = RemoteViews(packageName, R.layout.notification_monitor).apply {
+            setImageViewResource(R.id.notify_icon, R.drawable.ic_notification)
+            setTextViewText(R.id.notify_subtitle, fgApp.ifEmpty { getString(R.string.float_notification_text) })
+            setTextViewText(R.id.notify_data, dataText)
+            setTextViewText(R.id.notify_battery_title, "\u7535\u6C60")
+            val batteryIconRes = when {
+                bat >= 60 -> R.drawable.ic_battery_full
+                bat >= 20 -> R.drawable.ic_battery_mid
+                else -> R.drawable.ic_battery_low
+            }
+            setImageViewResource(R.id.notify_battery_icon, batteryIconRes)
+        }
+
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("OpenMonitor")
+            .setContentText(dataText)
+            .setCustomContentView(remoteViews)
+            .setContentIntent(pendingIntent)
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .build()
+    }
+
+    private fun startNotificationUpdateJob() {
+        notificationUpdateJob?.cancel()
+        notificationUpdateJob = lifecycleScope.launch {
+            while (currentCoroutineContext().isActive) {
+                delay(3000)
+                try {
+                    val batteryInfo = withContext(Dispatchers.IO) { batteryDataSource.getBatteryStatus() }
+                    batteryLevel.value = batteryInfo.capacity
+                    batteryVoltage.value = batteryInfo.voltageV
+                    batteryTemp.value = batteryInfo.temperatureCelsius
+                    currentMa.value = batteryInfo.currentMa
+
+                    val manager = getSystemService(NotificationManager::class.java)
+                    manager.notify(NOTIFICATION_ID, buildCustomNotification())
+                } catch (e: Exception) {
+                    Log.w(TAG, "updateNotification failed", e)
+                }
+            }
+        }
     }
 
     /**
@@ -491,6 +551,8 @@ class FloatMonitorService : LifecycleService() {
                 putStringSet(KEY_ENABLED_MONITORS, emptySet())
             }
 
+        notificationUpdateJob?.cancel()
+        notificationUpdateJob = null
         sharedFpsJob?.cancel()
         sharedFpsJob = null
         dataCollectionJobs.values.forEach { it.cancel() }
@@ -537,6 +599,7 @@ class FloatMonitorService : LifecycleService() {
                     height = WindowManager.LayoutParams.WRAP_CONTENT,
                     y = 200,
                     onDoubleTap = { removeMonitor(type) },
+                    onLongClick = { onLoadMonitorModeToggle() },
                 ) {
                     FloatLoadMonitorContent(service)
                 }
@@ -689,12 +752,21 @@ class FloatMonitorService : LifecycleService() {
         gpuLoad.value = snapshot.gpuLoadPercent
         cpuTemp.value = snapshot.cpuTempCelsius
         cpuCoreFreqs.value = snapshot.cpuCoreFreqs
+        cpuCoreLoads.value = snapshot.cpuCoreLoads
         gpuFreqMhz.value = snapshot.gpuFreqMhz
+        currentMa.value = snapshot.batteryCurrentMa
 
         val batteryInfo = batteryDataSource.getBatteryStatus()
         batteryLevel.value = batteryInfo.capacity
+        batteryTemp.value = batteryInfo.temperatureCelsius
+        batteryVoltage.value = batteryInfo.voltageV
 
-        memUsed.value = calculateMemoryUsage()
+        val activityManager = getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager
+        val memInfo = android.app.ActivityManager.MemoryInfo()
+        activityManager.getMemoryInfo(memInfo)
+        memTotalMB.value = memInfo.totalMem / (1024.0 * 1024.0)
+        memUsedMB.value = (memInfo.totalMem - memInfo.availMem) / (1024.0 * 1024.0)
+        memUsed.value = ((memInfo.totalMem - memInfo.availMem).toDouble() / memInfo.totalMem) * 100.0
     }
 
     private suspend fun collectMiniData() {
@@ -777,7 +849,7 @@ class FloatMonitorService : LifecycleService() {
     private suspend fun collectThreadData() {
         val fgPid = getForegroundAppPid()
         if (fgPid != null) {
-            val threads = processDataSource.getThreads(fgPid.first)
+            val threads = processDataSource.getThreadsWithCpu(fgPid.first)
             topThreads.value = threads.take(15)
             foregroundApp.value = fgPid.second
         } else {
@@ -848,15 +920,19 @@ class FloatMonitorService : LifecycleService() {
     }
 
     private fun createNotificationChannel() {
+        val manager = getSystemService(NotificationManager::class.java)
+        // 删除旧渠道（importance 一旦创建不能提升）
+        manager.deleteNotificationChannel("float_monitor")
         val channel = NotificationChannel(
             CHANNEL_ID,
             getString(R.string.float_channel_name),
-            NotificationManager.IMPORTANCE_LOW
+            NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
             description = getString(R.string.float_channel_desc)
             setShowBadge(false)
+            setSound(null, null) // 静音
+            enableVibration(false)
         }
-        val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(channel)
     }
 }
