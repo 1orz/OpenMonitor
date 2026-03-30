@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.os.IBinder
+import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
 import android.widget.RemoteViews
@@ -26,8 +27,11 @@ import com.cloudorz.openmonitor.core.data.datasource.CpuDataSource
 import com.cloudorz.openmonitor.core.data.datasource.GpuDataSource
 import com.cloudorz.openmonitor.core.data.datasource.AppInfoResolver
 import com.cloudorz.openmonitor.core.data.datasource.ProcessActionDataSource
+import com.cloudorz.openmonitor.core.data.datasource.ForegroundAppDataSource
 import com.cloudorz.openmonitor.core.data.datasource.ProcessDataSource
 import com.cloudorz.openmonitor.core.data.datasource.ThermalDataSource
+import com.cloudorz.openmonitor.core.database.dao.BatteryRecordDao
+import com.cloudorz.openmonitor.core.database.entity.BatteryRecordEntity
 import com.cloudorz.openmonitor.core.model.process.ProcessFilterMode
 import com.cloudorz.openmonitor.core.model.process.ProcessInfo
 import com.cloudorz.openmonitor.core.model.process.ThreadInfo
@@ -44,6 +48,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import androidx.core.content.edit
+import kotlin.math.abs
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -51,7 +56,7 @@ class FloatMonitorService : LifecycleService() {
 
     companion object {
         private const val TAG = "FloatMonitorService"
-        const val CHANNEL_ID = "float_monitor_v2"
+        const val CHANNEL_ID = "float_monitor_v3"
         const val NOTIFICATION_ID = 1002
 
         const val ACTION_START = "com.cloudorz.openmonitor.service.FLOAT_START"
@@ -75,6 +80,7 @@ class FloatMonitorService : LifecycleService() {
         private const val PREFS_NAME = "monitor_settings"
         private const val KEY_ENABLED_MONITORS = "enabled_monitors"
         private const val KEY_SERVICE_ACTIVE = "float_service_active"
+        private const val BATTERY_SAMPLING_INTERVAL_MS = 30_000L
         const val KEY_POLL_INTERVAL = "poll_interval"
         const val DEFAULT_POLL_INTERVAL = 500L
 
@@ -118,9 +124,12 @@ class FloatMonitorService : LifecycleService() {
     @Inject lateinit var daemonClient: com.cloudorz.openmonitor.core.data.datasource.DaemonClient
     @Inject lateinit var shellExecutor: com.cloudorz.openmonitor.core.common.ShellExecutor
     @Inject lateinit var fpsRecordingManager: com.cloudorz.openmonitor.core.data.datasource.FpsRecordingManager
+    @Inject lateinit var batteryRecordDao: BatteryRecordDao
+    @Inject lateinit var foregroundAppDataSource: ForegroundAppDataSource
 
     private lateinit var floatWindowManager: FloatWindowManager
     private var restoreJob: Job? = null
+    private var batterySamplingJob: Job? = null
     private val dataCollectionJobs = mutableMapOf<String, Job>()
 
     // Shared FPS collection: single writer to currentFps
@@ -242,6 +251,8 @@ class FloatMonitorService : LifecycleService() {
     }
 
     fun showControlPanel() {
+        ensureOverlayContext()
+
         if (floatWindowManager.isWindowActive(CONTROL_PANEL_ID)) {
             dismissControlPanel()
             return
@@ -373,7 +384,7 @@ class FloatMonitorService : LifecycleService() {
                 restartAllJobs()
             }
             ACTION_SHOW_PANEL -> {
-                showControlPanel()
+                lifecycleScope.launch { ensureAccessibilityAndShowPanel() }
             }
         }
 
@@ -386,6 +397,7 @@ class FloatMonitorService : LifecycleService() {
 
         startForeground(NOTIFICATION_ID, buildCustomNotification())
         startNotificationUpdateJob()
+        startBatterySampling()
 
         // Async: ensure accessibility service → restore monitors (cancel previous if re-entered)
         restoreJob?.cancel()
@@ -401,6 +413,7 @@ class FloatMonitorService : LifecycleService() {
         )
     }
 
+    /** User-visible foreground notification. */
     private fun buildCustomNotification(): Notification {
         val pendingIntent = getShowPanelPendingIntent()
 
@@ -413,10 +426,7 @@ class FloatMonitorService : LifecycleService() {
         val dataText = "%.2fW  %d%%  %.1f\u00B0C".format(powerW, bat, batTempVal)
 
         val remoteViews = RemoteViews(packageName, R.layout.notification_monitor).apply {
-            setImageViewResource(R.id.notify_icon, R.drawable.ic_notification)
-            setTextViewText(R.id.notify_subtitle, fgApp.ifEmpty { getString(R.string.float_notification_text) })
             setTextViewText(R.id.notify_data, dataText)
-            setTextViewText(R.id.notify_battery_title, "\u7535\u6C60")
             val batteryIconRes = when {
                 bat >= 60 -> R.drawable.ic_battery_full
                 bat >= 20 -> R.drawable.ic_battery_mid
@@ -425,15 +435,19 @@ class FloatMonitorService : LifecycleService() {
             setImageViewResource(R.id.notify_battery_icon, batteryIconRes)
         }
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("OpenMonitor")
-            .setContentText(dataText)
-            .setCustomContentView(remoteViews)
+            .setContent(remoteViews)
+            .setWhen(System.currentTimeMillis())
             .setContentIntent(pendingIntent)
             .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
+
+        notification.flags = Notification.FLAG_NO_CLEAR or
+            Notification.FLAG_ONGOING_EVENT or
+            Notification.FLAG_FOREGROUND_SERVICE
+
+        return notification
     }
 
     private fun startNotificationUpdateJob() {
@@ -455,6 +469,92 @@ class FloatMonitorService : LifecycleService() {
                 }
             }
         }
+    }
+
+    private fun startBatterySampling() {
+        batterySamplingJob?.cancel()
+        batterySamplingJob = lifecycleScope.launch {
+            while (currentCoroutineContext().isActive) {
+                try {
+                    val battery = withContext(Dispatchers.IO) { batteryDataSource.getBatteryStatus() }
+                    val pkg = withContext(Dispatchers.IO) { foregroundAppDataSource.getForegroundPackage() }
+                    val powerManager = getSystemService(POWER_SERVICE) as PowerManager
+                    val screenOn = powerManager.isInteractive
+
+                    withContext(Dispatchers.IO) {
+                        batteryRecordDao.insert(
+                            BatteryRecordEntity(
+                                timestamp = System.currentTimeMillis(),
+                                capacity = battery.capacity,
+                                currentMa = battery.currentMa,
+                                voltageV = battery.voltageV,
+                                powerW = abs(battery.powerW),
+                                temperatureCelsius = battery.temperatureCelsius,
+                                isCharging = battery.isCharging,
+                                isScreenOn = screenOn,
+                                packageName = pkg,
+                            ),
+                        )
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Battery sample failed", e)
+                }
+                delay(BATTERY_SAMPLING_INTERVAL_MS)
+            }
+        }
+    }
+
+    /**
+     * Upgrade floatWindowManager to accessibility overlay if the service became
+     * available after initial creation (mirrors vtools' per-call context check).
+     */
+    private fun ensureOverlayContext() {
+        val overlayMode = getOverlayMode()
+        if (overlayMode == "OVERLAY_ONLY") return
+        val accessibilityCtx = AccessibilityMonitorService.instance
+        if (accessibilityCtx != null && !floatWindowManager.isAccessibilityBased) {
+            floatWindowManager.removeAllWindows()
+            floatWindowManager = FloatWindowManager(accessibilityCtx)
+            Log.i(TAG, "floatWindowManager upgraded to accessibility for panel")
+        }
+    }
+
+    /**
+     * Like vtools: ensure overlays are created via AccessibilityService context
+     * (TYPE_ACCESSIBILITY_OVERLAY) so they work without SYSTEM_ALERT_WINDOW.
+     * If the service isn't running yet, start it via shell and wait.
+     */
+    private suspend fun ensureAccessibilityAndShowPanel() {
+        val overlayMode = getOverlayMode()
+        if (overlayMode != "OVERLAY_ONLY" && !floatWindowManager.isAccessibilityBased) {
+            var ctx = AccessibilityMonitorService.instance
+            if (ctx == null) {
+                val mode = permissionManager.currentMode.value
+                if (mode == PrivilegeMode.ROOT || mode == PrivilegeMode.SHIZUKU || mode == PrivilegeMode.ADB) {
+                    try {
+                        val enabled = withContext(Dispatchers.IO) {
+                            AccessibilityMonitorService.enableViaShell(this@FloatMonitorService, shellExecutor)
+                        }
+                        if (enabled) {
+                            ctx = withTimeoutOrNull(3000L) {
+                                while (AccessibilityMonitorService.instance == null) delay(100)
+                                AccessibilityMonitorService.instance
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "failed to enable accessibility for panel", e)
+                    }
+                }
+            }
+            if (ctx != null) {
+                withContext(Dispatchers.Main) {
+                    floatWindowManager.removeAllWindows()
+                    floatWindowManager = FloatWindowManager(ctx)
+                    Log.i(TAG, "floatWindowManager upgraded to accessibility for panel (async)")
+                }
+            }
+        }
+        withContext(Dispatchers.Main) { showControlPanel() }
     }
 
     /**
@@ -553,6 +653,8 @@ class FloatMonitorService : LifecycleService() {
 
         notificationUpdateJob?.cancel()
         notificationUpdateJob = null
+        batterySamplingJob?.cancel()
+        batterySamplingJob = null
         sharedFpsJob?.cancel()
         sharedFpsJob = null
         dataCollectionJobs.values.forEach { it.cancel() }
@@ -706,7 +808,7 @@ class FloatMonitorService : LifecycleService() {
             .filter { !it.startsWith("_") }
         if (remainingMonitors.isEmpty()) {
             dismissControlPanel()
-            stopFloatService()
+            notifyWatchdog(false)
         }
     }
 
@@ -908,6 +1010,7 @@ class FloatMonitorService : LifecycleService() {
     }
 
     override fun onDestroy() {
+        batterySamplingJob?.cancel()
         sharedFpsJob?.cancel()
         floatWindowManager.removeAllWindows()
         dataCollectionJobs.values.forEach { it.cancel() }
@@ -921,18 +1024,25 @@ class FloatMonitorService : LifecycleService() {
 
     private fun createNotificationChannel() {
         val manager = getSystemService(NotificationManager::class.java)
-        // 删除旧渠道（importance 一旦创建不能提升）
+        // 删除旧渠道
         manager.deleteNotificationChannel("float_monitor")
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            getString(R.string.float_channel_name),
-            NotificationManager.IMPORTANCE_DEFAULT
-        ).apply {
-            description = getString(R.string.float_channel_desc)
-            setShowBadge(false)
-            setSound(null, null) // 静音
-            enableVibration(false)
-        }
-        manager.createNotificationChannel(channel)
+        manager.deleteNotificationChannel("float_monitor_v2")
+        manager.deleteNotificationChannel("float_monitor_fg")
+        manager.deleteNotificationChannel("battery_recording")
+        manager.deleteNotificationChannel("monitor_alerts")
+
+        // 用户可见渠道 (IMPORTANCE_LOW) — 无弹窗/声音/振动
+        manager.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_ID,
+                getString(R.string.float_channel_name),
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply {
+                description = getString(R.string.float_channel_desc)
+                setShowBadge(false)
+                setSound(null, null)
+                enableVibration(false)
+            }
+        )
     }
 }

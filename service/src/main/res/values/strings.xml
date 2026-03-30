@@ -6,8 +6,4 @@
     <string name="float_channel_name">Float Monitor</string>
     <string name="float_channel_desc">Float monitor background notification</string>
     <string name="float_notification_action_panel">Control Panel</string>
-    <string name="battery_recording_notification_title">Battery Monitor</string>
-    <string name="battery_recording_notification_text">Recording battery data</string>
-    <string name="battery_recording_channel_name">Battery Recording</string>
-    <string name="battery_recording_channel_desc">Battery recording background notification</string>
 </resources>

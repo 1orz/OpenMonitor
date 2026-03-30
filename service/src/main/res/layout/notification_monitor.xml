@@ -1,80 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="64dp"
-    android:background="@drawable/notification_bg"
+    android:layout_height="wrap_content"
+    android:layout_gravity="fill"
     android:gravity="center_vertical"
-    android:orientation="horizontal"
-    android:paddingStart="8dp"
-    android:paddingEnd="8dp">
+    android:orientation="horizontal">
 
-    <!-- 左侧状态图标 -->
-    <ImageView
-        android:id="@+id/notify_icon"
-        android:layout_width="36dp"
-        android:layout_height="36dp"
-        android:layout_marginEnd="8dp"
-        android:src="@drawable/ic_notification" />
-
-    <!-- 中间信息区域 -->
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_gravity="center_vertical"
         android:layout_weight="1"
         android:gravity="center_vertical"
         android:orientation="vertical">
 
         <TextView
-            android:id="@+id/notify_title"
+            android:id="@+id/notify_battery_title"
+            style="@style/NotificationTitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="OpenMonitor"
-            android:textColor="#FFFFFFFF"
-            android:textSize="13sp"
-            android:textStyle="bold"
-            android:maxLines="1" />
-
-        <TextView
-            android:id="@+id/notify_subtitle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textColor="#B3FFFFFF"
-            android:textSize="10sp"
-            android:maxLines="1"
-            android:layout_marginBottom="1dp" />
+            android:layout_marginBottom="2dp"
+            android:text="电池"
+            android:textAlignment="textEnd"
+            android:textSize="14sp"
+            android:textStyle="bold" />
 
         <TextView
             android:id="@+id/notify_data"
+            style="@style/NotificationInfo"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="#FFFFFFFF"
-            android:textSize="11sp"
-            android:fontFamily="monospace"
-            android:maxLines="1" />
+            android:maxLines="1"
+            android:textAlignment="textEnd"
+            android:textSize="10sp" />
     </LinearLayout>
 
-    <!-- 右侧电池标签 + 图标 -->
-    <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+    <ImageView
+        android:id="@+id/notify_battery_icon"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_marginStart="10dp"
+        android:layout_marginTop="5dp"
+        android:layout_marginEnd="5dp"
+        android:layout_marginBottom="5dp"
         android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:layout_marginStart="6dp">
-
-        <TextView
-            android:id="@+id/notify_battery_title"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textColor="#FFFFFFFF"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:layout_marginEnd="6dp" />
-
-        <ImageView
-            android:id="@+id/notify_battery_icon"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:src="@drawable/ic_battery_full" />
-    </LinearLayout>
+        android:src="@drawable/ic_battery_full" />
 
 </LinearLayout>

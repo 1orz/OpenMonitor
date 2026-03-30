@@ -34,6 +34,7 @@ class FloatWindowManager(private val context: Context) {
     private val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private val activeWindows = mutableMapOf<String, FloatWindow>()
     private val useAccessibilityOverlay = context is AccessibilityService
+    val isAccessibilityBased: Boolean get() = useAccessibilityOverlay
     private val posPrefs = context.applicationContext.getSharedPreferences("float_window_pos", Context.MODE_PRIVATE)
 
     data class FloatWindow(

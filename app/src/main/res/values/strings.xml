@@ -25,18 +25,6 @@
     <string name="tile_label">System Monitor</string>
     <string name="tile_label_format">CPU %1$d%% · %2$s°C</string>
 
-    <!-- Alert Notifications -->
-    <string name="alert_channel_name">Monitor Alerts</string>
-    <string name="alert_channel_desc">Notifications for high CPU temperature, load, or memory usage</string>
-    <string name="alert_cpu_temp_title">CPU Temperature Alert</string>
-    <string name="alert_cpu_temp_body">CPU temperature has reached %1$d°C</string>
-    <string name="alert_cpu_load_title">CPU Load Alert</string>
-    <string name="alert_cpu_load_body">CPU load has reached %1$d%%</string>
-    <string name="alert_memory_title">Memory Alert</string>
-    <string name="alert_memory_body">Memory usage has reached %1$d%%</string>
-    <string name="alert_battery_temp_title">Battery Temperature Alert</string>
-    <string name="alert_battery_temp_body">Battery temperature has reached %1$d°C</string>
-
     <!-- Storage Screen -->
     <string name="storage_title">Storage Info</string>
     <string name="internal_storage">Internal Storage</string>
