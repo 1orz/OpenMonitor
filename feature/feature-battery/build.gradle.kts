@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.cloudorz.openmonitor.feature.charge"
+    namespace = "com.cloudorz.openmonitor.feature.battery"
     compileSdk = 36
 
     defaultConfig {
@@ -18,7 +18,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-
     buildFeatures {
         compose = true
     }
@@ -27,6 +26,7 @@ android {
 dependencies {
     implementation(project(":core:core-model"))
     implementation(project(":core:core-data"))
+    implementation(project(":core:core-database"))
     implementation(project(":core:core-ui"))
     implementation(project(":core:core-common"))
 
@@ -51,9 +51,6 @@ dependencies {
     implementation(libs.hilt.navigation.compose)
 
     implementation(libs.navigation.compose)
-
-    implementation(libs.vico.compose)
-    implementation(libs.vico.compose.m3)
 
     debugImplementation(libs.compose.ui.tooling)
 }

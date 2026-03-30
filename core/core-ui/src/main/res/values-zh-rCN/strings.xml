@@ -170,4 +170,30 @@
     <string name="legend_capacity">电量</string>
     <string name="legend_current">电流</string>
     <string name="legend_temperature">温度</string>
+
+    <!-- Battery Screen -->
+    <string name="battery_status">状态</string>
+    <string name="battery_charging">充电中</string>
+    <string name="battery_discharging">放电中</string>
+    <string name="battery_hour">时</string>
+    <string name="battery_minute">分</string>
+    <string name="battery_current">电流</string>
+    <string name="battery_technology">技术</string>
+    <string name="battery_capacity_health">容量和健康</string>
+    <string name="battery_design_capacity">设计容量</string>
+    <string name="battery_current_energy">当前电量</string>
+    <string name="battery_usage_history">使用过程</string>
+    <string name="battery_total_energy">总耗电</string>
+    <string name="battery_avg_temp">平均温度</string>
+    <string name="battery_voltage">电压</string>
+    <string name="battery_charge_status">充电状态</string>
+    <string name="battery_not_charging">未充电</string>
+    <string name="battery_avg_power">平均功耗</string>
+    <string name="battery_screen_on_time">已使用</string>
+    <string name="battery_estimated_life">理论续航</string>
+    <string name="battery_usage_scenario">使用场景</string>
+    <string name="battery_no_usage_data">暂无使用数据</string>
+    <string name="battery_usage_stats_hint">授予使用情况访问权限以在电池图表中显示前台应用图标</string>
+    <string name="battery_grant_permission">授予权限</string>
+    <string name="battery_export_csv">导出 CSV</string>
 </resources>

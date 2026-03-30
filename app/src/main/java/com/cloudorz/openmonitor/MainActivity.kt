@@ -39,13 +39,12 @@ import com.cloudorz.openmonitor.core.data.datasource.DaemonState
 import com.cloudorz.openmonitor.service.AccessibilityMonitorService
 import com.cloudorz.openmonitor.service.FloatMonitorService
 import com.cloudorz.openmonitor.core.ui.theme.MonitorTheme
-import com.cloudorz.openmonitor.feature.charge.ChargeScreen
+import com.cloudorz.openmonitor.feature.battery.BatteryScreen
 import com.cloudorz.openmonitor.feature.cpu.CpuScreen
 import com.cloudorz.openmonitor.feature.floatmonitor.FloatMonitorScreen
 import com.cloudorz.openmonitor.feature.fps.FpsScreen
 import com.cloudorz.openmonitor.feature.fps.FpsSessionDetailScreen
 import com.cloudorz.openmonitor.feature.overview.OverviewScreen
-import com.cloudorz.openmonitor.feature.power.PowerScreen
 import com.cloudorz.openmonitor.feature.process.ProcessScreen
 import com.cloudorz.openmonitor.ui.features.FeaturesScreen
 import com.cloudorz.openmonitor.ui.log.LogScreen
@@ -262,11 +261,8 @@ private fun MainScreen(permissionManager: PermissionManager) {
             composable(FeatureRoute.CPU) {
                 CpuScreen()
             }
-            composable(FeatureRoute.POWER) {
-                PowerScreen()
-            }
-            composable(FeatureRoute.CHARGE) {
-                ChargeScreen()
+            composable(FeatureRoute.BATTERY) {
+                BatteryScreen()
             }
             composable(FeatureRoute.FPS) {
                 FpsScreen(

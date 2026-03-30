@@ -12,9 +12,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.BatteryChargingFull
+import androidx.compose.material.icons.outlined.BatteryStd
 import androidx.compose.material.icons.outlined.BugReport
-import androidx.compose.material.icons.outlined.ElectricBolt
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.NetworkCheck
@@ -46,8 +45,7 @@ fun FeaturesScreen(
 ) {
     val features = listOf(
         FeatureItem("CPU 信息", Icons.Outlined.Tune, FeatureRoute.CPU),
-        FeatureItem("耗电统计", Icons.Outlined.ElectricBolt, FeatureRoute.POWER),
-        FeatureItem("充电统计", Icons.Outlined.BatteryChargingFull, FeatureRoute.CHARGE),
+        FeatureItem("电池电量", Icons.Outlined.BatteryStd, FeatureRoute.BATTERY),
         FeatureItem("帧率记录", Icons.Outlined.Speed, FeatureRoute.FPS),
         FeatureItem("进程监控", Icons.Outlined.Memory, FeatureRoute.PROCESS),
         FeatureItem("悬浮监视器", Icons.Outlined.Layers, FeatureRoute.FLOAT),

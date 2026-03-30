@@ -5,6 +5,7 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
@@ -58,6 +59,11 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Real-time system monitoring overlay displaying CPU, memory, temperature, FPS metrics" />
         </service>
+
+        <service
+            android:name="com.cloudorz.openmonitor.service.BatteryRecordingService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
 
         <service
             android:name="com.cloudorz.openmonitor.service.AccessibilityMonitorService"

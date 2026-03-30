@@ -1,5 +1,6 @@
 package com.cloudorz.openmonitor.core.data
 
+import com.cloudorz.openmonitor.core.database.dao.BatteryRecordDao
 import com.cloudorz.openmonitor.core.database.dao.ChargeStatDao
 import com.cloudorz.openmonitor.core.database.dao.FpsSessionDao
 import com.cloudorz.openmonitor.core.database.dao.PowerStatDao
@@ -12,6 +13,7 @@ class CsvExporter @Inject constructor(
     private val powerStatDao: PowerStatDao,
     private val chargeStatDao: ChargeStatDao,
     private val fpsSessionDao: FpsSessionDao,
+    private val batteryRecordDao: BatteryRecordDao,
 ) {
     suspend fun exportPowerSession(sessionId: Long, outputStream: OutputStream) {
         outputStream.bufferedWriter().use { writer ->
@@ -32,6 +34,18 @@ class CsvExporter @Inject constructor(
             for (r in records) {
                 writer.appendLine(
                     "${r.timestamp},${r.capacity},${r.currentMa},${r.temperature},${r.powerW}"
+                )
+            }
+        }
+    }
+
+    suspend fun exportBatteryRecords(startMs: Long, endMs: Long, outputStream: OutputStream) {
+        outputStream.bufferedWriter().use { writer ->
+            writer.appendLine("timestamp,capacity,currentMa,voltageV,powerW,temperatureCelsius,isCharging,isScreenOn,packageName")
+            val records = batteryRecordDao.getRecordsInRangeOnce(startMs, endMs)
+            for (r in records) {
+                writer.appendLine(
+                    "${r.timestamp},${r.capacity},${r.currentMa},${r.voltageV},${r.powerW},${r.temperatureCelsius},${r.isCharging},${r.isScreenOn},${r.packageName}"
                 )
             }
         }

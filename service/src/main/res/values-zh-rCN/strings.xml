@@ -5,4 +5,8 @@
     <string name="float_notification_text">悬浮监视器运行中</string>
     <string name="float_channel_name">悬浮监视器</string>
     <string name="float_channel_desc">悬浮监视器后台通知</string>
+    <string name="battery_recording_notification_title">电池监控</string>
+    <string name="battery_recording_notification_text">正在记录电池数据</string>
+    <string name="battery_recording_channel_name">电池记录</string>
+    <string name="battery_recording_channel_desc">电池记录后台通知</string>
 </resources>

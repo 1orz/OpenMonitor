@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.cloudorz.openmonitor.core.database.dao.BatteryRecordDao
 import com.cloudorz.openmonitor.core.database.dao.ChargeStatDao
 import com.cloudorz.openmonitor.core.database.dao.FpsSessionDao
 import com.cloudorz.openmonitor.core.database.dao.PowerStatDao
@@ -19,6 +20,7 @@ class DatabaseCleanupWorker @AssistedInject constructor(
     private val powerStatDao: PowerStatDao,
     private val chargeStatDao: ChargeStatDao,
     private val fpsSessionDao: FpsSessionDao,
+    private val batteryRecordDao: BatteryRecordDao,
 ) : CoroutineWorker(context, workerParams) {
 
     override suspend fun doWork(): Result {
@@ -27,6 +29,7 @@ class DatabaseCleanupWorker @AssistedInject constructor(
             powerStatDao.deleteSessionsOlderThan(cutoff)
             chargeStatDao.deleteSessionsOlderThan(cutoff)
             fpsSessionDao.deleteSessionsOlderThan(cutoff)
+            batteryRecordDao.deleteOlderThan(cutoff)
             Result.success()
         } catch (e: Exception) {
             Log.w(TAG, "Database cleanup failed", e)

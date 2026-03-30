@@ -170,4 +170,30 @@
     <string name="legend_capacity">Capacity</string>
     <string name="legend_current">Current</string>
     <string name="legend_temperature">Temperature</string>
+
+    <!-- Battery Screen -->
+    <string name="battery_status">Status</string>
+    <string name="battery_charging">Charging</string>
+    <string name="battery_discharging">Discharging</string>
+    <string name="battery_hour">h</string>
+    <string name="battery_minute">m</string>
+    <string name="battery_current">Current</string>
+    <string name="battery_technology">Technology</string>
+    <string name="battery_capacity_health">Capacity &amp; Health</string>
+    <string name="battery_design_capacity">Design Capacity</string>
+    <string name="battery_current_energy">Current Energy</string>
+    <string name="battery_usage_history">Usage History</string>
+    <string name="battery_total_energy">Total Energy</string>
+    <string name="battery_avg_temp">Avg Temp</string>
+    <string name="battery_voltage">Voltage</string>
+    <string name="battery_charge_status">Charge Status</string>
+    <string name="battery_not_charging">Not Charging</string>
+    <string name="battery_avg_power">Avg Power</string>
+    <string name="battery_screen_on_time">Screen On</string>
+    <string name="battery_estimated_life">Est. Life</string>
+    <string name="battery_usage_scenario">Usage Breakdown</string>
+    <string name="battery_no_usage_data">No usage data yet</string>
+    <string name="battery_usage_stats_hint">Grant usage access permission to display foreground app icons on the battery chart</string>
+    <string name="battery_grant_permission">Grant Permission</string>
+    <string name="battery_export_csv">Export CSV</string>
 </resources>

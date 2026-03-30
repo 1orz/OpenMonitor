@@ -2,6 +2,7 @@ package com.cloudorz.openmonitor.core.database
 
 import android.content.Context
 import androidx.room.Room
+import com.cloudorz.openmonitor.core.database.dao.BatteryRecordDao
 import com.cloudorz.openmonitor.core.database.dao.ChargeStatDao
 import com.cloudorz.openmonitor.core.database.dao.FpsSessionDao
 import com.cloudorz.openmonitor.core.database.dao.PowerStatDao
@@ -23,7 +24,8 @@ object DatabaseModule {
             context,
             MonitorDatabase::class.java,
             "cloud_monitor.db",
-        ).fallbackToDestructiveMigration(dropAllTables = true)
+        ).addMigrations(MonitorDatabase.MIGRATION_5_6)
+            .fallbackToDestructiveMigration(dropAllTables = true)
             .build()
     }
 
@@ -42,4 +44,8 @@ object DatabaseModule {
         return db.fpsSessionDao()
     }
 
+    @Provides
+    fun provideBatteryRecordDao(db: MonitorDatabase): BatteryRecordDao {
+        return db.batteryRecordDao()
+    }
 }
