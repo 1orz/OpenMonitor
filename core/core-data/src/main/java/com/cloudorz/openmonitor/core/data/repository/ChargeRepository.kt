@@ -66,6 +66,10 @@ class ChargeRepository @Inject constructor(
         chargeStatDao.deleteSession(sessionId)
     }
 
+    suspend fun deleteSessionsByIds(ids: List<Long>) {
+        chargeStatDao.deleteSessionsByIds(ids)
+    }
+
     suspend fun getRecordsBySessionOnce(sessionId: Long): List<ChargeStatRecord> =
         chargeStatDao.getRecordsBySessionOnce(sessionId).map { it.toModel() }
 

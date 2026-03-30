@@ -49,4 +49,8 @@ interface ChargeStatDao {
 
     @Query("SELECT * FROM charge_stat_records WHERE sessionId = :sessionId ORDER BY timestamp ASC")
     suspend fun getRecordsBySessionOnce(sessionId: Long): List<ChargeStatRecordEntity>
+
+    @Transaction
+    @Query("DELETE FROM charge_stat_sessions WHERE sessionId IN (:ids)")
+    suspend fun deleteSessionsByIds(ids: List<Long>)
 }

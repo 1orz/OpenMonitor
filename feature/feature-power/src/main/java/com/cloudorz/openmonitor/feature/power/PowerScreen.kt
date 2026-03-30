@@ -3,6 +3,8 @@ package com.cloudorz.openmonitor.feature.power
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,13 +22,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.BatteryStd
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -38,12 +46,16 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -57,8 +69,6 @@ import com.cloudorz.openmonitor.core.model.battery.BatteryStatus
 import com.cloudorz.openmonitor.core.model.battery.PowerStatRecord
 import com.cloudorz.openmonitor.core.model.battery.PowerStatSession
 import com.cloudorz.openmonitor.core.ui.R
-import com.cloudorz.openmonitor.core.ui.chart.LineChart
-import com.cloudorz.openmonitor.core.ui.chart.LineChartSeries
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
 import com.patrykandpatrick.vico.compose.cartesian.Scroll
 import com.patrykandpatrick.vico.compose.cartesian.Zoom
@@ -81,7 +91,6 @@ import com.patrykandpatrick.vico.compose.common.LegendItem
 import com.patrykandpatrick.vico.compose.common.ProvideVicoTheme
 import com.patrykandpatrick.vico.compose.common.component.ShapeComponent
 import com.patrykandpatrick.vico.compose.common.component.rememberLineComponent
-import com.patrykandpatrick.vico.compose.common.component.rememberShapeComponent
 import com.patrykandpatrick.vico.compose.common.component.rememberTextComponent
 import com.patrykandpatrick.vico.compose.common.data.ExtraStore
 import com.patrykandpatrick.vico.compose.common.rememberHorizontalLegend
@@ -112,6 +121,11 @@ fun PowerScreen(
                 context.startActivity(intent)
             }
         },
+        onToggleSelectionMode = viewModel::toggleSelectionMode,
+        onToggleSelection = viewModel::toggleSelection,
+        onSelectAll = viewModel::selectAll,
+        onDeleteSelected = viewModel::deleteSelected,
+        onExitSelectionMode = viewModel::exitSelectionMode,
     )
 }
 
@@ -122,7 +136,34 @@ private fun PowerScreenContent(
     onSessionClick: (String) -> Unit,
     onToggleSessionExpand: (String) -> Unit,
     onExportSession: (Long) -> Unit = {},
+    onToggleSelectionMode: () -> Unit = {},
+    onToggleSelection: (Long) -> Unit = {},
+    onSelectAll: () -> Unit = {},
+    onDeleteSelected: () -> Unit = {},
+    onExitSelectionMode: () -> Unit = {},
 ) {
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text(stringResource(R.string.delete)) },
+            text = { Text(stringResource(R.string.fps_selected_count, uiState.selectedIds.size)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteDialog = false
+                    onDeleteSelected()
+                }) {
+                    Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text(stringResource(R.string.fps_cancel))
+                }
+            },
+        )
+    }
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -161,11 +202,20 @@ private fun PowerScreenContent(
 
         if (uiState.sessions.isNotEmpty()) {
             item {
-                Text(
-                    text = stringResource(R.string.power_history),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                )
+                if (uiState.isSelectionMode) {
+                    SelectionActionBar(
+                        selectedCount = uiState.selectedIds.size,
+                        onSelectAll = onSelectAll,
+                        onDelete = { showDeleteDialog = true },
+                        onCancel = onExitSelectionMode,
+                    )
+                } else {
+                    Text(
+                        text = stringResource(R.string.power_history),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
             }
 
             items(
@@ -174,17 +224,29 @@ private fun PowerScreenContent(
             ) { session ->
                 val isExpanded = uiState.expandedSessionRecords.containsKey(session.sessionId)
                 val records = uiState.expandedSessionRecords[session.sessionId]
+                val sessionIdLong = session.sessionId.toLongOrNull() ?: 0L
+                val isSelected = uiState.selectedIds.contains(sessionIdLong)
 
                 SessionItem(
                     session = session,
-                    isExpanded = isExpanded,
+                    isExpanded = isExpanded && !uiState.isSelectionMode,
                     expandedRecords = records,
+                    isSelectionMode = uiState.isSelectionMode,
+                    isSelected = isSelected,
                     onClick = {
-                        if (!session.isActive) {
+                        if (uiState.isSelectionMode) {
+                            onToggleSelection(sessionIdLong)
+                        } else if (!session.isActive) {
                             onToggleSessionExpand(session.sessionId)
                         }
                     },
-                    onExport = { onExportSession(session.sessionId.toLongOrNull() ?: 0L) },
+                    onLongClick = {
+                        if (!session.isActive) {
+                            if (!uiState.isSelectionMode) onToggleSelectionMode()
+                            onToggleSelection(sessionIdLong)
+                        }
+                    },
+                    onExport = { onExportSession(sessionIdLong) },
                 )
             }
         } else if (!uiState.isTracking) {
@@ -535,21 +597,42 @@ private fun StatItem(
 }
 
 /**
- * Real-time charts section: Power/Time, Battery Level/Time, Temperature/Time
+ * Real-time charts section: Power(W) / Battery(%) / Temperature(°C) in a single Vico chart
  */
 @Composable
 private fun PowerChartsSection(records: List<PowerStatRecord>) {
-    val powerData = remember(records) {
-        records.map { it.powerW.toFloat() }
-    }
-    val batteryData = remember(records) {
-        records.map { it.capacity.toFloat() }
-    }
-    val tempData = remember(records) {
-        records.map { it.temperature.toFloat() }
+    val powerData = remember(records) { records.map { it.powerW } }
+    val batteryData = remember(records) { records.map { it.capacity.toDouble() } }
+    val tempData = remember(records) { records.map { it.temperature } }
+
+    val seriesColors = listOf(PowerColor, BatteryColor, TempColor)
+    val seriesLabels = listOf(
+        stringResource(R.string.session_chart_power),
+        stringResource(R.string.session_chart_battery),
+        stringResource(R.string.session_chart_temp),
+    )
+
+    val modelProducer = remember { CartesianChartModelProducer() }
+    val bottomFormatter = remember(records) {
+        val dateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+        CartesianValueFormatter { _, value, _ ->
+            val index = value.toInt().coerceIn(0, records.size - 1)
+            if (records.isNotEmpty()) dateFormat.format(Date(records[index].startTime)) else ""
+        }
     }
 
-    // Power / Time chart
+    LaunchedEffect(records) {
+        if (records.size < 2) return@LaunchedEffect
+        modelProducer.runTransaction {
+            lineSeries {
+                series(powerData)
+                series(batteryData)
+                series(tempData)
+            }
+            extras { it[LegendLabelKey] = seriesLabels }
+        }
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -565,98 +648,152 @@ private fun PowerChartsSection(records: List<PowerStatRecord>) {
                 fontWeight = FontWeight.Bold,
             )
             Spacer(modifier = Modifier.height(8.dp))
-            LineChart(
-                dataSeries = listOf(
-                    LineChartSeries(
-                        label = stringResource(R.string.power),
-                        data = powerData,
-                        color = Color(0xFF2196F3),
-                    ),
-                ),
-                maxDataPoints = 120,
-                yAxisLabel = stringResource(R.string.power_w_label),
-                showLegend = false,
-            )
-        }
-    }
 
-    // Battery Level / Time chart
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-        ) {
-            Text(
-                text = stringResource(R.string.battery_over_time),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            LineChart(
-                dataSeries = listOf(
-                    LineChartSeries(
-                        label = stringResource(R.string.battery_level),
-                        data = batteryData,
-                        color = Color(0xFF4CAF50),
-                    ),
-                ),
-                maxDataPoints = 120,
-                yAxisLabel = stringResource(R.string.battery_pct_label),
-                showLegend = false,
-            )
-        }
-    }
+            if (records.size < 2) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = MaterialTheme.shapes.medium,
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.power_over_time),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            } else {
+                ProvideVicoTheme(rememberM3VicoTheme()) {
+                    val legendLabel = rememberTextComponent(
+                        style = TextStyle(color = vicoTheme.textColor, fontSize = 11.sp),
+                    )
+                    val markerLabelColor = MaterialTheme.colorScheme.onSurface
+                    val guidelineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                    val marker = rememberDefaultCartesianMarker(
+                        label = rememberTextComponent(
+                            style = TextStyle(color = markerLabelColor, fontSize = 10.sp),
+                        ),
+                        indicator = { color -> ShapeComponent(Fill(color), CircleShape) },
+                        indicatorSize = 6.dp,
+                        guideline = rememberLineComponent(fill = Fill(guidelineColor), thickness = 1.dp),
+                    )
 
-    // Temperature / Time chart
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-        ) {
-            Text(
-                text = stringResource(R.string.temp_over_time),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            LineChart(
-                dataSeries = listOf(
-                    LineChartSeries(
-                        label = stringResource(R.string.temperature),
-                        data = tempData,
-                        color = Color(0xFFF44336),
-                    ),
-                ),
-                maxDataPoints = 120,
-                yAxisLabel = stringResource(R.string.temp_c_label),
-                showLegend = false,
-            )
+                    CartesianChartHost(
+                        chart = rememberCartesianChart(
+                            rememberLineCartesianLayer(
+                                LineCartesianLayer.LineProvider.series(
+                                    seriesColors.map { color ->
+                                        LineCartesianLayer.rememberLine(
+                                            fill = LineCartesianLayer.LineFill.single(Fill(color)),
+                                            areaFill = LineCartesianLayer.AreaFill.single(Fill(Brush.verticalGradient(listOf(color.copy(alpha = 0.4f), Color.Transparent)))),
+                                        )
+                                    }
+                                ),
+                            ),
+                            startAxis = VerticalAxis.rememberStart(
+                                valueFormatter = CartesianValueFormatter.decimal(),
+                            ),
+                            bottomAxis = HorizontalAxis.rememberBottom(
+                                valueFormatter = bottomFormatter,
+                            ),
+                            marker = marker,
+                            markerController = CartesianMarkerController.rememberToggleOnTap(),
+                            legend = rememberHorizontalLegend(
+                                items = { extraStore ->
+                                    extraStore[LegendLabelKey].forEachIndexed { index, label ->
+                                        add(
+                                            LegendItem(
+                                                icon = ShapeComponent(Fill(seriesColors[index]), CircleShape),
+                                                labelComponent = legendLabel,
+                                                label = label,
+                                            )
+                                        )
+                                    }
+                                },
+                                iconSize = 8.dp,
+                                iconLabelSpacing = 4.dp,
+                                rowSpacing = 4.dp,
+                                columnSpacing = 12.dp,
+                                padding = Insets(top = 8.dp),
+                            ),
+                        ),
+                        modelProducer = modelProducer,
+                        modifier = Modifier.fillMaxWidth().height(200.dp),
+                        scrollState = rememberVicoScrollState(scrollEnabled = true, initialScroll = Scroll.Absolute.End),
+                        zoomState = rememberVicoZoomState(zoomEnabled = true, initialZoom = Zoom.Content),
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
+private fun SelectionActionBar(
+    selectedCount: Int,
+    onSelectAll: () -> Unit,
+    onDelete: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(R.string.fps_selected_count, selectedCount),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+        )
+        Row {
+            IconButton(onClick = onSelectAll) {
+                Icon(Icons.Default.SelectAll, contentDescription = stringResource(R.string.fps_select_all))
+            }
+            IconButton(onClick = onDelete, enabled = selectedCount > 0) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = stringResource(R.string.delete),
+                    tint = if (selectedCount > 0) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                )
+            }
+            IconButton(onClick = onCancel) {
+                Icon(Icons.Default.Close, contentDescription = stringResource(R.string.fps_cancel))
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
 private fun SessionItem(
     session: PowerStatSession,
     isExpanded: Boolean,
     expandedRecords: List<PowerStatRecord>?,
+    isSelectionMode: Boolean = false,
+    isSelected: Boolean = false,
     onClick: () -> Unit,
+    onLongClick: () -> Unit = {},
     onExport: () -> Unit = {},
 ) {
     val dateFormat = SimpleDateFormat("MM/dd HH:mm", Locale.getDefault())
 
     Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+            else MaterialTheme.colorScheme.surfaceVariant,
+        ),
     ) {
         Column(
             modifier = Modifier
@@ -672,12 +809,21 @@ private fun SessionItem(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f),
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Timer,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        tint = if (session.isActive) Color(0xFFF44336) else MaterialTheme.colorScheme.primary,
-                    )
+                    if (isSelectionMode) {
+                        Icon(
+                            imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp),
+                            tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Timer,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = if (session.isActive) Color(0xFFF44336) else MaterialTheme.colorScheme.primary,
+                        )
+                    }
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = if (session.isActive) {
@@ -689,7 +835,7 @@ private fun SessionItem(
                         fontWeight = FontWeight.Medium,
                     )
                 }
-                if (!session.isActive) {
+                if (!isSelectionMode && !session.isActive) {
                     Icon(
                         imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                         contentDescription = null,
@@ -832,7 +978,7 @@ private fun PowerSessionVicoChart(records: List<PowerStatRecord>) {
                         seriesColors.map { color ->
                             LineCartesianLayer.rememberLine(
                                 fill = LineCartesianLayer.LineFill.single(Fill(color)),
-                                areaFill = LineCartesianLayer.AreaFill.single(Fill(color.copy(alpha = 0.08f))),
+                                areaFill = LineCartesianLayer.AreaFill.single(Fill(Brush.verticalGradient(listOf(color.copy(alpha = 0.4f), Color.Transparent)))),
                             )
                         }
                     ),
@@ -844,7 +990,7 @@ private fun PowerSessionVicoChart(records: List<PowerStatRecord>) {
                     valueFormatter = bottomFormatter,
                 ),
                 marker = marker,
-                markerController = CartesianMarkerController.rememberShowOnPress(),
+                markerController = CartesianMarkerController.rememberToggleOnTap(),
                 legend = rememberHorizontalLegend(
                     items = { extraStore ->
                         extraStore[LegendLabelKey].forEachIndexed { index, label ->

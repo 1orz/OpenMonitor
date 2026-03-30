@@ -37,4 +37,5 @@ data class FpsFrameDataEntity(
     val powerW: Double = 0.0,
     val cpuCoreLoadsJson: String = "",
     val cpuCoreFreqsJson: String = "",
+    val packageName: String = "",
 )

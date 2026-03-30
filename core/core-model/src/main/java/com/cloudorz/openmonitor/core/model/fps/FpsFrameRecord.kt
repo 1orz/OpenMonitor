@@ -17,4 +17,5 @@ data class FpsFrameRecord(
     val powerW: Double,
     val cpuCoreLoads: List<Double>,
     val cpuCoreFreqsMhz: List<Long>,
+    val packageName: String = "",
 )

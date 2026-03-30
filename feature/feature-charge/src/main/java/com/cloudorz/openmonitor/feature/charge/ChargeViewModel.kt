@@ -32,6 +32,8 @@ data class ChargeUiState(
     val currentRecords: List<ChargeChartPoint> = emptyList(),
     val isChargeTracking: Boolean = false,
     val expandedSessionRecords: Map<String, List<ChargeStatRecord>> = emptyMap(),
+    val isSelectionMode: Boolean = false,
+    val selectedIds: Set<Long> = emptySet(),
 )
 
 @HiltViewModel
@@ -47,6 +49,8 @@ class ChargeViewModel @Inject constructor(
     private val currentRecords = MutableStateFlow<List<ChargeChartPoint>>(emptyList())
     private val isChargeTracking = MutableStateFlow(false)
     private val expandedSessionRecords = MutableStateFlow<Map<String, List<ChargeStatRecord>>>(emptyMap())
+    private val _selectionMode = MutableStateFlow(false)
+    private val _selectedIds = MutableStateFlow<Set<Long>>(emptySet())
 
     private var activeSessionId: Long? = null
     private var startCapacity: Int = 0
@@ -60,6 +64,8 @@ class ChargeViewModel @Inject constructor(
         currentRecords,
         isChargeTracking,
         expandedSessionRecords,
+        _selectionMode,
+        _selectedIds,
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         ChargeUiState(
@@ -68,6 +74,8 @@ class ChargeViewModel @Inject constructor(
             currentRecords = values[2] as List<ChargeChartPoint>,
             isChargeTracking = values[3] as Boolean,
             expandedSessionRecords = values[4] as Map<String, List<ChargeStatRecord>>,
+            isSelectionMode = values[5] as Boolean,
+            selectedIds = values[6] as Set<Long>,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -193,6 +201,40 @@ class ChargeViewModel @Inject constructor(
                 val records = chargeRepository.getRecordsBySessionOnce(id)
                 expandedSessionRecords.value = expandedSessionRecords.value + (sessionId to records)
             }
+        }
+    }
+
+    fun toggleSelectionMode() {
+        val newMode = !_selectionMode.value
+        _selectionMode.value = newMode
+        if (!newMode) _selectedIds.value = emptySet()
+    }
+
+    fun exitSelectionMode() {
+        _selectionMode.value = false
+        _selectedIds.value = emptySet()
+    }
+
+    fun toggleSelection(sessionId: Long) {
+        _selectedIds.value = _selectedIds.value.let { ids ->
+            if (ids.contains(sessionId)) ids - sessionId else ids + sessionId
+        }
+    }
+
+    fun selectAll() {
+        _selectedIds.value = sessions.value
+            .filter { !it.isActive }
+            .mapNotNull { it.sessionId.toLongOrNull() }
+            .toSet()
+    }
+
+    fun deleteSelected() {
+        val ids = _selectedIds.value.toList()
+        if (ids.isEmpty()) return
+        viewModelScope.launch {
+            chargeRepository.deleteSessionsByIds(ids)
+            _selectedIds.value = emptySet()
+            _selectionMode.value = false
         }
     }
 

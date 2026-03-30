@@ -33,6 +33,8 @@ data class PowerUiState(
     val currentRecords: List<PowerStatRecord> = emptyList(),
     val trackingStartCapacity: Int = 0,
     val expandedSessionRecords: Map<String, List<PowerStatRecord>> = emptyMap(),
+    val isSelectionMode: Boolean = false,
+    val selectedIds: Set<Long> = emptySet(),
 )
 
 @HiltViewModel
@@ -49,6 +51,8 @@ class PowerViewModel @Inject constructor(
     private val currentRecords = MutableStateFlow<List<PowerStatRecord>>(emptyList())
     private val startCapacityFlow = MutableStateFlow(0)
     private val expandedSessionRecords = MutableStateFlow<Map<String, List<PowerStatRecord>>>(emptyMap())
+    private val _selectionMode = MutableStateFlow(false)
+    private val _selectedIds = MutableStateFlow<Set<Long>>(emptySet())
 
     private var trackingSessionId: Long? = null
     private var trackingStartCapacity: Int = 0
@@ -64,6 +68,8 @@ class PowerViewModel @Inject constructor(
         currentRecords,
         startCapacityFlow,
         expandedSessionRecords,
+        _selectionMode,
+        _selectedIds,
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         PowerUiState(
@@ -73,6 +79,8 @@ class PowerViewModel @Inject constructor(
             currentRecords = values[3] as List<PowerStatRecord>,
             trackingStartCapacity = values[4] as Int,
             expandedSessionRecords = values[5] as Map<String, List<PowerStatRecord>>,
+            isSelectionMode = values[6] as Boolean,
+            selectedIds = values[7] as Set<Long>,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -222,6 +230,40 @@ class PowerViewModel @Inject constructor(
                 val records = powerRepository.getRecordsBySessionOnce(id)
                 expandedSessionRecords.value = expandedSessionRecords.value + (sessionId to records)
             }
+        }
+    }
+
+    fun toggleSelectionMode() {
+        val newMode = !_selectionMode.value
+        _selectionMode.value = newMode
+        if (!newMode) _selectedIds.value = emptySet()
+    }
+
+    fun exitSelectionMode() {
+        _selectionMode.value = false
+        _selectedIds.value = emptySet()
+    }
+
+    fun toggleSelection(sessionId: Long) {
+        _selectedIds.value = _selectedIds.value.let { ids ->
+            if (ids.contains(sessionId)) ids - sessionId else ids + sessionId
+        }
+    }
+
+    fun selectAll() {
+        _selectedIds.value = sessions.value
+            .filter { !it.isActive }
+            .mapNotNull { it.sessionId.toLongOrNull() }
+            .toSet()
+    }
+
+    fun deleteSelected() {
+        val ids = _selectedIds.value.toList()
+        if (ids.isEmpty()) return
+        viewModelScope.launch {
+            powerRepository.deleteSessionsByIds(ids)
+            _selectedIds.value = emptySet()
+            _selectionMode.value = false
         }
     }
 

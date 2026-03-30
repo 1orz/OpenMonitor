@@ -68,6 +68,7 @@ class FpsRepository @Inject constructor(
         powerW: Double,
         cpuCoreLoads: List<Double>,
         cpuCoreFreqs: List<Long>,
+        packageName: String = "",
     ) {
         fpsSessionDao.insertFrameData(
             FpsFrameDataEntity(
@@ -88,6 +89,7 @@ class FpsRepository @Inject constructor(
                 powerW = powerW,
                 cpuCoreLoadsJson = cpuCoreLoads.joinToString(",") { "%.1f".format(it) },
                 cpuCoreFreqsJson = cpuCoreFreqs.joinToString(","),
+                packageName = packageName,
             )
         )
     }
@@ -160,5 +162,6 @@ class FpsRepository @Inject constructor(
         cpuCoreFreqsMhz = if (cpuCoreFreqsJson.isNotEmpty()) {
             cpuCoreFreqsJson.split(",").mapNotNull { it.trim().toLongOrNull() }
         } else emptyList(),
+        packageName = packageName,
     )
 }

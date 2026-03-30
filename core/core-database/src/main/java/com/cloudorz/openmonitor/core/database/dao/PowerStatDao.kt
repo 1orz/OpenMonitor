@@ -52,4 +52,8 @@ interface PowerStatDao {
 
     @Query("SELECT * FROM power_stat_sessions WHERE endTime = 0 ORDER BY beginTime DESC LIMIT 1")
     suspend fun getActiveSession(): PowerStatSessionEntity?
+
+    @Transaction
+    @Query("DELETE FROM power_stat_sessions WHERE sessionId IN (:ids)")
+    suspend fun deleteSessionsByIds(ids: List<Long>)
 }

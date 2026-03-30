@@ -232,6 +232,7 @@ class FloatWindowManager(private val context: Context) {
         private var initialTouchX = 0f
         private var initialTouchY = 0f
         private var isDragging = false
+        private var isTouching = false
         private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
 
         // Long-press detection
@@ -248,6 +249,14 @@ class FloatWindowManager(private val context: Context) {
         private var lastClickTime = 0L
         private val doubleTapTimeout = ViewConfiguration.getDoubleTapTimeout().toLong()
 
+        override fun requestLayout() {
+            // During drag/touch, suppress child-triggered layout requests
+            // to prevent Compose recomposition from calling updateViewLayout
+            // which conflicts with drag position updates.
+            if (isTouching) return
+            super.requestLayout()
+        }
+
         override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
             when (ev.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
@@ -257,6 +266,7 @@ class FloatWindowManager(private val context: Context) {
                     initialTouchY = ev.rawY
                     isDragging = false
                     longPressTriggered = false
+                    isTouching = true
                     onInteraction?.invoke(true)
                     if (onLongClick != null) {
                         handler.postDelayed(longPressRunnable, ViewConfiguration.getLongPressTimeout().toLong())
@@ -277,6 +287,10 @@ class FloatWindowManager(private val context: Context) {
                 }
             }
             return false
+        }
+
+        override fun performClick(): Boolean {
+            return super.performClick()
         }
 
         override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -324,7 +338,10 @@ class FloatWindowManager(private val context: Context) {
                     }
                     isDragging = false
                     longPressTriggered = false
+                    isTouching = false
                     onInteraction?.invoke(false)
+                    // Flush any suppressed layout requests
+                    super.requestLayout()
                 }
             }
             return true

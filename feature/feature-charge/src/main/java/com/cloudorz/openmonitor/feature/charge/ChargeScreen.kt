@@ -3,6 +3,8 @@ package com.cloudorz.openmonitor.feature.charge
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,10 +21,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -32,12 +40,16 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -102,6 +114,11 @@ fun ChargeScreen(
                 context.startActivity(intent)
             }
         },
+        onToggleSelectionMode = viewModel::toggleSelectionMode,
+        onToggleSelection = viewModel::toggleSelection,
+        onSelectAll = viewModel::selectAll,
+        onDeleteSelected = viewModel::deleteSelected,
+        onExitSelectionMode = viewModel::exitSelectionMode,
     )
 }
 
@@ -111,7 +128,34 @@ private fun ChargeScreenContent(
     onSessionClick: (String) -> Unit,
     onToggleSessionExpand: (String) -> Unit,
     onExportSession: (Long) -> Unit = {},
+    onToggleSelectionMode: () -> Unit = {},
+    onToggleSelection: (Long) -> Unit = {},
+    onSelectAll: () -> Unit = {},
+    onDeleteSelected: () -> Unit = {},
+    onExitSelectionMode: () -> Unit = {},
 ) {
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text(stringResource(R.string.delete)) },
+            text = { Text(stringResource(R.string.fps_selected_count, uiState.selectedIds.size)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteDialog = false
+                    onDeleteSelected()
+                }) {
+                    Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text(stringResource(R.string.fps_cancel))
+                }
+            },
+        )
+    }
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -131,11 +175,20 @@ private fun ChargeScreenContent(
 
         if (uiState.sessions.isNotEmpty()) {
             item {
-                Text(
-                    text = stringResource(R.string.charge_history),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                )
+                if (uiState.isSelectionMode) {
+                    ChargeSelectionActionBar(
+                        selectedCount = uiState.selectedIds.size,
+                        onSelectAll = onSelectAll,
+                        onDelete = { showDeleteDialog = true },
+                        onCancel = onExitSelectionMode,
+                    )
+                } else {
+                    Text(
+                        text = stringResource(R.string.charge_history),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
             }
 
             items(
@@ -144,17 +197,29 @@ private fun ChargeScreenContent(
             ) { session ->
                 val isExpanded = uiState.expandedSessionRecords.containsKey(session.sessionId)
                 val records = uiState.expandedSessionRecords[session.sessionId]
+                val sessionIdLong = session.sessionId.toLongOrNull() ?: 0L
+                val isSelected = uiState.selectedIds.contains(sessionIdLong)
 
                 ChargeSessionItem(
                     session = session,
-                    isExpanded = isExpanded,
+                    isExpanded = isExpanded && !uiState.isSelectionMode,
                     expandedRecords = records,
+                    isSelectionMode = uiState.isSelectionMode,
+                    isSelected = isSelected,
                     onClick = {
-                        if (!session.isActive) {
+                        if (uiState.isSelectionMode) {
+                            onToggleSelection(sessionIdLong)
+                        } else if (!session.isActive) {
                             onToggleSessionExpand(session.sessionId)
                         }
                     },
-                    onExport = { onExportSession(session.sessionId.toLongOrNull() ?: 0L) },
+                    onLongClick = {
+                        if (!session.isActive) {
+                            if (!uiState.isSelectionMode) onToggleSelectionMode()
+                            onToggleSelection(sessionIdLong)
+                        }
+                    },
+                    onExport = { onExportSession(sessionIdLong) },
                 )
             }
         } else {
@@ -281,6 +346,38 @@ private fun ChargeCurveSection(
     battery: BatteryStatus,
     records: List<ChargeChartPoint> = emptyList(),
 ) {
+    val capacityData = remember(records) { records.map { it.capacity.toDouble() } }
+    val currentData = remember(records) { records.map { it.currentMa.toDouble() } }
+    val tempData = remember(records) { records.map { it.temperature.toDouble() } }
+
+    val seriesColors = listOf(CapacityColor, CurrentColor, TempColor)
+    val seriesLabels = listOf(
+        stringResource(R.string.session_chart_capacity),
+        stringResource(R.string.session_chart_current),
+        stringResource(R.string.session_chart_temp),
+    )
+
+    val modelProducer = remember { CartesianChartModelProducer() }
+    val bottomFormatter = remember(records) {
+        val dateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+        CartesianValueFormatter { _, value, _ ->
+            val index = value.toInt().coerceIn(0, records.size - 1)
+            if (records.isNotEmpty()) dateFormat.format(Date(records[index].timestamp)) else ""
+        }
+    }
+
+    LaunchedEffect(records) {
+        if (records.size < 2) return@LaunchedEffect
+        modelProducer.runTransaction {
+            lineSeries {
+                series(capacityData)
+                series(currentData)
+                series(tempData)
+            }
+            extras { it[LegendLabelKey] = seriesLabels }
+        }
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -297,11 +394,67 @@ private fun ChargeCurveSection(
             )
             Spacer(modifier = Modifier.height(8.dp))
 
-            if (battery.isCharging) {
-                ChargeCurveChart(
-                    records = records,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+            if (battery.isCharging && records.size >= 2) {
+                ProvideVicoTheme(rememberM3VicoTheme()) {
+                    val legendLabel = rememberTextComponent(
+                        style = TextStyle(color = vicoTheme.textColor, fontSize = 11.sp),
+                    )
+                    val markerLabelColor = MaterialTheme.colorScheme.onSurface
+                    val guidelineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                    val marker = rememberDefaultCartesianMarker(
+                        label = rememberTextComponent(
+                            style = TextStyle(color = markerLabelColor, fontSize = 10.sp),
+                        ),
+                        indicator = { color -> ShapeComponent(Fill(color), CircleShape) },
+                        indicatorSize = 6.dp,
+                        guideline = rememberLineComponent(fill = Fill(guidelineColor), thickness = 1.dp),
+                    )
+
+                    CartesianChartHost(
+                        chart = rememberCartesianChart(
+                            rememberLineCartesianLayer(
+                                LineCartesianLayer.LineProvider.series(
+                                    seriesColors.map { color ->
+                                        LineCartesianLayer.rememberLine(
+                                            fill = LineCartesianLayer.LineFill.single(Fill(color)),
+                                            areaFill = LineCartesianLayer.AreaFill.single(Fill(Brush.verticalGradient(listOf(color.copy(alpha = 0.4f), Color.Transparent)))),
+                                        )
+                                    }
+                                ),
+                            ),
+                            startAxis = VerticalAxis.rememberStart(
+                                valueFormatter = CartesianValueFormatter.decimal(),
+                            ),
+                            bottomAxis = HorizontalAxis.rememberBottom(
+                                valueFormatter = bottomFormatter,
+                            ),
+                            marker = marker,
+                            markerController = CartesianMarkerController.rememberToggleOnTap(),
+                            legend = rememberHorizontalLegend(
+                                items = { extraStore ->
+                                    extraStore[LegendLabelKey].forEachIndexed { index, label ->
+                                        add(
+                                            LegendItem(
+                                                icon = ShapeComponent(Fill(seriesColors[index]), CircleShape),
+                                                labelComponent = legendLabel,
+                                                label = label,
+                                            )
+                                        )
+                                    }
+                                },
+                                iconSize = 8.dp,
+                                iconLabelSpacing = 4.dp,
+                                rowSpacing = 4.dp,
+                                columnSpacing = 12.dp,
+                                padding = Insets(top = 8.dp),
+                            ),
+                        ),
+                        modelProducer = modelProducer,
+                        modifier = Modifier.fillMaxWidth().height(200.dp),
+                        scrollState = rememberVicoScrollState(scrollEnabled = true, initialScroll = Scroll.Absolute.End),
+                        zoomState = rememberVicoZoomState(zoomEnabled = true, initialZoom = Zoom.Content),
+                    )
+                }
             } else {
                 Surface(
                     modifier = Modifier
@@ -340,19 +493,64 @@ private fun ChargeCurveSection(
 }
 
 @Composable
+private fun ChargeSelectionActionBar(
+    selectedCount: Int,
+    onSelectAll: () -> Unit,
+    onDelete: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(R.string.fps_selected_count, selectedCount),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+        )
+        Row {
+            IconButton(onClick = onSelectAll) {
+                Icon(Icons.Default.SelectAll, contentDescription = stringResource(R.string.fps_select_all))
+            }
+            IconButton(onClick = onDelete, enabled = selectedCount > 0) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = stringResource(R.string.delete),
+                    tint = if (selectedCount > 0) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                )
+            }
+            IconButton(onClick = onCancel) {
+                Icon(Icons.Default.Close, contentDescription = stringResource(R.string.fps_cancel))
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
 private fun ChargeSessionItem(
     session: ChargeStatSession,
     isExpanded: Boolean,
     expandedRecords: List<ChargeStatRecord>?,
+    isSelectionMode: Boolean = false,
+    isSelected: Boolean = false,
     onClick: () -> Unit,
+    onLongClick: () -> Unit = {},
     onExport: () -> Unit = {},
 ) {
     val dateFormat = SimpleDateFormat("MM/dd HH:mm", Locale.getDefault())
 
     Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+            else MaterialTheme.colorScheme.surfaceVariant,
+        ),
     ) {
         Column(
             modifier = Modifier
@@ -363,12 +561,21 @@ private fun ChargeSessionItem(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(
-                    imageVector = Icons.Default.Timer,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.primary,
-                )
+                if (isSelectionMode) {
+                    Icon(
+                        imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Timer,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = if (session.isActive) {
@@ -380,7 +587,7 @@ private fun ChargeSessionItem(
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.weight(1f),
                 )
-                if (!session.isActive) {
+                if (!isSelectionMode && !session.isActive) {
                     Icon(
                         imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                         contentDescription = null,
@@ -388,13 +595,15 @@ private fun ChargeSessionItem(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                IconButton(onClick = onExport) {
-                    Icon(
-                        imageVector = Icons.Default.Share,
-                        contentDescription = "CSV",
-                        modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
+                if (!isSelectionMode) {
+                    IconButton(onClick = onExport) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = "CSV",
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 }
             }
 
@@ -523,7 +732,7 @@ private fun ChargeSessionVicoChart(records: List<ChargeStatRecord>) {
                         seriesColors.map { color ->
                             LineCartesianLayer.rememberLine(
                                 fill = LineCartesianLayer.LineFill.single(Fill(color)),
-                                areaFill = LineCartesianLayer.AreaFill.single(Fill(color.copy(alpha = 0.08f))),
+                                areaFill = LineCartesianLayer.AreaFill.single(Fill(Brush.verticalGradient(listOf(color.copy(alpha = 0.4f), Color.Transparent)))),
                             )
                         }
                     ),
@@ -535,7 +744,7 @@ private fun ChargeSessionVicoChart(records: List<ChargeStatRecord>) {
                     valueFormatter = bottomFormatter,
                 ),
                 marker = marker,
-                markerController = CartesianMarkerController.rememberShowOnPress(),
+                markerController = CartesianMarkerController.rememberToggleOnTap(),
                 legend = rememberHorizontalLegend(
                     items = { extraStore ->
                         extraStore[LegendLabelKey].forEachIndexed { index, label ->

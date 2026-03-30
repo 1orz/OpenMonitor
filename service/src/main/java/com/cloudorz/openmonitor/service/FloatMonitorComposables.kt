@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -62,7 +63,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.CircleShape
 import kotlinx.coroutines.delay
-import kotlin.math.abs
 
 private val BG = Color(0xCC000000)
 private val TextPrimary = Color(0xFFFFFFFF)
@@ -244,7 +244,7 @@ fun FloatMiniMonitorContent(service: FloatMonitorService) {
             MiniIconLabel(R.drawable.ic_temperature, tempText, Color.White)
             val fpsVal = fps
             val fpsText = when {
-                fpsVal == null -> "   --"
+                fpsVal == null -> " --.-"
                 fpsVal > 0.0 -> "%5.1f".format(fpsVal)
                 else -> "  0.0"
             }
@@ -363,89 +363,108 @@ fun FloatFpsContent(service: FloatMonitorService) {
 
     val shape = RoundedCornerShape(6.dp)
 
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        // Main FPS display
-        Box(
-            modifier = Modifier
-                .then(
-                    if (bgAlpha > 0f) {
-                        Modifier.background(Color(0xFF000000).copy(alpha = bgAlpha * 0.35f), shape)
-                    } else {
-                        Modifier
-                    }
-                )
-                .then(
-                    when {
-                        isRecording -> Modifier
-                            .background(Color(0x22000000), shape)
-                            .border(
-                                width = 1.dp,
-                                color = Color(0xFFF44336).copy(alpha = breathAlpha),
-                                shape = shape,
-                            )
-                        isCountdown -> Modifier
-                            .background(Color(0x22000000), shape)
-                            .border(
-                                width = 1.dp,
-                                color = Color(0xFF2196F3).copy(alpha = breathAlpha),
-                                shape = shape,
-                            )
-                        else -> Modifier
-                    }
-                )
-                .padding(horizontal = 6.dp, vertical = 2.dp),
+    // Use Box to layer the duration menu on top without shifting the FPS display
+    Box {
+        // Main FPS column — always stays in place
+        Column(
+            modifier = Modifier.align(Alignment.TopStart),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            val text = when {
-                isCountdown -> "${recordingInfo.countdownSeconds}"
-                fps != null -> "%.1f".format(fps)
-                else -> "--"
+            // Main FPS display
+            Box(
+                modifier = Modifier
+                    .then(
+                        // Drag shadow: only during touch, NOT during recording
+                        if (bgAlpha > 0f && !isRecording && !isCountdown) {
+                            Modifier.background(Color(0xFF000000).copy(alpha = bgAlpha * 0.35f), shape)
+                        } else {
+                            Modifier
+                        }
+                    )
+                    .then(
+                        when {
+                            isRecording -> Modifier
+                                .border(
+                                    width = 1.dp,
+                                    color = Color(0xFFF44336).copy(alpha = breathAlpha),
+                                    shape = shape,
+                                )
+                            isCountdown -> Modifier
+                                .background(Color(0x22000000), shape)
+                                .border(
+                                    width = 1.dp,
+                                    color = Color(0xFF2196F3).copy(alpha = breathAlpha),
+                                    shape = shape,
+                                )
+                            else -> Modifier
+                        }
+                    )
+                    .padding(horizontal = 5.dp, vertical = 2.dp),
+            ) {
+                val text = when {
+                    isCountdown -> "${recordingInfo.countdownSeconds}"
+                    fps != null -> "%.1f".format(fps)
+                    else -> "--"
+                }
+                val textColor = when {
+                    isCountdown -> Color(0xFF2196F3)
+                    fps != null -> fpsColor(fps)
+                    else -> TextSecondary
+                }
+                // Invisible reference text to lock width to exactly 5 monospace chars
+                val fpsStyle = MonoStyle.copy(fontSize = 15.sp)
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "000.0",
+                        style = fpsStyle.copy(color = Color.Transparent),
+                        maxLines = 1,
+                        softWrap = false,
+                    )
+                    Text(
+                        text = text,
+                        style = fpsStyle.copy(color = textColor),
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        softWrap = false,
+                    )
+                }
             }
-            val textColor = when {
-                isCountdown -> Color(0xFF2196F3)
-                fps != null -> fpsColor(fps)
-                else -> TextSecondary
+
+            // Recording elapsed time indicator
+            if (isRecording) {
+                val elapsed = recordingInfo.elapsedSeconds
+                val limit = recordingInfo.durationLimitSeconds
+                val remaining = recordingInfo.remainingSeconds
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = if (limit > 0) formatCompactDuration(remaining) else formatCompactDuration(elapsed),
+                    style = MonoStyle.copy(fontSize = 8.sp, color = Color(0xFFF44336).copy(alpha = 0.9f)),
+                )
             }
-            Text(
-                text = text,
-                style = MonoStyle.copy(fontSize = 18.sp, color = textColor),
-                textAlign = TextAlign.End,
-            )
         }
 
-        // Duration selection menu (shown on tap when idle)
+        // Duration selection menu — floats below and to the end, never shifts the FPS display
         AnimatedVisibility(
             visible = showDurationMenu,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 28.dp),
             enter = fadeIn(tween(150)) + scaleIn(tween(150), initialScale = 0.8f),
             exit = fadeOut(tween(100)) + scaleOut(tween(100), targetScale = 0.8f),
         ) {
-            Column {
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    modifier = Modifier
-                        .background(Color(0xDD000000), RoundedCornerShape(6.dp))
-                        .padding(horizontal = 6.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    listOf(5, 10, 15, 30).forEach { minutes ->
-                        DurationButton(
-                            label = "${minutes}m",
-                            onClick = { service.onFpsDurationSelected(minutes) },
-                        )
-                    }
+            Row(
+                modifier = Modifier
+                    .background(Color(0xDD000000), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                listOf(5, 10, 15, 30).forEach { minutes ->
+                    DurationButton(
+                        label = "${minutes}m",
+                        onClick = { service.onFpsDurationSelected(minutes) },
+                    )
                 }
             }
-        }
-
-        // Recording elapsed time indicator
-        if (isRecording) {
-            val elapsed = recordingInfo.elapsedSeconds
-            val limit = recordingInfo.durationLimitSeconds
-            val remaining = recordingInfo.remainingSeconds
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = if (limit > 0) formatCompactDuration(remaining) else formatCompactDuration(elapsed),
-                style = MonoStyle.copy(fontSize = 8.sp, color = Color(0xFFF44336).copy(alpha = 0.9f)),
-            )
         }
     }
 }
@@ -963,10 +982,3 @@ private fun tempColor(celsius: Double): Color = when {
     else -> Color(0xFFF44336)
 }
 
-private fun currentColor(mA: Int): Color = when {
-    mA > 0 -> Color(0xFF4CAF50)    // charging
-    mA == 0 -> CurrentColor
-    abs(mA) > 1500 -> Color(0xFFF44336)  // high drain
-    abs(mA) > 800 -> Color(0xFFFFC107)   // moderate drain
-    else -> CurrentColor
-}

@@ -73,6 +73,10 @@ class PowerRepository @Inject constructor(
         powerStatDao.deleteSession(sessionId)
     }
 
+    suspend fun deleteSessionsByIds(ids: List<Long>) {
+        powerStatDao.deleteSessionsByIds(ids)
+    }
+
     suspend fun getRecordsBySessionOnce(sessionId: Long): List<PowerStatRecord> =
         powerStatDao.getRecordsBySessionOnce(sessionId).map { it.toRecordModel() }
 

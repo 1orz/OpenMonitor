@@ -65,6 +65,7 @@ class FpsRecordingManager @Inject constructor(
     val info: StateFlow<FpsRecordingInfo> = _info.asStateFlow()
 
     private var recordingJob: Job? = null
+    private var elapsedTickerJob: Job? = null
     private var fpsAccumulator = mutableListOf<Double>()
     private var powerAccumulator = mutableListOf<Double>()
     private var recordingStartTime = 0L
@@ -103,9 +104,26 @@ class FpsRecordingManager @Inject constructor(
                 elapsedSeconds = 0,
             )
 
-            Log.e(TAG, "Recording started, sessionId=$sessionId, limit=${durationSeconds}s")
+            Log.d(TAG, "Recording started, sessionId=$sessionId, limit=${durationSeconds}s")
 
-            // Sampling loop: 1 second interval
+            // Independent ticker for elapsed time — updates UI every second precisely
+            elapsedTickerJob = scope.launch {
+                while (true) {
+                    delay(1000)
+                    val elapsed = (System.currentTimeMillis() - recordingStartTime) / 1000
+                    val avg = if (fpsAccumulator.isNotEmpty()) fpsAccumulator.average() else 0.0
+                    _info.value = _info.value.copy(elapsedSeconds = elapsed, avgFps = avg)
+
+                    // Auto-stop when reaching duration limit
+                    if (durationSeconds > 0 && elapsed >= durationSeconds) {
+                        Log.d(TAG, "Duration limit reached, auto-stopping")
+                        finishRecording(sessionId)
+                        return@launch
+                    }
+                }
+            }
+
+            // Sampling loop: collect data independently of UI timer
             while (true) {
                 try {
                     val fpsData = fpsDataSource.getDaemonFps()
@@ -133,6 +151,19 @@ class FpsRecordingManager @Inject constructor(
                         val pw = battery?.powerW ?: 0.0
                         if (pw > 0) powerAccumulator.add(pw)
 
+                        // Extract package from fps layer and resolve app name
+                        val pkg = extractPackageFromLayer(fpsData.window)
+                        if (pkg.isNotEmpty() && pkg != _info.value.packageName) {
+                            val name = resolveAppName(pkg)
+                            _info.value = _info.value.copy(packageName = pkg, appName = name)
+                            // Persist to DB session (keeps latest app as session-level label)
+                            try {
+                                fpsRepository.updateSessionAppInfo(sessionId, pkg, name)
+                            } catch (e: Exception) {
+                                Log.w(TAG, "Failed to update session app info", e)
+                            }
+                        }
+
                         // Compute frame time from FPS (daemon doesn't provide per-frame data)
                         val computedFrameTimeMs = if (fpsData.fps > 0) (1000.0 / fpsData.fps).toInt() else 0
                         val enrichedFpsData = fpsData.copy(maxFrameTimeMs = computedFrameTimeMs)
@@ -150,37 +181,11 @@ class FpsRecordingManager @Inject constructor(
                             powerW = pw,
                             cpuCoreLoads = snapshot?.cpuCoreLoads ?: emptyList(),
                             cpuCoreFreqs = coreFreqs,
+                            packageName = _info.value.packageName,
                         )
-
-                        // Extract package from fps layer and resolve app name
-                        val pkg = extractPackageFromLayer(fpsData.window)
-                        if (pkg.isNotEmpty() && pkg != _info.value.packageName) {
-                            val name = resolveAppName(pkg)
-                            _info.value = _info.value.copy(packageName = pkg, appName = name)
-                            // Persist to DB session
-                            try {
-                                fpsRepository.updateSessionAppInfo(sessionId, pkg, name)
-                            } catch (e: Exception) {
-                                Log.w(TAG, "Failed to update session app info", e)
-                            }
-                        }
                     }
                 } catch (e: Exception) {
                     Log.w(TAG, "Sample failed", e)
-                }
-
-                val elapsed = (System.currentTimeMillis() - recordingStartTime) / 1000
-                val avg = if (fpsAccumulator.isNotEmpty()) fpsAccumulator.average() else 0.0
-                _info.value = _info.value.copy(
-                    elapsedSeconds = elapsed,
-                    avgFps = avg,
-                )
-
-                // Auto-stop when reaching duration limit
-                if (durationSeconds > 0 && elapsed >= durationSeconds) {
-                    Log.e(TAG, "Duration limit reached, auto-stopping")
-                    finishRecording(sessionId)
-                    return@launch
                 }
 
                 delay(1000)
@@ -194,6 +199,8 @@ class FpsRecordingManager @Inject constructor(
         val sessionId = _info.value.sessionId
         recordingJob?.cancel()
         recordingJob = null
+        elapsedTickerJob?.cancel()
+        elapsedTickerJob = null
 
         if (_state.value == FpsRecordingState.COUNTDOWN) {
             _state.value = FpsRecordingState.IDLE
@@ -207,6 +214,8 @@ class FpsRecordingManager @Inject constructor(
     }
 
     private suspend fun finishRecording(sessionId: Long) {
+        elapsedTickerJob?.cancel()
+        elapsedTickerJob = null
         val durationSeconds = ((System.currentTimeMillis() - recordingStartTime) / 1000).toInt()
         val avgFps = if (fpsAccumulator.isNotEmpty()) fpsAccumulator.average() else 0.0
         val avgPower = if (powerAccumulator.isNotEmpty()) powerAccumulator.average() else 0.0
@@ -218,7 +227,7 @@ class FpsRecordingManager @Inject constructor(
                 avgPowerW = avgPower,
                 durationSeconds = durationSeconds,
             )
-            Log.e(TAG, "Recording finished, sessionId=$sessionId, avgFps=%.1f, ${durationSeconds}s".format(avgFps))
+            Log.d(TAG, "Recording finished, sessionId=$sessionId, avgFps=%.1f, ${durationSeconds}s".format(avgFps))
         } catch (e: Exception) {
             Log.e(TAG, "Failed to end session", e)
         }

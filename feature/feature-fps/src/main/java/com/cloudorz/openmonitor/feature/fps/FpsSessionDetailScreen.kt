@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -57,6 +58,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -94,7 +96,6 @@ import com.patrykandpatrick.vico.compose.common.LegendItem
 import com.patrykandpatrick.vico.compose.common.ProvideVicoTheme
 import com.patrykandpatrick.vico.compose.common.component.ShapeComponent
 import com.patrykandpatrick.vico.compose.common.component.rememberLineComponent
-import com.patrykandpatrick.vico.compose.common.component.rememberShapeComponent
 import com.patrykandpatrick.vico.compose.common.component.rememberTextComponent
 import com.patrykandpatrick.vico.compose.common.data.ExtraStore
 import com.patrykandpatrick.vico.compose.common.rememberHorizontalLegend
@@ -230,6 +231,7 @@ private fun FpsSessionDetailContent(
             ) {
                 if (session != null) SessionHeaderCard(session, dateFormat)
                 StatsGridCard(records)
+                AppSwitchTimeline(records)
                 if (sectionVisibility[ChartSection.FPS_TEMP] != false) FpsTempChart(records)
                 if (sectionVisibility[ChartSection.FRAME_TIME] != false) FrameTimeChart(records)
                 if (sectionVisibility[ChartSection.CPU_GPU] != false) CpuGpuUsageChart(records)
@@ -335,6 +337,111 @@ private fun StatCell(label: String, value: String, unit: String, valueColor: Col
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, fontSize = 9.sp)
         Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = valueColor)
         if (unit.isNotEmpty()) Text(unit, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, fontSize = 9.sp)
+    }
+}
+
+// ---- App Switch Timeline ----
+
+/**
+ * Shows a horizontal timeline of app switches during the recording.
+ * Each segment shows the app icon + name and relative time range.
+ */
+@Composable
+private fun AppSwitchTimeline(records: List<FpsFrameRecord>) {
+    // Build list of app segments: (packageName, startIndex, endIndex)
+    val segments = remember(records) {
+        if (records.isEmpty()) return@remember emptyList()
+        val result = mutableListOf<Triple<String, Int, Int>>()
+        var currentPkg = records.first().packageName
+        var startIdx = 0
+        for (i in records.indices) {
+            val pkg = records[i].packageName
+            if (pkg != currentPkg && pkg.isNotEmpty()) {
+                if (currentPkg.isNotEmpty()) result.add(Triple(currentPkg, startIdx, i - 1))
+                currentPkg = pkg
+                startIdx = i
+            }
+        }
+        if (currentPkg.isNotEmpty()) result.add(Triple(currentPkg, startIdx, records.size - 1))
+        result
+    }
+
+    if (segments.size < 2) return // No app switch — nothing to show
+
+    val context = LocalContext.current
+    val startTs = records.first().timestamp
+
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Column(Modifier.padding(12.dp)) {
+            Text(
+                "App Timeline",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.outline,
+            )
+            Spacer(Modifier.height(6.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                segments.forEach { (pkg, startIdx, endIdx) ->
+                    val icon: Bitmap? = remember(pkg) {
+                        try {
+                            val drawable = context.packageManager.getApplicationIcon(pkg)
+                            drawable.toBitmap(48, 48)
+                        } catch (_: Exception) { null }
+                    }
+                    val appName = remember(pkg) {
+                        try {
+                            val ai = context.packageManager.getApplicationInfo(pkg, 0)
+                            context.packageManager.getApplicationLabel(ai).toString()
+                        } catch (_: Exception) { pkg.substringAfterLast('.') }
+                    }
+                    val fromSec = (records[startIdx].timestamp - startTs) / 1000
+                    val toSec = (records[endIdx].timestamp - startTs) / 1000
+                    val timeLabel = "${fromSec}s-${toSec}s"
+
+                    Row(
+                        modifier = Modifier
+                            .background(
+                                MaterialTheme.colorScheme.surface,
+                                RoundedCornerShape(4.dp),
+                            )
+                            .padding(horizontal = 6.dp, vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                    ) {
+                        if (icon != null) {
+                            Image(
+                                painter = BitmapPainter(icon.asImageBitmap()),
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp).clip(RoundedCornerShape(3.dp)),
+                            )
+                        }
+                        Column {
+                            Text(
+                                appName,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontSize = 9.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                timeLabel,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontSize = 8.sp,
+                                color = MaterialTheme.colorScheme.outline,
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -488,7 +595,7 @@ private fun VicoLineChart(
                     seriesColors.map { color ->
                         LineCartesianLayer.rememberLine(
                             fill = LineCartesianLayer.LineFill.single(Fill(color)),
-                            areaFill = LineCartesianLayer.AreaFill.single(Fill(color.copy(alpha = 0.08f))),
+                            areaFill = LineCartesianLayer.AreaFill.single(Fill(Brush.verticalGradient(listOf(color.copy(alpha = 0.4f), Color.Transparent)))),
                         )
                     }
                 ),
@@ -496,7 +603,7 @@ private fun VicoLineChart(
             startAxis = VerticalAxis.rememberStart(valueFormatter = startFormatter),
             bottomAxis = HorizontalAxis.rememberBottom(valueFormatter = bottomFormatter),
             marker = marker,
-            markerController = CartesianMarkerController.rememberShowOnPress(),
+            markerController = CartesianMarkerController.rememberToggleOnTap(),
             legend = rememberHorizontalLegend(
                 items = { extraStore ->
                     extraStore[LegendLabelKey].forEachIndexed { index, label ->
