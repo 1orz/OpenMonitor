@@ -200,65 +200,30 @@ private fun DrawScope.drawFpsLine(
     val pointCount = fpsHistory.size
     val stepX = drawableWidth / (pointCount - 1).coerceAtLeast(1)
 
-    // Build path
     val path = Path()
-    val fillPath = Path()
 
     fpsHistory.forEachIndexed { index, fps ->
         val x = offsetX + index * stepX
         val clampedFps = fps.coerceIn(0f, maxFps)
         val y = drawableHeight - (clampedFps / maxFps) * drawableHeight
-
-        if (index == 0) {
-            path.moveTo(x, y)
-            fillPath.moveTo(x, drawableHeight)
-            fillPath.lineTo(x, y)
-        } else {
-            path.lineTo(x, y)
-            fillPath.lineTo(x, y)
-        }
+        if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
     }
 
-    // Close fill path
-    val lastX = offsetX + (pointCount - 1) * stepX
-    fillPath.lineTo(lastX, drawableHeight)
-    fillPath.close()
-
-    // Draw fill gradient
     val lastFps = fpsHistory.lastOrNull() ?: targetFps
     val lineColor = fpsColor(lastFps, targetFps, halfTarget)
 
     drawPath(
-        path = fillPath,
-        brush = Brush.verticalGradient(
-            colors = listOf(lineColor.copy(alpha = 0.3f), lineColor.copy(alpha = 0.02f)),
-        ),
-    )
-
-    // Draw line
-    drawPath(
         path = path,
         color = lineColor,
-        style = Stroke(
-            width = 2.5f,
-            cap = StrokeCap.Round,
-            join = StrokeJoin.Round,
-        ),
+        style = Stroke(width = 2f, cap = StrokeCap.Round, join = StrokeJoin.Round),
     )
 
     // Draw last point indicator
     if (fpsHistory.isNotEmpty()) {
+        val lastX = offsetX + (pointCount - 1) * stepX
         val lastY = drawableHeight - (lastFps.coerceIn(0f, maxFps) / maxFps) * drawableHeight
-        drawCircle(
-            color = lineColor,
-            radius = 5f,
-            center = Offset(lastX, lastY),
-        )
-        drawCircle(
-            color = Color.White,
-            radius = 2.5f,
-            center = Offset(lastX, lastY),
-        )
+        drawCircle(color = lineColor, radius = 5f, center = Offset(lastX, lastY))
+        drawCircle(color = Color.White, radius = 2.5f, center = Offset(lastX, lastY))
     }
 }
 

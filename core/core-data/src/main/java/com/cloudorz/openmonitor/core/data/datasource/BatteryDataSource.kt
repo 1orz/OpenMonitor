@@ -120,7 +120,9 @@ class BatteryDataSource @Inject constructor(
         }
 
         // current_now: multi-tier fallback (sysfs paths → API → uevent → intent)
-        val currentMa = readBatteryCurrent(batteryIntent).toLong()
+        val rawCurrentMa = readBatteryCurrent(batteryIntent)
+        val isCharging = status == BatteryChargingStatus.CHARGING || status == BatteryChargingStatus.FULL
+        val currentMa = MonitorParser.ensureCurrentSign(rawCurrentMa, isCharging).toLong()
 
         val chargeType = sysfsReader.readString("$batteryPath/charge_type") ?: ""
         val powerW = abs(currentMa / 1000.0 * voltageV)

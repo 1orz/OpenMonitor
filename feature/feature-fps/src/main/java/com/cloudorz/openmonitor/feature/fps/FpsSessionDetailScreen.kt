@@ -58,7 +58,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -579,6 +578,7 @@ private fun VicoLineChart(
 
     val markerLabelColor = MaterialTheme.colorScheme.onSurface
     val guidelineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+    val gridLineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
     val marker = rememberDefaultCartesianMarker(
         label = rememberTextComponent(
             style = androidx.compose.ui.text.TextStyle(color = markerLabelColor, fontSize = 10.sp),
@@ -595,13 +595,19 @@ private fun VicoLineChart(
                     seriesColors.map { color ->
                         LineCartesianLayer.rememberLine(
                             fill = LineCartesianLayer.LineFill.single(Fill(color)),
-                            areaFill = LineCartesianLayer.AreaFill.single(Fill(Brush.verticalGradient(listOf(color.copy(alpha = 0.4f), Color.Transparent)))),
+                            stroke = LineCartesianLayer.LineStroke.Continuous(thickness = 0.75.dp),
                         )
                     }
                 ),
             ),
-            startAxis = VerticalAxis.rememberStart(valueFormatter = startFormatter),
-            bottomAxis = HorizontalAxis.rememberBottom(valueFormatter = bottomFormatter),
+            startAxis = VerticalAxis.rememberStart(
+                valueFormatter = startFormatter,
+                guideline = rememberLineComponent(fill = Fill(gridLineColor), thickness = 1.dp),
+            ),
+            bottomAxis = HorizontalAxis.rememberBottom(
+                valueFormatter = bottomFormatter,
+                guideline = null,
+            ),
             marker = marker,
             markerController = CartesianMarkerController.rememberToggleOnTap(),
             legend = rememberHorizontalLegend(

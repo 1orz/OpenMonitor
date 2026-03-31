@@ -77,7 +77,12 @@ fun UserScreen(
         val permListener = Shizuku.OnRequestPermissionResultListener { _, grantResult ->
             shizukuStatus = checkShizukuStatus()
             if (grantResult == PackageManager.PERMISSION_GRANTED) {
-                permissionManager.setMode(PrivilegeMode.SHIZUKU)
+                val oldMode = permissionManager.currentMode.value
+                isDetecting = true
+                viewModel.switchMode(
+                    oldMode, PrivilegeMode.SHIZUKU,
+                    applyNewMode = { permissionManager.setMode(PrivilegeMode.SHIZUKU) },
+                ) { isDetecting = false }
             }
         }
         try {

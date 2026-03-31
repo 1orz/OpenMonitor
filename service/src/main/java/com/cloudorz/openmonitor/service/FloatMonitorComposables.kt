@@ -63,9 +63,20 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountTree
+import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.SportsEsports
+import androidx.compose.material.icons.filled.Thermostat
+import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.filled.Widgets
+import androidx.compose.material3.Icon
+import androidx.compose.ui.graphics.vector.ImageVector
 import kotlinx.coroutines.delay
 
-private val BG = Color(0xCC000000)
+private val BG = Color(0xAA000000)
 private val TextPrimary = Color(0xFFFFFFFF)
 private val TextSecondary = Color(0xB3FFFFFF)
 private val Track = Color(0xFF333333)
@@ -102,26 +113,29 @@ fun FloatLoadMonitorContent(service: FloatMonitorService) {
         Box(
             modifier = Modifier
                 .background(BG, RoundedCornerShape(8.dp))
-                .padding(8.dp),
+                .padding(6.dp),
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 val maxFreq = coreFreqs?.maxOrNull()
                 FloatRingGauge(
                     percentage = (cpu ?: 0.0).toFloat(),
                     color = CpuColor,
                     label = "CPU",
+                    size = 40.dp,
                     bottomLabel = if (maxFreq != null) "${maxFreq}MHz" else "",
                 )
                 FloatRingGauge(
                     percentage = (gpu ?: 0.0).toFloat(),
                     color = GpuColor,
                     label = "GPU",
+                    size = 40.dp,
                     bottomLabel = if (gpuFreq != null && gpuFreq!! > 0) "${gpuFreq}MHz" else "0MHz",
                 )
                 FloatRingGauge(
                     percentage = (mem ?: 0.0).toFloat(),
                     color = MemColor,
                     label = "",
+                    size = 40.dp,
                     bottomLabel = if (temp != null && temp!! > 0) "%.1f\u00B0C".format(temp) else "",
                 )
             }
@@ -130,15 +144,15 @@ fun FloatLoadMonitorContent(service: FloatMonitorService) {
         // 完整模式：左侧圆环 + 右侧详细文字
         Box(
             modifier = Modifier
-                .width(280.dp)
+                .width(240.dp)
                 .background(BG, RoundedCornerShape(10.dp))
-                .padding(10.dp),
+                .padding(8.dp),
         ) {
             Row {
                 // 左侧三个圆环
                 Column(
-                    modifier = Modifier.width(70.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.width(58.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     val maxFreq = coreFreqs?.maxOrNull()
@@ -146,21 +160,21 @@ fun FloatLoadMonitorContent(service: FloatMonitorService) {
                         percentage = (cpu ?: 0.0).toFloat(),
                         color = CpuColor,
                         label = "CPU",
-                        size = 56.dp,
+                        size = 46.dp,
                         bottomLabel = if (maxFreq != null) "${maxFreq}MHz" else "",
                     )
                     FloatRingGauge(
                         percentage = (gpu ?: 0.0).toFloat(),
                         color = GpuColor,
                         label = "GPU",
-                        size = 56.dp,
+                        size = 46.dp,
                         bottomLabel = if (gpuFreq != null && gpuFreq!! > 0) "${gpuFreq}MHz" else "0MHz",
                     )
                     FloatRingGauge(
                         percentage = (mem ?: 0.0).toFloat(),
                         color = MemColor,
                         label = "${(mem ?: 0.0).toInt()}%",
-                        size = 56.dp,
+                        size = 46.dp,
                         bottomLabel = if (temp != null && temp!! > 0) "%.1f\u00B0C".format(temp) else "",
                     )
                 }
@@ -326,6 +340,8 @@ fun FloatMiniMonitorContent(service: FloatMonitorService) {
     val coreFreqs by service.cpuCoreFreqs.collectAsState()
     val gpuFreq by service.gpuFreqMhz.collectAsState()
     val batTemp by service.batteryTemp.collectAsState()
+    val showCpuFreq by service.miniShowCpuFreq.collectAsState()
+    val showGpuFreq by service.miniShowGpuFreq.collectAsState()
 
     // Alternate between battery current and battery temp every 3s
     var showBatTemp by remember { mutableStateOf(false) }
@@ -365,14 +381,14 @@ fun FloatMiniMonitorContent(service: FloatMonitorService) {
             val cpuVal = cpu
             MiniText(if (cpuVal != null) "%3d%%".format(cpuVal.toInt()) else " --%")
             val freqs = coreFreqs
-            if (freqs != null && freqs.isNotEmpty()) {
+            if (showCpuFreq && freqs != null && freqs.isNotEmpty()) {
                 MiniText("${freqs.max()}M", TextSecondary)
             }
 
             val gpuVal = gpu
             val gpuFreqVal = gpuFreq
             if (gpuVal != null) {
-                val gpuText = if (gpuFreqVal != null && gpuFreqVal > 0) {
+                val gpuText = if (showGpuFreq && gpuFreqVal != null && gpuFreqVal > 0) {
                     "%d%%/%dM".format(gpuVal.toInt(), gpuFreqVal)
                 } else {
                     "%3d%%".format(gpuVal.toInt())
@@ -951,9 +967,9 @@ fun FloatThreadContent(service: FloatMonitorService) {
 
     Box(
         modifier = Modifier
-            .width(210.dp)
+            .width(180.dp)
             .background(BG, RoundedCornerShape(8.dp))
-            .padding(10.dp),
+            .padding(8.dp),
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             if (fgApp.isNotEmpty()) {
@@ -972,7 +988,7 @@ fun FloatThreadContent(service: FloatMonitorService) {
             // 表头
             Row(modifier = Modifier.fillMaxWidth().padding(bottom = 2.dp)) {
                 Text("CPU%", style = MonoStyle.copy(fontSize = 7.sp, color = TextSecondary), modifier = Modifier.width(36.dp))
-                Text("TID", style = MonoStyle.copy(fontSize = 7.sp, color = TextSecondary), modifier = Modifier.width(42.dp))
+                Text("TID", style = MonoStyle.copy(fontSize = 7.sp, color = TextSecondary), modifier = Modifier.width(34.dp))
                 Text("COMM", style = MonoStyle.copy(fontSize = 7.sp, color = TextSecondary))
             }
 
@@ -1003,7 +1019,7 @@ fun FloatThreadContent(service: FloatMonitorService) {
                         Text(
                             text = thread.tid.toString(),
                             style = MonoStyle.copy(fontSize = 8.sp, color = TextSecondary),
-                            modifier = Modifier.width(42.dp),
+                            modifier = Modifier.width(34.dp),
                         )
                         Text(
                             text = thread.name.ifEmpty { "tid:${thread.tid}" },
@@ -1034,14 +1050,16 @@ fun FloatControlPanelBackdropContent() {
 @Composable
 fun FloatControlPanelContent(service: FloatMonitorService) {
     val activeIds by service.activeMonitorIds.collectAsState()
+    val miniShowCpuFreq by service.miniShowCpuFreq.collectAsState()
+    val miniShowGpuFreq by service.miniShowGpuFreq.collectAsState()
 
     val monitorTypes = listOf(
-        FloatMonitorService.TYPE_LOAD to "负载",
-        FloatMonitorService.TYPE_MINI to "迷你",
-        FloatMonitorService.TYPE_FPS to "FPS",
-        FloatMonitorService.TYPE_TEMPERATURE to "温度",
-        FloatMonitorService.TYPE_PROCESS to "进程",
-        FloatMonitorService.TYPE_THREAD to "线程",
+        Triple(FloatMonitorService.TYPE_LOAD, "负载", Icons.Filled.Speed),
+        Triple(FloatMonitorService.TYPE_MINI, "迷你", Icons.Filled.Widgets),
+        Triple(FloatMonitorService.TYPE_FPS, "FPS", Icons.Filled.SportsEsports),
+        Triple(FloatMonitorService.TYPE_TEMPERATURE, "温度", Icons.Filled.Thermostat),
+        Triple(FloatMonitorService.TYPE_PROCESS, "进程", Icons.Filled.Apps),
+        Triple(FloatMonitorService.TYPE_THREAD, "线程", Icons.Filled.AccountTree),
     )
 
     Box(
@@ -1077,9 +1095,10 @@ fun FloatControlPanelContent(service: FloatMonitorService) {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    row.forEach { (typeId, name) ->
+                    row.forEach { (typeId, name, icon) ->
                         val isActive = typeId in activeIds
                         PanelToggleButton(
+                            icon = icon,
                             name = name,
                             isActive = isActive,
                             onClick = { service.toggleMonitorFromPanel(typeId) },
@@ -1093,32 +1112,72 @@ fun FloatControlPanelContent(service: FloatMonitorService) {
                 }
                 Spacer(modifier = Modifier.height(8.dp))
             }
+
+            // 迷你监视器频率显示设置
+            Box(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFFE0E0E0)))
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "迷你监视器",
+                style = TextStyle(fontSize = 10.sp, color = Color(0xFF888888)),
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                PanelToggleButton(
+                    icon = Icons.Filled.Memory,
+                    name = "CPU频率",
+                    isActive = miniShowCpuFreq,
+                    onClick = { service.onMiniCpuFreqToggle() },
+                    modifier = Modifier.weight(1f),
+                )
+                PanelToggleButton(
+                    icon = Icons.Filled.Videocam,
+                    name = "GPU频率",
+                    isActive = miniShowGpuFreq,
+                    onClick = { service.onMiniGpuFreqToggle() },
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(modifier = Modifier.weight(1f))
+            }
         }
     }
 }
 
 @Composable
 private fun PanelToggleButton(
+    icon: ImageVector,
     name: String,
     isActive: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val bg = if (isActive) Color(0xFF42A5F5) else Color(0xFFE0E0E0)
-    val textColor = if (isActive) Color.White else Color(0xFF888888)
+    val contentColor = if (isActive) Color.White else Color(0xFF888888)
 
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(6.dp))
             .background(bg)
             .clickable { onClick() }
-            .padding(horizontal = 8.dp, vertical = 8.dp),
+            .padding(vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = name,
-            style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Medium, color = textColor),
-        )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                imageVector = icon,
+                contentDescription = name,
+                tint = contentColor,
+                modifier = Modifier.size(20.dp),
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = name,
+                style = TextStyle(fontSize = 9.sp, fontWeight = FontWeight.Medium, color = contentColor),
+                textAlign = TextAlign.Center,
+            )
+        }
     }
 }
 

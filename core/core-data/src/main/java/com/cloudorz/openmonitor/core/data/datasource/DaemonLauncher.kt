@@ -100,7 +100,7 @@ class DaemonLauncher @Inject constructor(
     }
 
     /**
-     * Fully stops any running daemon: graceful TCP exit → force kill → cleanup PID files.
+     * Fully stops any running daemon: graceful TCP exit → force kill → wait for port release.
      * Safe to call even if no daemon is running.
      */
     suspend fun fullStop() = withContext(Dispatchers.IO) {
@@ -108,12 +108,20 @@ class DaemonLauncher @Inject constructor(
         try { daemonClient.sendCommand("daemon-exit") } catch (_: Exception) {}
         delay(500)
 
-        // 2. Force kill + cleanup via shell
+        // 2. Force kill + cleanup PID files (always run for cleanup)
         if (daemonClient.isAlive()) {
             XLog.tag(TAG).e("daemon still alive after exit command, force killing")
         }
         execCleanup()
-        delay(300)
+
+        // 3. Wait up to 2s for the daemon to release the port before returning
+        repeat(10) {
+            if (!daemonClient.isAlive()) return@withContext
+            delay(200)
+        }
+        if (daemonClient.isAlive()) {
+            XLog.tag(TAG).e("daemon still alive after fullStop, port may be occupied")
+        }
     }
 
     /** Returns true if the running daemon's commit matches the bundled version. */

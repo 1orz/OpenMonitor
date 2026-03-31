@@ -79,6 +79,8 @@ class FloatMonitorService : LifecycleService() {
         private const val PREFS_NAME = "monitor_settings"
         private const val KEY_ENABLED_MONITORS = "enabled_monitors"
         private const val KEY_SERVICE_ACTIVE = "float_service_active"
+        private const val KEY_MINI_CPU_FREQ = "mini_show_cpu_freq"
+        private const val KEY_MINI_GPU_FREQ = "mini_show_gpu_freq"
         private const val BATTERY_SAMPLING_INTERVAL_MS = 30_000L
         const val KEY_POLL_INTERVAL = "poll_interval"
         const val DEFAULT_POLL_INTERVAL = 500L
@@ -175,6 +177,20 @@ class FloatMonitorService : LifecycleService() {
     val memTotalMB = MutableStateFlow(0.0)
     val memUsedMB = MutableStateFlow(0.0)
     val loadMonitorCompact = MutableStateFlow(true)
+    val miniShowCpuFreq = MutableStateFlow(true)
+    val miniShowGpuFreq = MutableStateFlow(true)
+
+    fun onMiniCpuFreqToggle() {
+        val newVal = !miniShowCpuFreq.value
+        miniShowCpuFreq.value = newVal
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit { putBoolean(KEY_MINI_CPU_FREQ, newVal) }
+    }
+
+    fun onMiniGpuFreqToggle() {
+        val newVal = !miniShowGpuFreq.value
+        miniShowGpuFreq.value = newVal
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit { putBoolean(KEY_MINI_GPU_FREQ, newVal) }
+    }
 
     fun onLoadMonitorModeToggle() {
         loadMonitorCompact.value = !loadMonitorCompact.value
@@ -379,8 +395,10 @@ class FloatMonitorService : LifecycleService() {
     }
 
     private fun startFloatService() {
-        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-            .edit { putBoolean(KEY_SERVICE_ACTIVE, true) }
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        miniShowCpuFreq.value = prefs.getBoolean(KEY_MINI_CPU_FREQ, true)
+        miniShowGpuFreq.value = prefs.getBoolean(KEY_MINI_GPU_FREQ, true)
+        prefs.edit { putBoolean(KEY_SERVICE_ACTIVE, true) }
 
         startForeground(NOTIFICATION_ID, buildCustomNotification())
         startNotificationUpdateJob()
@@ -829,7 +847,17 @@ class FloatMonitorService : LifecycleService() {
         return try {
             val processes = processDataSource.getProcessList()
 
-            // 通过 dumpsys 获取前台应用
+            // 1. UsageStatsManager（无需 shell，BASIC 模式可用）
+            val fgPackage = withContext(Dispatchers.IO) {
+                foregroundAppDataSource.getForegroundPackage()
+            }
+            if (fgPackage.isNotEmpty()) {
+                val match = processes.firstOrNull { it.packageName == fgPackage }
+                    ?: processes.firstOrNull { it.name == fgPackage }
+                if (match != null) return match.pid to (match.packageName.ifEmpty { match.name })
+            }
+
+            // 2. 回退：dumpsys（需要 Root/ADB/Shizuku）
             val result = withContext(Dispatchers.IO) {
                 shellExecutor.execute("dumpsys activity activities 2>/dev/null | grep mResumedActivity")
             }
