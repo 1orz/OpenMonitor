@@ -45,6 +45,7 @@ import com.cloudorz.openmonitor.core.model.cpu.CpuClusterStatus
 import com.cloudorz.openmonitor.core.model.cpu.CpuGlobalStatus
 import com.cloudorz.openmonitor.core.model.cpu.SocInfo
 import com.cloudorz.openmonitor.core.ui.R
+import com.cloudorz.openmonitor.core.ui.component.VendorLogo
 import com.cloudorz.openmonitor.core.ui.theme.ChartGreen
 import com.cloudorz.openmonitor.core.ui.theme.ChartRed
 import com.cloudorz.openmonitor.core.ui.theme.ChartYellow
@@ -149,6 +150,16 @@ private fun CpuOverviewHeader(cpuStatus: CpuGlobalStatus) {
                 .fillMaxWidth()
                 .padding(16.dp),
         ) {
+            // Device marketing name (e.g. "OnePlus 13")
+            if (!socInfo.deviceMarketingName.isNullOrBlank()) {
+                Text(
+                    text = socInfo.deviceMarketingName ?: "",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -162,11 +173,15 @@ private fun CpuOverviewHeader(cpuStatus: CpuGlobalStatus) {
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                     if (socInfo.hasData && socInfo.vendor.isNotBlank()) {
-                        Text(
-                            text = socInfo.vendor,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            VendorLogo(vendor = socInfo.vendor, size = 20.dp)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = socInfo.vendor,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                            )
+                        }
                     }
                 }
                 Column(horizontalAlignment = Alignment.End) {
@@ -355,6 +370,7 @@ private fun ClusterCard(
                             isOnline = core.isOnline,
                             loadPercent = core.loadPercent,
                             currentFreqMHz = core.currentFreqMHz,
+                            microarchName = core.microarchName,
                         )
                     }
                 }
@@ -442,6 +458,7 @@ private fun CoreStatusItem(
     isOnline: Boolean,
     loadPercent: Double,
     currentFreqMHz: Double,
+    microarchName: String? = null,
 ) {
     Card(
         colors = CardDefaults.cardColors(
@@ -462,7 +479,15 @@ private fun CoreStatusItem(
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            if (!microarchName.isNullOrBlank()) {
+                Text(
+                    text = microarchName,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                    textAlign = TextAlign.Center,
+                )
+            }
+            Spacer(modifier = Modifier.height(2.dp))
             if (isOnline) {
                 Text(
                     text = "%.0f%%".format(loadPercent),

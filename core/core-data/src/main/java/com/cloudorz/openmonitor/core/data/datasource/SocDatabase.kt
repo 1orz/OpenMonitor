@@ -15,6 +15,7 @@ import javax.inject.Singleton
 @Singleton
 class SocDatabase @Inject constructor(
     private val application: Application,
+    private val deviceNameSource: DeviceNameSource,
 ) {
     private val entries: Map<String, SocEntry> by lazy { loadDatabase() }
 
@@ -45,11 +46,18 @@ class SocDatabase @Inject constructor(
             architecture = architecture,
         )
 
+        val deviceName = deviceNameSource.getDeviceName()
+
         // Try each identifier, use contains + longest-match (like DevCheck ig0.java)
         for (id in identifiers) {
             val match = findBestMatch(id)
             if (match != null) {
-                return match.toSocInfo(hardwareId = id, abi = abi, architecture = architecture)
+                return match.toSocInfo(
+                    hardwareId = id,
+                    abi = abi,
+                    architecture = architecture,
+                    deviceMarketingName = deviceName,
+                )
             }
         }
 
@@ -57,6 +65,7 @@ class SocDatabase @Inject constructor(
             hardwareId = identifiers.firstOrNull() ?: "",
             abi = abi,
             architecture = architecture,
+            deviceMarketingName = deviceName,
         )
     }
 
@@ -168,7 +177,12 @@ class SocDatabase @Inject constructor(
         val bandwidth: String,
         val channels: String,
     ) {
-        fun toSocInfo(hardwareId: String, abi: String = "", architecture: String = "") = SocInfo(
+        fun toSocInfo(
+            hardwareId: String,
+            abi: String = "",
+            architecture: String = "",
+            deviceMarketingName: String? = null,
+        ) = SocInfo(
             vendor = vendor,
             name = name,
             fab = fab,
@@ -179,6 +193,7 @@ class SocDatabase @Inject constructor(
             hardwareId = hardwareId,
             abi = abi,
             architecture = architecture,
+            deviceMarketingName = deviceMarketingName,
         )
     }
 }

@@ -1,7 +1,9 @@
 package com.cloudorz.openmonitor.core.data.datasource
 
+import android.util.Log
 import com.cloudorz.openmonitor.core.common.CpuNativeInfo
 import com.cloudorz.openmonitor.core.common.SysfsReader
+import com.cloudorz.openmonitor.core.data.util.MidrDecoder
 import com.cloudorz.openmonitor.core.model.cpu.CpuCacheInfo
 import com.cloudorz.openmonitor.core.model.cpu.CpuCoreInfo
 import com.cloudorz.openmonitor.core.model.cpu.CpuClusterStatus
@@ -9,6 +11,7 @@ import com.cloudorz.openmonitor.core.model.cpu.CpuGlobalStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -124,12 +127,23 @@ class CpuDataSource @Inject constructor(
 
     fun getArmNeon(): Boolean? = cpuNativeInfo.hasArmNeon()
 
+    private suspend fun getMidrMap(): Map<Int, String> = withContext(Dispatchers.IO) {
+        try {
+            MidrDecoder.parseProcCpuInfo(File("/proc/cpuinfo").readText())
+        } catch (e: Exception) {
+            Log.d("CpuDataSource", "MIDR parse failed", e)
+            emptyMap()
+        }
+    }
+
     suspend fun getGlobalStatus(): CpuGlobalStatus {
         val coreCount = getCpuCoreCount()
         val loads = getCpuLoad()
+        val midrMap = getMidrMap()
         val cores = (0 until coreCount).map { i ->
             getCoreInfo(i).copy(
-                loadPercent = loads.getOrElse(i + 1) { 0.0 }
+                loadPercent = loads.getOrElse(i + 1) { 0.0 },
+                microarchName = midrMap[i],
             )
         }
 
