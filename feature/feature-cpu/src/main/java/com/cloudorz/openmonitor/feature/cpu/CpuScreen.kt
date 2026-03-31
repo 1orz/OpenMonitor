@@ -47,7 +47,7 @@ import com.cloudorz.openmonitor.core.model.cpu.CpuClusterStatus
 import com.cloudorz.openmonitor.core.model.cpu.CpuGlobalStatus
 import com.cloudorz.openmonitor.core.model.cpu.SocInfo
 import com.cloudorz.openmonitor.core.ui.R
-import com.cloudorz.openmonitor.core.ui.component.DeviceBrandBadge
+import com.cloudorz.openmonitor.core.ui.component.DeviceBrandLogo
 import com.cloudorz.openmonitor.core.ui.component.VendorLogo
 import com.cloudorz.openmonitor.core.ui.theme.ChartGreen
 import com.cloudorz.openmonitor.core.ui.theme.ChartRed
@@ -148,98 +148,83 @@ private fun CpuOverviewHeader(cpuStatus: CpuGlobalStatus) {
             containerColor = MaterialTheme.colorScheme.primaryContainer,
         ),
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Row 1: brand badge + device marketing name (left) + fab process node (right)
-            if (!socInfo.deviceMarketingName.isNullOrBlank() || socInfo.fab.isNotBlank() || socInfo.deviceBrand.isNotBlank()) {
+            // Left: OEM brand logo (56dp), like DevCheck device card
+            if (socInfo.deviceBrand.isNotBlank()) {
+                DeviceBrandLogo(brand = socInfo.deviceBrand, size = 56.dp)
+                Spacer(modifier = Modifier.width(16.dp))
+            }
+
+            // Right: device info column
+            Column(modifier = Modifier.weight(1f)) {
+                // Device name + fab badge
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        if (socInfo.deviceBrand.isNotBlank()) {
-                            DeviceBrandBadge(brand = socInfo.deviceBrand)
-                        }
-                        if (!socInfo.deviceMarketingName.isNullOrBlank()) {
-                            Text(
-                                text = socInfo.deviceMarketingName ?: "",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f),
-                            )
-                        }
+                    val deviceLabel = socInfo.deviceMarketingName
+                        ?.takeIf { it.isNotBlank() }
+                        ?: socInfo.deviceBrand.takeIf { it.isNotBlank() }
+                    if (deviceLabel != null) {
+                        Text(
+                            text = deviceLabel,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
                     }
                     if (socInfo.fab.isNotBlank()) {
                         FabBadge(fab = socInfo.fab)
                     }
                 }
-                Spacer(modifier = Modifier.height(12.dp))
-            }
 
-            // Row 2: vendor logo (left) + SoC name/vendor (center) + load/freq (right)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // Vendor logo — prominent 52dp
-                if (socInfo.vendor.isNotBlank()) {
-                    VendorLogo(vendor = socInfo.vendor, size = 52.dp)
-                    Spacer(modifier = Modifier.width(14.dp))
-                }
+                Spacer(modifier = Modifier.height(4.dp))
 
-                // SoC name + vendor text
-                Column(modifier = Modifier.weight(1f)) {
+                // SoC name row with small vendor logo
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    if (socInfo.vendor.isNotBlank()) {
+                        VendorLogo(vendor = socInfo.vendor, size = 20.dp)
+                    }
                     Text(
                         text = cpuStatus.cpuName.ifEmpty { "CPU" },
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
                     )
-                    if (socInfo.vendor.isNotBlank()) {
-                        Text(
-                            text = socInfo.vendor,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
-                        )
-                    }
                 }
 
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
-                // Load % + avg freq
-                Column(horizontalAlignment = Alignment.End) {
+                // Load + freq + cores
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
                         text = "%.1f%%".format(cpuStatus.totalLoadPercent),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
                         color = loadColor(cpuStatus.totalLoadPercent),
                     )
                     Text(
                         text = "%.0f MHz".format(cpuStatus.averageFreqMHz),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.65f),
+                    )
+                    Text(
+                        text = stringResource(R.string.online_cores_format, cpuStatus.onlineCoreCount, cpuStatus.coreCount),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.65f),
                     )
                 }
-            }
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Row 3: online cores
-            Text(
-                text = stringResource(R.string.online_cores_format, cpuStatus.onlineCoreCount, cpuStatus.coreCount),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-            )
-
-            if (socInfo.hasData) {
-                SocDetailSection(socInfo = socInfo)
+                if (socInfo.hasData) {
+                    SocDetailSection(socInfo = socInfo)
+                }
             }
         }
     }
