@@ -2,7 +2,9 @@ package com.cloudorz.openmonitor.feature.cpu
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -45,6 +47,7 @@ import com.cloudorz.openmonitor.core.model.cpu.CpuClusterStatus
 import com.cloudorz.openmonitor.core.model.cpu.CpuGlobalStatus
 import com.cloudorz.openmonitor.core.model.cpu.SocInfo
 import com.cloudorz.openmonitor.core.ui.R
+import com.cloudorz.openmonitor.core.ui.component.DeviceBrandBadge
 import com.cloudorz.openmonitor.core.ui.component.VendorLogo
 import com.cloudorz.openmonitor.core.ui.theme.ChartGreen
 import com.cloudorz.openmonitor.core.ui.theme.ChartRed
@@ -150,21 +153,48 @@ private fun CpuOverviewHeader(cpuStatus: CpuGlobalStatus) {
                 .fillMaxWidth()
                 .padding(16.dp),
         ) {
-            // Device marketing name (e.g. "OnePlus 13")
-            if (!socInfo.deviceMarketingName.isNullOrBlank()) {
-                Text(
-                    text = socInfo.deviceMarketingName ?: "",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
-                )
-                Spacer(modifier = Modifier.height(4.dp))
+            // Row 1: brand badge + device marketing name (left) + fab process node (right)
+            if (!socInfo.deviceMarketingName.isNullOrBlank() || socInfo.fab.isNotBlank() || socInfo.deviceBrand.isNotBlank()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        if (socInfo.deviceBrand.isNotBlank()) {
+                            DeviceBrandBadge(brand = socInfo.deviceBrand)
+                        }
+                        if (!socInfo.deviceMarketingName.isNullOrBlank()) {
+                            Text(
+                                text = socInfo.deviceMarketingName ?: "",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f),
+                            )
+                        }
+                    }
+                    if (socInfo.fab.isNotBlank()) {
+                        FabBadge(fab = socInfo.fab)
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
             }
 
+            // Row 2: vendor logo (left) + SoC name/vendor (center) + load/freq (right)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                // Vendor logo — prominent 52dp
+                if (socInfo.vendor.isNotBlank()) {
+                    VendorLogo(vendor = socInfo.vendor, size = 52.dp)
+                    Spacer(modifier = Modifier.width(14.dp))
+                }
+
+                // SoC name + vendor text
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = cpuStatus.cpuName.ifEmpty { "CPU" },
@@ -172,18 +202,18 @@ private fun CpuOverviewHeader(cpuStatus: CpuGlobalStatus) {
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
-                    if (socInfo.hasData && socInfo.vendor.isNotBlank()) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            VendorLogo(vendor = socInfo.vendor, size = 20.dp)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = socInfo.vendor,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-                            )
-                        }
+                    if (socInfo.vendor.isNotBlank()) {
+                        Text(
+                            text = socInfo.vendor,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
+                        )
                     }
                 }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Load % + avg freq
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
                         text = "%.1f%%".format(cpuStatus.totalLoadPercent),
@@ -199,31 +229,36 @@ private fun CpuOverviewHeader(cpuStatus: CpuGlobalStatus) {
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // SoC details row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    text = stringResource(R.string.online_cores_format, cpuStatus.onlineCoreCount, cpuStatus.coreCount),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-                )
-                if (socInfo.fab.isNotBlank()) {
-                    Text(
-                        text = socInfo.fab,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-                    )
-                }
-            }
+            // Row 3: online cores
+            Text(
+                text = stringResource(R.string.online_cores_format, cpuStatus.onlineCoreCount, cpuStatus.coreCount),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+            )
 
             if (socInfo.hasData) {
                 SocDetailSection(socInfo = socInfo)
             }
         }
+    }
+}
+
+@Composable
+private fun FabBadge(fab: String) {
+    Box(
+        modifier = Modifier
+            .clip(MaterialTheme.shapes.small)
+            .background(MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f))
+            .padding(horizontal = 8.dp, vertical = 3.dp),
+    ) {
+        Text(
+            text = fab,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f),
+        )
     }
 }
 

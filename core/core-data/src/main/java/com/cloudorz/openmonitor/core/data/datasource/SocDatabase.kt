@@ -47,6 +47,7 @@ class SocDatabase @Inject constructor(
         )
 
         val deviceName = deviceNameSource.getDeviceName()
+        val deviceBrand = Build.BRAND.trim()
 
         // Try each identifier, use contains + longest-match (like DevCheck ig0.java)
         for (id in identifiers) {
@@ -57,6 +58,7 @@ class SocDatabase @Inject constructor(
                     abi = abi,
                     architecture = architecture,
                     deviceMarketingName = deviceName,
+                    deviceBrand = deviceBrand,
                 )
             }
         }
@@ -66,6 +68,7 @@ class SocDatabase @Inject constructor(
             abi = abi,
             architecture = architecture,
             deviceMarketingName = deviceName,
+            deviceBrand = deviceBrand,
         )
     }
 
@@ -182,6 +185,7 @@ class SocDatabase @Inject constructor(
             abi: String = "",
             architecture: String = "",
             deviceMarketingName: String? = null,
+            deviceBrand: String = "",
         ) = SocInfo(
             vendor = vendor,
             name = name,
@@ -194,6 +198,7 @@ class SocDatabase @Inject constructor(
             abi = abi,
             architecture = architecture,
             deviceMarketingName = deviceMarketingName,
+            deviceBrand = deviceBrand,
         )
     }
 }

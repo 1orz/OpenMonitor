@@ -12,6 +12,7 @@ data class SocInfo(
     val abi: String = "",
     val architecture: String = "",
     val deviceMarketingName: String? = null,
+    val deviceBrand: String = "",
 ) {
     val hasData: Boolean
         get() = name.isNotBlank()
