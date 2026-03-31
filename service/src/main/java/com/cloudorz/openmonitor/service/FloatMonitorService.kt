@@ -690,7 +690,6 @@ class FloatMonitorService : LifecycleService() {
         val remainingMonitors = floatWindowManager.getActiveWindowIds()
             .filter { !it.startsWith("_") }
         if (remainingMonitors.isEmpty()) {
-            dismissControlPanel()
             notifyWatchdog(false)
         }
     }

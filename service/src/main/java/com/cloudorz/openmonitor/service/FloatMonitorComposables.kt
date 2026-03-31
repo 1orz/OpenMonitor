@@ -1042,8 +1042,7 @@ fun FloatControlPanelBackdropContent() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .fillMaxHeight()
-            .background(Color(0x55000000)),
+            .fillMaxHeight(),
     )
 }
 
