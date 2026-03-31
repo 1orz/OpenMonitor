@@ -25,8 +25,6 @@ import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -88,13 +86,9 @@ fun FloatMonitorScreen(
     ) { paddingValues ->
         FloatMonitorScreenContent(
             hasOverlayPermission = uiState.hasOverlayPermission,
-            hasAccessibilityService = uiState.hasAccessibilityService,
             canShowOverlay = uiState.canShowOverlay,
             enabledMonitors = uiState.enabledMonitors,
-            overlayMode = uiState.overlayMode,
-            bothPermissionsGranted = uiState.bothPermissionsGranted,
             onToggleMonitor = viewModel::onToggleMonitor,
-            onOverlayModeChanged = viewModel::onOverlayModeChanged,
             onRequestOverlayPermission = {
                 try {
                     context.startActivity(
@@ -104,18 +98,12 @@ fun FloatMonitorScreen(
                         )
                     )
                 } catch (_: Exception) {
-                    // Some OEMs (HyperOS/ColorOS) may fail — fallback to app details
                     context.startActivity(
                         Intent(
                             Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                             Uri.parse("package:${context.packageName}"),
                         )
                     )
-                }
-            },
-            onRequestAccessibility = {
-                viewModel.tryEnableAccessibility {
-                    context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                 }
             },
             modifier = Modifier.padding(paddingValues),
@@ -126,15 +114,10 @@ fun FloatMonitorScreen(
 @Composable
 private fun FloatMonitorScreenContent(
     hasOverlayPermission: Boolean,
-    hasAccessibilityService: Boolean,
     canShowOverlay: Boolean,
     enabledMonitors: Set<FloatMonitorType>,
-    overlayMode: OverlayMode,
-    bothPermissionsGranted: Boolean,
     onToggleMonitor: (FloatMonitorType, Boolean) -> Unit,
-    onOverlayModeChanged: (OverlayMode) -> Unit,
     onRequestOverlayPermission: () -> Unit,
-    onRequestAccessibility: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val expandedInfo = remember { mutableStateMapOf<FloatMonitorType, Boolean>() }
@@ -196,12 +179,7 @@ private fun FloatMonitorScreenContent(
 
             PermissionSection(
                 hasOverlayPermission = hasOverlayPermission,
-                hasAccessibilityService = hasAccessibilityService,
-                overlayMode = overlayMode,
-                bothPermissionsGranted = bothPermissionsGranted,
-                onOverlayModeChanged = onOverlayModeChanged,
                 onRequestOverlayPermission = onRequestOverlayPermission,
-                onRequestAccessibility = onRequestAccessibility,
             )
         }
     }
@@ -284,20 +262,13 @@ private fun MonitorTypeCard(
 @Composable
 private fun PermissionSection(
     hasOverlayPermission: Boolean,
-    hasAccessibilityService: Boolean,
-    overlayMode: OverlayMode,
-    bothPermissionsGranted: Boolean,
-    onOverlayModeChanged: (OverlayMode) -> Unit,
     onRequestOverlayPermission: () -> Unit,
-    onRequestAccessibility: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val canShowOverlay = hasOverlayPermission || hasAccessibilityService
-
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = if (canShowOverlay) {
+            containerColor = if (hasOverlayPermission) {
                 MaterialTheme.colorScheme.surfaceVariant
             } else {
                 MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
@@ -315,7 +286,7 @@ private fun PermissionSection(
                     imageVector = Icons.Default.Security,
                     contentDescription = null,
                     modifier = Modifier.size(20.dp),
-                    tint = if (canShowOverlay) {
+                    tint = if (hasOverlayPermission) {
                         MaterialTheme.colorScheme.primary
                     } else {
                         MaterialTheme.colorScheme.error
@@ -340,32 +311,6 @@ private fun PermissionSection(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Accessibility service status
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = if (hasAccessibilityService) stringResource(R.string.accessibility_enabled) else stringResource(R.string.accessibility_disabled),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
-                    color = if (hasAccessibilityService) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                    modifier = Modifier.weight(1f),
-                )
-                if (!hasAccessibilityService) {
-                    Button(onClick = onRequestAccessibility) {
-                        Text(text = stringResource(R.string.go_enable))
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Overlay permission status
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -386,62 +331,6 @@ private fun PermissionSection(
                         Text(text = stringResource(R.string.go_authorize))
                     }
                 }
-            }
-
-            // Overlay mode selector - show when both permissions are available
-            if (bothPermissionsGranted) {
-                Spacer(modifier = Modifier.height(12.dp))
-                HorizontalDivider()
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text(
-                    text = stringResource(R.string.overlay_mode_title),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    FilterChip(
-                        selected = overlayMode == OverlayMode.AUTO,
-                        onClick = { onOverlayModeChanged(OverlayMode.AUTO) },
-                        label = { Text(stringResource(R.string.overlay_mode_auto), style = MaterialTheme.typography.labelMedium) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        ),
-                    )
-                    FilterChip(
-                        selected = overlayMode == OverlayMode.OVERLAY_ONLY,
-                        onClick = { onOverlayModeChanged(OverlayMode.OVERLAY_ONLY) },
-                        label = { Text(stringResource(R.string.overlay_mode_overlay_only), style = MaterialTheme.typography.labelMedium) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        ),
-                    )
-                    FilterChip(
-                        selected = overlayMode == OverlayMode.ACCESSIBILITY_ONLY,
-                        onClick = { onOverlayModeChanged(OverlayMode.ACCESSIBILITY_ONLY) },
-                        label = { Text(stringResource(R.string.overlay_mode_accessibility_only), style = MaterialTheme.typography.labelMedium) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        ),
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = when (overlayMode) {
-                        OverlayMode.AUTO -> stringResource(R.string.overlay_mode_desc_auto)
-                        OverlayMode.OVERLAY_ONLY -> stringResource(R.string.overlay_mode_desc_overlay)
-                        OverlayMode.ACCESSIBILITY_ONLY -> stringResource(R.string.overlay_mode_desc_accessibility)
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
         }
     }

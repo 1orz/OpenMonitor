@@ -36,7 +36,6 @@ import com.cloudorz.openmonitor.core.common.PermissionManager
 import com.cloudorz.openmonitor.core.common.PrivilegeMode
 import com.cloudorz.openmonitor.core.data.datasource.DaemonManager
 import com.cloudorz.openmonitor.core.data.datasource.DaemonState
-import com.cloudorz.openmonitor.service.AccessibilityMonitorService
 import com.cloudorz.openmonitor.service.FloatMonitorService
 import com.cloudorz.openmonitor.core.ui.theme.MonitorTheme
 import com.cloudorz.openmonitor.feature.battery.BatteryScreen
@@ -199,14 +198,7 @@ private fun MainScreen(permissionManager: PermissionManager) {
         val savedMonitors = prefs.getStringSet("enabled_monitors", emptySet()) ?: emptySet()
         if (savedMonitors.isEmpty()) return@LaunchedEffect
 
-        var canShow = Settings.canDrawOverlays(context) || AccessibilityMonitorService.isEnabled(context)
-        if (!canShow && permissionManager.currentMode.value != PrivilegeMode.BASIC) {
-            AccessibilityMonitorService.enableViaShell(context, permissionManager.getExecutor())
-            delay(1500)
-            canShow = AccessibilityMonitorService.isEnabled(context)
-        }
-        if (canShow) {
-            // Service auto-restores saved monitors in startFloatService()
+        if (Settings.canDrawOverlays(context)) {
             context.startForegroundService(FloatMonitorService.startIntent(context))
         }
     }

@@ -1,6 +1,5 @@
 package com.cloudorz.openmonitor.service
 
-import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import androidx.core.content.edit
 import android.graphics.PixelFormat
@@ -33,8 +32,6 @@ class FloatWindowManager(private val context: Context) {
 
     private val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private val activeWindows = mutableMapOf<String, FloatWindow>()
-    private val useAccessibilityOverlay = context is AccessibilityService
-    val isAccessibilityBased: Boolean get() = useAccessibilityOverlay
     private val posPrefs = context.applicationContext.getSharedPreferences("float_window_pos", Context.MODE_PRIVATE)
 
     data class FloatWindow(
@@ -77,11 +74,7 @@ class FloatWindowManager(private val context: Context) {
             else -> baseFlags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
         }
 
-        val windowType = if (useAccessibilityOverlay) {
-            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
-        } else {
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        }
+        val windowType = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
 
         val savedX = posPrefs.getInt("${id}_x", Int.MIN_VALUE)
         val savedY = posPrefs.getInt("${id}_y", Int.MIN_VALUE)

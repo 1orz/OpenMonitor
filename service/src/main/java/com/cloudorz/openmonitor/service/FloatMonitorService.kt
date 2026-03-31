@@ -46,7 +46,6 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import androidx.core.content.edit
 import kotlin.math.abs
 import javax.inject.Inject
@@ -251,8 +250,6 @@ class FloatMonitorService : LifecycleService() {
     }
 
     fun showControlPanel() {
-        ensureOverlayContext()
-
         if (floatWindowManager.isWindowActive(CONTROL_PANEL_ID)) {
             dismissControlPanel()
             return
@@ -343,20 +340,10 @@ class FloatMonitorService : LifecycleService() {
 
     override fun onCreate() {
         super.onCreate()
-        val overlayMode = getOverlayMode()
-        val windowContext = when (overlayMode) {
-            "OVERLAY_ONLY" -> this
-            "ACCESSIBILITY_ONLY" -> AccessibilityMonitorService.instance ?: this
-            else -> AccessibilityMonitorService.instance ?: this // AUTO
-        }
-        floatWindowManager = FloatWindowManager(windowContext)
+        floatWindowManager = FloatWindowManager(this)
         createNotificationChannel()
         updateShellAccess()
     }
-
-    private fun getOverlayMode(): String =
-        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-            .getString("overlay_mode", "AUTO") ?: "AUTO"
 
     private fun updateShellAccess() {
         val mode = permissionManager.currentMode.value
@@ -384,7 +371,7 @@ class FloatMonitorService : LifecycleService() {
                 restartAllJobs()
             }
             ACTION_SHOW_PANEL -> {
-                lifecycleScope.launch { ensureAccessibilityAndShowPanel() }
+                showControlPanel()
             }
         }
 
@@ -399,9 +386,8 @@ class FloatMonitorService : LifecycleService() {
         startNotificationUpdateJob()
         startBatterySampling()
 
-        // Async: ensure accessibility service → restore monitors (cancel previous if re-entered)
         restoreJob?.cancel()
-        restoreJob = lifecycleScope.launch { restoreMonitorsWithAccessibility() }
+        restoreJob = lifecycleScope.launch { restoreMonitors() }
     }
 
     private fun getShowPanelPendingIntent(): PendingIntent {
@@ -504,132 +490,11 @@ class FloatMonitorService : LifecycleService() {
         }
     }
 
-    /**
-     * Upgrade floatWindowManager to accessibility overlay if the service became
-     * available after initial creation (mirrors vtools' per-call context check).
-     */
-    private fun ensureOverlayContext() {
-        val overlayMode = getOverlayMode()
-        if (overlayMode == "OVERLAY_ONLY") return
-        val accessibilityCtx = AccessibilityMonitorService.instance
-        if (accessibilityCtx != null && !floatWindowManager.isAccessibilityBased) {
-            floatWindowManager.removeAllWindows()
-            floatWindowManager = FloatWindowManager(accessibilityCtx)
-            Log.i(TAG, "floatWindowManager upgraded to accessibility for panel")
+    private suspend fun restoreMonitors() {
+        if (!Settings.canDrawOverlays(this@FloatMonitorService)) {
+            Log.e(TAG, "no overlay permission, skipping window restore")
+            return
         }
-    }
-
-    /**
-     * Like vtools: ensure overlays are created via AccessibilityService context
-     * (TYPE_ACCESSIBILITY_OVERLAY) so they work without SYSTEM_ALERT_WINDOW.
-     * If the service isn't running yet, start it via shell and wait.
-     */
-    private suspend fun ensureAccessibilityAndShowPanel() {
-        val overlayMode = getOverlayMode()
-        if (overlayMode != "OVERLAY_ONLY" && !floatWindowManager.isAccessibilityBased) {
-            var ctx = AccessibilityMonitorService.instance
-            if (ctx == null) {
-                val mode = permissionManager.currentMode.value
-                if (mode == PrivilegeMode.ROOT || mode == PrivilegeMode.SHIZUKU || mode == PrivilegeMode.ADB) {
-                    try {
-                        val enabled = withContext(Dispatchers.IO) {
-                            AccessibilityMonitorService.enableViaShell(this@FloatMonitorService, shellExecutor)
-                        }
-                        if (enabled) {
-                            ctx = withTimeoutOrNull(3000L) {
-                                while (AccessibilityMonitorService.instance == null) delay(100)
-                                AccessibilityMonitorService.instance
-                            }
-                        }
-                    } catch (e: Exception) {
-                        Log.w(TAG, "failed to enable accessibility for panel", e)
-                    }
-                }
-            }
-            if (ctx != null) {
-                withContext(Dispatchers.Main) {
-                    floatWindowManager.removeAllWindows()
-                    floatWindowManager = FloatWindowManager(ctx)
-                    Log.i(TAG, "floatWindowManager upgraded to accessibility for panel (async)")
-                }
-            }
-        }
-        withContext(Dispatchers.Main) { showControlPanel() }
-    }
-
-    /**
-     * Ensures highest overlay priority by enabling accessibility service first,
-     * then restores saved float windows. Falls back to TYPE_APPLICATION_OVERLAY
-     * if accessibility is unavailable.
-     */
-    private suspend fun restoreMonitorsWithAccessibility() {
-        val overlayMode = getOverlayMode()
-
-        // 1. Try to enable accessibility service (skip if OVERLAY_ONLY mode)
-        if (overlayMode != "OVERLAY_ONLY" && AccessibilityMonitorService.instance == null) {
-            val mode = permissionManager.currentMode.value
-            if (mode == PrivilegeMode.ROOT || mode == PrivilegeMode.SHIZUKU || mode == PrivilegeMode.ADB) {
-                try {
-                    val enabled = withContext(Dispatchers.IO) {
-                        AccessibilityMonitorService.enableViaShell(this@FloatMonitorService, shellExecutor)
-                    }
-                    if (enabled) {
-                        // Wait for system to bind the accessibility service (up to 3s)
-                        val connected = withTimeoutOrNull(3000L) {
-                            while (AccessibilityMonitorService.instance == null) {
-                                delay(100)
-                            }
-                            true
-                        }
-                        if (connected == true) {
-                            Log.i(TAG, "accessibility service enabled, upgrading to TYPE_ACCESSIBILITY_OVERLAY")
-                        } else {
-                            Log.w(TAG, "accessibility service enabled but not connected within timeout")
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.w(TAG, "failed to enable accessibility service via shell", e)
-                }
-            }
-        }
-
-        // 2. Reinitialize FloatWindowManager based on overlay mode preference
-        val accessibilityCtx = AccessibilityMonitorService.instance
-        when (overlayMode) {
-            "OVERLAY_ONLY" -> {
-                // Force standard overlay, never use accessibility context
-                if (!Settings.canDrawOverlays(this@FloatMonitorService)) {
-                    Log.e(TAG, "OVERLAY_ONLY mode but no overlay permission, skipping")
-                    return
-                }
-                withContext(Dispatchers.Main) { floatWindowManager.removeAllWindows() }
-                floatWindowManager = FloatWindowManager(this@FloatMonitorService)
-                Log.i(TAG, "FloatWindowManager set to standard overlay (OVERLAY_ONLY mode)")
-            }
-            "ACCESSIBILITY_ONLY" -> {
-                if (accessibilityCtx != null) {
-                    withContext(Dispatchers.Main) { floatWindowManager.removeAllWindows() }
-                    floatWindowManager = FloatWindowManager(accessibilityCtx)
-                    Log.i(TAG, "FloatWindowManager set to accessibility (ACCESSIBILITY_ONLY mode)")
-                } else {
-                    Log.e(TAG, "ACCESSIBILITY_ONLY mode but service not available, skipping")
-                    return
-                }
-            }
-            else -> {
-                // AUTO: prefer accessibility
-                if (accessibilityCtx != null) {
-                    withContext(Dispatchers.Main) { floatWindowManager.removeAllWindows() }
-                    floatWindowManager = FloatWindowManager(accessibilityCtx)
-                    Log.i(TAG, "FloatWindowManager upgraded to accessibility context (AUTO)")
-                } else if (!Settings.canDrawOverlays(this@FloatMonitorService)) {
-                    Log.e(TAG, "no accessibility and no overlay permission, skipping window restore")
-                    return
-                }
-            }
-        }
-
-        // 3. Restore saved monitors on main thread
         val savedMonitors = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
             .getStringSet(KEY_ENABLED_MONITORS, emptySet()) ?: emptySet()
         withContext(Dispatchers.Main) {
@@ -964,17 +829,7 @@ class FloatMonitorService : LifecycleService() {
         return try {
             val processes = processDataSource.getProcessList()
 
-            // 1. 从 AccessibilityService 获取前台包名
-            val fgPackage = if (AccessibilityMonitorService.isActive) {
-                AccessibilityMonitorService.foregroundPackage
-            } else ""
-            if (fgPackage.isNotEmpty()) {
-                val match = processes.firstOrNull { it.packageName == fgPackage }
-                    ?: processes.firstOrNull { it.name == fgPackage }
-                if (match != null) return match.pid to (match.packageName.ifEmpty { match.name })
-            }
-
-            // 2. 回退：通过 dumpsys 获取前台应用
+            // 通过 dumpsys 获取前台应用
             val result = withContext(Dispatchers.IO) {
                 shellExecutor.execute("dumpsys activity activities 2>/dev/null | grep mResumedActivity")
             }

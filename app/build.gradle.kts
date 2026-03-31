@@ -101,6 +101,7 @@ val buildMonitorDaemon by tasks.registering(Exec::class) {
 
     inputs.files(fileTree(daemonSrcDir) { include("**/*.go", "go.mod", "go.sum") })
         .withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.property("daemonHash", daemonHash)
     outputs.file(daemonBinary)
 
     doLast {
