@@ -147,6 +147,7 @@ class FloatMonitorService : LifecycleService() {
     val thermalZones = MutableStateFlow<List<ThermalZone>>(emptyList())
     val topProcesses = MutableStateFlow<List<ProcessInfo>>(emptyList())
     val topThreads = MutableStateFlow<List<ThreadInfo>>(emptyList())
+    val isThreadLoaded = MutableStateFlow(false)
     val foregroundApp = MutableStateFlow("")
     val currentMa = MutableStateFlow<Int?>(null)
     val cpuCoreLoads = MutableStateFlow<List<Double>?>(null)
@@ -836,10 +837,9 @@ class FloatMonitorService : LifecycleService() {
             val threads = processDataSource.getThreadsWithCpu(fgPid.first)
             topThreads.value = threads.take(15)
             foregroundApp.value = fgPid.second
-        } else {
-            topThreads.value = emptyList()
-            foregroundApp.value = ""
+            isThreadLoaded.value = true
         }
+        // Don't reset on failure — keep last known data so UI doesn't flash "loading"
     }
 
     private suspend fun getForegroundAppPid(): Pair<Int, String>? {

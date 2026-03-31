@@ -52,6 +52,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -676,13 +677,13 @@ fun FloatTemperatureContent(service: FloatMonitorService) {
 
     Box(
         modifier = Modifier
-            .width(160.dp)
+            .width(130.dp)
             .background(BG, RoundedCornerShape(8.dp))
             .padding(10.dp),
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(
-                text = "TEMPERATURE",
+                text = stringResource(R.string.float_temp_header),
                 style = MonoStyle.copy(fontSize = 10.sp, color = TextSecondary, letterSpacing = 0.5.sp),
             )
             Spacer(modifier = Modifier.height(4.dp))
@@ -965,6 +966,7 @@ fun FloatThreadContent(service: FloatMonitorService) {
     val threads by service.topThreads.collectAsState()
     val fgApp by service.foregroundApp.collectAsState()
     val hasShell by service.hasShellAccess.collectAsState()
+    val isLoaded by service.isThreadLoaded.collectAsState()
 
     Box(
         modifier = Modifier
@@ -989,13 +991,13 @@ fun FloatThreadContent(service: FloatMonitorService) {
             // 表头
             Row(modifier = Modifier.fillMaxWidth().padding(bottom = 2.dp)) {
                 Text("CPU%", style = MonoStyle.copy(fontSize = 7.sp, color = TextSecondary), modifier = Modifier.width(36.dp))
-                Text("TID", style = MonoStyle.copy(fontSize = 7.sp, color = TextSecondary), modifier = Modifier.width(34.dp))
-                Text("COMM", style = MonoStyle.copy(fontSize = 7.sp, color = TextSecondary))
+                Text("TID",  style = MonoStyle.copy(fontSize = 7.sp, color = TextSecondary), modifier = Modifier.width(34.dp))
+                Text("COMM", style = MonoStyle.copy(fontSize = 7.sp, color = TextSecondary), modifier = Modifier.weight(1f))
             }
 
             if (!hasShell) {
                 Text("需要 Shell 权限", style = TextStyle(fontSize = 9.sp, color = Color(0xFFFFC107)))
-            } else if (threads.isEmpty()) {
+            } else if (!isLoaded) {
                 Text("加载中...", style = TextStyle(fontSize = 9.sp, color = TextSecondary))
             } else {
                 threads.forEach { thread ->

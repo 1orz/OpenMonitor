@@ -6,4 +6,5 @@
     <string name="float_channel_name">Float Monitor</string>
     <string name="float_channel_desc">Float monitor background notification</string>
     <string name="float_notification_action_panel">Control Panel</string>
+    <string name="float_temp_header">Temp</string>
 </resources>

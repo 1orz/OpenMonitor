@@ -5,4 +5,6 @@
     <string name="float_notification_text">悬浮监视器运行中</string>
     <string name="float_channel_name">悬浮监视器</string>
     <string name="float_channel_desc">悬浮监视器后台通知</string>
+    <string name="float_notification_action_panel">控制面板</string>
+    <string name="float_temp_header">温度</string>
 </resources>
