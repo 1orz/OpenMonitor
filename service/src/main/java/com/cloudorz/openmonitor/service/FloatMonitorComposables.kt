@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -1052,20 +1053,24 @@ fun FloatControlPanelContent(service: FloatMonitorService) {
     val miniShowCpuFreq by service.miniShowCpuFreq.collectAsState()
     val miniShowGpuFreq by service.miniShowGpuFreq.collectAsState()
 
-    val monitorTypes = listOf(
-        Triple(FloatMonitorService.TYPE_LOAD, "负载", Icons.Filled.Speed),
-        Triple(FloatMonitorService.TYPE_MINI, "迷你", Icons.Filled.Widgets),
-        Triple(FloatMonitorService.TYPE_FPS, "FPS", Icons.Filled.SportsEsports),
-        Triple(FloatMonitorService.TYPE_TEMPERATURE, "温度", Icons.Filled.Thermostat),
-        Triple(FloatMonitorService.TYPE_PROCESS, "进程", Icons.Filled.Apps),
-        Triple(FloatMonitorService.TYPE_THREAD, "线程", Icons.Filled.AccountTree),
+    // 全部 8 个按钮统一放入 4×2 网格
+    data class Btn(val icon: ImageVector, val name: String, val active: Boolean, val onClick: () -> Unit)
+    val buttons = listOf(
+        Btn(Icons.Filled.Speed,       "负载",   FloatMonitorService.TYPE_LOAD        in activeIds) { service.toggleMonitorFromPanel(FloatMonitorService.TYPE_LOAD) },
+        Btn(Icons.Filled.Widgets,     "迷你",   FloatMonitorService.TYPE_MINI        in activeIds) { service.toggleMonitorFromPanel(FloatMonitorService.TYPE_MINI) },
+        Btn(Icons.Filled.SportsEsports,"FPS",  FloatMonitorService.TYPE_FPS         in activeIds) { service.toggleMonitorFromPanel(FloatMonitorService.TYPE_FPS) },
+        Btn(Icons.Filled.Thermostat,  "温度",   FloatMonitorService.TYPE_TEMPERATURE in activeIds) { service.toggleMonitorFromPanel(FloatMonitorService.TYPE_TEMPERATURE) },
+        Btn(Icons.Filled.Apps,        "进程",   FloatMonitorService.TYPE_PROCESS     in activeIds) { service.toggleMonitorFromPanel(FloatMonitorService.TYPE_PROCESS) },
+        Btn(Icons.Filled.AccountTree, "线程",   FloatMonitorService.TYPE_THREAD      in activeIds) { service.toggleMonitorFromPanel(FloatMonitorService.TYPE_THREAD) },
+        Btn(Icons.Filled.Memory,      "CPU频率", miniShowCpuFreq) { service.onMiniCpuFreqToggle() },
+        Btn(Icons.Filled.Videocam,    "GPU频率", miniShowGpuFreq) { service.onMiniGpuFreqToggle() },
     )
 
     Box(
         modifier = Modifier
-            .width(220.dp)
+            .width(240.dp)
             .background(Color(0xF0FFFFFF), RoundedCornerShape(12.dp))
-            .padding(14.dp),
+            .padding(12.dp),
     ) {
         Column {
             // 标题 + 关闭
@@ -1086,59 +1091,24 @@ fun FloatControlPanelContent(service: FloatMonitorService) {
                         .clickable { service.dismissControlPanel() },
                 )
             }
-            Spacer(modifier = Modifier.height(12.dp))
-            // 2x3 toggle grid
-            val rows = monitorTypes.chunked(3)
-            rows.forEach { row ->
+            Spacer(modifier = Modifier.height(10.dp))
+            // 4×2 方形按钮网格
+            buttons.chunked(4).forEach { row ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    row.forEach { (typeId, name, icon) ->
-                        val isActive = typeId in activeIds
+                    row.forEach { btn ->
                         PanelToggleButton(
-                            icon = icon,
-                            name = name,
-                            isActive = isActive,
-                            onClick = { service.toggleMonitorFromPanel(typeId) },
-                            modifier = Modifier.weight(1f),
+                            icon = btn.icon,
+                            name = btn.name,
+                            isActive = btn.active,
+                            onClick = btn.onClick,
+                            modifier = Modifier.weight(1f).aspectRatio(1f),
                         )
                     }
-                    // 填充不满的列
-                    repeat(3 - row.size) {
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            // 迷你监视器频率显示设置
-            Box(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFFE0E0E0)))
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "迷你监视器",
-                style = TextStyle(fontSize = 10.sp, color = Color(0xFF888888)),
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                PanelToggleButton(
-                    icon = Icons.Filled.Memory,
-                    name = "CPU频率",
-                    isActive = miniShowCpuFreq,
-                    onClick = { service.onMiniCpuFreqToggle() },
-                    modifier = Modifier.weight(1f),
-                )
-                PanelToggleButton(
-                    icon = Icons.Filled.Videocam,
-                    name = "GPU频率",
-                    isActive = miniShowGpuFreq,
-                    onClick = { service.onMiniGpuFreqToggle() },
-                    modifier = Modifier.weight(1f),
-                )
-                Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.height(6.dp))
             }
         }
     }
@@ -1160,7 +1130,7 @@ private fun PanelToggleButton(
             .clip(RoundedCornerShape(6.dp))
             .background(bg)
             .clickable { onClick() }
-            .padding(vertical = 8.dp),
+            .padding(4.dp),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -1168,13 +1138,14 @@ private fun PanelToggleButton(
                 imageVector = icon,
                 contentDescription = name,
                 tint = contentColor,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(18.dp),
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = name,
-                style = TextStyle(fontSize = 9.sp, fontWeight = FontWeight.Medium, color = contentColor),
+                style = TextStyle(fontSize = 8.sp, fontWeight = FontWeight.Medium, color = contentColor),
                 textAlign = TextAlign.Center,
+                maxLines = 1,
             )
         }
     }
