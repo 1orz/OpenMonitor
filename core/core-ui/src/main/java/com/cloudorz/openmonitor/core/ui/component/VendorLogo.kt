@@ -69,8 +69,8 @@ fun VendorLogo(
 }
 
 /**
- * Displays a device OEM brand logo.
- * OnePlus and Realme use extracted PNG assets; other brands use colored text badges.
+ * Displays a device OEM brand logo using extracted PNG assets.
+ * Falls back to a colored text badge for unknown brands.
  * Sized to [size] (default 56dp) to be visually prominent, like DevCheck's device card.
  */
 @Composable
@@ -81,59 +81,74 @@ fun DeviceBrandLogo(
 ) {
     if (brand.isBlank()) return
     val normalized = brand.lowercase()
-    when {
-        "oneplus" in normalized ->
-            Image(
-                painter = painterResource(R.drawable.ic_oneplus),
-                contentDescription = brand,
-                modifier = modifier.size(size),
+    val logoRes: Int? = when {
+        "oneplus" in normalized -> R.drawable.ic_brand_oneplus
+        "realme" in normalized -> R.drawable.ic_brand_realme
+        "oppo" in normalized -> R.drawable.ic_brand_oppo
+        "iqoo" in normalized -> R.drawable.ic_brand_iqoo
+        "vivo" in normalized -> R.drawable.ic_brand_vivo
+        "poco" in normalized -> R.drawable.ic_brand_poco
+        "redmi" in normalized -> R.drawable.ic_brand_redmi
+        "xiaomi" in normalized || "mi " in normalized || normalized == "mi" ->
+            R.drawable.ic_brand_mi
+        "samsung" in normalized -> R.drawable.ic_brand_samsung
+        "honor" in normalized -> R.drawable.ic_brand_honor
+        "huawei" in normalized -> R.drawable.ic_brand_huawei
+        "google" in normalized || "pixel" in normalized -> R.drawable.ic_brand_google
+        "sony" in normalized -> R.drawable.ic_brand_sony
+        "motorola" in normalized || "moto" in normalized -> R.drawable.ic_brand_moto
+        "asus" in normalized -> R.drawable.ic_brand_asus
+        "nokia" in normalized -> R.drawable.ic_brand_nokia
+        "lg" in normalized -> R.drawable.ic_brand_lg
+        "lenovo" in normalized -> R.drawable.ic_brand_lenovo
+        "meizu" in normalized -> R.drawable.ic_brand_meizu
+        "nubia" in normalized -> R.drawable.ic_brand_nubia
+        "blackshark" in normalized || "black shark" in normalized -> R.drawable.ic_brand_blackshark
+        "sharp" in normalized -> R.drawable.ic_brand_sharp
+        "microsoft" in normalized || "surface" in normalized -> R.drawable.ic_brand_ms
+        "smartisan" in normalized -> R.drawable.ic_brand_smartisan
+        "zte" in normalized -> R.drawable.ic_brand_zte
+        "hisense" in normalized -> R.drawable.ic_brand_hisense
+        "coolpad" in normalized -> R.drawable.ic_brand_coolpad
+        "unihertz" in normalized -> R.drawable.ic_brand_unihertz
+        else -> null
+    }
+
+    if (logoRes != null) {
+        Image(
+            painter = painterResource(logoRes),
+            contentDescription = brand,
+            modifier = modifier.size(size),
+        )
+    } else {
+        // Fallback: colored text badge
+        val (label, color) = when {
+            "nothing" in normalized -> "Nothing" to Color(0xFF1C1B1B)
+            "infinix" in normalized -> "Infinix" to Color(0xFF0071CE)
+            "tecno" in normalized -> "TECNO" to Color(0xFF0A2463)
+            "wiko" in normalized -> "Wiko" to Color(0xFFE50049)
+            else -> brand.take(6) to Color(0xFF607D8B)
+        }
+        val fontSize = when {
+            label.length >= 6 -> (size.value * 0.20f).sp
+            label.length >= 4 -> (size.value * 0.24f).sp
+            else -> (size.value * 0.30f).sp
+        }
+        Box(
+            modifier = modifier
+                .size(size)
+                .clip(RoundedCornerShape(10.dp))
+                .background(color),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = label,
+                style = TextStyle(
+                    fontSize = fontSize,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                ),
             )
-        "realme" in normalized ->
-            Image(
-                painter = painterResource(R.drawable.ic_realme),
-                contentDescription = brand,
-                modifier = modifier.size(size),
-            )
-        else -> {
-            val (label, color) = when {
-                "oppo" in normalized -> "OPPO" to Color(0xFF1D9B4E)
-                "vivo" in normalized -> "vivo" to Color(0xFF415FFF)
-                "xiaomi" in normalized || "redmi" in normalized || "poco" in normalized ->
-                    "MI" to Color(0xFFFF6900)
-                "samsung" in normalized -> "Samsung" to Color(0xFF1428A0)
-                "huawei" in normalized || "honor" in normalized -> "HUAWEI" to Color(0xFFCF0A2C)
-                "google" in normalized -> "Google" to Color(0xFF4285F4)
-                "sony" in normalized -> "Sony" to Color(0xFF1C1B1B)
-                "motorola" in normalized || "moto" in normalized -> "moto" to Color(0xFF5C2F91)
-                "asus" in normalized -> "ASUS" to Color(0xFF00539B)
-                "nokia" in normalized -> "Nokia" to Color(0xFF005AFF)
-                "lg" in normalized -> "LG" to Color(0xFFA50034)
-                "lenovo" in normalized -> "Lenovo" to Color(0xFFE2231A)
-                "meizu" in normalized -> "Meizu" to Color(0xFF0052FF)
-                "nothing" in normalized -> "Nothing" to Color(0xFF1C1B1B)
-                else -> brand.take(6) to Color(0xFF607D8B)
-            }
-            val fontSize = when {
-                label.length >= 6 -> (size.value * 0.20f).sp
-                label.length >= 4 -> (size.value * 0.24f).sp
-                else -> (size.value * 0.30f).sp
-            }
-            Box(
-                modifier = modifier
-                    .size(size)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(color),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = label,
-                    style = TextStyle(
-                        fontSize = fontSize,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                    ),
-                )
-            }
         }
     }
 }
