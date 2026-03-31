@@ -21,18 +21,21 @@ class ThermalDataSource @Inject constructor(
     private val cachedCpuTempPath = AtomicReference<String?>(null)
 
     suspend fun getAllThermalZones(): List<ThermalZone> = withContext(Dispatchers.IO) {
+        // Thermal zone sysfs files are world-readable on all Android devices.
+        // Read directly via File to avoid the Mutex-locked shell executor bottleneck
+        // (which would otherwise run 100+ sequential shell commands for 50 zones).
         val zones = mutableListOf<ThermalZone>()
         for (i in 0..50) {
             val zonePath = "$thermalBasePath/thermal_zone$i"
-            val type = sysfsReader.readString("$zonePath/type") ?: break
-            val tempRaw = sysfsReader.readInt("$zonePath/temp") ?: continue
+            val type = try { java.io.File("$zonePath/type").readText().trim() } catch (_: Exception) { break }
+            val tempRaw = try { java.io.File("$zonePath/temp").readText().trim().toIntOrNull() } catch (_: Exception) { null } ?: continue
             val temperature = if (tempRaw > 1000) tempRaw / 1000.0 else tempRaw.toDouble()
             zones.add(
                 ThermalZone(
                     index = i,
                     name = "thermal_zone$i",
                     type = type,
-                    temperatureCelsius = temperature
+                    temperatureCelsius = temperature,
                 )
             )
         }
