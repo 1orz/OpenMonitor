@@ -283,10 +283,6 @@ class FloatWindowManager(private val context: Context) {
             return false
         }
 
-        override fun performClick(): Boolean {
-            return super.performClick()
-        }
-
         override fun onTouchEvent(event: MotionEvent): Boolean {
             when (event.actionMasked) {
                 MotionEvent.ACTION_MOVE -> {

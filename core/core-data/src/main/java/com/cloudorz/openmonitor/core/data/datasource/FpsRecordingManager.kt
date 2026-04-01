@@ -5,7 +5,6 @@ import android.content.pm.PackageManager
 import android.util.Log
 import com.cloudorz.openmonitor.core.data.repository.FpsRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
-import com.cloudorz.openmonitor.core.model.fps.FpsData
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job

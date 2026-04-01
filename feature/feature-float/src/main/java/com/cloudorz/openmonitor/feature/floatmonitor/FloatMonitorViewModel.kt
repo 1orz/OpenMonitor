@@ -2,7 +2,6 @@ package com.cloudorz.openmonitor.feature.floatmonitor
 
 import android.content.Context
 import android.provider.Settings
-import androidx.core.content.edit
 import androidx.lifecycle.ViewModel
 import com.cloudorz.openmonitor.service.FloatMonitorService
 import dagger.hilt.android.lifecycle.HiltViewModel

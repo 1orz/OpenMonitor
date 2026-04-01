@@ -26,6 +26,7 @@ data class ProcessUiState(
     val filteredProcesses: List<ProcessInfo> = emptyList(),
     val selectedProcess: ProcessInfo? = null,
     val threads: List<ThreadInfo> = emptyList(),
+    val threadsLoading: Boolean = false,
     val searchQuery: String = "",
     val sortBy: SortBy = SortBy.CPU,
     val filterMode: ProcessFilterMode = ProcessFilterMode.ALL,
@@ -44,6 +45,7 @@ class ProcessViewModel @Inject constructor(
     private val filterMode = MutableStateFlow(ProcessFilterMode.ALL)
     private val selectedProcess = MutableStateFlow<ProcessInfo?>(null)
     private val threads = MutableStateFlow<List<ThreadInfo>>(emptyList())
+    private val threadsLoading = MutableStateFlow(false)
 
     private val _killResult = MutableSharedFlow<String>()
     val killResult: SharedFlow<String> = _killResult
@@ -55,8 +57,8 @@ class ProcessViewModel @Inject constructor(
         searchQuery,
         sortBy,
         selectedProcess,
-        combine(threads, filterMode) { t, f -> t to f },
-    ) { processes, query, sort, selected, (threadList, filter) ->
+        combine(threads, threadsLoading, filterMode) { t, tl, f -> Triple(t, tl, f) },
+    ) { processes, query, sort, selected, (threadList, threadLoading, filter) ->
         val canKill = permissionManager.currentMode.value.let {
             it == PrivilegeMode.ROOT || it == PrivilegeMode.ADB || it == PrivilegeMode.SHIZUKU
         }
@@ -91,6 +93,7 @@ class ProcessViewModel @Inject constructor(
             filteredProcesses = filtered,
             selectedProcess = refreshedSelected,
             threads = threadList,
+            threadsLoading = threadLoading,
             searchQuery = query,
             sortBy = sort,
             filterMode = filter,
@@ -118,14 +121,17 @@ class ProcessViewModel @Inject constructor(
     fun onProcessSelected(process: ProcessInfo) {
         selectedProcess.value = process
         threads.value = emptyList()
+        threadsLoading.value = true
         viewModelScope.launch {
             threads.value = processRepository.getThreads(process.pid)
+            threadsLoading.value = false
         }
     }
 
     fun onProcessDismissed() {
         selectedProcess.value = null
         threads.value = emptyList()
+        threadsLoading.value = false
     }
 
     fun killProcess(process: ProcessInfo) {

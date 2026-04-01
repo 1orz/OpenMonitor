@@ -1,5 +1,6 @@
 package com.cloudorz.openmonitor.core.data.datasource
 
+import android.util.Log
 import com.cloudorz.openmonitor.core.common.ShellExecutor
 import com.cloudorz.openmonitor.core.common.SysfsReader
 import com.cloudorz.openmonitor.core.model.process.ProcessInfo
@@ -7,6 +8,8 @@ import com.cloudorz.openmonitor.core.model.process.ProcessState
 import com.cloudorz.openmonitor.core.model.process.ThreadInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -15,15 +18,97 @@ class ProcessDataSource @Inject constructor(
     private val sysfsReader: SysfsReader,
     private val shellExecutor: ShellExecutor,
     private val appInfoResolver: AppInfoResolver,
+    private val daemonClient: DaemonClient,
 ) {
+    companion object {
+        private const val TAG = "ProcessDataSource"
+    }
+
     // Android app user pattern: u0_a123, u10_a456 etc.
     private val androidUserPattern = Regex("u\\d+_a\\d+")
 
     suspend fun getProcessList(): List<ProcessInfo> = withContext(Dispatchers.IO) {
-        val result = shellExecutor.execute("ps -A -o PID,PPID,USER,%CPU,RSS,NAME --sort=-%cpu")
-        if (!result.isSuccess) return@withContext emptyList()
+        // Daemon (shell uid + readproc) sees all processes; prefer it when available.
+        tryGetProcessListFromDaemon()
+            ?: getProcessListFromShell()
+    }
 
-        result.stdout.lines()
+    private fun tryGetProcessListFromDaemon(): List<ProcessInfo>? {
+        val raw = daemonClient.sendCommand("processes") ?: return null
+        return parseDaemonProcessList(raw)
+    }
+
+    private fun parseDaemonProcessList(json: String): List<ProcessInfo>? {
+        return try {
+            val arr = JSONArray(json)
+            val list = ArrayList<ProcessInfo>(arr.length())
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                val pid = obj.getInt("pid")
+                val ppid = obj.optInt("ppid")
+                val name = obj.optString("name")
+                val stateChar = obj.optString("state", "?").firstOrNull() ?: '?'
+                val state = ProcessState.fromCode(stateChar)
+                val user = obj.optString("user")
+                val cpuPercent = obj.optDouble("cpu_percent", 0.0)
+                val rssKB = obj.optLong("rss_kb")
+                val swapKB = obj.optLong("swap_kb")
+                val shrKB = obj.optLong("shr_kb")
+                val cmdline = obj.optString("cmdline")
+                val oomAdj = obj.optInt("oom_adj")
+                val oomScore = obj.optInt("oom_score")
+                val oomScoreAdj = obj.optInt("oom_score_adj")
+                val cgroup = obj.optString("cgroup")
+                val cpuSet = obj.optString("cpu_set")
+                val ctxtSwitches = obj.optLong("ctxt_switches")
+
+                // Detect Android app processes: user matches u0_aXXX and name/cmdline has dots.
+                val packageName = when {
+                    androidUserPattern.matches(user) && name.contains('.') ->
+                        name.substringBefore(':')
+                    androidUserPattern.matches(user) && cmdline.contains('.') ->
+                        cmdline.substringBefore(':').trim()
+                    else -> ""
+                }
+
+                list.add(
+                    enrichWithAppInfo(
+                        ProcessInfo(
+                            pid = pid,
+                            ppid = ppid,
+                            name = name,
+                            state = state,
+                            user = user,
+                            cpuPercent = cpuPercent,
+                            rssKB = rssKB,
+                            swapKB = swapKB,
+                            shrKB = shrKB,
+                            cmdline = cmdline,
+                            friendlyName = name,
+                            command = cmdline,
+                            oomAdj = oomAdj,
+                            oomScore = oomScore,
+                            oomScoreAdj = oomScoreAdj,
+                            cGroup = cgroup,
+                            cpuSet = cpuSet,
+                            cpusAllowed = cpuSet,
+                            ctxtSwitches = ctxtSwitches,
+                            packageName = packageName,
+                        )
+                    )
+                )
+            }
+            list
+        } catch (e: Exception) {
+            Log.d(TAG, "parseDaemonProcessList failed: ${e.message}")
+            null
+        }
+    }
+
+    private suspend fun getProcessListFromShell(): List<ProcessInfo> {
+        val result = shellExecutor.execute("ps -A -o PID,PPID,USER,%CPU,RSS,NAME --sort=-%cpu")
+        if (!result.isSuccess) return emptyList()
+        return result.stdout.lines()
             .drop(1) // header
             .filter { it.isNotBlank() }
             .take(200)
@@ -37,7 +122,6 @@ class ProcessDataSource @Inject constructor(
         val user = parts[2]
         val name = parts[5]
 
-        // Android app detection: user matches u0_aXXX pattern and name has dot (package name)
         val isApp = androidUserPattern.matches(user) && name.contains('.')
         val packageName = if (isApp) name.substringBefore(":") else ""
 
@@ -104,24 +188,41 @@ class ProcessDataSource @Inject constructor(
     }
 
     suspend fun getThreads(pid: Int): List<ThreadInfo> = withContext(Dispatchers.IO) {
-        val result = shellExecutor.execute("ls /proc/$pid/task")
-        if (!result.isSuccess) return@withContext emptyList()
-
-        result.stdout.lines()
-            .filter { it.isNotBlank() }
-            .mapNotNull { tidStr ->
-                val tid = tidStr.trim().toIntOrNull() ?: return@mapNotNull null
-                val name = sysfsReader.readString("/proc/$pid/task/$tid/comm")?.trim() ?: ""
-                ThreadInfo(tid = tid, name = name)
-            }
+        // Daemon provides accurate thread CPU% via /proc/<pid>/task reads.
+        tryGetThreadsFromDaemon(pid)
+            ?: getThreadsWithCpu(pid)
     }
 
-    /**
-     * 使用 top -H 获取线程列表及 CPU 使用率，失败时回退到 [getThreads]。
-     */
-    suspend fun getThreadsWithCpu(pid: Int): List<ThreadInfo> = withContext(Dispatchers.IO) {
+    private fun tryGetThreadsFromDaemon(pid: Int): List<ThreadInfo>? {
+        val raw = daemonClient.sendCommand("threads/$pid") ?: return null
+        return parseDaemonThreads(raw)
+    }
+
+    private fun parseDaemonThreads(json: String): List<ThreadInfo>? {
+        return try {
+            val arr = JSONArray(json)
+            if (arr.length() == 0) return emptyList()
+            val list = ArrayList<ThreadInfo>(arr.length())
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                list.add(
+                    ThreadInfo(
+                        tid = obj.getInt("tid"),
+                        name = obj.optString("name"),
+                        cpuLoadPercent = obj.optDouble("cpu_percent", 0.0),
+                    )
+                )
+            }
+            list.sortedByDescending { it.cpuLoadPercent }
+        } catch (e: Exception) {
+            Log.d(TAG, "parseDaemonThreads failed: ${e.message}")
+            null
+        }
+    }
+
+    private suspend fun getThreadsWithCpu(pid: Int): List<ThreadInfo> = withContext(Dispatchers.IO) {
         val result = shellExecutor.execute("top -H -b -q -n 1 -p $pid -o TID,%CPU,CMD")
-        if (!result.isSuccess || result.stdout.isBlank()) return@withContext getThreads(pid)
+        if (!result.isSuccess || result.stdout.isBlank()) return@withContext getThreadsFallback(pid)
 
         val threads = result.stdout.lines()
             .filter { it.isNotBlank() }
@@ -136,7 +237,19 @@ class ProcessDataSource @Inject constructor(
             }
             .sortedByDescending { it.cpuLoadPercent }
 
-        threads.ifEmpty { getThreads(pid) }
+        threads.ifEmpty { getThreadsFallback(pid) }
+    }
+
+    private suspend fun getThreadsFallback(pid: Int): List<ThreadInfo> {
+        val result = shellExecutor.execute("ls /proc/$pid/task")
+        if (!result.isSuccess) return emptyList()
+        return result.stdout.lines()
+            .filter { it.isNotBlank() }
+            .mapNotNull { tidStr ->
+                val tid = tidStr.trim().toIntOrNull() ?: return@mapNotNull null
+                val name = sysfsReader.readString("/proc/$pid/task/$tid/comm")?.trim() ?: ""
+                ThreadInfo(tid = tid, name = name)
+            }
     }
 
     private fun parseState(c: Char): ProcessState = when (c) {

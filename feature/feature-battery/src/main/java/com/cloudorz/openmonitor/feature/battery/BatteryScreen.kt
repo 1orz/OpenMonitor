@@ -26,15 +26,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.cloudorz.openmonitor.core.data.datasource.AppInfoResolver
 import com.cloudorz.openmonitor.core.ui.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -56,9 +53,6 @@ fun BatteryScreen(
     val appIcons = remember { mutableStateMapOf<String, Bitmap>() }
     LaunchedEffect(chartData, appUsageList) {
         withContext(Dispatchers.Default) {
-            val packages = (chartData.map { it.packageName } + appUsageList.map { it.packageName })
-                .filter { it.isNotEmpty() }
-                .distinct()
             // Use the icons from appUsageList entries directly
             for (entry in appUsageList) {
                 val icon = entry.iconBitmap

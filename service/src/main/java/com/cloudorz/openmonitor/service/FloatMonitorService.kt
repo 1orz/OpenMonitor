@@ -427,7 +427,6 @@ class FloatMonitorService : LifecycleService() {
         val powerW = if (voltage > 0) (mA * voltage / 1000.0) else 0.0
         val bat = batteryLevel.value
         val batTempVal = batteryTemp.value ?: 0.0
-        val fgApp = foregroundApp.value
         val dataText = "%.2fW  %d%%  %.1f\u00B0C".format(powerW, bat, batTempVal)
 
         val remoteViews = RemoteViews(packageName, R.layout.notification_monitor).apply {
@@ -549,7 +548,7 @@ class FloatMonitorService : LifecycleService() {
     }
 
     private fun notifyWatchdog(enable: Boolean) {
-        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+        lifecycleScope.launch(Dispatchers.IO) {
             try {
                 daemonClient.sendCommand(if (enable) "watchdog-start" else "watchdog-stop")
             } catch (_: Exception) {}
@@ -834,7 +833,7 @@ class FloatMonitorService : LifecycleService() {
     private suspend fun collectThreadData() {
         val fgPid = getForegroundAppPid()
         if (fgPid != null) {
-            val threads = processDataSource.getThreadsWithCpu(fgPid.first)
+            val threads = processDataSource.getThreads(fgPid.first)
             topThreads.value = threads.take(15)
             foregroundApp.value = fgPid.second
             isThreadLoaded.value = true

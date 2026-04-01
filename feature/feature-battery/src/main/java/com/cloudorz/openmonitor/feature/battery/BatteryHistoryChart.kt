@@ -19,7 +19,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -29,9 +28,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
@@ -167,8 +164,10 @@ fun BatteryHistoryChart(
                     chartRight = chartRight,
                 )
 
-                // Time axis labels
-                val timeAxisY = size.height - TIME_AXIS_HEIGHT + 4f
+                // Time axis labels — measure actual text height to avoid clipping on high-density screens
+                val timeStyle = TextStyle(fontSize = 8.sp, color = labelColor)
+                val sampleMeasured = textMeasurer.measure("00:00", timeStyle)
+                val timeAxisY = size.height - sampleMeasured.size.height - 2f
                 val labelCount = if (selectedRange == TimeRange.LAST_1H) 4 else 5
                 for (i in 0..labelCount) {
                     val ts = timeStart + (timeSpan * i / labelCount)
@@ -178,7 +177,7 @@ fun BatteryHistoryChart(
                         textMeasurer = textMeasurer,
                         text = label,
                         topLeft = Offset(x - 14f, timeAxisY),
-                        style = TextStyle(fontSize = 8.sp, color = labelColor),
+                        style = timeStyle,
                     )
                 }
             }
@@ -271,10 +270,6 @@ private fun DrawScope.drawCapacityLine(
     chartBottom: Float,
 ) {
     if (points.size < 2) return
-
-    // Build path and draw with gradient fill
-    val path = Path()
-    val fillPath = Path()
 
     var prevCharging = points.first().isCharging
     var segmentStart = 0

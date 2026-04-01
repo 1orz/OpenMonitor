@@ -33,7 +33,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -64,7 +63,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Apps
@@ -195,7 +193,7 @@ fun FloatLoadMonitorContent(service: FloatMonitorService) {
                     // Per-core info
                     val cores = coreLoads
                     val freqs = coreFreqs
-                    if (cores != null && cores.isNotEmpty()) {
+                    if (!cores.isNullOrEmpty()) {
                         // 分组显示核心
                         val grouped = groupCoresByFreq(freqs)
                         grouped.forEach { (range, freq) ->
@@ -248,7 +246,7 @@ private fun DetailLine(label: String, value: String, valueColor: Color) {
 }
 
 private fun groupCoresByFreq(freqs: List<Int>?): List<Pair<String, Int>> {
-    if (freqs == null || freqs.isEmpty()) return emptyList()
+    if (freqs.isNullOrEmpty()) return emptyList()
     val result = mutableListOf<Pair<String, Int>>()
     var start = 0
     var currentFreq = freqs[0]
@@ -336,7 +334,6 @@ fun FloatMiniMonitorContent(service: FloatMonitorService) {
     val gpu by service.gpuLoad.collectAsState()
     val temp by service.cpuTemp.collectAsState()
     val fps by service.currentFps.collectAsState()
-    val hasShell by service.hasShellAccess.collectAsState()
     val mA by service.currentMa.collectAsState()
     val coreLoads by service.cpuCoreLoads.collectAsState()
     val coreFreqs by service.cpuCoreFreqs.collectAsState()
@@ -372,7 +369,7 @@ fun FloatMiniMonitorContent(service: FloatMonitorService) {
                 colorFilter = ColorFilter.tint(Color.White),
             )
             val cores = coreLoads
-            if (cores != null && cores.isNotEmpty()) {
+            if (!cores.isNullOrEmpty()) {
                 CpuCoreBarChart(
                     coreLoads = cores,
                     modifier = Modifier
@@ -383,7 +380,7 @@ fun FloatMiniMonitorContent(service: FloatMonitorService) {
             val cpuVal = cpu
             MiniText(if (cpuVal != null) "%3d%%".format(cpuVal.toInt()) else " --%")
             val freqs = coreFreqs
-            if (showCpuFreq && freqs != null && freqs.isNotEmpty()) {
+            if (showCpuFreq && !freqs.isNullOrEmpty()) {
                 MiniText("${freqs.max()}M", TextSecondary)
             }
 
@@ -514,7 +511,7 @@ fun FloatFpsContent(service: FloatMonitorService) {
         targetValue = 1.0f,
         animationSpec = infiniteRepeatable(
             animation = tween(1200),
-            repeatMode = androidx.compose.animation.core.RepeatMode.Reverse,
+            repeatMode = RepeatMode.Reverse,
         ),
         label = "breathAlpha",
     )

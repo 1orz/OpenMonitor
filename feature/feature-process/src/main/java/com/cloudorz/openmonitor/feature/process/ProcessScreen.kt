@@ -73,6 +73,7 @@ fun ProcessScreen(
         ProcessDetailSheet(
             process = uiState.selectedProcess!!,
             threads = uiState.threads,
+            threadsLoading = uiState.threadsLoading,
             canKill = uiState.canKill,
             onKillProcess = viewModel::killProcess,
             onDismiss = viewModel::onProcessDismissed,

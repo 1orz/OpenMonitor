@@ -60,6 +60,7 @@ import com.cloudorz.openmonitor.core.ui.theme.ChartYellow
 fun ProcessDetailSheet(
     process: ProcessInfo,
     threads: List<ThreadInfo>,
+    threadsLoading: Boolean = false,
     canKill: Boolean = false,
     onKillProcess: (ProcessInfo) -> Unit = {},
     onDismiss: () -> Unit,
@@ -75,6 +76,7 @@ fun ProcessDetailSheet(
         ProcessDetailContent(
             process = process,
             threads = threads,
+            threadsLoading = threadsLoading,
             canKill = canKill,
             onKillProcess = onKillProcess,
         )
@@ -85,6 +87,7 @@ fun ProcessDetailSheet(
 private fun ProcessDetailContent(
     process: ProcessInfo,
     threads: List<ThreadInfo>,
+    threadsLoading: Boolean = false,
     canKill: Boolean = false,
     onKillProcess: (ProcessInfo) -> Unit = {},
 ) {
@@ -222,7 +225,7 @@ private fun ProcessDetailContent(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        if (threads.isEmpty()) {
+        if (threadsLoading) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -232,6 +235,19 @@ private fun ProcessDetailContent(
                 CircularProgressIndicator(
                     modifier = Modifier.size(24.dp),
                     strokeWidth = 2.dp,
+                )
+            }
+        } else if (threads.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "No threads",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline,
                 )
             }
         } else {

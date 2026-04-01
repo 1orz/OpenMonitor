@@ -1,6 +1,5 @@
 package com.cloudorz.openmonitor.feature.battery
 
-import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column

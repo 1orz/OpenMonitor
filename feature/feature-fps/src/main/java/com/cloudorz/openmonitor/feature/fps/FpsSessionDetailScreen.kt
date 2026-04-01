@@ -588,6 +588,10 @@ private fun VicoLineChart(
         guideline = rememberLineComponent(fill = Fill(guidelineColor), thickness = 1.dp),
     )
 
+    val axisLabel = rememberTextComponent(
+        style = androidx.compose.ui.text.TextStyle(color = vicoTheme.textColor, fontSize = 8.sp),
+    )
+
     CartesianChartHost(
         chart = rememberCartesianChart(
             rememberLineCartesianLayer(
@@ -601,10 +605,12 @@ private fun VicoLineChart(
                 ),
             ),
             startAxis = VerticalAxis.rememberStart(
+                label = axisLabel,
                 valueFormatter = startFormatter,
                 guideline = rememberLineComponent(fill = Fill(gridLineColor), thickness = 1.dp),
             ),
             bottomAxis = HorizontalAxis.rememberBottom(
+                label = axisLabel,
                 valueFormatter = bottomFormatter,
                 guideline = null,
             ),

@@ -22,7 +22,6 @@ import androidx.compose.ui.unit.sp
 import com.cloudorz.openmonitor.core.model.battery.BatteryEstimation
 import com.cloudorz.openmonitor.core.model.battery.BatteryStatus
 import com.cloudorz.openmonitor.core.ui.R
-import kotlin.math.abs
 
 @Composable
 fun BatteryStatusCard(

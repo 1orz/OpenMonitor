@@ -79,6 +79,16 @@ val daemonSrcDir = file("${rootProject.projectDir}/monitor-daemon")
 val daemonBinary = file("src/main/jniLibs/arm64-v8a/libmonitor-daemon.so")
 val daemonCommitFile = file("src/main/assets/daemon/daemon-commit.txt")
 
+// Resolve the `go` binary at configuration time — Gradle's Exec uses JVM ProcessBuilder
+// which searches only the JVM's own PATH (not the shell's), so Homebrew/nvm paths are missing.
+val goExecutable: String = listOf(
+    System.getenv("GOROOT")?.let { "$it/bin/go" },
+    "/opt/homebrew/bin/go",
+    "/usr/local/go/bin/go",
+    "/usr/local/bin/go",
+    "/usr/bin/go",
+).firstOrNull { it != null && file(it).exists() } ?: "go"
+
 val buildMonitorDaemon by tasks.registering(Exec::class) {
     group = "build"
     description = "Compile monitor-daemon (Go → Android arm64)"
@@ -94,7 +104,7 @@ val buildMonitorDaemon by tasks.registering(Exec::class) {
     }.standardOutput.asText.map { it.trim() }.getOrElse("unknown")
 
     val ldflags = "-s -w -X monitor-daemon/collector.GitCommit=$daemonHash"
-    commandLine = listOf("go", "build", "-ldflags", ldflags, "-o", daemonBinary.absolutePath, "./cmd/daemon")
+    commandLine = listOf(goExecutable, "build", "-ldflags", ldflags, "-o", daemonBinary.absolutePath, "./cmd/daemon")
     environment("GOOS", "android")
     environment("GOARCH", "arm64")
     environment("CGO_ENABLED", "0")
