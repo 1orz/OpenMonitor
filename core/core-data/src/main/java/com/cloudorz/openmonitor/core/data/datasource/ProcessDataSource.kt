@@ -208,7 +208,7 @@ class ProcessDataSource @Inject constructor(
     suspend fun getThreads(pid: Int): List<ThreadInfo> = withContext(Dispatchers.IO) {
         // Daemon provides accurate thread CPU% via /proc/<pid>/task reads.
         tryGetThreadsFromDaemon(pid)
-            ?: getThreadsWithCpu(pid)
+            ?: getThreadsFallback(pid)
     }
 
     private fun tryGetThreadsFromDaemon(pid: Int): List<ThreadInfo>? {
@@ -238,36 +238,19 @@ class ProcessDataSource @Inject constructor(
         }
     }
 
-    private suspend fun getThreadsWithCpu(pid: Int): List<ThreadInfo> = withContext(Dispatchers.IO) {
-        val result = shellExecutor.execute("top -H -b -q -n 1 -p $pid -o TID,%CPU,CMD")
-        if (!result.isSuccess || result.stdout.isBlank()) return@withContext getThreadsFallback(pid)
-
-        val threads = result.stdout.lines()
-            .filter { it.isNotBlank() }
-            .mapNotNull { line ->
-                val trimmed = line.trim()
-                val cols = trimmed.split("\\s+".toRegex(), limit = 3)
-                if (cols.size < 2) return@mapNotNull null
-                val tid = cols[0].toIntOrNull() ?: return@mapNotNull null
-                val cpuLoad = cols[1].toDoubleOrNull() ?: 0.0
-                val name = if (cols.size >= 3) cols[2].trim() else ""
-                ThreadInfo(tid = tid, name = name, cpuLoadPercent = cpuLoad)
-            }
-            .sortedByDescending { it.cpuLoadPercent }
-
-        threads.ifEmpty { getThreadsFallback(pid) }
-    }
-
-    private suspend fun getThreadsFallback(pid: Int): List<ThreadInfo> {
-        val result = shellExecutor.execute("ls /proc/$pid/task")
-        if (!result.isSuccess) return emptyList()
-        return result.stdout.lines()
-            .filter { it.isNotBlank() }
-            .mapNotNull { tidStr ->
-                val tid = tidStr.trim().toIntOrNull() ?: return@mapNotNull null
-                val name = sysfsReader.readString("/proc/$pid/task/$tid/comm")?.trim() ?: ""
-                ThreadInfo(tid = tid, name = name)
-            }
+    private suspend fun getThreadsFallback(pid: Int): List<ThreadInfo> = withContext(Dispatchers.IO) {
+        try {
+            java.io.File("/proc/$pid/task").list()
+                ?.mapNotNull { tidStr ->
+                    val tid = tidStr.toIntOrNull() ?: return@mapNotNull null
+                    val name = sysfsReader.readString("/proc/$pid/task/$tid/comm")?.trim() ?: ""
+                    ThreadInfo(tid = tid, name = name)
+                }
+                ?: emptyList()
+        } catch (e: Exception) {
+            Log.d(TAG, "getThreadsFallback failed for pid=$pid: ${e.message}")
+            emptyList()
+        }
     }
 
     private fun parseState(c: Char): ProcessState = when (c) {

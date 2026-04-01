@@ -45,8 +45,8 @@ class AdbExecutor @Inject constructor() : ShellExecutor {
     }
 
     override suspend fun executeAsRoot(command: String): CommandResult {
-        // ADB executor does not have root access; attempt to run via su.
-        return execute("su -c '$command'")
+        // ADB mode runs as shell uid — no root available, execute with normal shell privilege.
+        return execute(command)
     }
 
     override suspend fun readFile(path: String): String? = withContext(Dispatchers.IO) {

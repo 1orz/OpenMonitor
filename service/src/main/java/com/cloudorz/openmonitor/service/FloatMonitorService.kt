@@ -26,7 +26,6 @@ import com.cloudorz.openmonitor.core.data.datasource.BatteryDataSource
 import com.cloudorz.openmonitor.core.data.datasource.CpuDataSource
 import com.cloudorz.openmonitor.core.data.datasource.GpuDataSource
 import com.cloudorz.openmonitor.core.data.datasource.AppInfoResolver
-import com.cloudorz.openmonitor.core.data.datasource.ProcessActionDataSource
 import com.cloudorz.openmonitor.core.data.datasource.ForegroundAppDataSource
 import com.cloudorz.openmonitor.core.data.datasource.ProcessDataSource
 import com.cloudorz.openmonitor.core.data.datasource.ThermalDataSource
@@ -118,7 +117,6 @@ class FloatMonitorService : LifecycleService() {
     @Inject lateinit var thermalDataSource: ThermalDataSource
     @Inject lateinit var fpsDataSource: FpsDataSource
     @Inject lateinit var processDataSource: ProcessDataSource
-    @Inject lateinit var processActionDataSource: ProcessActionDataSource
     @Inject lateinit var appInfoResolver: AppInfoResolver
     @Inject lateinit var permissionManager: PermissionManager
     @Inject lateinit var aggregatedMonitorDataSource: AggregatedMonitorDataSource
@@ -126,7 +124,6 @@ class FloatMonitorService : LifecycleService() {
     @Inject lateinit var daemonDataSource: DaemonDataSource
     @Inject lateinit var daemonManager: DaemonManager
     @Inject lateinit var daemonClient: com.cloudorz.openmonitor.core.data.datasource.DaemonClient
-    @Inject lateinit var shellExecutor: com.cloudorz.openmonitor.core.common.ShellExecutor
     @Inject lateinit var fpsRecordingManager: com.cloudorz.openmonitor.core.data.datasource.FpsRecordingManager
     @Inject lateinit var batteryRecordDao: BatteryRecordDao
     @Inject lateinit var foregroundAppDataSource: ForegroundAppDataSource
@@ -164,12 +161,9 @@ class FloatMonitorService : LifecycleService() {
     // Interactive process float state
     val processFilterMode = MutableStateFlow(ProcessFilterMode.ALL)
     val selectedProcessPid = MutableStateFlow<Int?>(null)
-    val killHintVisible = MutableStateFlow(false)
     val processMinimized = MutableStateFlow(false)
     val processLocked = MutableStateFlow(false)
     val processAppIcons = MutableStateFlow<Map<String, Bitmap?>>(emptyMap())
-    private var lastKillTapPid: Int? = null
-    private var lastKillTapTime: Long = 0L
     val fpsInteracting = MutableStateFlow(false)
     val fpsShowDurationMenu = MutableStateFlow(false)
     val fpsRecordingState get() = fpsRecordingManager.state
@@ -239,31 +233,7 @@ class FloatMonitorService : LifecycleService() {
     }
 
     fun onProcessTapped(process: ProcessInfo) {
-        val now = System.currentTimeMillis()
-        if (process.pid == lastKillTapPid && now - lastKillTapTime < 3000L) {
-            // Second tap within 3s → kill
-            lifecycleScope.launch(Dispatchers.IO) {
-                processActionDataSource.killProcessSmart(process)
-            }
-            lastKillTapPid = null
-            selectedProcessPid.value = null
-            killHintVisible.value = false
-        } else {
-            // First tap → select
-            lastKillTapPid = process.pid
-            lastKillTapTime = now
-            selectedProcessPid.value = process.pid
-            killHintVisible.value = true
-            // Auto-hide hint after 3s
-            lifecycleScope.launch {
-                delay(3000)
-                if (selectedProcessPid.value == process.pid) {
-                    selectedProcessPid.value = null
-                    killHintVisible.value = false
-                    lastKillTapPid = null
-                }
-            }
-        }
+        selectedProcessPid.value = if (selectedProcessPid.value == process.pid) null else process.pid
     }
 
     fun onProcessFilterToggle() {
@@ -895,23 +865,6 @@ class FloatMonitorService : LifecycleService() {
                 } else null
                 val resolved = match ?: cmdlineMatch
                 if (resolved != null) return resolved.pid to (resolved.packageName.ifEmpty { fgPackage })
-            }
-
-            // 2. 回退：dumpsys（需要 Root/ADB/Shizuku）
-            val result = withContext(Dispatchers.IO) {
-                shellExecutor.execute("dumpsys activity activities 2>/dev/null | grep mResumedActivity")
-            }
-            if (result.isSuccess && result.stdout.isNotBlank()) {
-                // 格式: mResumedActivity: ActivityRecord{hash u0 com.example.app/.Activity tN}
-                val line = result.stdout.trim()
-                val componentPart = line.split("\\s+".toRegex()).find { it.contains("/") }
-                val pkg = componentPart?.substringBefore("/")?.takeIf { it.contains(".") }
-                if (pkg != null) {
-                    val match = processes.firstOrNull { it.packageName == pkg }
-                        ?: processes.firstOrNull { it.cmdline.substringBefore(':').substringBefore(' ').trim() == pkg }
-                        ?: processes.firstOrNull { it.name == pkg }
-                    if (match != null) return match.pid to (match.packageName.ifEmpty { pkg })
-                }
             }
             null
         } catch (e: Exception) {

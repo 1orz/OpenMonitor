@@ -195,7 +195,8 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
     }
 
     override suspend fun executeAsRoot(command: String): CommandResult {
-        return execute("su -c '$command'")
+        // Shizuku UserService runs as shell uid — no root available, execute with normal privilege.
+        return execute(command)
     }
 
     override suspend fun readFile(path: String): String? = withContext(Dispatchers.IO) {
