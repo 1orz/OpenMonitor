@@ -48,6 +48,10 @@ class UserViewModel @Inject constructor(
         val intervalMs: Long = FloatMonitorService.DEFAULT_POLL_INTERVAL,
     )
 
+    companion object {
+        const val KEY_DARK_MODE = "dark_mode"
+    }
+
     private val prefs = context.getSharedPreferences("monitor_settings", Context.MODE_PRIVATE)
 
     private val _daemonStatus = MutableStateFlow(DaemonStatus())
@@ -59,6 +63,9 @@ class UserViewModel @Inject constructor(
         )
     )
     val pollSettings: StateFlow<PollSettings> = _pollSettings.asStateFlow()
+
+    private val _darkMode = MutableStateFlow(prefs.getInt(KEY_DARK_MODE, 0))
+    val darkMode: StateFlow<Int> = _darkMode.asStateFlow()
 
     /** Daemon binary path for ADB instructions. */
     val daemonBinaryPath: String get() = daemonLauncher.binaryPath
@@ -132,6 +139,11 @@ class UserViewModel @Inject constructor(
             uptimeSeconds = info?.uptimeSeconds,
             checkedOnce = true,
         )
+    }
+
+    fun setDarkMode(mode: Int) {
+        prefs.edit { putInt(KEY_DARK_MODE, mode) }
+        _darkMode.value = mode
     }
 
     fun setPollInterval(intervalMs: Long) {

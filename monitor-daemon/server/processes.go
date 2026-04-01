@@ -273,9 +273,13 @@ func listProcesses() []ProcessEntry {
 			continue // process disappeared
 		}
 
-		// CPU%.
+		// CPU%. Guard against uint64 underflow when PID is reused between samples.
 		t1, t2 := ticks1[pid], ticks2[pid]
-		processDelta := (t2.utime + t2.stime) - (t1.utime + t1.stime)
+		var processDelta uint64
+		sum2, sum1 := t2.utime+t2.stime, t1.utime+t1.stime
+		if sum2 > sum1 {
+			processDelta = sum2 - sum1
+		}
 		cpuPercent := float64(processDelta) / float64(totalDelta) * 100.0
 
 		// Basic fields from /proc/<pid>/status.
@@ -381,7 +385,11 @@ func listThreads(pid int) []ThreadEntry {
 	result := make([]ThreadEntry, 0, len(tids))
 	for _, tid := range tids {
 		t1, t2 := ticks1[tid], ticks2[tid]
-		delta := (t2.utime + t2.stime) - (t1.utime + t1.stime)
+		var delta uint64
+		sum2, sum1 := t2.utime+t2.stime, t1.utime+t1.stime
+		if sum2 > sum1 {
+			delta = sum2 - sum1
+		}
 		cpuPercent := float64(delta) / float64(totalDelta) * 100.0
 
 		name := readProcFile(fmt.Sprintf("%s/%d/comm", taskDir, tid))

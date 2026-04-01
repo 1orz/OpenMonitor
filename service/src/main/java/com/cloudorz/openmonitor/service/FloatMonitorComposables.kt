@@ -66,20 +66,27 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.Thermostat
+import androidx.compose.material.icons.filled.UnfoldLess
+import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.Icon
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.isSystemInDarkTheme
 import kotlinx.coroutines.delay
 
-private val BG = Color(0xAA000000)
-private val TextPrimary = Color(0xFFFFFFFF)
-private val TextSecondary = Color(0xB3FFFFFF)
-private val Track = Color(0xFF333333)
+private val BG: Color
+    @Composable get() = if (isSystemInDarkTheme()) Color(0xAA000000) else Color(0xCCF5F5F5)
+private val TextPrimary: Color
+    @Composable get() = if (isSystemInDarkTheme()) Color(0xFFFFFFFF) else Color(0xFF1C1C1E)
+private val TextSecondary: Color
+    @Composable get() = if (isSystemInDarkTheme()) Color(0xB3FFFFFF) else Color(0x991C1C1E)
 private val CpuColor = Color(0xFF42A5F5)
 private val GpuColor = Color(0xFFAB47BC)
 private val MemColor = Color(0xFF66BB6A)
@@ -278,6 +285,7 @@ private fun FloatRingGauge(
         clamped >= 60 -> Color(0xFFFFC107)
         else -> color
     }
+    val trackColor = if (isSystemInDarkTheme()) Color(0xFF333333) else Color(0xFFCCCCCC)
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(modifier = Modifier.size(size), contentAlignment = Alignment.Center) {
             Canvas(modifier = Modifier.size(size)) {
@@ -286,7 +294,7 @@ private fun FloatRingGauge(
                 val topLeft = Offset(stroke / 2, stroke / 2)
                 // 背景轨道 (270°弧)
                 drawArc(
-                    color = Track,
+                    color = trackColor,
                     startAngle = 135f,
                     sweepAngle = 270f,
                     useCenter = false,
@@ -731,9 +739,12 @@ private fun ThermalRow(label: String, temp: Double) {
 
 // ---- Process Monitor (Scene-style) ----
 
-private val ProcessBG = Color(0xDDFFFFFF)
-private val ProcessTextPrimary = Color(0xFF1A1A1A)
-private val ProcessTextSecondary = Color(0xFF666666)
+private val ProcessBG: Color
+    @Composable get() = if (isSystemInDarkTheme()) Color(0xDD1C1C2A) else Color(0xDDFFFFFF)
+private val ProcessTextPrimary: Color
+    @Composable get() = if (isSystemInDarkTheme()) Color(0xFFEEEEEE) else Color(0xFF1A1A1A)
+private val ProcessTextSecondary: Color
+    @Composable get() = if (isSystemInDarkTheme()) Color(0xFFAAAAAA) else Color(0xFF666666)
 private val ProcessHeaderIcon = Color(0xFF888888)
 
 @Composable
@@ -774,12 +785,12 @@ fun FloatProcessContent(service: FloatMonitorService) {
                         },
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Image(
-                        painter = painterResource(R.drawable.dialog_pin),
+                    Icon(
+                        imageVector = Icons.Filled.PushPin,
                         contentDescription = null,
+                        tint = if (locked) ProcessTextPrimary else ProcessTextSecondary,
                         modifier = Modifier
                             .size(14.dp)
-                            .alpha(if (locked) 1f else 0.3f)
                             .clickable { service.onProcessLockToggle() },
                     )
                     Spacer(modifier = Modifier.width(4.dp))
@@ -788,9 +799,10 @@ fun FloatProcessContent(service: FloatMonitorService) {
                         style = TextStyle(fontSize = 10.sp, color = ProcessTextPrimary),
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Image(
-                        painter = painterResource(R.drawable.dialog_maximize),
+                    Icon(
+                        imageVector = Icons.Filled.UnfoldMore,
                         contentDescription = null,
+                        tint = ProcessTextPrimary,
                         modifier = Modifier
                             .size(14.dp)
                             .clickable { service.onProcessMinimizeToggle() },
@@ -811,12 +823,12 @@ fun FloatProcessContent(service: FloatMonitorService) {
                         },
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Image(
-                        painter = painterResource(R.drawable.dialog_pin),
+                    Icon(
+                        imageVector = Icons.Filled.PushPin,
                         contentDescription = null,
+                        tint = if (locked) ProcessTextPrimary else ProcessTextSecondary,
                         modifier = Modifier
                             .size(14.dp)
-                            .alpha(if (locked) 1f else 0.3f)
                             .clickable { service.onProcessLockToggle() },
                     )
                     Spacer(modifier = Modifier.width(4.dp))
@@ -837,18 +849,20 @@ fun FloatProcessContent(service: FloatMonitorService) {
                                 .padding(horizontal = 4.dp, vertical = 2.dp),
                         )
                     }
-                    Image(
-                        painter = painterResource(R.drawable.dialog_minimize),
+                    Icon(
+                        imageVector = Icons.Filled.UnfoldLess,
                         contentDescription = null,
+                        tint = ProcessTextPrimary,
                         modifier = Modifier
                             .size(14.dp)
                             .clickable { service.onProcessMinimizeToggle() }
                             .padding(1.dp),
                     )
                     Spacer(modifier = Modifier.width(2.dp))
-                    Image(
-                        painter = painterResource(R.drawable.dialog_close),
+                    Icon(
+                        imageVector = Icons.Filled.Close,
                         contentDescription = null,
+                        tint = ProcessTextPrimary,
                         modifier = Modifier
                             .size(14.dp)
                             .clickable { service.onProcessClose() }
@@ -1065,10 +1079,13 @@ fun FloatControlPanelContent(service: FloatMonitorService) {
         Btn(Icons.Filled.Videocam,    "GPU频率", miniShowGpuFreq) { service.onMiniGpuFreqToggle() },
     )
 
+    val panelBg = if (isSystemInDarkTheme()) Color(0xF0222222) else Color(0xF0FFFFFF)
+    val panelText = if (isSystemInDarkTheme()) Color(0xFFEEEEEE) else Color(0xFF1A1A1A)
+
     Box(
         modifier = Modifier
             .width(240.dp)
-            .background(Color(0xF0FFFFFF), RoundedCornerShape(12.dp))
+            .background(panelBg, RoundedCornerShape(12.dp))
             .padding(12.dp),
     ) {
         Column {
@@ -1080,11 +1097,12 @@ fun FloatControlPanelContent(service: FloatMonitorService) {
             ) {
                 Text(
                     text = "OpenMonitor",
-                    style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color(0xFF1A1A1A)),
+                    style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = panelText),
                 )
-                Image(
-                    painter = painterResource(R.drawable.dialog_close),
+                Icon(
+                    imageVector = Icons.Filled.Close,
                     contentDescription = null,
+                    tint = panelText,
                     modifier = Modifier
                         .size(16.dp)
                         .clickable { service.dismissControlPanel() },
@@ -1121,8 +1139,10 @@ private fun PanelToggleButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val bg = if (isActive) Color(0xFF42A5F5) else Color(0xFFE0E0E0)
-    val contentColor = if (isActive) Color.White else Color(0xFF888888)
+    val inactiveBg = if (isSystemInDarkTheme()) Color(0xFF333333) else Color(0xFFE0E0E0)
+    val inactiveContent = if (isSystemInDarkTheme()) Color(0xFFAAAAAA) else Color(0xFF888888)
+    val bg = if (isActive) Color(0xFF42A5F5) else inactiveBg
+    val contentColor = if (isActive) Color.White else inactiveContent
 
     Box(
         modifier = modifier

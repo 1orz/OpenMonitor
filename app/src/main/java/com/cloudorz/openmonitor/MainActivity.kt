@@ -12,6 +12,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import android.content.SharedPreferences
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -71,8 +74,23 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        val prefs = getSharedPreferences("monitor_settings", android.content.Context.MODE_PRIVATE)
         setContent {
-            MonitorTheme {
+            var darkModePref by remember { mutableStateOf(prefs.getInt("dark_mode", 0)) }
+            DisposableEffect(Unit) {
+                val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+                    if (key == "dark_mode") darkModePref = prefs.getInt("dark_mode", 0)
+                }
+                prefs.registerOnSharedPreferenceChangeListener(listener)
+                onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+            }
+            val systemDark = isSystemInDarkTheme()
+            val darkTheme = when (darkModePref) {
+                1 -> false
+                2 -> true
+                else -> systemDark
+            }
+            MonitorTheme(darkTheme = darkTheme) {
                 MonitorAppContent(permissionManager, daemonManager)
             }
         }

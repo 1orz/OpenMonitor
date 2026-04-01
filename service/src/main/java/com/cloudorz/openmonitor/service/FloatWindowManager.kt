@@ -1,6 +1,7 @@
 package com.cloudorz.openmonitor.service
 
 import android.content.Context
+import android.content.res.Configuration
 import androidx.core.content.edit
 import android.graphics.PixelFormat
 import android.os.Build
@@ -14,7 +15,12 @@ import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.widget.FrameLayout
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
@@ -23,6 +29,7 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import kotlinx.coroutines.flow.StateFlow
 
 class FloatWindowManager(private val context: Context) {
 
@@ -47,12 +54,14 @@ class FloatWindowManager(private val context: Context) {
         x: Int = 0,
         y: Int = 100,
         centerHorizontal: Boolean = false,
+        centerVertical: Boolean = false,
         draggable: Boolean = true,
         aboveStatusBar: Boolean = false,
         onInteraction: ((Boolean) -> Unit)? = null,
         onClick: (() -> Unit)? = null,
         onLongClick: (() -> Unit)? = null,
         onDoubleTap: (() -> Unit)? = null,
+        darkTheme: StateFlow<Boolean>? = null,
         content: @Composable () -> Unit,
     ) {
         if (activeWindows.containsKey(id)) {
@@ -87,13 +96,14 @@ class FloatWindowManager(private val context: Context) {
             flags,
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = if (centerHorizontal && !hasSaved) {
-                Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            } else {
-                Gravity.TOP or Gravity.START
+            gravity = when {
+                !hasSaved && centerHorizontal && centerVertical -> Gravity.CENTER
+                !hasSaved && centerHorizontal -> Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                !hasSaved && centerVertical -> Gravity.CENTER_VERTICAL or Gravity.START
+                else -> Gravity.TOP or Gravity.START
             }
-            this.x = if (hasSaved) savedX else x
-            this.y = if (hasSaved) savedY else y
+            this.x = if (hasSaved) savedX else if (centerHorizontal || centerVertical) 0 else x
+            this.y = if (hasSaved) savedY else if (centerVertical) 0 else y
             if (aboveStatusBar && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 layoutInDisplayCutoutMode =
                     WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
@@ -103,7 +113,23 @@ class FloatWindowManager(private val context: Context) {
         val lifecycleOwner = FloatWindowLifecycleOwner()
 
         val composeView = ComposeView(context).apply {
-            setContent(content)
+            setContent {
+                if (darkTheme != null) {
+                    val isDark by darkTheme.collectAsState()
+                    val baseConfig = LocalConfiguration.current
+                    val nightConfig = remember(isDark) {
+                        Configuration(baseConfig).also { cfg ->
+                            cfg.uiMode = (cfg.uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or
+                                if (isDark) Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO
+                        }
+                    }
+                    CompositionLocalProvider(LocalConfiguration provides nightConfig) {
+                        content()
+                    }
+                } else {
+                    content()
+                }
+            }
         }
 
         // Wrap in DraggableFrameLayout for proper drag + Compose click coexistence

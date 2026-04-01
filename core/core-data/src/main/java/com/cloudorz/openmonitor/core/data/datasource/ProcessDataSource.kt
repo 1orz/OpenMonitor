@@ -62,14 +62,20 @@ class ProcessDataSource @Inject constructor(
                 val cpuSet = obj.optString("cpu_set")
                 val ctxtSwitches = obj.optLong("ctxt_switches")
 
-                // Detect Android app processes: user matches u0_aXXX and name/cmdline has dots.
+                // Detect Android app processes: user matches u0_aXXX.
+                // Always prefer cmdline for package name — /proc/status Name is truncated to 15 chars
+                // (TASK_COMM_LEN), which breaks matching for packages like "com.android.systemui".
                 val packageName = when {
+                    androidUserPattern.matches(user) && cmdline.contains('.') ->
+                        cmdline.substringBefore(':').substringBefore(' ').trim()
                     androidUserPattern.matches(user) && name.contains('.') ->
                         name.substringBefore(':')
-                    androidUserPattern.matches(user) && cmdline.contains('.') ->
-                        cmdline.substringBefore(':').trim()
                     else -> ""
                 }
+
+                // friendlyName: use first segment of cmdline path (stripped of dir prefix),
+                // fall back to name for kernel threads / processes without cmdline.
+                val friendlyName = cmdline.substringBefore(' ').substringAfterLast('/').ifEmpty { name }
 
                 list.add(
                     enrichWithAppInfo(
@@ -84,7 +90,7 @@ class ProcessDataSource @Inject constructor(
                             swapKB = swapKB,
                             shrKB = shrKB,
                             cmdline = cmdline,
-                            friendlyName = name,
+                            friendlyName = friendlyName,
                             command = cmdline,
                             oomAdj = oomAdj,
                             oomScore = oomScore,

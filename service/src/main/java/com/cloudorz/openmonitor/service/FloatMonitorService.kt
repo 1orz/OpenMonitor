@@ -36,6 +36,8 @@ import com.cloudorz.openmonitor.core.model.process.ProcessFilterMode
 import com.cloudorz.openmonitor.core.model.process.ProcessInfo
 import com.cloudorz.openmonitor.core.model.process.ThreadInfo
 import com.cloudorz.openmonitor.core.model.thermal.ThermalZone
+import android.content.SharedPreferences
+import android.content.res.Configuration
 import android.view.WindowManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Job
@@ -84,6 +86,7 @@ class FloatMonitorService : LifecycleService() {
         private const val BATTERY_SAMPLING_INTERVAL_MS = 30_000L
         const val KEY_POLL_INTERVAL = "poll_interval"
         const val DEFAULT_POLL_INTERVAL = 500L
+        private const val KEY_DARK_MODE = "dark_mode"
 
         fun startIntent(context: Context): Intent =
             Intent(context, FloatMonitorService::class.java).apply { action = ACTION_START }
@@ -180,6 +183,10 @@ class FloatMonitorService : LifecycleService() {
     val loadMonitorCompact = MutableStateFlow(true)
     val miniShowCpuFreq = MutableStateFlow(true)
     val miniShowGpuFreq = MutableStateFlow(true)
+
+    // Dark theme for float windows: considers app pref (0=system,1=light,2=dark) + system config
+    val floatDarkTheme = MutableStateFlow(false)
+    private var prefChangeListener: SharedPreferences.OnSharedPreferenceChangeListener? = null
 
     fun onMiniCpuFreqToggle() {
         val newVal = !miniShowCpuFreq.value
@@ -289,15 +296,16 @@ class FloatMonitorService : LifecycleService() {
         // Update active monitor IDs for the panel to observe
         updateActiveMonitorIds()
 
-        // Control panel: centered, not draggable
+        // Control panel: screen center, not draggable
         floatWindowManager.addWindow(
             id = CONTROL_PANEL_ID,
             width = WindowManager.LayoutParams.WRAP_CONTENT,
             height = WindowManager.LayoutParams.WRAP_CONTENT,
             centerHorizontal = true,
-            y = 300,
+            centerVertical = true,
             draggable = false,
             onClick = { /* absorb clicks so they don't pass to backdrop */ },
+            darkTheme = floatDarkTheme,
         ) {
             FloatControlPanelContent(service)
         }
@@ -360,6 +368,26 @@ class FloatMonitorService : LifecycleService() {
         floatWindowManager = FloatWindowManager(this)
         createNotificationChannel()
         updateShellAccess()
+        floatDarkTheme.value = computeFloatIsDark()
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        prefChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_DARK_MODE) floatDarkTheme.value = computeFloatIsDark()
+        }
+        prefs.registerOnSharedPreferenceChangeListener(prefChangeListener)
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        floatDarkTheme.value = computeFloatIsDark()
+    }
+
+    private fun computeFloatIsDark(): Boolean {
+        val pref = getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getInt(KEY_DARK_MODE, 0)
+        return when (pref) {
+            1 -> false
+            2 -> true
+            else -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        }
     }
 
     private fun updateShellAccess() {
@@ -585,6 +613,7 @@ class FloatMonitorService : LifecycleService() {
                     y = 200,
                     onDoubleTap = { removeMonitor(type) },
                     onLongClick = { onLoadMonitorModeToggle() },
+                    darkTheme = floatDarkTheme,
                 ) {
                     FloatLoadMonitorContent(service)
                 }
@@ -599,6 +628,7 @@ class FloatMonitorService : LifecycleService() {
                     centerHorizontal = true,
                     draggable = false,
                     aboveStatusBar = true,
+                    darkTheme = MutableStateFlow(true), // 迷你监视器始终深色背景
                 ) {
                     FloatMiniMonitorContent(service)
                 }
@@ -622,6 +652,7 @@ class FloatMonitorService : LifecycleService() {
                         }
                     },
                     onClick = { onFpsWindowClick() },
+                    darkTheme = floatDarkTheme,
                 ) {
                     FloatFpsContent(service)
                 }
@@ -633,6 +664,7 @@ class FloatMonitorService : LifecycleService() {
                     height = WindowManager.LayoutParams.WRAP_CONTENT,
                     y = 200,
                     onDoubleTap = { removeMonitor(type) },
+                    darkTheme = floatDarkTheme,
                 ) {
                     FloatTemperatureContent(service)
                 }
@@ -645,6 +677,7 @@ class FloatMonitorService : LifecycleService() {
                     y = 200,
                     draggable = false,
                     onClick = { /* touchable but not draggable — drag handled in Compose header */ },
+                    darkTheme = floatDarkTheme,
                 ) {
                     FloatProcessContent(service)
                 }
@@ -656,6 +689,7 @@ class FloatMonitorService : LifecycleService() {
                     height = WindowManager.LayoutParams.WRAP_CONTENT,
                     y = 200,
                     onDoubleTap = { removeMonitor(type) },
+                    darkTheme = floatDarkTheme,
                 ) {
                     FloatThreadContent(service)
                 }
@@ -852,7 +886,15 @@ class FloatMonitorService : LifecycleService() {
             if (fgPackage.isNotEmpty()) {
                 val match = processes.firstOrNull { it.packageName == fgPackage }
                     ?: processes.firstOrNull { it.name == fgPackage }
-                if (match != null) return match.pid to (match.packageName.ifEmpty { match.name })
+                // Also try cmdline prefix match — packageName may be empty for processes whose
+                // /proc/status Name was truncated (TASK_COMM_LEN = 15 chars).
+                val cmdlineMatch = if (match == null) {
+                    processes.firstOrNull { p ->
+                        p.cmdline.substringBefore(':').substringBefore(' ').trim() == fgPackage
+                    }
+                } else null
+                val resolved = match ?: cmdlineMatch
+                if (resolved != null) return resolved.pid to (resolved.packageName.ifEmpty { fgPackage })
             }
 
             // 2. 回退：dumpsys（需要 Root/ADB/Shizuku）
@@ -866,8 +908,9 @@ class FloatMonitorService : LifecycleService() {
                 val pkg = componentPart?.substringBefore("/")?.takeIf { it.contains(".") }
                 if (pkg != null) {
                     val match = processes.firstOrNull { it.packageName == pkg }
+                        ?: processes.firstOrNull { it.cmdline.substringBefore(':').substringBefore(' ').trim() == pkg }
                         ?: processes.firstOrNull { it.name == pkg }
-                    if (match != null) return match.pid to (match.packageName.ifEmpty { match.name })
+                    if (match != null) return match.pid to (match.packageName.ifEmpty { pkg })
                 }
             }
             null
@@ -891,6 +934,9 @@ class FloatMonitorService : LifecycleService() {
     }
 
     override fun onDestroy() {
+        prefChangeListener?.let {
+            getSharedPreferences(PREFS_NAME, MODE_PRIVATE).unregisterOnSharedPreferenceChangeListener(it)
+        }
         batterySamplingJob?.cancel()
         sharedFpsJob?.cancel()
         floatWindowManager.removeAllWindows()
