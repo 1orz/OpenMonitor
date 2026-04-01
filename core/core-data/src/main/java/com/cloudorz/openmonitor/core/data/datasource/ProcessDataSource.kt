@@ -27,6 +27,9 @@ class ProcessDataSource @Inject constructor(
     // Android app user pattern: u0_a123, u10_a456 etc.
     private val androidUserPattern = Regex("u\\d+_a\\d+")
 
+    // Valid Java package name: at least two dot-separated alphanumeric segments, no slashes
+    private val packageNamePattern = Regex("^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)+$")
+
     suspend fun getProcessList(): List<ProcessInfo> = withContext(Dispatchers.IO) {
         // Daemon (shell uid + readproc) sees all processes; prefer it when available.
         tryGetProcessListFromDaemon()
@@ -65,11 +68,17 @@ class ProcessDataSource @Inject constructor(
                 // Detect Android app processes: user matches u0_aXXX.
                 // Always prefer cmdline for package name — /proc/status Name is truncated to 15 chars
                 // (TASK_COMM_LEN), which breaks matching for packages like "com.android.systemui".
+                // Validate against packageNamePattern to avoid false positives (e.g. zsh launched
+                // under Termux UID whose cmdline path contains dots but is not a package name).
                 val packageName = when {
-                    androidUserPattern.matches(user) && cmdline.contains('.') ->
-                        cmdline.substringBefore(':').substringBefore(' ').trim()
-                    androidUserPattern.matches(user) && name.contains('.') ->
-                        name.substringBefore(':')
+                    androidUserPattern.matches(user) && cmdline.contains('.') -> {
+                        val candidate = cmdline.substringBefore(':').substringBefore(' ').trim()
+                        if (packageNamePattern.matches(candidate)) candidate else ""
+                    }
+                    androidUserPattern.matches(user) && name.contains('.') -> {
+                        val candidate = name.substringBefore(':')
+                        if (packageNamePattern.matches(candidate)) candidate else ""
+                    }
                     else -> ""
                 }
 
@@ -129,7 +138,10 @@ class ProcessDataSource @Inject constructor(
         val name = parts[5]
 
         val isApp = androidUserPattern.matches(user) && name.contains('.')
-        val packageName = if (isApp) name.substringBefore(":") else ""
+        val packageName = if (isApp) {
+            val candidate = name.substringBefore(":")
+            if (packageNamePattern.matches(candidate)) candidate else ""
+        } else ""
 
         return ProcessInfo(
             pid = parts[0].toIntOrNull() ?: return null,
