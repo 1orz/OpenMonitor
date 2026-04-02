@@ -160,6 +160,14 @@ class DaemonManager @Inject constructor(
 
     private fun startHeartbeat() {
         if (heartbeatJob?.isActive == true) return
+        // Tell daemon to auto-exit after 60s without ping (ROOT/SHIZUKU only).
+        // ADB mode: timeout = 0 (disabled) since re-authorization is costly.
+        val timeoutSeconds = if (canAutoLaunchDaemon()) 60 else 0
+        scope.launch(Dispatchers.IO) {
+            try {
+                daemonClient.sendCommand("heartbeat-timeout\n$timeoutSeconds")
+            } catch (_: Exception) {}
+        }
         heartbeatJob = scope.launch {
             var failures = 0
             while (true) {

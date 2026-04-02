@@ -9,15 +9,15 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import android.content.SharedPreferences
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -27,18 +27,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import android.content.Context
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -56,13 +56,13 @@ import com.cloudorz.openmonitor.feature.floatmonitor.FloatMonitorScreen
 import com.cloudorz.openmonitor.feature.fps.FpsScreen
 import com.cloudorz.openmonitor.feature.fps.FpsSessionDetailScreen
 import com.cloudorz.openmonitor.feature.overview.OverviewScreen
+import com.cloudorz.openmonitor.feature.process.ProcessDetailScreen
 import com.cloudorz.openmonitor.feature.process.ProcessScreen
 import com.cloudorz.openmonitor.ui.features.FeaturesScreen
 import com.cloudorz.openmonitor.ui.log.LogScreen
 import com.cloudorz.openmonitor.ui.network.NetworkScreen
 import com.cloudorz.openmonitor.ui.sensor.SensorScreen
 import com.cloudorz.openmonitor.ui.storage.StorageScreen
-import com.cloudorz.openmonitor.ui.navigation.BottomNavBar
 import com.cloudorz.openmonitor.ui.navigation.FeatureRoute
 import com.cloudorz.openmonitor.ui.navigation.Route
 import com.cloudorz.openmonitor.ui.splash.PermissionGuideScreen
@@ -234,86 +234,56 @@ private fun MainScreen(permissionManager: PermissionManager) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    // Animations toggle — reactive to pref changes
-    val prefs = remember { context.getSharedPreferences("monitor_settings", Context.MODE_PRIVATE) }
-    var animationsEnabled by remember { mutableStateOf(prefs.getBoolean("animations_enabled", true)) }
-    DisposableEffect(prefs) {
-        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            if (key == "animations_enabled") animationsEnabled = prefs.getBoolean("animations_enabled", true)
-        }
-        prefs.registerOnSharedPreferenceChangeListener(listener)
-        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
-    }
+    val pagerState = rememberPagerState(initialPage = 1) { Route.all.size }
+    val coroutineScope = rememberCoroutineScope()
 
-    // Show bottom bar only on top-level tabs
-    val topLevelRoutes = Route.all.map { it.route }.toSet()
-    val showBottomBar = currentRoute in topLevelRoutes
+    // Show bottom bar only when on the main tabs screen
+    val showBottomBar = currentRoute == null || currentRoute == "tabs"
 
+    // Sync pager → tab click
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
-                BottomNavBar(
-                    currentRoute = currentRoute,
-                    onNavigate = { route ->
-                        navController.navigate(route.route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
-                )
+                NavigationBar {
+                    Route.all.forEachIndexed { index, route ->
+                        NavigationBarItem(
+                            selected = pagerState.currentPage == index,
+                            onClick = {
+                                coroutineScope.launch { pagerState.animateScrollToPage(index) }
+                            },
+                            icon = { Icon(route.icon, route.label) },
+                            label = { Text(route.label) },
+                            alwaysShowLabel = true,
+                        )
+                    }
+                }
             }
         },
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Route.Overview.route,
+            startDestination = "tabs",
             modifier = Modifier.padding(innerPadding),
-            enterTransition = {
-                if (animationsEnabled)
-                    slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(280)) + fadeIn(tween(280))
-                else EnterTransition.None
-            },
-            exitTransition = {
-                if (animationsEnabled)
-                    slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = tween(280)) + fadeOut(tween(280))
-                else ExitTransition.None
-            },
-            popEnterTransition = {
-                if (animationsEnabled)
-                    slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = tween(280)) + fadeIn(tween(280))
-                else EnterTransition.None
-            },
-            popExitTransition = {
-                if (animationsEnabled)
-                    slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(280)) + fadeOut(tween(280))
-                else ExitTransition.None
-            },
         ) {
-            // ── Top-level tabs ──
-            composable(Route.Features.route) {
-                FeaturesScreen(
-                    onFeatureClick = { route ->
-                        navController.navigate(route)
-                    },
-                )
-            }
-            composable(Route.Overview.route) {
-                OverviewScreen()
-            }
-            composable(Route.Settings.route) {
-                UserScreen(permissionManager = permissionManager)
+            // ── Top-level tabs (HorizontalPager) ──
+            composable("tabs") {
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize(),
+                ) { page ->
+                    when (page) {
+                        0 -> FeaturesScreen(
+                            onFeatureClick = { route -> navController.navigate(route) },
+                        )
+                        1 -> OverviewScreen()
+                        2 -> UserScreen(permissionManager = permissionManager)
+                    }
+                }
             }
 
             // ── Feature sub-pages ──
-            composable(FeatureRoute.CPU) {
-                CpuScreen()
-            }
-            composable(FeatureRoute.BATTERY) {
-                BatteryScreen()
-            }
+            composable(FeatureRoute.CPU) { CpuScreen() }
+            composable(FeatureRoute.BATTERY) { BatteryScreen() }
             composable(FeatureRoute.FPS) {
                 FpsScreen(
                     onSessionClick = { sessionId ->
@@ -322,28 +292,23 @@ private fun MainScreen(permissionManager: PermissionManager) {
                 )
             }
             composable(FeatureRoute.FPS_SESSION_DETAIL) {
-                FpsSessionDetailScreen(
-                    onBack = { navController.popBackStack() },
-                )
+                FpsSessionDetailScreen(onBack = { navController.popBackStack() })
             }
             composable(FeatureRoute.PROCESS) {
-                ProcessScreen()
+                ProcessScreen(
+                    onProcessClick = { pid ->
+                        navController.navigate(FeatureRoute.processDetail(pid))
+                    },
+                )
             }
-            composable(FeatureRoute.FLOAT) {
-                FloatMonitorScreen()
+            composable(FeatureRoute.PROCESS_DETAIL) {
+                ProcessDetailScreen(onBack = { navController.popBackStack() })
             }
-            composable(FeatureRoute.STORAGE) {
-                StorageScreen()
-            }
-            composable(FeatureRoute.SENSOR) {
-                SensorScreen()
-            }
-            composable(FeatureRoute.NETWORK) {
-                NetworkScreen()
-            }
-            composable(FeatureRoute.LOG) {
-                LogScreen()
-            }
+            composable(FeatureRoute.FLOAT) { FloatMonitorScreen() }
+            composable(FeatureRoute.STORAGE) { StorageScreen() }
+            composable(FeatureRoute.SENSOR) { SensorScreen() }
+            composable(FeatureRoute.NETWORK) { NetworkScreen() }
+            composable(FeatureRoute.LOG) { LogScreen() }
         }
     }
 }

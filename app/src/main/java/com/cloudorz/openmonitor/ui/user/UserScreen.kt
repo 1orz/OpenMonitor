@@ -24,7 +24,6 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Cable
 import androidx.compose.material3.Card
@@ -38,7 +37,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -73,7 +71,6 @@ fun UserScreen(
     var isDetecting by remember { mutableStateOf(false) }
     var shizukuStatus by remember { mutableStateOf(checkShizukuStatus()) }
     val daemonStatus by viewModel.daemonStatus.collectAsState()
-    val animationsEnabled by viewModel.animationsEnabled.collectAsState()
     var showModeDropdown by remember { mutableStateOf(false) }
 
     // Listen for Shizuku binder changes
@@ -344,12 +341,6 @@ fun UserScreen(
         DarkModeCard(
             darkMode = darkMode,
             onDarkModeSelected = viewModel::setDarkMode,
-        )
-
-        // Animation toggle card
-        AnimationsCard(
-            enabled = animationsEnabled,
-            onToggle = viewModel::setAnimationsEnabled,
         )
 
         // App info card
@@ -891,50 +882,6 @@ private fun DarkModeCard(
                     )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun AnimationsCard(
-    enabled: Boolean,
-    onToggle: (Boolean) -> Unit,
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        ),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Tune,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.primary,
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "界面动画",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text = "页面切换 / 悬浮窗淡入淡出",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Switch(
-                checked = enabled,
-                onCheckedChange = onToggle,
-            )
         }
     }
 }

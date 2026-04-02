@@ -67,9 +67,6 @@ class UserViewModel @Inject constructor(
     private val _darkMode = MutableStateFlow(prefs.getInt(KEY_DARK_MODE, 0))
     val darkMode: StateFlow<Int> = _darkMode.asStateFlow()
 
-    private val _animationsEnabled = MutableStateFlow(prefs.getBoolean("animations_enabled", true))
-    val animationsEnabled: StateFlow<Boolean> = _animationsEnabled.asStateFlow()
-
     /** Daemon binary path for ADB instructions. */
     val daemonBinaryPath: String get() = daemonLauncher.binaryPath
 
@@ -147,11 +144,6 @@ class UserViewModel @Inject constructor(
     fun setDarkMode(mode: Int) {
         prefs.edit { putInt(KEY_DARK_MODE, mode) }
         _darkMode.value = mode
-    }
-
-    fun setAnimationsEnabled(enabled: Boolean) {
-        prefs.edit { putBoolean("animations_enabled", enabled) }
-        _animationsEnabled.value = enabled
     }
 
     fun setPollInterval(intervalMs: Long) {

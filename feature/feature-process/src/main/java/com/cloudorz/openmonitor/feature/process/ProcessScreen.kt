@@ -56,6 +56,7 @@ import com.cloudorz.openmonitor.core.ui.theme.ChartYellow
 
 @Composable
 fun ProcessScreen(
+    onProcessClick: (Int) -> Unit = {},
     viewModel: ProcessViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -65,18 +66,9 @@ fun ProcessScreen(
         onSearchQueryChanged = viewModel::onSearchQueryChanged,
         onSortByChanged = viewModel::onSortByChanged,
         onFilterModeChanged = viewModel::onFilterModeChanged,
-        onProcessSelected = viewModel::onProcessSelected,
+        onProcessSelected = { onProcessClick(it.pid) },
         modifier = Modifier,
     )
-
-    if (uiState.selectedProcess != null) {
-        ProcessDetailSheet(
-            process = uiState.selectedProcess!!,
-            threads = uiState.threads,
-            threadsLoading = uiState.threadsLoading,
-            onDismiss = viewModel::onProcessDismissed,
-        )
-    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)

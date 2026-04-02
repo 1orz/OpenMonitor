@@ -178,7 +178,7 @@ class FloatWindowManager(private val context: Context) {
         activeWindows[id] = FloatWindow(id, rootView, params)
 
         // Fade-in animation
-        if (isAnimationEnabled()) {
+        run {
             params.alpha = 0f
             try { windowManager.updateViewLayout(rootView, params) } catch (_: Exception) {}
             ValueAnimator.ofFloat(0f, 1f).apply {
@@ -195,7 +195,7 @@ class FloatWindowManager(private val context: Context) {
 
     fun removeWindow(id: String, immediate: Boolean = false) {
         val window = activeWindows.remove(id) ?: return
-        if (immediate || !isAnimationEnabled()) {
+        if (immediate) {
             try { windowManager.removeView(window.view) } catch (e: Exception) {
                 Log.d(TAG, "removeWindow($id) failed", e)
             }
@@ -221,10 +221,6 @@ class FloatWindowManager(private val context: Context) {
     fun removeAllWindows() {
         activeWindows.keys.toList().forEach { removeWindow(it, immediate = true) }
     }
-
-    private fun isAnimationEnabled(): Boolean =
-        context.getSharedPreferences("monitor_settings", Context.MODE_PRIVATE)
-            .getBoolean("animations_enabled", true)
 
     fun isWindowActive(id: String): Boolean = activeWindows.containsKey(id)
 

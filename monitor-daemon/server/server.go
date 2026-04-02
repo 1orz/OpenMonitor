@@ -9,6 +9,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"monitor-daemon/collector"
@@ -22,11 +23,18 @@ type Server struct {
 	ln        net.Listener
 	done      chan struct{}
 	watchdog  Watchdog
+
+	// Heartbeat auto-shutdown: daemon exits if no ping for heartbeatTimeout seconds.
+	// 0 = disabled (ADB mode). Updated atomically.
+	lastPingTime     atomic.Value // time.Time
+	heartbeatTimeout atomic.Int64 // seconds
 }
 
 // New creates a Server bound to addr (e.g. "0.0.0.0:9876").
 func New(addr string, c *collector.Collector) *Server {
-	return &Server{addr: addr, collector: c, done: make(chan struct{})}
+	s := &Server{addr: addr, collector: c, done: make(chan struct{})}
+	s.lastPingTime.Store(time.Now())
+	return s
 }
 
 // Start accepts connections; each is handled in its own goroutine.
@@ -52,6 +60,32 @@ func (s *Server) Start() {
 				}
 			}
 			go s.handle(conn)
+		}
+	}()
+
+	// Heartbeat timeout monitor: exit if no ping received within timeout
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-s.done:
+				return
+			case <-ticker.C:
+				timeout := s.heartbeatTimeout.Load()
+				if timeout <= 0 {
+					continue
+				}
+				last := s.lastPingTime.Load().(time.Time)
+				elapsed := time.Since(last)
+				if elapsed > time.Duration(timeout)*time.Second {
+					log.Printf("[heartbeat] no ping for %ds (timeout=%ds), shutting down",
+						int(elapsed.Seconds()), timeout)
+					s.watchdog.Stop()
+					s.Shutdown()
+					return
+				}
+			}
 		}
 	}()
 
@@ -177,7 +211,21 @@ func (s *Server) dispatch(cmd string) []byte {
 
 	switch name {
 	case "ping":
+		s.lastPingTime.Store(time.Now())
 		return []byte(collector.PingInfo())
+	case "heartbeat-timeout":
+		parts := strings.SplitN(cmd, "\n", 2)
+		if len(parts) < 2 {
+			return []byte(fmt.Sprintf(`{"status":"ok","timeout_s":%d}`, s.heartbeatTimeout.Load()))
+		}
+		secs, err := strconv.ParseInt(strings.TrimSpace(parts[1]), 10, 64)
+		if err != nil || secs < 0 {
+			return []byte(`{"error":"invalid timeout value"}`)
+		}
+		s.heartbeatTimeout.Store(secs)
+		s.lastPingTime.Store(time.Now())
+		log.Printf("[heartbeat] timeout set to %ds (0=disabled)", secs)
+		return []byte(fmt.Sprintf(`{"status":"ok","timeout_s":%d}`, secs))
 	case "daemon-version":
 		return []byte(collector.Version())
 	case "monitor":
