@@ -2,6 +2,7 @@ package com.cloudorz.openmonitor.ui.splash
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -75,16 +76,19 @@ fun PermissionGuideScreen(
     // Daemon launch step: triggered after user confirms ROOT/SHIZUKU
     if (detectState == DetectState.LAUNCHING_DAEMON) {
         LaunchedEffect(Unit) {
-            val result = daemonManager.ensureRunning()
             val mode = selectedMode ?: return@LaunchedEffect
+            // Set the mode BEFORE ensureRunning so the correct executor is used.
+            // Without this, currentMode is still BASIC on first-time SHIZUKU setup,
+            // causing ensureRunning() to return NOT_NEEDED and skip daemon launch entirely.
+            permissionManager.setMode(mode)
+            val result = withTimeoutOrNull(5_000L) { daemonManager.ensureRunning() }
+                ?: DaemonState.FAILED
             when {
                 result == DaemonState.RUNNING || result == DaemonState.NOT_NEEDED -> {
-                    permissionManager.setMode(mode)
                     onModeSelected(mode)
                 }
                 // ADB mode: daemon might not be running yet, allow user to proceed
                 mode == PrivilegeMode.ADB && result == DaemonState.IDLE -> {
-                    permissionManager.setMode(mode)
                     onModeSelected(mode)
                 }
                 else -> {

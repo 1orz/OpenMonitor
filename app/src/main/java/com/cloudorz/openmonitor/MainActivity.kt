@@ -35,6 +35,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.ui.Alignment
@@ -118,40 +119,47 @@ private fun MonitorAppContent(permissionManager: PermissionManager, daemonManage
         if (selectedMode != null) StartupPhase.CHECKING else StartupPhase.NEEDS_GUIDE
     ) }
 
-    // Cold start: verify Shizuku + daemon for persisted ROOT/SHIZUKU
+    // Cold start: verify Shizuku + daemon for persisted ROOT/SHIZUKU; 5s hard timeout
     LaunchedEffect(Unit) {
         if (selectedMode == null) return@LaunchedEffect
 
-        // Shizuku binder check
-        if (selectedMode == PrivilegeMode.SHIZUKU) {
-            var available = false
-            repeat(5) {
-                available = permissionManager.isShizukuAvailableSync()
-                if (!available) delay(400)
+        withTimeoutOrNull(5_000L) {
+            // Shizuku binder check
+            if (selectedMode == PrivilegeMode.SHIZUKU) {
+                var available = false
+                repeat(5) {
+                    available = permissionManager.isShizukuAvailableSync()
+                    if (!available) delay(400)
+                }
+                if (!available) {
+                    selectedMode = null
+                    startupPhase = StartupPhase.NEEDS_GUIDE
+                    return@withTimeoutOrNull
+                }
             }
-            if (!available) {
-                selectedMode = null
-                startupPhase = StartupPhase.NEEDS_GUIDE
-                return@LaunchedEffect
+
+            // Daemon check for ROOT/SHIZUKU
+            if (selectedMode == PrivilegeMode.ROOT || selectedMode == PrivilegeMode.SHIZUKU) {
+                val result = daemonManager.ensureRunning()
+                if (result == DaemonState.FAILED) {
+                    selectedMode = null
+                    startupPhase = StartupPhase.NEEDS_GUIDE
+                    return@withTimeoutOrNull
+                }
             }
+
+            // ADB mode: try to connect to manually started daemon, but don't block
+            if (selectedMode == PrivilegeMode.ADB) {
+                daemonManager.ensureRunning()
+            }
+
+            startupPhase = StartupPhase.READY
         }
 
-        // Daemon check for ROOT/SHIZUKU
-        if (selectedMode == PrivilegeMode.ROOT || selectedMode == PrivilegeMode.SHIZUKU) {
-            val result = daemonManager.ensureRunning()
-            if (result == DaemonState.FAILED) {
-                selectedMode = null
-                startupPhase = StartupPhase.NEEDS_GUIDE
-                return@LaunchedEffect
-            }
+        // If timed out before completing, proceed to READY rather than blocking the user indefinitely
+        if (startupPhase == StartupPhase.CHECKING) {
+            startupPhase = StartupPhase.READY
         }
-
-        // ADB mode: try to connect to manually started daemon, but don't block
-        if (selectedMode == PrivilegeMode.ADB) {
-            daemonManager.ensureRunning()
-        }
-
-        startupPhase = StartupPhase.READY
     }
 
     // Runtime: Shizuku binder died — keep current screen, sync mode to BASIC

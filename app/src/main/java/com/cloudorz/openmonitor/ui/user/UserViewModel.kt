@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import androidx.core.content.edit
@@ -114,8 +115,8 @@ class UserViewModel @Inject constructor(
         if (_daemonStatus.value.checking) return
         viewModelScope.launch {
             _daemonStatus.value = _daemonStatus.value.copy(checking = true)
-            val alive = daemonManager.ensureRunning() == DaemonState.RUNNING
-            _daemonStatus.value = buildStatus(alive = alive)
+            val state = withTimeoutOrNull(5_000L) { daemonManager.ensureRunning() }
+            _daemonStatus.value = buildStatus(alive = state == DaemonState.RUNNING)
         }
     }
 
@@ -123,8 +124,8 @@ class UserViewModel @Inject constructor(
         if (_daemonStatus.value.checking) return
         viewModelScope.launch {
             _daemonStatus.value = _daemonStatus.value.copy(checking = true)
-            val alive = daemonManager.restart() == DaemonState.RUNNING
-            _daemonStatus.value = buildStatus(alive = alive)
+            val state = withTimeoutOrNull(5_000L) { daemonManager.restart() }
+            _daemonStatus.value = buildStatus(alive = state == DaemonState.RUNNING)
         }
     }
 
