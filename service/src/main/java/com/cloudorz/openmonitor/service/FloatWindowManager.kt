@@ -1,5 +1,7 @@
 package com.cloudorz.openmonitor.service
 
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.content.Context
 import android.content.res.Configuration
 import androidx.core.content.edit
@@ -9,6 +11,8 @@ import android.util.Log
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.animation.AccelerateInterpolator
+import android.view.animation.DecelerateInterpolator
 import android.os.Handler
 import android.os.Looper
 import android.view.ViewConfiguration
@@ -171,23 +175,56 @@ class FloatWindowManager(private val context: Context) {
         lifecycleOwner.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
 
         windowManager.addView(rootView, params)
-
         activeWindows[id] = FloatWindow(id, rootView, params)
-    }
 
-    fun removeWindow(id: String) {
-        activeWindows.remove(id)?.let { window ->
-            try {
-                windowManager.removeView(window.view)
-            } catch (e: Exception) {
-                Log.d(TAG, "removeWindow($id) failed", e)
+        // Fade-in animation
+        if (isAnimationEnabled()) {
+            params.alpha = 0f
+            try { windowManager.updateViewLayout(rootView, params) } catch (_: Exception) {}
+            ValueAnimator.ofFloat(0f, 1f).apply {
+                duration = 220
+                interpolator = DecelerateInterpolator()
+                addUpdateListener { anim ->
+                    params.alpha = anim.animatedValue as Float
+                    try { windowManager.updateViewLayout(rootView, params) } catch (_: Exception) {}
+                }
+                start()
             }
         }
     }
 
-    fun removeAllWindows() {
-        activeWindows.keys.toList().forEach { removeWindow(it) }
+    fun removeWindow(id: String, immediate: Boolean = false) {
+        val window = activeWindows.remove(id) ?: return
+        if (immediate || !isAnimationEnabled()) {
+            try { windowManager.removeView(window.view) } catch (e: Exception) {
+                Log.d(TAG, "removeWindow($id) failed", e)
+            }
+            return
+        }
+        // Fade-out animation before removing
+        ValueAnimator.ofFloat(1f, 0f).apply {
+            duration = 160
+            interpolator = AccelerateInterpolator()
+            addUpdateListener { anim ->
+                window.params.alpha = anim.animatedValue as Float
+                try { windowManager.updateViewLayout(window.view, window.params) } catch (_: Exception) {}
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    try { windowManager.removeView(window.view) } catch (_: Exception) {}
+                }
+            })
+            start()
+        }
     }
+
+    fun removeAllWindows() {
+        activeWindows.keys.toList().forEach { removeWindow(it, immediate = true) }
+    }
+
+    private fun isAnimationEnabled(): Boolean =
+        context.getSharedPreferences("monitor_settings", Context.MODE_PRIVATE)
+            .getBoolean("animations_enabled", true)
 
     fun isWindowActive(id: String): Boolean = activeWindows.containsKey(id)
 
@@ -307,6 +344,11 @@ class FloatWindowManager(private val context: Context) {
                 }
             }
             return false
+        }
+
+        override fun performClick(): Boolean {
+            super.performClick()
+            return true
         }
 
         override fun onTouchEvent(event: MotionEvent): Boolean {

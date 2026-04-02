@@ -86,7 +86,7 @@ private val OfflineGray = Color(0xFF616161)
 fun CpuCoreBarChart(
     cores: List<CpuCoreBarData>,
     modifier: Modifier = Modifier,
-    maxFreqMHz: Long = 3000,
+    @Suppress("UNUSED_PARAMETER") maxFreqMHz: Long = 3000,
 ) {
     val textMeasurer = rememberTextMeasurer()
     val onSurfaceColor = MaterialTheme.colorScheme.onSurface

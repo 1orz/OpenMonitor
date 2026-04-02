@@ -2,6 +2,7 @@ package com.cloudorz.openmonitor.feature.fps
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import androidx.core.graphics.createBitmap
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import androidx.compose.foundation.Image
@@ -135,7 +136,6 @@ private enum class ChartSection(val label: String) {
 
 @Composable
 fun FpsSessionDetailScreen(
-    sessionId: Long,
     onBack: () -> Unit = {},
     viewModel: FpsSessionDetailViewModel = hiltViewModel(),
 ) {
@@ -165,6 +165,7 @@ private fun FpsSessionDetailContent(
     val sectionVisibility = remember {
         mutableStateMapOf<ChartSection, Boolean>().apply { ChartSection.entries.forEach { put(it, true) } }
     }
+    @Suppress("AssignedValueIsNeverRead")
     var showSectionOptions by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -467,6 +468,7 @@ private fun ChartCard(
     seriesVisibility: SnapshotStateMap<String, Boolean>? = null,
     content: @Composable () -> Unit,
 ) {
+    @Suppress("AssignedValueIsNeverRead")
     var showSeriesDialog by remember { mutableStateOf(false) }
 
     if (showSeriesDialog && allLabels != null && allColors != null && seriesVisibility != null) {
@@ -901,7 +903,7 @@ private fun formatDuration(seconds: Long): String {
 
 private fun Drawable.toBitmap(width: Int, height: Int): Bitmap {
     if (this is BitmapDrawable && bitmap != null) return bitmap
-    val bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val bmp = createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bmp)
     setBounds(0, 0, canvas.width, canvas.height)
     draw(canvas)

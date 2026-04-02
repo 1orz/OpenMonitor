@@ -27,8 +27,8 @@ import com.cloudorz.openmonitor.core.ui.R
 @Composable
 fun VendorLogo(
     vendor: String,
-    size: Dp = 36.dp,
     modifier: Modifier = Modifier,
+    size: Dp = 36.dp,
 ) {
     val normalized = vendor.lowercase()
     when {
@@ -75,8 +75,8 @@ fun VendorLogo(
 @Composable
 fun DeviceBrandLogo(
     brand: String,
-    size: Dp = 56.dp,
     modifier: Modifier = Modifier,
+    size: Dp = 56.dp,
 ) {
     if (brand.isBlank()) return
     val normalized = brand.lowercase()

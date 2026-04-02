@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import androidx.core.graphics.createBitmap
 import android.graphics.drawable.BitmapDrawable
 import android.util.LruCache
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -17,19 +18,19 @@ class AppInfoResolver @Inject constructor(
     private val pm: PackageManager = context.packageManager
     private val labelCache = LruCache<String, String>(200)
     private val iconCache = LruCache<String, Bitmap>(100)
-    private val NOT_FOUND = "\u0000"
-    private val ICON_NOT_FOUND_SENTINEL = "##NO_ICON##"
+    private val notFound = "\u0000"
+    private val iconNotFoundSentinel = "##NO_ICON##"
 
     fun resolveLabel(packageName: String): String {
         val cached = labelCache.get(packageName)
-        if (cached != null) return if (cached == NOT_FOUND) "" else cached
+        if (cached != null) return if (cached == notFound) "" else cached
         return try {
             val info = pm.getApplicationInfo(packageName, 0)
             val label = pm.getApplicationLabel(info).toString()
             labelCache.put(packageName, label)
             label
         } catch (_: PackageManager.NameNotFoundException) {
-            labelCache.put(packageName, NOT_FOUND)
+            labelCache.put(packageName, notFound)
             ""
         }
     }
@@ -37,7 +38,7 @@ class AppInfoResolver @Inject constructor(
     fun resolveIcon(packageName: String): Bitmap? {
         iconCache.get(packageName)?.let { return it }
         // Check if we already know this package has no icon
-        if (labelCache.get(packageName) == ICON_NOT_FOUND_SENTINEL) return null
+        if (labelCache.get(packageName) == iconNotFoundSentinel) return null
         return try {
             val info = pm.getApplicationInfo(packageName, 0)
             val drawable = pm.getApplicationIcon(info)
@@ -45,7 +46,7 @@ class AppInfoResolver @Inject constructor(
                 drawable.bitmap
             } else {
                 val size = 48
-                val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+                val bmp = createBitmap(size, size, Bitmap.Config.ARGB_8888)
                 val canvas = Canvas(bmp)
                 drawable.setBounds(0, 0, size, size)
                 drawable.draw(canvas)

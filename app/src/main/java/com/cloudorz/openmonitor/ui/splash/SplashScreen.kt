@@ -44,6 +44,7 @@ fun SplashScreen(
     permissionManager: PermissionManager,
     onModeSelected: (PrivilegeMode) -> Unit,
 ) {
+    @Suppress("AssignedValueIsNeverRead")
     var rootCheckState by remember { mutableStateOf(RootCheckState.IDLE) }
 
     // Root permission check logic

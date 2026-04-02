@@ -2,8 +2,10 @@ package com.cloudorz.openmonitor.ui.user
 
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
+import androidx.core.net.toUri
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,23 +18,27 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Brightness4
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Cable
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -44,6 +50,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -66,6 +73,8 @@ fun UserScreen(
     var isDetecting by remember { mutableStateOf(false) }
     var shizukuStatus by remember { mutableStateOf(checkShizukuStatus()) }
     val daemonStatus by viewModel.daemonStatus.collectAsState()
+    val animationsEnabled by viewModel.animationsEnabled.collectAsState()
+    var showModeDropdown by remember { mutableStateOf(false) }
 
     // Listen for Shizuku binder changes
     DisposableEffect(Unit) {
@@ -161,36 +170,93 @@ fun UserScreen(
             }
         }
 
-        // Mode switch card
+        // Mode switch card — Dropdown Menu with icons
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
             ),
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-            ) {
-                Text(
-                    text = "切换运行模式",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-
-                PrivilegeMode.entries.forEach { mode ->
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(enabled = !isDetecting) { showModeDropdown = true }
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f),
                     ) {
-                        RadioButton(
-                            selected = currentMode == mode,
+                        Icon(
+                            imageVector = modeIcon(currentMode),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp),
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "切换运行模式",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                text = modeDisplayName(currentMode),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                    }
+                    if (isDetecting) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(
+                            imageVector = Icons.Filled.ArrowDropDown,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+
+                DropdownMenu(
+                    expanded = showModeDropdown,
+                    onDismissRequest = { showModeDropdown = false },
+                ) {
+                    PrivilegeMode.entries.forEach { mode ->
+                        DropdownMenuItem(
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = modeIcon(mode),
+                                    contentDescription = null,
+                                    tint = if (currentMode == mode)
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            },
+                            text = {
+                                Text(
+                                    text = modeDisplayName(mode),
+                                    fontWeight = if (currentMode == mode) FontWeight.Bold else FontWeight.Normal,
+                                )
+                            },
+                            trailingIcon = {
+                                if (currentMode == mode) {
+                                    Icon(
+                                        imageVector = Icons.Filled.CheckCircle,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                }
+                            },
                             onClick = {
-                                if (currentMode == mode || isDetecting) return@RadioButton
+                                showModeDropdown = false
+                                if (currentMode == mode || isDetecting) return@DropdownMenuItem
                                 val oldMode = currentMode
                                 when (mode) {
                                     PrivilegeMode.ROOT -> {
@@ -201,9 +267,7 @@ fun UserScreen(
                                                 viewModel.switchMode(
                                                     oldMode, PrivilegeMode.ROOT,
                                                     applyNewMode = { permissionManager.setMode(PrivilegeMode.ROOT) },
-                                                ) {
-                                                    isDetecting = false
-                                                }
+                                                ) { isDetecting = false }
                                             } else {
                                                 isDetecting = false
                                             }
@@ -216,16 +280,12 @@ fun UserScreen(
                                                 viewModel.switchMode(
                                                     oldMode, PrivilegeMode.SHIZUKU,
                                                     applyNewMode = { permissionManager.setMode(PrivilegeMode.SHIZUKU) },
-                                                ) {
-                                                    isDetecting = false
-                                                }
+                                                ) { isDetecting = false }
                                             }
                                             ShizukuStatus.NOT_GRANTED -> {
                                                 try { Shizuku.requestPermission(1001) } catch (_: Exception) {}
                                             }
-                                            ShizukuStatus.NOT_RUNNING -> {
-                                                // Show instructions (handled below)
-                                            }
+                                            ShizukuStatus.NOT_RUNNING -> { }
                                         }
                                     }
                                     PrivilegeMode.ADB -> {
@@ -233,53 +293,18 @@ fun UserScreen(
                                         viewModel.switchMode(
                                             oldMode, PrivilegeMode.ADB,
                                             applyNewMode = { permissionManager.setMode(PrivilegeMode.ADB) },
-                                        ) {
-                                            isDetecting = false
-                                        }
+                                        ) { isDetecting = false }
                                     }
                                     PrivilegeMode.BASIC -> {
                                         isDetecting = true
                                         viewModel.switchMode(
                                             oldMode, PrivilegeMode.BASIC,
                                             applyNewMode = { permissionManager.setMode(PrivilegeMode.BASIC) },
-                                        ) {
-                                            isDetecting = false
-                                        }
+                                        ) { isDetecting = false }
                                     }
                                 }
                             },
                             enabled = !isDetecting,
-                            colors = RadioButtonDefaults.colors(
-                                selectedColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        )
-                        Column(modifier = Modifier.padding(start = 8.dp)) {
-                            Text(
-                                text = modeDisplayName(mode),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = if (currentMode == mode) FontWeight.Bold else FontWeight.Normal,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            Text(
-                                text = modeDescription(mode),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                            )
-                        }
-                    }
-                }
-
-                if (isDetecting) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                        Text(
-                            text = "正在切换模式...",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -319,6 +344,12 @@ fun UserScreen(
         DarkModeCard(
             darkMode = darkMode,
             onDarkModeSelected = viewModel::setDarkMode,
+        )
+
+        // Animation toggle card
+        AnimationsCard(
+            enabled = animationsEnabled,
+            onToggle = viewModel::setAnimationsEnabled,
         )
 
         // App info card
@@ -493,7 +524,7 @@ private fun ShizukuSetupCard(status: ShizukuStatus) {
                                     // Open Play Store
                                     val storeIntent = Intent(
                                         Intent.ACTION_VIEW,
-                                        Uri.parse("market://details?id=moe.shizuku.privileged.api"),
+                                        "market://details?id=moe.shizuku.privileged.api".toUri(),
                                     )
                                     context.startActivity(storeIntent)
                                 }
@@ -653,6 +684,13 @@ private fun checkShizukuStatus(): ShizukuStatus {
     } catch (_: Exception) {
         ShizukuStatus.NOT_RUNNING
     }
+}
+
+private fun modeIcon(mode: PrivilegeMode): ImageVector = when (mode) {
+    PrivilegeMode.ROOT -> Icons.Filled.Security
+    PrivilegeMode.SHIZUKU -> Icons.Filled.Speed
+    PrivilegeMode.ADB -> Icons.Outlined.Cable
+    PrivilegeMode.BASIC -> Icons.Filled.Info
 }
 
 private fun modeDisplayName(mode: PrivilegeMode): String = when (mode) {
@@ -853,6 +891,50 @@ private fun DarkModeCard(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun AnimationsCard(
+    enabled: Boolean,
+    onToggle: (Boolean) -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        ),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Tune,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "界面动画",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = "页面切换 / 悬浮窗淡入淡出",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Switch(
+                checked = enabled,
+                onCheckedChange = onToggle,
+            )
         }
     }
 }

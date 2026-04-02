@@ -1,5 +1,6 @@
 package com.cloudorz.openmonitor.core.data.datasource
 
+import android.annotation.SuppressLint
 import android.content.Context
 import com.elvishew.xlog.XLog
 import com.cloudorz.openmonitor.core.common.PrivilegeMode
@@ -52,8 +53,8 @@ class DaemonLauncher @Inject constructor(
         context.filesDir.resolve(DAEMON_DIR_NAME).also { dir ->
             if (!dir.exists()) dir.mkdirs()
             // Ensure both root and shell users can write
-            dir.setReadable(true, false)
-            dir.setWritable(true, false)
+            @SuppressLint("SetWorldReadable") dir.setReadable(true, false)
+            @SuppressLint("SetWorldWritable") dir.setWritable(true, false)
             dir.setExecutable(true, false)
         }
     }

@@ -3,44 +3,11 @@
     <!-- Power Screen -->
     <string name="battery_info">电池信息</string>
     <string name="battery_health">电池健康度</string>
-    <string name="voltage">电压</string>
-    <string name="current">电流</string>
-    <string name="power">功率</string>
     <string name="temperature">温度</string>
-    <string name="technology">技术</string>
-    <string name="charger_type">充电器类型</string>
-    <string name="battery_health_good">电池状态良好</string>
-    <string name="battery_health_normal">电池状态正常</string>
-    <string name="battery_health_degraded">电池有一定损耗，建议关注</string>
-    <string name="battery_health_poor">电池损耗严重，建议更换</string>
-    <string name="stop_power_tracking">停止耗电追踪</string>
-    <string name="start_power_tracking">开始耗电追踪</string>
-    <string name="power_history">耗电历史记录</string>
-    <string name="power_consumed">耗电量</string>
-    <string name="avg_power">平均功率</string>
     <string name="duration">时长</string>
-    <string name="no_power_records">暂无耗电记录</string>
-    <string name="start_tracking_hint">点击上方按钮开始追踪耗电情况</string>
-    <string name="tracking_active">追踪中</string>
-    <string name="power_stats">耗电统计</string>
-    <string name="used_time">已使用</string>
-    <string name="est_battery_life">预估续航</string>
-    <string name="power_over_time">功率 / 时间</string>
-    <string name="battery_over_time">电量 / 时间</string>
-    <string name="temp_over_time">温度 / 时间</string>
-    <string name="power_chart_hint">开始追踪后将显示图表</string>
-    <string name="power_w_label">W</string>
-    <string name="battery_pct_label">%%</string>
-    <string name="temp_c_label">\u00B0C</string>
 
     <!-- FPS Screen -->
-    <string name="tab_realtime_recording">实时录制</string>
-    <string name="tab_session_history">历史会话</string>
     <string name="fps_recording_title">帧率记录</string>
-    <string name="shell_permission_required">需要 Shell 权限</string>
-    <string name="fps_shell_permission_desc">帧率监控需要 Daemon 服务，\n请在设置中切换到以下模式之一：</string>
-    <string name="fps_mode_root">Root — Magisk / KernelSU</string>
-    <string name="fps_mode_shizuku">Shizuku — 无线调试配对</string>
     <string name="fps_trend">FPS 趋势</string>
     <string name="frame_time">帧时间</string>
     <string name="recording">录制中</string>
@@ -53,7 +20,9 @@
     <string name="start_recording_hint">开始录制以查看历史数据</string>
     <string name="avg_fps_format">平均 %.1f FPS</string>
     <string name="delete">删除</string>
-    <string name="fps_selected_count">已选 %d 项</string>
+    <plurals name="fps_selected_count">
+        <item quantity="other">已选 %d 项</item>
+    </plurals>
     <string name="fps_select_all">全选</string>
     <string name="fps_cancel">取消</string>
     <string name="fps_confirm">确定</string>

@@ -44,15 +44,13 @@ fun CurrentSparkline(
         val paddingTop = 6f
         val paddingBottom = 6f
 
-        val chartLeft = labelMarginLeft
         val chartRight = size.width - paddingRight
-        val chartTop = paddingTop
         val chartBottom = size.height - paddingBottom
-        val chartWidth = chartRight - chartLeft
-        val chartHeight = chartBottom - chartTop
+        val chartWidth = chartRight - labelMarginLeft
+        val chartHeight = chartBottom - paddingTop
 
         fun valueToY(v: Float): Float =
-            chartTop + (1f - (v - minVal) / range) * chartHeight
+            paddingTop + (1f - (v - minVal) / range) * chartHeight
 
         val stepX = chartWidth / (data.size - 1).coerceAtLeast(1)
 
@@ -69,7 +67,7 @@ fun CurrentSparkline(
             // Grid line
             drawLine(
                 color = if (isZero) axisColor else gridColor,
-                start = Offset(chartLeft, y),
+                start = Offset(labelMarginLeft, y),
                 end = Offset(chartRight, y),
                 strokeWidth = if (isZero) 1.5f else 1f,
             )
@@ -86,14 +84,14 @@ fun CurrentSparkline(
         }
 
         // Y-axis line
-        drawLine(axisColor, Offset(chartLeft, chartTop), Offset(chartLeft, chartBottom), strokeWidth = 1f)
+        drawLine(axisColor, Offset(labelMarginLeft, paddingTop), Offset(labelMarginLeft, chartBottom), strokeWidth = 1f)
         // X-axis baseline
-        drawLine(axisColor, Offset(chartLeft, chartBottom), Offset(chartRight, chartBottom), strokeWidth = 1f)
+        drawLine(axisColor, Offset(labelMarginLeft, chartBottom), Offset(chartRight, chartBottom), strokeWidth = 1f)
 
         // Data line
         val path = Path()
         data.forEachIndexed { index, value ->
-            val x = chartLeft + index * stepX
+            val x = labelMarginLeft + index * stepX
             val y = valueToY(value.toFloat())
             if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
         }
@@ -105,7 +103,7 @@ fun CurrentSparkline(
 
         // Last point dot
         if (data.isNotEmpty()) {
-            val lastX = chartLeft + (data.size - 1) * stepX
+            val lastX = labelMarginLeft + (data.size - 1) * stepX
             val lastY = valueToY(data.last().toFloat())
             drawCircle(color = lineColor, radius = 3.dp.toPx(), center = Offset(lastX, lastY))
         }

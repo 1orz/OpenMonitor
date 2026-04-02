@@ -31,6 +31,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -68,7 +69,7 @@ fun SensorScreen(
             }
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = stringResource(R.string.sensor_count_format, sensors.size),
+                text = pluralStringResource(R.plurals.sensor_count_format, sensors.size, sensors.size),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

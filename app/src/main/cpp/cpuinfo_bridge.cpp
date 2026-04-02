@@ -33,7 +33,7 @@ Java_com_cloudorz_openmonitor_core_common_CpuNativeInfo_nativeGetCoreCount(JNIEn
     if (!cpuinfo_initialize()) {
         return 0;
     }
-    return cpuinfo_get_cores_count();
+    return static_cast<jint>(cpuinfo_get_cores_count());
 }
 
 extern "C"
@@ -52,13 +52,13 @@ Java_com_cloudorz_openmonitor_core_common_CpuNativeInfo_nativeGetL1dCaches(JNIEn
         return nullptr;
     }
     uint32_t count = cpuinfo_get_l1d_caches_count();
-    jintArray result = env->NewIntArray(count);
+    jintArray result = env->NewIntArray(static_cast<jsize>(count));
     jint *buf = new jint[count];
     auto caches = cpuinfo_get_l1d_caches();
     for (uint32_t i = 0; i < count; i++) {
-        buf[i] = caches[i].size;
+        buf[i] = static_cast<jint>(caches[i].size);
     }
-    env->SetIntArrayRegion(result, 0, count, buf);
+    env->SetIntArrayRegion(result, 0, static_cast<jsize>(count), buf);
     delete[] buf;
     return result;
 }
@@ -70,13 +70,13 @@ Java_com_cloudorz_openmonitor_core_common_CpuNativeInfo_nativeGetL1iCaches(JNIEn
         return nullptr;
     }
     uint32_t count = cpuinfo_get_l1i_caches_count();
-    jintArray result = env->NewIntArray(count);
+    jintArray result = env->NewIntArray(static_cast<jsize>(count));
     jint *buf = new jint[count];
     auto caches = cpuinfo_get_l1i_caches();
     for (uint32_t i = 0; i < count; i++) {
-        buf[i] = caches[i].size;
+        buf[i] = static_cast<jint>(caches[i].size);
     }
-    env->SetIntArrayRegion(result, 0, count, buf);
+    env->SetIntArrayRegion(result, 0, static_cast<jsize>(count), buf);
     delete[] buf;
     return result;
 }
@@ -88,13 +88,13 @@ Java_com_cloudorz_openmonitor_core_common_CpuNativeInfo_nativeGetL2Caches(JNIEnv
         return nullptr;
     }
     uint32_t count = cpuinfo_get_l2_caches_count();
-    jintArray result = env->NewIntArray(count);
+    jintArray result = env->NewIntArray(static_cast<jsize>(count));
     jint *buf = new jint[count];
     auto caches = cpuinfo_get_l2_caches();
     for (uint32_t i = 0; i < count; i++) {
-        buf[i] = caches[i].size;
+        buf[i] = static_cast<jint>(caches[i].size);
     }
-    env->SetIntArrayRegion(result, 0, count, buf);
+    env->SetIntArrayRegion(result, 0, static_cast<jsize>(count), buf);
     delete[] buf;
     return result;
 }
@@ -106,13 +106,13 @@ Java_com_cloudorz_openmonitor_core_common_CpuNativeInfo_nativeGetL3Caches(JNIEnv
         return nullptr;
     }
     uint32_t count = cpuinfo_get_l3_caches_count();
-    jintArray result = env->NewIntArray(count);
+    jintArray result = env->NewIntArray(static_cast<jsize>(count));
     jint *buf = new jint[count];
     auto caches = cpuinfo_get_l3_caches();
     for (uint32_t i = 0; i < count; i++) {
-        buf[i] = caches[i].size;
+        buf[i] = static_cast<jint>(caches[i].size);
     }
-    env->SetIntArrayRegion(result, 0, count, buf);
+    env->SetIntArrayRegion(result, 0, static_cast<jsize>(count), buf);
     delete[] buf;
     return result;
 }

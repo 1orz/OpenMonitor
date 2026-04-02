@@ -35,7 +35,9 @@
 
     <!-- 传感器 -->
     <string name="sensor_title">传感器</string>
-    <string name="sensor_count_format">检测到 %1$d 个传感器</string>
+    <plurals name="sensor_count_format">
+        <item quantity="other">检测到 %d 个传感器</item>
+    </plurals>
     <string name="sensor_vendor">厂商</string>
     <string name="sensor_resolution">分辨率</string>
     <string name="sensor_max_range">最大范围</string>
@@ -67,8 +69,6 @@
     <string name="daemon_fallback_basic">以基础模式继续</string>
 
     <!-- 悬浮监视器通知 -->
-    <string name="float_notification_title">OpenMonitor</string>
-    <string name="float_notification_text">悬浮监视器运行中</string>
     <string name="float_channel_name">悬浮监视器</string>
     <string name="float_channel_desc">悬浮监视器后台通知</string>
 

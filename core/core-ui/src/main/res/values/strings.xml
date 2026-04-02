@@ -3,44 +3,11 @@
     <!-- Power Screen -->
     <string name="battery_info">Battery Info</string>
     <string name="battery_health">Battery Health</string>
-    <string name="voltage">Voltage</string>
-    <string name="current">Current</string>
-    <string name="power">Power</string>
     <string name="temperature">Temperature</string>
-    <string name="technology">Technology</string>
-    <string name="charger_type">Charger Type</string>
-    <string name="battery_health_good">Battery is in good condition</string>
-    <string name="battery_health_normal">Battery is in normal condition</string>
-    <string name="battery_health_degraded">Battery has some wear, please keep an eye on it</string>
-    <string name="battery_health_poor">Battery is severely degraded, consider replacement</string>
-    <string name="stop_power_tracking">Stop Power Tracking</string>
-    <string name="start_power_tracking">Start Power Tracking</string>
-    <string name="power_history">Power Consumption History</string>
-    <string name="power_consumed">Power Used</string>
-    <string name="avg_power">Avg Power</string>
     <string name="duration">Duration</string>
-    <string name="no_power_records">No power records</string>
-    <string name="start_tracking_hint">Tap the button above to start tracking power usage</string>
-    <string name="tracking_active">Tracking</string>
-    <string name="power_stats">Power Statistics</string>
-    <string name="used_time">Usage Time</string>
-    <string name="est_battery_life">Est. Battery Life</string>
-    <string name="power_over_time">Power / Time</string>
-    <string name="battery_over_time">Battery Level / Time</string>
-    <string name="temp_over_time">Temperature / Time</string>
-    <string name="power_chart_hint">Charts will appear when tracking starts</string>
-    <string name="power_w_label">W</string>
-    <string name="battery_pct_label">%%</string>
-    <string name="temp_c_label">\u00B0C</string>
 
     <!-- FPS Screen -->
-    <string name="tab_realtime_recording">Live Recording</string>
-    <string name="tab_session_history">Session History</string>
     <string name="fps_recording_title">FPS Recording</string>
-    <string name="shell_permission_required">Shell Permission Required</string>
-    <string name="fps_shell_permission_desc">FPS monitoring requires the daemon service.\nPlease switch to one of the following modes in settings:</string>
-    <string name="fps_mode_root">Root — Magisk / KernelSU</string>
-    <string name="fps_mode_shizuku">Shizuku — Wireless Debug Pairing</string>
     <string name="fps_trend">FPS Trend</string>
     <string name="frame_time">Frame Time</string>
     <string name="recording">Recording</string>
@@ -53,7 +20,10 @@
     <string name="start_recording_hint">Start recording to view historical data</string>
     <string name="avg_fps_format">Avg %.1f FPS</string>
     <string name="delete">Delete</string>
-    <string name="fps_selected_count">%d selected</string>
+    <plurals name="fps_selected_count">
+        <item quantity="one">%d selected</item>
+        <item quantity="other">%d selected</item>
+    </plurals>
     <string name="fps_select_all">Select All</string>
     <string name="fps_cancel">Cancel</string>
     <string name="fps_confirm">OK</string>

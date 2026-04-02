@@ -9,6 +9,13 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
@@ -17,10 +24,12 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import android.content.Context
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
@@ -74,9 +83,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        val prefs = getSharedPreferences("monitor_settings", android.content.Context.MODE_PRIVATE)
+        val prefs = getSharedPreferences("monitor_settings", Context.MODE_PRIVATE)
         setContent {
-            var darkModePref by remember { mutableStateOf(prefs.getInt("dark_mode", 0)) }
+            var darkModePref by remember { mutableIntStateOf(prefs.getInt("dark_mode", 0)) }
             DisposableEffect(Unit) {
                 val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
                     if (key == "dark_mode") darkModePref = prefs.getInt("dark_mode", 0)
@@ -212,7 +221,7 @@ private fun MainScreen(permissionManager: PermissionManager) {
 
     // Restore saved float monitors on app start
     LaunchedEffect(Unit) {
-        val prefs = context.getSharedPreferences("monitor_settings", android.content.Context.MODE_PRIVATE)
+        val prefs = context.getSharedPreferences("monitor_settings", Context.MODE_PRIVATE)
         val savedMonitors = prefs.getStringSet("enabled_monitors", emptySet()) ?: emptySet()
         if (savedMonitors.isEmpty()) return@LaunchedEffect
 
@@ -224,6 +233,17 @@ private fun MainScreen(permissionManager: PermissionManager) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+
+    // Animations toggle — reactive to pref changes
+    val prefs = remember { context.getSharedPreferences("monitor_settings", Context.MODE_PRIVATE) }
+    var animationsEnabled by remember { mutableStateOf(prefs.getBoolean("animations_enabled", true)) }
+    DisposableEffect(prefs) {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "animations_enabled") animationsEnabled = prefs.getBoolean("animations_enabled", true)
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
 
     // Show bottom bar only on top-level tabs
     val topLevelRoutes = Route.all.map { it.route }.toSet()
@@ -251,6 +271,26 @@ private fun MainScreen(permissionManager: PermissionManager) {
             navController = navController,
             startDestination = Route.Overview.route,
             modifier = Modifier.padding(innerPadding),
+            enterTransition = {
+                if (animationsEnabled)
+                    slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(280)) + fadeIn(tween(280))
+                else EnterTransition.None
+            },
+            exitTransition = {
+                if (animationsEnabled)
+                    slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = tween(280)) + fadeOut(tween(280))
+                else ExitTransition.None
+            },
+            popEnterTransition = {
+                if (animationsEnabled)
+                    slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = tween(280)) + fadeIn(tween(280))
+                else EnterTransition.None
+            },
+            popExitTransition = {
+                if (animationsEnabled)
+                    slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(280)) + fadeOut(tween(280))
+                else ExitTransition.None
+            },
         ) {
             // ── Top-level tabs ──
             composable(Route.Features.route) {
@@ -281,10 +321,8 @@ private fun MainScreen(permissionManager: PermissionManager) {
                     },
                 )
             }
-            composable(FeatureRoute.FPS_SESSION_DETAIL) { backStackEntry ->
-                val sessionId = backStackEntry.arguments?.getString("sessionId") ?: return@composable
+            composable(FeatureRoute.FPS_SESSION_DETAIL) {
                 FpsSessionDetailScreen(
-                    sessionId = sessionId.toLongOrNull() ?: return@composable,
                     onBack = { navController.popBackStack() },
                 )
             }

@@ -36,7 +36,10 @@
 
     <!-- Sensor Screen -->
     <string name="sensor_title">Sensors</string>
-    <string name="sensor_count_format">%1$d sensors detected</string>
+    <plurals name="sensor_count_format">
+        <item quantity="one">%d sensor detected</item>
+        <item quantity="other">%d sensors detected</item>
+    </plurals>
     <string name="sensor_vendor">Vendor</string>
     <string name="sensor_resolution">Resolution</string>
     <string name="sensor_max_range">Max Range</string>
@@ -73,8 +76,6 @@
     <string name="daemon_fallback_basic">Continue in Basic Mode</string>
 
     <!-- Float Monitor Notification -->
-    <string name="float_notification_title">OpenMonitor</string>
-    <string name="float_notification_text">Float monitor running</string>
     <string name="float_channel_name">Float Monitor</string>
     <string name="float_channel_desc">Float monitor background notification</string>
 

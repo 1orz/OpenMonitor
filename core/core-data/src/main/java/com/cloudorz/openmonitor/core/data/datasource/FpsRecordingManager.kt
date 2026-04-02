@@ -114,7 +114,7 @@ class FpsRecordingManager @Inject constructor(
                     _info.value = _info.value.copy(elapsedSeconds = elapsed, avgFps = avg)
 
                     // Auto-stop when reaching duration limit
-                    if (durationSeconds > 0 && elapsed >= durationSeconds) {
+                    if (durationSeconds in 1..elapsed) {
                         Log.d(TAG, "Duration limit reached, auto-stopping")
                         finishRecording(sessionId)
                         return@launch

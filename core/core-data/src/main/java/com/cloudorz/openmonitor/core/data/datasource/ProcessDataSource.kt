@@ -9,7 +9,6 @@ import com.cloudorz.openmonitor.core.model.process.ThreadInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
-import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -125,10 +124,12 @@ class ProcessDataSource @Inject constructor(
         if (!result.isSuccess) return emptyList()
         return result.stdout.lines()
             .drop(1) // header
+            .asSequence()
             .filter { it.isNotBlank() }
             .take(200)
             .mapNotNull { parsePsLine(it) }
             .map { enrichWithAppInfo(it) }
+            .toList()
     }
 
     private fun parsePsLine(line: String): ProcessInfo? {

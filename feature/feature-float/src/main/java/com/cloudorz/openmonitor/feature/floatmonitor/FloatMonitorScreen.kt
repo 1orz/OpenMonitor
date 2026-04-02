@@ -2,7 +2,7 @@ package com.cloudorz.openmonitor.feature.floatmonitor
 
 import android.annotation.SuppressLint
 import android.content.Intent
-import android.net.Uri
+import androidx.core.net.toUri
 import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -94,14 +94,14 @@ fun FloatMonitorScreen(
                     context.startActivity(
                         Intent(
                             Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                            Uri.parse("package:${context.packageName}"),
+                            "package:${context.packageName}".toUri(),
                         )
                     )
                 } catch (_: Exception) {
                     context.startActivity(
                         Intent(
                             Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                            Uri.parse("package:${context.packageName}"),
+                            "package:${context.packageName}".toUri(),
                         )
                     )
                 }

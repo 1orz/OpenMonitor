@@ -59,6 +59,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.foundation.Image
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -72,6 +73,9 @@ import com.cloudorz.openmonitor.core.ui.R
 import com.cloudorz.openmonitor.core.ui.theme.ChartGreen
 import com.cloudorz.openmonitor.core.ui.theme.ChartRed
 import com.cloudorz.openmonitor.core.ui.theme.ChartYellow
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import androidx.core.graphics.createBitmap
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -122,7 +126,7 @@ private fun FpsContent(
                 title = {
                     Text(
                         text = if (uiState.isSelectionMode) {
-                            stringResource(R.string.fps_selected_count, uiState.selectedIds.size)
+                            pluralStringResource(R.plurals.fps_selected_count, uiState.selectedIds.size, uiState.selectedIds.size)
                         } else {
                             stringResource(R.string.fps_recording_title)
                         },
@@ -331,7 +335,9 @@ private fun SessionCard(
     onLongClick: () -> Unit,
 ) {
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()) }
+    @Suppress("AssignedValueIsNeverRead")
     var showRenameDialog by remember { mutableStateOf(false) }
+    @Suppress("AssignedValueIsNeverRead")
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     Card(
@@ -529,8 +535,8 @@ private fun SessionIcon(session: FpsWatchSession) {
             if (appIcon is android.graphics.drawable.BitmapDrawable && appIcon.bitmap != null) {
                 appIcon.bitmap
             } else {
-                val bmp = android.graphics.Bitmap.createBitmap(96, 96, android.graphics.Bitmap.Config.ARGB_8888)
-                val canvas = android.graphics.Canvas(bmp)
+                val bmp = createBitmap(96, 96, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(bmp)
                 appIcon.setBounds(0, 0, 96, 96)
                 appIcon.draw(canvas)
                 bmp

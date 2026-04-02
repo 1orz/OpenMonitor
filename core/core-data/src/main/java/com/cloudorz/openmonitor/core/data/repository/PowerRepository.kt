@@ -19,6 +19,7 @@ class PowerRepository @Inject constructor(
             list.map { it.toModel() }
         }
 
+    @Suppress("UNUSED_PARAMETER")
     suspend fun startSession(startCapacity: Int): Long {
         val entity = PowerStatSessionEntity(
             beginTime = System.currentTimeMillis(),

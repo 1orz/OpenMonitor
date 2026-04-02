@@ -20,7 +20,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="2dp"
-            android:text="电池"
+            android:text="@string/notification_battery_label"
             android:textAlignment="textEnd"
             android:textSize="14sp"
             android:textStyle="bold" />
@@ -32,7 +32,7 @@
             android:layout_height="wrap_content"
             android:maxLines="1"
             android:textAlignment="textEnd"
-            android:textSize="10sp" />
+            android:textSize="11sp" />
     </LinearLayout>
 
     <ImageView
@@ -44,6 +44,7 @@
         android:layout_marginEnd="5dp"
         android:layout_marginBottom="5dp"
         android:gravity="center_vertical"
+        android:contentDescription="@string/notification_battery_label"
         android:src="@drawable/ic_battery_full" />
 
 </LinearLayout>
