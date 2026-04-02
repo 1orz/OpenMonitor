@@ -1,6 +1,7 @@
 package com.cloudorz.openmonitor.core.data.datasource
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -18,6 +19,7 @@ class AppInfoResolver @Inject constructor(
     private val pm: PackageManager = context.packageManager
     private val labelCache = LruCache<String, String>(200)
     private val iconCache = LruCache<String, Bitmap>(100)
+    private val systemAppCache = LruCache<String, Boolean>(200)
     private val notFound = "\u0000"
     private val iconNotFoundSentinel = "##NO_ICON##"
 
@@ -56,6 +58,19 @@ class AppInfoResolver @Inject constructor(
             bitmap
         } catch (_: PackageManager.NameNotFoundException) {
             null
+        }
+    }
+
+    fun isSystemApp(packageName: String): Boolean {
+        systemAppCache.get(packageName)?.let { return it }
+        return try {
+            val info = pm.getApplicationInfo(packageName, 0)
+            val isSystem = (info.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+            systemAppCache.put(packageName, isSystem)
+            isSystem
+        } catch (_: PackageManager.NameNotFoundException) {
+            systemAppCache.put(packageName, false)
+            false
         }
     }
 

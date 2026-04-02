@@ -52,7 +52,7 @@ class ProcessViewModel @Inject constructor(
     ) { processes, query, sort, selected, (threadList, threadLoading, filter) ->
         val filtered = processes
             .filter { process ->
-                if (filter == ProcessFilterMode.APP_ONLY && !process.isAndroidApp) return@filter false
+                if (filter == ProcessFilterMode.APP_ONLY && !process.isUserApp) return@filter false
                 if (query.isBlank()) true
                 else {
                     val lowerQuery = query.lowercase()

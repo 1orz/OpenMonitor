@@ -158,7 +158,8 @@ class ProcessDataSource @Inject constructor(
     private fun enrichWithAppInfo(process: ProcessInfo): ProcessInfo {
         if (process.packageName.isEmpty()) return process
         val label = appInfoResolver.resolveLabel(process.packageName)
-        return if (label.isNotEmpty()) process.copy(appLabel = label) else process
+        val isSystem = appInfoResolver.isSystemApp(process.packageName)
+        return process.copy(appLabel = label, isSystemApp = isSystem)
     }
 
     suspend fun getProcessDetail(pid: Int): ProcessInfo? = withContext(Dispatchers.IO) {

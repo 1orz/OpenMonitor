@@ -45,7 +45,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -84,17 +83,6 @@ import kotlinx.coroutines.delay
 private val BG: Color
     @Composable get() = if (isSystemInDarkTheme()) Color(0xAA000000) else Color(0xCCF5F5F5)
 
-@Composable
-private fun Modifier.floatWindowBg(shape: RoundedCornerShape = RoundedCornerShape(8.dp)): Modifier {
-    val isDark = isSystemInDarkTheme()
-    return if (isDark) {
-        background(BG, shape)
-    } else {
-        shadow(elevation = 8.dp, shape = shape)
-            .background(BG, shape)
-            .border(0.5.dp, Color(0x1F000000), shape)
-    }
-}
 private val TextPrimary: Color
     @Composable get() = if (isSystemInDarkTheme()) Color(0xFFFFFFFF) else Color(0xFF1C1C1E)
 private val TextSecondary: Color
@@ -131,7 +119,7 @@ fun FloatLoadMonitorContent(service: FloatMonitorService) {
         // 简洁模式：三个圆环横排
         Box(
             modifier = Modifier
-                .floatWindowBg()
+                .background(BG, RoundedCornerShape(8.dp))
                 .padding(6.dp),
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -153,7 +141,7 @@ fun FloatLoadMonitorContent(service: FloatMonitorService) {
                 FloatRingGauge(
                     percentage = (mem ?: 0.0).toFloat(),
                     color = MemColor,
-                    label = "",
+                    label = "RAM",
                     size = 40.dp,
                     bottomLabel = if (temp != null && temp!! > 0) "%.1f\u00B0C".format(temp) else "",
                 )
@@ -164,7 +152,7 @@ fun FloatLoadMonitorContent(service: FloatMonitorService) {
         Box(
             modifier = Modifier
                 .width(240.dp)
-                .floatWindowBg(RoundedCornerShape(10.dp))
+                .background(BG, RoundedCornerShape(10.dp))
                 .padding(8.dp),
         ) {
             Row {
@@ -695,7 +683,7 @@ fun FloatTemperatureContent(service: FloatMonitorService) {
     Box(
         modifier = Modifier
             .width(130.dp)
-            .floatWindowBg()
+            .background(BG, RoundedCornerShape(8.dp))
             .padding(10.dp),
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -994,7 +982,7 @@ fun FloatThreadContent(service: FloatMonitorService) {
     Box(
         modifier = Modifier
             .width(180.dp)
-            .floatWindowBg()
+            .background(BG, RoundedCornerShape(8.dp))
             .padding(8.dp),
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -1012,10 +1000,10 @@ fun FloatThreadContent(service: FloatMonitorService) {
             )
             Spacer(modifier = Modifier.height(3.dp))
             // 表头
-            Row(modifier = Modifier.fillMaxWidth().padding(bottom = 2.dp)) {
+            Row(modifier = Modifier.width(164.dp).padding(bottom = 2.dp)) {
                 Text("CPU%", style = MonoStyle.copy(fontSize = 7.sp, color = TextSecondary), modifier = Modifier.width(36.dp))
                 Text("TID",  style = MonoStyle.copy(fontSize = 7.sp, color = TextSecondary), modifier = Modifier.width(34.dp))
-                Text("COMM", style = MonoStyle.copy(fontSize = 7.sp, color = TextSecondary), modifier = Modifier.weight(1f))
+                Text("COMM", style = MonoStyle.copy(fontSize = 7.sp, color = TextSecondary), modifier = Modifier.width(94.dp))
             }
 
             if (!hasShell) {
@@ -1026,7 +1014,7 @@ fun FloatThreadContent(service: FloatMonitorService) {
                 threads.forEach { thread ->
                     Row(
                         modifier = Modifier
-                            .fillMaxWidth()
+                            .width(164.dp)
                             .padding(vertical = 1.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -1052,7 +1040,7 @@ fun FloatThreadContent(service: FloatMonitorService) {
                             style = TextStyle(fontSize = 8.sp, color = TextPrimary),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.width(94.dp),
                         )
                     }
                 }

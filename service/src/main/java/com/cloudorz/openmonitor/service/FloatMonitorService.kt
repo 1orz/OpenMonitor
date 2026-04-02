@@ -817,9 +817,9 @@ class FloatMonitorService : LifecycleService() {
         val all = processDataSource.getProcessList()
         val filtered = when (processFilterMode.value) {
             ProcessFilterMode.ALL -> all
-            ProcessFilterMode.APP_ONLY -> all.filter { it.isAndroidApp }
+            ProcessFilterMode.APP_ONLY -> all.filter { it.isUserApp }
         }
-        val result = filtered.take(15)
+        val result = filtered.sortedByDescending { it.cpuPercent }.take(15)
         topProcesses.value = result
 
         // Load app icons for Android apps

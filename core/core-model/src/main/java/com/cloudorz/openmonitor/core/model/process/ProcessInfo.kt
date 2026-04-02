@@ -44,6 +44,7 @@ data class ProcessInfo(
     val oomScoreAdj: Int = 0,
     val packageName: String = "",
     val appLabel: String = "",
+    val isSystemApp: Boolean = false,
 ) {
     val isZombie: Boolean
         get() = state == ProcessState.ZOMBIE
@@ -53,6 +54,10 @@ data class ProcessInfo(
 
     val isAndroidApp: Boolean
         get() = packageName.isNotEmpty()
+
+    /** Non-system user app: has a package name and is not a system-bundled app. */
+    val isUserApp: Boolean
+        get() = packageName.isNotEmpty() && !isSystemApp
 
     val displayName: String
         get() = appLabel.ifEmpty { friendlyName.ifEmpty { name.ifEmpty { command } } }
