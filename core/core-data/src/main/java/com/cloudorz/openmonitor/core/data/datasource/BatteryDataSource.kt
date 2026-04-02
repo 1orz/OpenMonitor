@@ -24,7 +24,6 @@ class BatteryDataSource @Inject constructor(
     companion object {
         private const val TAG = "BatteryDataSource"
 
-        // Comprehensive sysfs paths for battery current (from DevCheck/Scene)
         private val CURRENT_SYSFS_PATHS = arrayOf(
             "/sys/class/power_supply/battery/current_now",
             "/sys/class/power_supply/battery/batt_current_now",

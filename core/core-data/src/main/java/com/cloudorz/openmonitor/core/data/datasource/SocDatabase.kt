@@ -9,7 +9,6 @@ import javax.inject.Singleton
 
 /**
  * Loads socs.json from app assets and resolves SoC marketing info
- * from hardware identifiers. Modeled after DevCheck's ig0.java approach:
  * uses contains() + longest-match to find the correct SoC entry.
  */
 @Singleton
@@ -49,7 +48,6 @@ class SocDatabase @Inject constructor(
         val deviceName = deviceNameSource.getDeviceName()
         val deviceBrand = Build.BRAND.trim()
 
-        // Try each identifier, use contains + longest-match (like DevCheck ig0.java)
         for (id in identifiers) {
             val match = findBestMatch(id)
             if (match != null) {
@@ -100,7 +98,6 @@ class SocDatabase @Inject constructor(
 
     /**
      * Finds the best matching SoC entry for the given identifier.
-     * Uses DevCheck's approach: iterate all keys, check if identifier contains key,
      * pick the longest key match (to avoid "SM" matching when "SM8750" exists).
      */
     private fun findBestMatch(identifier: String): SocEntry? {
@@ -128,7 +125,6 @@ class SocDatabase @Inject constructor(
             if (mfr.isNotBlank() && mfr != "unknown") return mfr
         }
 
-        // Fallback: keyword matching on hardware ID (like DevCheck uu.r())
         val hw = (getSocInfo().hardwareId + " " + Build.HARDWARE + " " + Build.BOARD).lowercase()
         return when {
             hw.contains("qualcomm") || hw.contains("qti") || hw.contains("msm") ||

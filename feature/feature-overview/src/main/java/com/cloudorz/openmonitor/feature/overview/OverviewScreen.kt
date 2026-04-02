@@ -23,6 +23,8 @@ import androidx.compose.material.icons.outlined.BatteryChargingFull
 import androidx.compose.material.icons.outlined.DeveloperBoard
 import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.Speed
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -33,52 +35,45 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.cloudorz.openmonitor.core.model.cpu.CpuCacheInfo
 import com.cloudorz.openmonitor.core.model.cpu.CpuCoreInfo
 import com.cloudorz.openmonitor.core.model.cpu.CpuGlobalStatus
+import com.cloudorz.openmonitor.core.model.cpu.SocInfo
 import com.cloudorz.openmonitor.core.model.gpu.GpuInfo
 import com.cloudorz.openmonitor.core.model.memory.MemoryInfo
 import com.cloudorz.openmonitor.core.model.memory.SwapInfo
 import com.cloudorz.openmonitor.core.model.process.ProcessInfo
+import com.cloudorz.openmonitor.core.ui.R
 import com.cloudorz.openmonitor.core.ui.chart.ArcGaugeChart
 import com.cloudorz.openmonitor.core.ui.chart.CpuCoreBarChart
 import com.cloudorz.openmonitor.core.ui.chart.CpuCoreBarData
+import com.cloudorz.openmonitor.core.ui.component.DeviceBrandLogo
 import com.cloudorz.openmonitor.core.ui.component.StatCard
+import com.cloudorz.openmonitor.core.ui.component.VendorLogo
 
 // ---------------------------------------------------------------------------
-// Helper formatting functions
+// Helper functions
 // ---------------------------------------------------------------------------
 
-/**
- * Formats a value in kilobytes to a human-readable string (KB / MB / GB).
- */
-fun formatBytes(kb: Long): String {
-    return when {
-        kb >= 1_048_576 -> "%.1f GB".format(kb / 1_048_576.0)
-        kb >= 1024 -> "%.0f MB".format(kb / 1024.0)
-        else -> "$kb KB"
-    }
+fun formatBytes(kb: Long): String = when {
+    kb >= 1_048_576 -> "%.1f GB".format(kb / 1_048_576.0)
+    kb >= 1024 -> "%.0f MB".format(kb / 1024.0)
+    else -> "$kb KB"
 }
 
-/**
- * Formats a frequency value in KHz to a human-readable string (KHz / MHz / GHz).
- */
-fun formatFrequency(khz: Long): String {
-    return when {
-        khz >= 1_000_000 -> "%.2f GHz".format(khz / 1_000_000.0)
-        khz >= 1000 -> "${khz / 1000} MHz"
-        else -> "$khz KHz"
-    }
+fun formatFrequency(khz: Long): String = when {
+    khz >= 1_000_000 -> "%.2f GHz".format(khz / 1_000_000.0)
+    khz >= 1000 -> "${khz / 1000} MHz"
+    else -> "$khz KHz"
 }
 
-/**
- * Formats an uptime value in seconds to HH:MM:SS.
- */
 fun formatUptime(seconds: Long): String {
     val h = seconds / 3600
     val m = (seconds % 3600) / 60
@@ -86,32 +81,20 @@ fun formatUptime(seconds: Long): String {
     return "%02d:%02d:%02d".format(h, m, s)
 }
 
-/**
- * Returns a color based on temperature thresholds:
- * green < 40, yellow 40-60, red > 60.
- */
-private fun temperatureColor(celsius: Double): Color {
-    return when {
-        celsius < 40.0 -> Color(0xFF4CAF50)
-        celsius < 60.0 -> Color(0xFFFFC107)
-        else -> Color(0xFFF44336)
-    }
+private fun temperatureColor(celsius: Double): Color = when {
+    celsius < 40.0 -> Color(0xFF4CAF50)
+    celsius < 60.0 -> Color(0xFFFFC107)
+    else -> Color(0xFFF44336)
 }
 
-/**
- * Returns a color based on load percentage:
- * green < 50, yellow 50-80, red > 80.
- */
-private fun loadColor(percent: Double): Color {
-    return when {
-        percent < 50.0 -> Color(0xFF4CAF50)
-        percent < 80.0 -> Color(0xFFFFC107)
-        else -> Color(0xFFF44336)
-    }
+private fun loadColor(percent: Double): Color = when {
+    percent < 50.0 -> Color(0xFF4CAF50)
+    percent < 80.0 -> Color(0xFFFFC107)
+    else -> Color(0xFFF44336)
 }
 
 // ---------------------------------------------------------------------------
-// Root composable
+// Root
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -122,17 +105,11 @@ fun OverviewScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     if (uiState.isLoading) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center,
-        ) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
     } else {
-        OverviewContent(
-            uiState = uiState,
-            onProcessClick = onProcessClick,
-        )
+        OverviewContent(uiState = uiState, onProcessClick = onProcessClick)
     }
 }
 
@@ -148,379 +125,224 @@ private fun OverviewContent(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        // 1. Memory Card
-        MemoryCard(
-            memoryInfo = uiState.memoryInfo,
-            swapInfo = uiState.swapInfo,
-        )
+        // 1. Device / SoC header
+        DeviceSocCard(cpuStatus = uiState.cpuStatus)
 
-        // 2. GPU Card
+        // 2. CPU performance
+        CpuPerformanceCard(cpuStatus = uiState.cpuStatus)
+
+        // 3. Memory
+        MemoryCard(memoryInfo = uiState.memoryInfo, swapInfo = uiState.swapInfo)
+
+        // 4. GPU
         GpuCard(gpuInfo = uiState.gpuInfo)
 
-        // 3. CPU + Process Card
-        CpuProcessCard(
-            cpuStatus = uiState.cpuStatus,
-            topProcesses = uiState.topProcesses,
-            onProcessClick = onProcessClick,
-        )
+        // 5. Top processes
+        TopProcessesCard(processes = uiState.topProcesses, onProcessClick = onProcessClick)
 
-        // 4. CPU Core Details
-        CpuCoreDetailsCard(cpuStatus = uiState.cpuStatus)
+        // 6. Cache & features (conditional)
+        val cache = uiState.cpuStatus.cacheInfo
+        val neon = uiState.cpuStatus.hasArmNeon
+        if (cache.hasData || neon != null) {
+            CacheAndFeaturesCard(cacheInfo = cache, hasArmNeon = neon)
+        }
 
-        // 5. Bottom Info Bar
-        BottomInfoBar(
-            batteryStatus = uiState.batteryStatus,
-            cpuStatus = uiState.cpuStatus,
-        )
+        // 7. System info
+        BottomInfoBar(batteryStatus = uiState.batteryStatus, cpuStatus = uiState.cpuStatus)
 
-        // Bottom spacing
         Spacer(modifier = Modifier.height(8.dp))
     }
 }
 
 // ---------------------------------------------------------------------------
-// 1. Memory Card
+// 1. Device / SoC Hero Card
 // ---------------------------------------------------------------------------
 
 @Composable
-private fun MemoryCard(
-    memoryInfo: MemoryInfo,
-    swapInfo: SwapInfo,
-) {
-    StatCard(
-        title = "Memory",
-        icon = Icons.Outlined.Memory,
+private fun DeviceSocCard(cpuStatus: CpuGlobalStatus) {
+    val socInfo = cpuStatus.socInfo
+    if (!socInfo.hasData && socInfo.deviceBrand.isBlank()) return
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = MaterialTheme.shapes.medium,
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Left: Arc gauge
-            ArcGaugeChart(
-                percentage = memoryInfo.usedPercent.toFloat(),
-                size = 110.dp,
-                strokeWidth = 10.dp,
-                label = "Memory",
-                valueText = "%.0f%%".format(memoryInfo.usedPercent),
-                modifier = Modifier.padding(end = 16.dp),
-            )
-
-            // Right: Details
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                DetailRow(
-                    label = "Physical",
-                    value = "${formatBytes(memoryInfo.usedKB)} / ${formatBytes(memoryInfo.totalKB)}",
-                )
-                DetailRow(
-                    label = "Available",
-                    value = formatBytes(memoryInfo.availableKB),
-                )
-                DetailRow(
-                    label = "Swap",
-                    value = "${formatBytes(swapInfo.usedKB)} / ${formatBytes(swapInfo.totalKB)}",
-                )
-                swapInfo.zram?.let { zram ->
-                    DetailRow(
-                        label = "ZRam Ratio",
-                        value = "%.1fx".format(zram.compressionRatio),
-                    )
-                }
+            // Brand logo (large)
+            if (socInfo.deviceBrand.isNotBlank()) {
+                DeviceBrandLogo(brand = socInfo.deviceBrand, size = 80.dp)
+                Spacer(modifier = Modifier.width(16.dp))
             }
-        }
-    }
-}
 
-// ---------------------------------------------------------------------------
-// 2. GPU Card
-// ---------------------------------------------------------------------------
+            Column(modifier = Modifier.weight(1f)) {
+                // Device name + fab badge
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    val deviceLabel = socInfo.deviceMarketingName
+                        ?.takeIf { it.isNotBlank() }
+                        ?: socInfo.deviceBrand.takeIf { it.isNotBlank() }
+                    if (deviceLabel != null) {
+                        Text(
+                            text = deviceLabel,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                    if (socInfo.fab.isNotBlank()) {
+                        Box(
+                            modifier = Modifier
+                                .clip(MaterialTheme.shapes.small)
+                                .background(MaterialTheme.colorScheme.primaryContainer)
+                                .padding(horizontal = 8.dp, vertical = 3.dp),
+                        ) {
+                            Text(
+                                text = socInfo.fab,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            )
+                        }
+                    }
+                }
 
-@Composable
-private fun GpuCard(gpuInfo: GpuInfo) {
-    StatCard(
-        title = "GPU",
-        icon = Icons.Outlined.DeveloperBoard,
-    ) {
-        // Model name
-        if (gpuInfo.model.isNotEmpty()) {
-            Text(
-                text = gpuInfo.model,
-                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-        }
+                Spacer(modifier = Modifier.height(6.dp))
 
-        // Frequency
-        DetailRow(
-            label = "Frequency",
-            value = "${gpuInfo.currentFreqMHz} / ${gpuInfo.maxFreqMHz} MHz",
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-
-        // Load with progress bar
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "Load",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.width(72.dp),
-            )
-            LinearProgressIndicator(
-                progress = { (gpuInfo.loadPercent / 100.0).toFloat().coerceIn(0f, 1f) },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(8.dp)
-                    .clip(RoundedCornerShape(4.dp)),
-                color = loadColor(gpuInfo.loadPercent),
-                trackColor = MaterialTheme.colorScheme.surfaceVariant,
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "%.1f%%".format(gpuInfo.loadPercent),
-                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        // Governor
-        if (gpuInfo.governor.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(4.dp))
-            DetailRow(
-                label = "Governor",
-                value = gpuInfo.governor,
-            )
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// 3. CPU + Process Card
-// ---------------------------------------------------------------------------
-
-@Composable
-private fun CpuProcessCard(
-    cpuStatus: CpuGlobalStatus,
-    topProcesses: List<ProcessInfo>,
-    onProcessClick: (Int) -> Unit,
-) {
-    StatCard(
-        title = "CPU & Processes",
-        icon = Icons.Outlined.Speed,
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            // Left column: Top 5 processes
-            Column(
-                modifier = Modifier.weight(0.5f),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                Text(
-                    text = "Top Processes",
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-
-                if (topProcesses.isEmpty()) {
+                // Vendor logo + SoC name
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    if (socInfo.vendor.isNotBlank()) {
+                        VendorLogo(vendor = socInfo.vendor, size = 36.dp)
+                    }
                     Text(
-                        text = "No data",
-                        style = MaterialTheme.typography.bodySmall,
+                        text = cpuStatus.cpuName.ifEmpty { socInfo.name.ifEmpty { "CPU" } },
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                } else {
-                    topProcesses.forEach { process ->
-                        ProcessRow(
-                            process = process,
-                            onClick = { onProcessClick(process.pid) },
-                        )
+                }
+
+                // Key specs
+                if (socInfo.hasData) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    val specColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    if (socInfo.architecture.isNotBlank()) {
+                        SpecRow(label = stringResource(R.string.soc_architecture), value = socInfo.architecture, valueColor = specColor)
+                    }
+                    if (socInfo.abi.isNotBlank()) {
+                        SpecRow(label = stringResource(R.string.soc_abi), value = socInfo.abi, valueColor = specColor)
+                    }
+                    if (socInfo.cpuDescription.isNotBlank()) {
+                        SpecRow(label = stringResource(R.string.soc_cpu_config), value = socInfo.cpuDescription.replace("\n", " + "), valueColor = specColor)
+                    }
+                    if (socInfo.memoryType.isNotBlank()) {
+                        SpecRow(label = stringResource(R.string.soc_memory), value = socInfo.memoryType, valueColor = specColor)
                     }
                 }
             }
-
-            // Right column: CPU summary
-            Column(
-                modifier = Modifier.weight(0.5f),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Text(
-                    text = "CPU Summary",
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-
-                if (cpuStatus.cpuName.isNotEmpty()) {
-                    Text(
-                        text = cpuStatus.cpuName,
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "Load: ",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = "%.1f%%".format(cpuStatus.totalLoadPercent),
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                        color = loadColor(cpuStatus.totalLoadPercent),
-                    )
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "Temp: ",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = "%.1f\u00B0C".format(cpuStatus.temperatureCelsius),
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                        color = temperatureColor(cpuStatus.temperatureCelsius),
-                    )
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "Cores: ",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = "${cpuStatus.onlineCoreCount} / ${cpuStatus.coreCount}",
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "Avg: ",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = "%.0f MHz".format(cpuStatus.averageFreqMHz),
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
         }
     }
 }
 
 @Composable
-private fun ProcessRow(
-    process: ProcessInfo,
-    onClick: () -> Unit,
-) {
+private fun SpecRow(label: String, value: String, valueColor: Color) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(4.dp))
-            .clickable(onClick = onClick)
-            .padding(vertical = 3.dp, horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = process.displayName,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = "%.1f%%".format(process.cpuPercent),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = loadColor(process.cpuPercent),
-                )
-                Text(
-                    text = formatBytes(process.memKB),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                )
-            }
-        }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Medium,
+            color = valueColor,
+        )
     }
 }
 
 // ---------------------------------------------------------------------------
-// 4. CPU Core Details Card
+// 2. CPU Performance Card
 // ---------------------------------------------------------------------------
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CpuCoreDetailsCard(cpuStatus: CpuGlobalStatus) {
-    StatCard(title = "CPU Cores") {
-        if (cpuStatus.cores.isEmpty()) {
-            Text(
-                text = "No core data available",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else {
-            val coreBarData = cpuStatus.cores.map { core ->
-                CpuCoreBarData(
-                    coreIndex = core.coreIndex,
-                    frequencyMHz = core.currentFreqKHz / 1000,
-                    loadPercent = core.loadPercent,
-                    isOnline = core.isOnline,
-                )
-            }
+private fun CpuPerformanceCard(cpuStatus: CpuGlobalStatus) {
+    StatCard(title = "CPU", icon = Icons.Outlined.Speed) {
+        // Summary row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            SummaryItem(label = "Load", value = "%.1f%%".format(cpuStatus.totalLoadPercent), valueColor = loadColor(cpuStatus.totalLoadPercent))
+            SummaryItem(label = "Temp", value = "%.1f°C".format(cpuStatus.temperatureCelsius), valueColor = temperatureColor(cpuStatus.temperatureCelsius))
+            SummaryItem(label = "Avg Freq", value = "%.0f MHz".format(cpuStatus.averageFreqMHz), valueColor = MaterialTheme.colorScheme.primary)
+            SummaryItem(label = "Cores", value = "${cpuStatus.onlineCoreCount}/${cpuStatus.coreCount}", valueColor = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
 
+        if (cpuStatus.cores.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Core bar chart
             CpuCoreBarChart(
-                cores = coreBarData,
-                maxFreqMHz = cpuStatus.cores
-                    .maxOfOrNull { it.maxFreqKHz / 1000 }
-                    ?: 3000,
+                cores = cpuStatus.cores.map { core ->
+                    CpuCoreBarData(
+                        coreIndex = core.coreIndex,
+                        frequencyMHz = core.currentFreqKHz / 1000,
+                        loadPercent = core.loadPercent,
+                        isOnline = core.isOnline,
+                    )
+                },
+                maxFreqMHz = cpuStatus.cores.maxOfOrNull { it.maxFreqKHz / 1000 } ?: 3000,
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Detailed core info grid
-            CpuCoreDetailGrid(cores = cpuStatus.cores)
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun CpuCoreDetailGrid(cores: List<CpuCoreInfo>) {
-    FlowRow(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-        maxItemsInEachRow = 4,
-    ) {
-        cores.forEach { core ->
-            CpuCoreDetailItem(
-                core = core,
-                modifier = Modifier.weight(1f),
-            )
+            // Core detail grid
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                maxItemsInEachRow = 4,
+            ) {
+                cpuStatus.cores.forEach { core ->
+                    CpuCoreDetailItem(core = core, modifier = Modifier.weight(1f))
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun CpuCoreDetailItem(
-    core: CpuCoreInfo,
-    modifier: Modifier = Modifier,
-) {
+private fun SummaryItem(label: String, value: String, valueColor: Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold,
+            color = valueColor,
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.outline,
+        )
+    }
+}
+
+@Composable
+private fun CpuCoreDetailItem(core: CpuCoreInfo, modifier: Modifier = Modifier) {
     val alpha = if (core.isOnline) 1f else 0.4f
     val textColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)
 
@@ -535,13 +357,9 @@ private fun CpuCoreDetailItem(
         Text(
             text = "Core ${core.coreIndex}",
             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-            color = if (core.isOnline) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-            },
+            color = if (core.isOnline) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
         )
-
         if (core.isOnline) {
             Text(
                 text = "%.0f%%".format(core.loadPercent),
@@ -553,12 +371,6 @@ private fun CpuCoreDetailItem(
                 style = MaterialTheme.typography.labelSmall,
                 fontSize = 9.sp,
                 color = textColor,
-            )
-            Text(
-                text = "${core.minFreqKHz / 1000}-${core.maxFreqKHz / 1000}",
-                style = MaterialTheme.typography.labelSmall,
-                fontSize = 8.sp,
-                color = textColor.copy(alpha = 0.6f),
             )
         } else {
             Text(
@@ -572,7 +384,131 @@ private fun CpuCoreDetailItem(
 }
 
 // ---------------------------------------------------------------------------
-// 5. Bottom Info Bar
+// 3. Memory Card
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun MemoryCard(memoryInfo: MemoryInfo, swapInfo: SwapInfo) {
+    StatCard(title = "Memory", icon = Icons.Outlined.Memory) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            ArcGaugeChart(
+                percentage = memoryInfo.usedPercent.toFloat(),
+                size = 110.dp,
+                strokeWidth = 10.dp,
+                label = "Memory",
+                valueText = "%.0f%%".format(memoryInfo.usedPercent),
+                modifier = Modifier.padding(end = 16.dp),
+            )
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                DetailRow(label = "Physical", value = "${formatBytes(memoryInfo.usedKB)} / ${formatBytes(memoryInfo.totalKB)}")
+                DetailRow(label = "Available", value = formatBytes(memoryInfo.availableKB))
+                DetailRow(label = "Swap", value = "${formatBytes(swapInfo.usedKB)} / ${formatBytes(swapInfo.totalKB)}")
+                swapInfo.zram?.let { zram ->
+                    DetailRow(label = "ZRam Ratio", value = "%.1fx".format(zram.compressionRatio))
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 4. GPU Card
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun GpuCard(gpuInfo: GpuInfo) {
+    StatCard(title = "GPU", icon = Icons.Outlined.DeveloperBoard) {
+        if (gpuInfo.model.isNotEmpty()) {
+            Text(
+                text = gpuInfo.model,
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+        DetailRow(label = "Frequency", value = "${gpuInfo.currentFreqMHz} / ${gpuInfo.maxFreqMHz} MHz")
+        Spacer(modifier = Modifier.height(4.dp))
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("Load", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(72.dp))
+            LinearProgressIndicator(
+                progress = { (gpuInfo.loadPercent / 100.0).toFloat().coerceIn(0f, 1f) },
+                modifier = Modifier.weight(1f).height(8.dp).clip(RoundedCornerShape(4.dp)),
+                color = loadColor(gpuInfo.loadPercent),
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("%.1f%%".format(gpuInfo.loadPercent), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (gpuInfo.governor.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(4.dp))
+            DetailRow(label = "Governor", value = gpuInfo.governor)
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 5. Top Processes
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun TopProcessesCard(processes: List<ProcessInfo>, onProcessClick: (Int) -> Unit) {
+    StatCard(title = "Top Processes") {
+        if (processes.isEmpty()) {
+            Text("No data", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            processes.forEach { process ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(4.dp))
+                        .clickable { onProcessClick(process.pid) }
+                        .padding(vertical = 3.dp, horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = process.displayName,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("%.1f%%".format(process.cpuPercent), style = MaterialTheme.typography.labelSmall, color = loadColor(process.cpuPercent))
+                            Text(formatBytes(process.memKB), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 6. Cache & Features Card
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun CacheAndFeaturesCard(cacheInfo: CpuCacheInfo, hasArmNeon: Boolean?) {
+    StatCard(title = stringResource(R.string.cpu_cache_info)) {
+        if (cacheInfo.hasData) {
+            if (cacheInfo.l1dSummary.isNotEmpty()) DetailRow(label = stringResource(R.string.l1d_cache), value = cacheInfo.l1dSummary)
+            if (cacheInfo.l1iSummary.isNotEmpty()) DetailRow(label = stringResource(R.string.l1i_cache), value = cacheInfo.l1iSummary)
+            if (cacheInfo.l2Summary.isNotEmpty()) DetailRow(label = stringResource(R.string.l2_cache), value = cacheInfo.l2Summary)
+            if (cacheInfo.l3Summary.isNotEmpty()) DetailRow(label = stringResource(R.string.l3_cache), value = cacheInfo.l3Summary)
+        }
+        if (hasArmNeon != null) {
+            if (cacheInfo.hasData) Spacer(modifier = Modifier.height(4.dp))
+            DetailRow(
+                label = stringResource(R.string.arm_neon),
+                value = if (hasArmNeon) stringResource(R.string.supported) else stringResource(R.string.not_supported),
+            )
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 7. System Info
 // ---------------------------------------------------------------------------
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -581,91 +517,37 @@ private fun BottomInfoBar(
     batteryStatus: com.cloudorz.openmonitor.core.model.battery.BatteryStatus,
     cpuStatus: CpuGlobalStatus,
 ) {
-    StatCard(
-        title = "System Info",
-        icon = Icons.Outlined.BatteryChargingFull,
-    ) {
+    StatCard(title = "System Info", icon = Icons.Outlined.BatteryChargingFull) {
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            // Power consumption
-            InfoChip(
-                label = "Power",
-                value = "%.2f W".format(batteryStatus.powerW),
-            )
-
-            // Battery level + voltage
-            InfoChip(
-                label = "Battery",
-                value = "${batteryStatus.capacity}%%  %.2fV".format(batteryStatus.voltageV),
-            )
-
-            // Temperature
-            InfoChip(
-                label = "Temp",
-                value = "%.1f\u00B0C".format(batteryStatus.temperatureCelsius),
-                valueColor = temperatureColor(batteryStatus.temperatureCelsius),
-            )
-
-            // Android version
-            InfoChip(
-                label = "Android",
-                value = Build.VERSION.RELEASE,
-            )
-
-            // Uptime
-            InfoChip(
-                label = "Uptime",
-                value = formatUptime(cpuStatus.uptimeSeconds),
-            )
+            InfoChip(label = "Power", value = "%.2f W".format(batteryStatus.powerW))
+            InfoChip(label = "Battery", value = "${batteryStatus.capacity}%%  %.2fV".format(batteryStatus.voltageV))
+            InfoChip(label = "Temp", value = "%.1f\u00B0C".format(batteryStatus.temperatureCelsius), valueColor = temperatureColor(batteryStatus.temperatureCelsius))
+            InfoChip(label = "Android", value = Build.VERSION.RELEASE)
+            InfoChip(label = "Uptime", value = formatUptime(cpuStatus.uptimeSeconds))
         }
     }
 }
 
 @Composable
-private fun InfoChip(
-    label: String,
-    value: String,
-    valueColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
-) {
+private fun InfoChip(label: String, value: String, valueColor: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-            color = valueColor,
-        )
+        Text(text = label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+        Text(text = value, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium), color = valueColor)
     }
 }
 
 // ---------------------------------------------------------------------------
-// Shared detail row
+// Shared
 // ---------------------------------------------------------------------------
 
 @Composable
-private fun DetailRow(
-    label: String,
-    value: String,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+private fun DetailRow(label: String, value: String) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(text = label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+        Text(text = value, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

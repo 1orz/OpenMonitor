@@ -70,7 +70,6 @@ fun VendorLogo(
 /**
  * Displays a device OEM brand logo using extracted PNG assets.
  * Falls back to a colored text badge for unknown brands.
- * Sized to [size] (default 56dp) to be visually prominent, like DevCheck's device card.
  */
 @Composable
 fun DeviceBrandLogo(

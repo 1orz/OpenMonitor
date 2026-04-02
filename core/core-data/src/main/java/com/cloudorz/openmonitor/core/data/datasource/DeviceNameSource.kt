@@ -12,7 +12,6 @@ import javax.inject.Singleton
 
 /**
  * Resolves the device marketing name from the bundled devices.db SQLite database.
- * Modeled after DevCheck's g10.A() three-level fallback query.
  *
  * devices.db schema: CREATE TABLE devices (name, device, model)
  * - name:   marketing name, e.g. "OnePlus 13"

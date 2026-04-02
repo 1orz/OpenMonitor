@@ -20,7 +20,6 @@ import androidx.compose.material.icons.outlined.NetworkCheck
 import androidx.compose.material.icons.outlined.Sensors
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Storage
-import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -44,7 +43,6 @@ fun FeaturesScreen(
     onFeatureClick: (String) -> Unit,
 ) {
     val features = listOf(
-        FeatureItem("CPU 信息", Icons.Outlined.Tune, FeatureRoute.CPU),
         FeatureItem("电池电量", Icons.Outlined.BatteryStd, FeatureRoute.BATTERY),
         FeatureItem("帧率记录", Icons.Outlined.Speed, FeatureRoute.FPS),
         FeatureItem("进程监控", Icons.Outlined.Memory, FeatureRoute.PROCESS),

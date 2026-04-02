@@ -737,8 +737,6 @@ private fun ThermalRow(label: String, temp: Double) {
     }
 }
 
-// ---- Process Monitor (Scene-style) ----
-
 private val ProcessBG: Color
     @Composable get() = if (isSystemInDarkTheme()) Color(0xDD1C1C2A) else Color(0xDDFFFFFF)
 private val ProcessTextPrimary: Color

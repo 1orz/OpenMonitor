@@ -121,7 +121,7 @@ stream:500\nmonitor      → 500ms 推一帧
 | 电池电流 / 功率 | ❌（HyperOS 锁死） | ✅（sysfs current_now） |
 | GPU 频率 / 负载 | ❌ | ✅ |
 
-**电池电流备注**：Android App 进程可通过 `BatteryManager.getIntProperty(BATTERY_PROPERTY_CURRENT_NOW)` 无 root 获取；native daemon 进程无法调用 Android API，在 HyperOS 等锁定 sysfs 的系统上只能留 0。SystemMonitor App 集成时应在 App 侧补充此字段。
+**电池电流备注**：Android App 进程可通过 `BatteryManager.getIntProperty(BATTERY_PROPERTY_CURRENT_NOW)` 无 root 获取；native daemon 进程无法调用 Android API，在 HyperOS 等锁定 sysfs 的系统上只能留 0。OpenMonitor App 集成时应在 App 侧补充此字段。
 
 ## 采样频率
 

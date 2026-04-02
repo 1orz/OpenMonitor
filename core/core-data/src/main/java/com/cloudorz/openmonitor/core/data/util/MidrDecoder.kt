@@ -4,7 +4,6 @@ package com.cloudorz.openmonitor.core.data.util
  * Decodes ARM MIDR (Main ID Register) implementer + part number to
  * a human-readable microarchitecture name.
  *
- * Ported from DevCheck's uu.o() method.
  */
 object MidrDecoder {
 

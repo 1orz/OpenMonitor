@@ -22,7 +22,6 @@ sealed class Route(
 
 /** Sub-routes reachable from the Features tab. */
 object FeatureRoute {
-    const val CPU = "features/cpu"
     const val BATTERY = "features/battery"
     const val FPS = "features/fps"
     const val PROCESS = "features/process"

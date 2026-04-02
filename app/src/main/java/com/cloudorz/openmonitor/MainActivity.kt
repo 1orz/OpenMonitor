@@ -51,7 +51,6 @@ import com.cloudorz.openmonitor.core.data.datasource.DaemonState
 import com.cloudorz.openmonitor.service.FloatMonitorService
 import com.cloudorz.openmonitor.core.ui.theme.MonitorTheme
 import com.cloudorz.openmonitor.feature.battery.BatteryScreen
-import com.cloudorz.openmonitor.feature.cpu.CpuScreen
 import com.cloudorz.openmonitor.feature.floatmonitor.FloatMonitorScreen
 import com.cloudorz.openmonitor.feature.fps.FpsScreen
 import com.cloudorz.openmonitor.feature.fps.FpsSessionDetailScreen
@@ -282,7 +281,6 @@ private fun MainScreen(permissionManager: PermissionManager) {
             }
 
             // ── Feature sub-pages ──
-            composable(FeatureRoute.CPU) { CpuScreen() }
             composable(FeatureRoute.BATTERY) { BatteryScreen() }
             composable(FeatureRoute.FPS) {
                 FpsScreen(
