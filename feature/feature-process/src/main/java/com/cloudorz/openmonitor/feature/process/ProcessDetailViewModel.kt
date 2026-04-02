@@ -10,6 +10,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -19,7 +20,7 @@ class ProcessDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
-    private val pid: Int = savedStateHandle["pid"] ?: 0
+    private val pid: Int = savedStateHandle.get<String>("pid")?.toIntOrNull() ?: 0
 
     private val _process = MutableStateFlow<ProcessInfo?>(null)
     val process: StateFlow<ProcessInfo?> = _process.asStateFlow()
@@ -29,6 +30,16 @@ class ProcessDetailViewModel @Inject constructor(
 
     private val _loading = MutableStateFlow(true)
     val loading: StateFlow<Boolean> = _loading.asStateFlow()
+
+    private val _killed = MutableStateFlow(false)
+    val killed: StateFlow<Boolean> = _killed.asStateFlow()
+
+    fun killProcess() {
+        viewModelScope.launch {
+            val success = processRepository.killProcess(pid)
+            if (success) _killed.value = true
+        }
+    }
 
     init {
         viewModelScope.launch {

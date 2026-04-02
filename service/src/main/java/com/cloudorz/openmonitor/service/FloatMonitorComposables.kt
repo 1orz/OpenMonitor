@@ -890,7 +890,14 @@ fun FloatProcessContent(service: FloatMonitorService) {
                                 icon = if (proc.isAndroidApp) appIcons[proc.packageName] else null,
                                 isAndroidApp = proc.isAndroidApp,
                                 isSelected = proc.pid == selectedPid,
-                                onClick = { service.onProcessTapped(proc) },
+                                onClick = {
+                                    if (proc.pid == selectedPid) {
+                                        service.onProcessKill(proc.pid)
+                                        service.onProcessTapped(proc) // deselect
+                                    } else {
+                                        service.onProcessTapped(proc)
+                                    }
+                                },
                             )
                         }
                     }

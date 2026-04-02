@@ -236,6 +236,12 @@ class FloatMonitorService : LifecycleService() {
         selectedProcessPid.value = if (selectedProcessPid.value == process.pid) null else process.pid
     }
 
+    fun onProcessKill(pid: Int) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            daemonClient.sendCommand("kill\n$pid")
+        }
+    }
+
     fun onProcessFilterToggle() {
         processFilterMode.value = when (processFilterMode.value) {
             ProcessFilterMode.ALL -> ProcessFilterMode.APP_ONLY

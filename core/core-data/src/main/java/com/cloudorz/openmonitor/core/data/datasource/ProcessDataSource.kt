@@ -207,6 +207,11 @@ class ProcessDataSource @Inject constructor(
         )
     }
 
+    suspend fun killProcess(pid: Int): Boolean = withContext(Dispatchers.IO) {
+        val resp = daemonClient.sendCommand("kill\n$pid")
+        resp?.contains("\"status\":\"ok\"") == true
+    }
+
     suspend fun getThreads(pid: Int): List<ThreadInfo> = withContext(Dispatchers.IO) {
         // Daemon provides accurate thread CPU% via /proc/<pid>/task reads.
         tryGetThreadsFromDaemon(pid)
