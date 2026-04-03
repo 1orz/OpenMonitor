@@ -1,0 +1,28 @@
+version: 2
+updates:
+  # Gradle dependencies (uses libs.versions.toml)
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    labels:
+      - "dependencies"
+    open-pull-requests-limit: 10
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    labels:
+      - "dependencies"
+      - "ci"
+
+  # Go modules (monitor-daemon)
+  - package-ecosystem: "gomod"
+    directory: "/monitor-daemon"
+    schedule:
+      interval: "daily"
+    labels:
+      - "dependencies"
+      - "daemon"
