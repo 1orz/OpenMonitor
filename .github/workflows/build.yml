@@ -46,7 +46,7 @@ jobs:
         run: echo "$KEYSTORE_BASE64" | base64 -d > $GITHUB_WORKSPACE/release.jks
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Build APKs
         env:
