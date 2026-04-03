@@ -29,6 +29,9 @@ class DaemonDataSource @Inject constructor(
     @Volatile private var everAlive = false
     @Volatile private var consecutiveFailures = 0
 
+    /** Set by DaemonManager during mode switch/restart to prevent killall race condition. */
+    @Volatile var suppressKillall = false
+
     /** The runner identity reported by the daemon ("root" | "shell" | ""). Updated on first snapshot. */
     @Volatile var daemonRunner: String = ""
         private set

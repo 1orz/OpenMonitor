@@ -15,6 +15,7 @@ import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
 import android.os.Handler
 import android.os.Looper
+import android.view.HapticFeedbackConstants
 import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.widget.FrameLayout
@@ -156,7 +157,10 @@ class FloatWindowManager(private val context: Context) {
             onClick != null -> {
                 // Touchable but non-draggable (e.g. control panel backdrop)
                 FrameLayout(context).apply {
-                    setOnClickListener { onClick.invoke() }
+                    setOnClickListener {
+                        performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                        onClick.invoke()
+                    }
                     addView(composeView, FrameLayout.LayoutParams(
                         FrameLayout.LayoutParams.WRAP_CONTENT,
                         FrameLayout.LayoutParams.WRAP_CONTENT,
@@ -294,6 +298,7 @@ class FloatWindowManager(private val context: Context) {
         private val longPressRunnable = Runnable {
             if (!isDragging) {
                 longPressTriggered = true
+                performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                 onLongClick?.invoke()
             }
         }
@@ -382,9 +387,11 @@ class FloatWindowManager(private val context: Context) {
                     } else if (event.actionMasked == MotionEvent.ACTION_UP && !longPressTriggered) {
                         val now = System.currentTimeMillis()
                         if (onDoubleTap != null && now - lastClickTime < doubleTapTimeout) {
+                            performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                             onDoubleTap.invoke()
                             lastClickTime = 0L
                         } else {
+                            if (onClick != null) performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                             onClick?.invoke()
                             performClick()
                             lastClickTime = now

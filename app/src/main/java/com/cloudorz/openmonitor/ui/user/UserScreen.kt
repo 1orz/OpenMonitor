@@ -18,14 +18,21 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Brightness4
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Cable
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -33,7 +40,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -119,53 +125,6 @@ fun UserScreen(
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
         )
-
-        // Current mode card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-            ),
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Security,
-                    contentDescription = null,
-                    modifier = Modifier.size(40.dp),
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Column(
-                    modifier = Modifier
-                        .padding(start = 16.dp)
-                        .weight(1f),
-                ) {
-                    Text(
-                        text = "当前运行模式",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = modeDisplayName(currentMode),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-                if (currentMode != PrivilegeMode.BASIC) {
-                    Icon(
-                        imageVector = Icons.Filled.CheckCircle,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp),
-                    )
-                }
-            }
-        }
 
         // Mode switch card — Dropdown Menu with icons
         Card(
@@ -308,16 +267,18 @@ fun UserScreen(
             }
         }
 
-        // Shizuku setup guide (only shown in SHIZUKU mode)
-        if (currentMode == PrivilegeMode.SHIZUKU) {
-            ShizukuSetupCard(shizukuStatus)
+        // ADB mode: silent background polling until daemon connects
+        DisposableEffect(currentMode) {
+            if (currentMode == PrivilegeMode.ADB) {
+                viewModel.startAdbWatcher()
+            }
+            onDispose { viewModel.stopAdbWatcher() }
         }
 
-        // ADB setup guide (only shown in ADB mode)
-        if (currentMode == PrivilegeMode.ADB) {
+        // ADB setup guide (hidden once daemon connects)
+        if (currentMode == PrivilegeMode.ADB && !daemonStatus.connected) {
             AdbSetupCard(
                 binaryPath = viewModel.daemonBinaryPath,
-                daemonConnected = daemonStatus.connected,
                 onCheck = { viewModel.checkDaemon() },
             )
         }
@@ -344,7 +305,13 @@ fun UserScreen(
         )
 
         // App info card
+        var showAboutDialog by remember { mutableStateOf(false) }
+        if (showAboutDialog) {
+            AboutDialog(onDismiss = { showAboutDialog = false })
+        }
+
         Card(
+            onClick = { showAboutDialog = true },
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -374,157 +341,17 @@ fun UserScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "版本 1.0.0",
+                        text = "版本 ${com.cloudorz.openmonitor.BuildConfig.VERSION_NAME} · Author: 1orz · License: GPLv3",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ShizukuSetupCard(status: ShizukuStatus) {
-    val context = LocalContext.current
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        ),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "Shizuku 状态",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
+                Icon(
+                    painter = androidx.compose.ui.res.painterResource(id = com.cloudorz.openmonitor.R.drawable.ic_github),
+                    contentDescription = "GitHub",
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                val (statusText, statusColor) = when (status) {
-                    ShizukuStatus.GRANTED -> "已授权" to MaterialTheme.colorScheme.primary
-                    ShizukuStatus.NOT_GRANTED -> "未授权" to MaterialTheme.colorScheme.error
-                    ShizukuStatus.NOT_RUNNING -> "未运行" to MaterialTheme.colorScheme.outline
-                }
-                Text(
-                    text = statusText,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = statusColor,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-
-            when (status) {
-                ShizukuStatus.GRANTED -> {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Filled.CheckCircle,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp),
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Shizuku 服务已连接，可使用 Shell 权限功能",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-                ShizukuStatus.NOT_GRANTED -> {
-                    Text(
-                        text = "Shizuku 服务正在运行，但本 App 尚未获得授权。\n请在上方选择 Shizuku 模式以请求授权。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                ShizukuStatus.NOT_RUNNING -> {
-                    Text(
-                        text = "帧率监控等功能需要 Shell 权限，推荐通过 Shizuku 获取：",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "步骤 1: 安装 Shizuku",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text(
-                        text = "从 Google Play 或 GitHub 安装 Shizuku App",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "步骤 2: 启动 Shizuku（任选一种）",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text(
-                        text = "方式 A — 无线调试：",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = "设置 → 开发者选项 → 无线调试 → 配对\n在 Shizuku App 中配对后启动",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "方式 B — ADB 命令：",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = "adb shell sh /sdcard/Android/data/moe.shizuku.privileged.api/start.sh",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 10.sp,
-                        ),
-                        color = MaterialTheme.colorScheme.primary,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "步骤 3: 回到本 App，选择 Shizuku 模式并授权",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedButton(
-                        onClick = {
-                            try {
-                                val intent = context.packageManager.getLaunchIntentForPackage(
-                                    "moe.shizuku.privileged.api",
-                                )
-                                if (intent != null) {
-                                    context.startActivity(intent)
-                                } else {
-                                    // Open Play Store
-                                    val storeIntent = Intent(
-                                        Intent.ACTION_VIEW,
-                                        "market://details?id=moe.shizuku.privileged.api".toUri(),
-                                    )
-                                    context.startActivity(storeIntent)
-                                }
-                            } catch (_: Exception) {}
-                        },
-                    ) {
-                        Text("打开/安装 Shizuku")
-                    }
-                }
             }
         }
     }
@@ -536,127 +363,192 @@ private fun DaemonStatusCard(
     onCheck: () -> Unit,
     onRestart: () -> Unit,
 ) {
+    var showVersionDialog by remember { mutableStateOf(false) }
+
+    if (showVersionDialog) {
+        VersionInfoDialog(
+            expected = status.expectedCommit ?: "N/A",
+            current = status.currentCommit ?: "N/A",
+            isMatch = status.expectedCommit != null &&
+                status.currentCommit != null &&
+                status.currentCommit.contains(status.expectedCommit),
+            onDismiss = { showVersionDialog = false },
+        )
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         ),
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Outlined.Cable,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Daemon 状态",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                if (status.checkedOnce) {
-                    val (label, color) = if (status.connected) {
-                        "运行中" to MaterialTheme.colorScheme.primary
-                    } else {
-                        "未运行" to MaterialTheme.colorScheme.error
-                    }
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = color,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
+            Icon(
+                imageVector = Icons.Outlined.Cable,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Daemon",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Spacer(modifier = Modifier.width(10.dp))
 
-            if (status.checkedOnce && status.connected) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Filled.CheckCircle,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(16.dp),
+            when {
+                status.checking -> {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(14.dp),
+                        strokeWidth = 2.dp,
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    val runnerLabel = status.runner?.uppercase() ?: "?"
-                    val uptimeLabel = status.uptimeSeconds?.let { formatUptime(it) } ?: "?"
                     Text(
-                        text = "Daemon $runnerLabel  |  $uptimeLabel",
+                        text = "检测中...",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
                     )
                 }
-                if (status.expectedCommit != null || status.currentCommit != null) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    val expected = status.expectedCommit ?: "N/A"
-                    val current = status.currentCommit ?: "N/A"
-                    val isMatch = status.expectedCommit != null &&
-                        status.currentCommit != null &&
-                        status.currentCommit.contains(status.expectedCommit)
-                    val commitColor = if (isMatch) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.error
-                    }
+                status.checkedOnce && status.connected -> {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .background(Color(0xFF4CAF50), CircleShape),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    val info = listOfNotNull(
+                        "运行中",
+                        status.runner?.uppercase()?.ifEmpty { null },
+                        status.uptimeSeconds?.let { formatUptime(it) }?.ifEmpty { null },
+                    ).joinToString(" · ")
                     Text(
-                        text = "Expected=$expected  Current=$current",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 11.sp,
-                        ),
-                        color = commitColor,
+                        text = info,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    // Version indicator
+                    if (status.expectedCommit != null || status.currentCommit != null) {
+                        val isMatch = status.expectedCommit != null &&
+                            status.currentCommit != null &&
+                            status.currentCommit.contains(status.expectedCommit)
+                        IconButton(
+                            onClick = { showVersionDialog = true },
+                            modifier = Modifier.size(32.dp),
+                        ) {
+                            Icon(
+                                imageVector = if (isMatch) Icons.Filled.CheckCircle else Icons.Filled.Warning,
+                                contentDescription = null,
+                                tint = if (isMatch) Color(0xFF4CAF50) else Color(0xFFFFA726),
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
+                }
+                status.checkedOnce -> {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .background(MaterialTheme.colorScheme.error, CircleShape),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "未运行",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.weight(1f),
                     )
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-            } else if (status.checkedOnce) {
-                Text(
-                    text = "Daemon 未运行。ROOT / Shizuku 模式下会自动启动。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            } else {
-                Text(
-                    text = "点击「检测」查看 Daemon 连通性（端口 127.0.0.1:9876）",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
+                else -> {
+                    Text(
+                        text = "未检测",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            IconButton(
+                onClick = if (status.connected) onRestart else onCheck,
+                modifier = Modifier.size(32.dp),
+                enabled = !status.checking,
             ) {
-                OutlinedButton(
-                    onClick = onCheck,
-                    enabled = !status.checking,
-                ) {
-                    if (status.checking) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("检测中...")
-                    } else {
-                        Text("检测")
-                    }
-                }
-                OutlinedButton(
-                    onClick = onRestart,
-                    enabled = !status.checking,
-                ) {
-                    Text("重启")
-                }
+                Icon(
+                    imageVector = Icons.Filled.Refresh,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
+}
+
+@Composable
+private fun VersionInfoDialog(
+    expected: String,
+    current: String,
+    isMatch: Boolean,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("确定") }
+        },
+        icon = {
+            Icon(
+                imageVector = if (isMatch) Icons.Filled.CheckCircle else Icons.Filled.Warning,
+                contentDescription = null,
+                tint = if (isMatch) Color(0xFF4CAF50) else Color(0xFFFFA726),
+                modifier = Modifier.size(32.dp),
+            )
+        },
+        title = {
+            Text(if (isMatch) "版本一致" else "版本不一致")
+        },
+        text = {
+            Column {
+                Row {
+                    Text(
+                        text = "Expected: ",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = expected,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = FontFamily.Monospace,
+                        ),
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Row {
+                    Text(
+                        text = "Current:   ",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = current,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = FontFamily.Monospace,
+                        ),
+                    )
+                }
+            }
+        },
+    )
 }
 
 private enum class ShizukuStatus {
@@ -696,6 +588,62 @@ private fun modeDescription(mode: PrivilegeMode): String = when (mode) {
     PrivilegeMode.ADB -> "通过 ADB 手动启动 Daemon（FPS/进程等可用）"
     PrivilegeMode.SHIZUKU -> "通过 Shizuku 获取 Shell 权限（推荐）"
     PrivilegeMode.BASIC -> "无特权，帧率监控等功能不可用"
+}
+
+@Composable
+private fun AboutDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = {
+                try {
+                    context.startActivity(
+                        Intent(Intent.ACTION_VIEW, "https://github.com/1orz/OpenMonitor".toUri()),
+                    )
+                } catch (_: Exception) {}
+            }) {
+                Icon(
+                    painter = androidx.compose.ui.res.painterResource(id = com.cloudorz.openmonitor.R.drawable.ic_github),
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("GitHub")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("关闭") }
+        },
+        title = {
+            Text("OpenMonitor")
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                AboutRow("Version", com.cloudorz.openmonitor.BuildConfig.VERSION_NAME)
+                AboutRow("Commit", com.cloudorz.openmonitor.BuildConfig.GIT_COMMIT)
+                AboutRow("Author", "1orz")
+                AboutRow("License", "GPLv3")
+            }
+        },
+    )
+}
+
+@Composable
+private fun AboutRow(label: String, value: String) {
+    Row {
+        Text(
+            text = "$label: ",
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
 }
 
 @Composable
@@ -756,7 +704,6 @@ private fun PollSettingsCard(
 @Composable
 private fun AdbSetupCard(
     binaryPath: String,
-    daemonConnected: Boolean,
     onCheck: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -819,22 +766,13 @@ private fun AdbSetupCard(
                     Text("检测连接")
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = if (daemonConnected) Icons.Filled.CheckCircle else Icons.Filled.Warning,
-                    contentDescription = null,
-                    tint = if (daemonConnected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.size(16.dp),
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = if (daemonConnected) "Daemon 已连接" else "Daemon 未连接（启动后点击检测）",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "启动后将自动检测连接",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline,
+            )
         }
     }
 }

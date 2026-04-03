@@ -72,6 +72,7 @@ class UserViewModel @Inject constructor(
     val daemonBinaryPath: String get() = daemonLauncher.binaryPath
 
     private var refreshJob: Job? = null
+    private var adbWatcherJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -109,6 +110,30 @@ class UserViewModel @Inject constructor(
     private fun stopRefreshLoop() {
         refreshJob?.cancel()
         refreshJob = null
+    }
+
+    /** Silent background polling for ADB mode — checks daemon every 3s until connected. */
+    fun startAdbWatcher() {
+        if (adbWatcherJob?.isActive == true) return
+        adbWatcherJob = viewModelScope.launch(Dispatchers.IO) {
+            while (isActive) {
+                delay(3000)
+                if (_daemonStatus.value.connected) break
+                val alive = daemonClient.isAlive()
+                if (alive) {
+                    val state = withTimeoutOrNull(5_000L) { daemonManager.ensureRunning() }
+                    if (state == DaemonState.RUNNING) {
+                        _daemonStatus.value = buildStatus(alive = true)
+                        break
+                    }
+                }
+            }
+        }
+    }
+
+    fun stopAdbWatcher() {
+        adbWatcherJob?.cancel()
+        adbWatcherJob = null
     }
 
     fun checkDaemon() {

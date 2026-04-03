@@ -16,7 +16,9 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
+import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -79,6 +81,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.isSystemInDarkTheme
 import kotlinx.coroutines.delay
+
+/** Modifier that performs haptic feedback on click. */
+@Composable
+private fun Modifier.hapticClickable(onClick: () -> Unit): Modifier {
+    val view = LocalView.current
+    return this.clickable {
+        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+        onClick()
+    }
+}
 
 private val BG: Color
     @Composable get() = if (isSystemInDarkTheme()) Color(0xAA000000) else Color(0xCCF5F5F5)
@@ -645,7 +657,7 @@ private fun DurationButton(label: String, onClick: () -> Unit) {
         modifier = Modifier
             .clip(RoundedCornerShape(4.dp))
             .background(Color.White.copy(alpha = alpha * 0.25f))
-            .clickable {
+            .hapticClickable {
                 pressed = true
                 onClick()
             }
@@ -789,7 +801,7 @@ fun FloatProcessContent(service: FloatMonitorService) {
                         tint = if (locked) ProcessTextPrimary else ProcessTextSecondary,
                         modifier = Modifier
                             .size(14.dp)
-                            .clickable { service.onProcessLockToggle() },
+                            .hapticClickable { service.onProcessLockToggle() },
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
@@ -803,7 +815,7 @@ fun FloatProcessContent(service: FloatMonitorService) {
                         tint = ProcessTextPrimary,
                         modifier = Modifier
                             .size(14.dp)
-                            .clickable { service.onProcessMinimizeToggle() },
+                            .hapticClickable { service.onProcessMinimizeToggle() },
                     )
                 }
             } else {
@@ -827,7 +839,7 @@ fun FloatProcessContent(service: FloatMonitorService) {
                         tint = if (locked) ProcessTextPrimary else ProcessTextSecondary,
                         modifier = Modifier
                             .size(14.dp)
-                            .clickable { service.onProcessLockToggle() },
+                            .hapticClickable { service.onProcessLockToggle() },
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
@@ -843,7 +855,7 @@ fun FloatProcessContent(service: FloatMonitorService) {
                             },
                             style = TextStyle(fontSize = 9.sp, color = Color(0xFF2196F3)),
                             modifier = Modifier
-                                .clickable { service.onProcessFilterToggle() }
+                                .hapticClickable { service.onProcessFilterToggle() }
                                 .padding(horizontal = 4.dp, vertical = 2.dp),
                         )
                     }
@@ -853,7 +865,7 @@ fun FloatProcessContent(service: FloatMonitorService) {
                         tint = ProcessTextPrimary,
                         modifier = Modifier
                             .size(14.dp)
-                            .clickable { service.onProcessMinimizeToggle() }
+                            .hapticClickable { service.onProcessMinimizeToggle() }
                             .padding(1.dp),
                     )
                     Spacer(modifier = Modifier.width(2.dp))
@@ -863,7 +875,7 @@ fun FloatProcessContent(service: FloatMonitorService) {
                         tint = ProcessTextPrimary,
                         modifier = Modifier
                             .size(14.dp)
-                            .clickable { service.onProcessClose() }
+                            .hapticClickable { service.onProcessClose() }
                             .padding(1.dp),
                     )
                 }
@@ -927,7 +939,7 @@ private fun ProcessRow(
         modifier = Modifier
             .fillMaxWidth()
             .background(bgColor, RoundedCornerShape(4.dp))
-            .clickable { onClick() }
+            .hapticClickable { onClick() }
             .padding(vertical = 3.dp, horizontal = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1110,7 +1122,7 @@ fun FloatControlPanelContent(service: FloatMonitorService) {
                     tint = panelText,
                     modifier = Modifier
                         .size(16.dp)
-                        .clickable { service.dismissControlPanel() },
+                        .hapticClickable { service.dismissControlPanel() },
                 )
             }
             Spacer(modifier = Modifier.height(10.dp))
@@ -1153,7 +1165,7 @@ private fun PanelToggleButton(
         modifier = modifier
             .clip(RoundedCornerShape(6.dp))
             .background(bg)
-            .clickable { onClick() }
+            .hapticClickable { onClick() }
             .padding(4.dp),
         contentAlignment = Alignment.Center,
     ) {

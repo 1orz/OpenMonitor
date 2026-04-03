@@ -209,7 +209,7 @@ fun PermissionGuideScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             ModeCard(
-                iconRes = R.drawable.ic_mode_basic, // reuse basic icon for ADB
+                iconRes = R.drawable.ic_mode_adb,
                 title = "ADB 模式",
                 description = "通过 ADB 手动启动 Daemon，无需 Root 或 Shizuku",
                 tagText = "FPS / 进程等可用",

@@ -4,6 +4,7 @@ import android.content.Context
 import com.elvishew.xlog.XLog
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -92,6 +93,21 @@ class PermissionManager @Inject constructor(
         } else if (mode != PrivilegeMode.SHIZUKU && oldMode == PrivilegeMode.SHIZUKU) {
             shizukuExecutor.unbindService()
         }
+    }
+
+    /**
+     * Waits for the Shizuku UserService to be bound (up to [timeoutMs]).
+     * Call before launching daemon in SHIZUKU mode to avoid 10s wait per launch attempt.
+     */
+    suspend fun awaitShizukuReady(timeoutMs: Long = 10_000L): Boolean {
+        if (shizukuExecutor.isServiceBound) return true
+        shizukuExecutor.bindService()
+        return withTimeoutOrNull(timeoutMs) {
+            while (!shizukuExecutor.isServiceBound) {
+                delay(100)
+            }
+            true
+        } ?: false
     }
 
     fun getExecutor(): ShellExecutor {

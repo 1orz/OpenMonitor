@@ -120,24 +120,36 @@ class DaemonManager @Inject constructor(
         val oldAutoLaunch = oldMode == PrivilegeMode.ROOT || oldMode == PrivilegeMode.SHIZUKU
         val newAutoLaunch = newMode == PrivilegeMode.ROOT || newMode == PrivilegeMode.SHIZUKU
 
-        // Stop daemon under old mode first (uses old executor)
-        if (oldAutoLaunch || _state.value == DaemonState.RUNNING) {
-            stopDaemon()
+        daemonDataSource.suppressKillall = true
+        try {
+            // Stop daemon under old mode first (uses old executor)
+            if (oldAutoLaunch || _state.value == DaemonState.RUNNING) {
+                stopDaemon()
+            }
+
+            // Switch executor to new mode BEFORE launching
+            applyNewMode()
+            daemonDataSource.resetDeadState()
+            daemonDataSource.invalidate()
+
+            // Pre-bind Shizuku service to avoid 10s wait per launch attempt
+            if (newMode == PrivilegeMode.SHIZUKU) {
+                if (!permissionManager.awaitShizukuReady()) {
+                    XLog.tag(TAG).e("Shizuku service not ready, launch may fail")
+                }
+            }
+
+            if (!newAutoLaunch) {
+                if (newMode == PrivilegeMode.ADB) return@withContext ensureRunning()
+                _state.value = DaemonState.NOT_NEEDED
+                return@withContext DaemonState.NOT_NEEDED
+            }
+
+            // Launch under new mode
+            ensureRunning()
+        } finally {
+            daemonDataSource.suppressKillall = false
         }
-
-        // Switch executor to new mode BEFORE launching
-        applyNewMode()
-        daemonDataSource.resetDeadState()
-        daemonDataSource.invalidate()
-
-        if (!newAutoLaunch) {
-            if (newMode == PrivilegeMode.ADB) return@withContext ensureRunning()
-            _state.value = DaemonState.NOT_NEEDED
-            return@withContext DaemonState.NOT_NEEDED
-        }
-
-        // Launch under new mode
-        ensureRunning()
     }
 
     /**
@@ -145,10 +157,15 @@ class DaemonManager @Inject constructor(
      */
     suspend fun restart(): DaemonState = withContext(Dispatchers.IO) {
         XLog.tag(TAG).e("restart requested")
-        stopDaemon()
-        daemonDataSource.resetDeadState()
-        daemonDataSource.invalidate()
-        ensureRunning()
+        daemonDataSource.suppressKillall = true
+        try {
+            stopDaemon()
+            daemonDataSource.resetDeadState()
+            daemonDataSource.invalidate()
+            ensureRunning()
+        } finally {
+            daemonDataSource.suppressKillall = false
+        }
     }
 
     /** Fully stops the daemon: graceful exit → force kill → cleanup PID files. */

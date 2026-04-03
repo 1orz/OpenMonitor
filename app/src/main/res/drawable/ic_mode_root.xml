@@ -4,12 +4,23 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-    <!-- Shield body -->
+    <!-- Shield -->
     <path
-        android:fillColor="#00897B"
+        android:fillColor="#4CAF50"
         android:pathData="M12,1L3,5v6c0,5.55 3.84,10.74 9,12 5.16,-1.26 9,-6.45 9,-12V5L12,1z" />
-    <!-- Lightning bolt -->
+    <!-- Terminal prompt > -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M11,14h2l-1,4 3,-5h-2l1,-4z" />
+        android:pathData="M8.5,9L12,12L8.5,15"
+        android:strokeWidth="2"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+    <!-- Cursor _ -->
+    <path
+        android:pathData="M13,15L16.5,15"
+        android:strokeWidth="2"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
 </vector>

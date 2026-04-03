@@ -75,8 +75,9 @@ class AggregatedMonitorDataSource @Inject constructor(
             Log.e(TAG, "collectFromDaemon: daemon NOT available")
         }
 
-        // Daemon dead (3+ consecutive failures) — kill residual, DaemonManager will restart
-        if (daemonDataSource.isDead()) {
+        // Daemon dead (3+ consecutive failures) — kill residual, DaemonManager will restart.
+        // Skip during mode switch/restart to avoid killing the newly launched daemon.
+        if (!daemonDataSource.suppressKillall && daemonDataSource.isDead()) {
             shellExecutor.execute("killall monitor-daemon 2>/dev/null || true")
             daemonDataSource.resetDeadState()
             Log.e(TAG, "collectFromDaemon: daemon dead, killed residual")
