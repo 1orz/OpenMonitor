@@ -69,6 +69,22 @@
     <string name="widget_placeholder_percent" translatable="false">--%</string>
     <string name="widget_placeholder_temp" translatable="false">--°C</string>
 
+    <!-- Permission Setup Screen -->
+    <string name="perm_setup_title">Grant Required Permissions</string>
+    <string name="perm_setup_subtitle">OpenMonitor needs the following permissions to work properly. All permissions are required.</string>
+    <string name="perm_overlay_title">Overlay (Float Window)</string>
+    <string name="perm_overlay_desc">Display real-time monitors over other apps</string>
+    <string name="perm_usage_title">Usage Stats Access</string>
+    <string name="perm_usage_desc">Read battery usage and app usage statistics</string>
+    <string name="perm_battery_title">Ignore Battery Optimization</string>
+    <string name="perm_battery_desc">Prevent the system from killing the monitoring service in background</string>
+    <string name="perm_notification_title">Notifications</string>
+    <string name="perm_notification_desc">Show foreground service notifications for monitoring</string>
+    <string name="perm_granted">Granted</string>
+    <string name="perm_go_grant">Go to Grant</string>
+    <string name="perm_start">Start Using</string>
+    <string name="perm_grant_all_hint">Please grant all permissions above to continue</string>
+
     <!-- Daemon -->
     <string name="daemon_launching">Deploying monitor service…</string>
     <string name="daemon_launch_failed">Monitor service failed to start</string>

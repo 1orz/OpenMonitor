@@ -175,8 +175,8 @@ class FloatMonitorService : LifecycleService() {
     val memTotalMB = MutableStateFlow(0.0)
     val memUsedMB = MutableStateFlow(0.0)
     val loadMonitorCompact = MutableStateFlow(true)
-    val miniShowCpuFreq = MutableStateFlow(true)
-    val miniShowGpuFreq = MutableStateFlow(true)
+    val miniShowCpuFreq = MutableStateFlow(false)
+    val miniShowGpuFreq = MutableStateFlow(false)
 
     // Dark theme for float windows: considers app pref (0=system,1=light,2=dark) + system config
     val floatDarkTheme = MutableStateFlow(false)
@@ -401,8 +401,8 @@ class FloatMonitorService : LifecycleService() {
 
     private fun startFloatService() {
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        miniShowCpuFreq.value = prefs.getBoolean(KEY_MINI_CPU_FREQ, true)
-        miniShowGpuFreq.value = prefs.getBoolean(KEY_MINI_GPU_FREQ, true)
+        miniShowCpuFreq.value = prefs.getBoolean(KEY_MINI_CPU_FREQ, false)
+        miniShowGpuFreq.value = prefs.getBoolean(KEY_MINI_GPU_FREQ, false)
         prefs.edit { putBoolean(KEY_SERVICE_ACTIVE, true) }
 
         startForeground(NOTIFICATION_ID, buildCustomNotification())

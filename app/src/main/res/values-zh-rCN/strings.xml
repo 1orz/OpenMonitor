@@ -61,6 +61,22 @@
     <string name="frequency">频率</string>
     <string name="ip_address">IP 地址</string>
 
+    <!-- 权限设置页 -->
+    <string name="perm_setup_title">授予必要权限</string>
+    <string name="perm_setup_subtitle">OpenMonitor 需要以下权限才能正常工作，所有权限均为必须。</string>
+    <string name="perm_overlay_title">悬浮窗权限</string>
+    <string name="perm_overlay_desc">在其他应用上方显示实时监控窗口</string>
+    <string name="perm_usage_title">使用量统计权限</string>
+    <string name="perm_usage_desc">读取电池用量和应用使用统计数据</string>
+    <string name="perm_battery_title">忽略电池优化</string>
+    <string name="perm_battery_desc">防止系统在后台杀死监控服务</string>
+    <string name="perm_notification_title">通知权限</string>
+    <string name="perm_notification_desc">显示前台服务通知以保持监控运行</string>
+    <string name="perm_granted">已授权</string>
+    <string name="perm_go_grant">去授权</string>
+    <string name="perm_start">开始使用</string>
+    <string name="perm_grant_all_hint">请先授予以上全部权限后继续</string>
+
     <!-- Daemon -->
     <string name="app_name">OpenMonitor</string>
     <string name="daemon_launching">正在部署监控服务…</string>

@@ -1,14 +1,9 @@
 package com.cloudorz.openmonitor
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
@@ -31,7 +26,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import android.content.Context
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -68,6 +62,7 @@ import com.cloudorz.openmonitor.ui.storage.StorageScreen
 import com.cloudorz.openmonitor.ui.navigation.FeatureRoute
 import com.cloudorz.openmonitor.ui.navigation.Route
 import com.cloudorz.openmonitor.ui.splash.PermissionGuideScreen
+import com.cloudorz.openmonitor.ui.splash.PermissionSetupScreen
 import com.cloudorz.openmonitor.ui.user.UserScreen  // 设置页复用
 import androidx.compose.ui.platform.LocalContext
 import dagger.hilt.android.AndroidEntryPoint
@@ -108,7 +103,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class StartupPhase { CHECKING, READY, NEEDS_GUIDE }
+private enum class StartupPhase { CHECKING, READY, NEEDS_GUIDE, NEEDS_PERMISSIONS }
 
 @Composable
 private fun MonitorAppContent(permissionManager: PermissionManager, daemonManager: DaemonManager) {
@@ -206,8 +201,13 @@ private fun MonitorAppContent(permissionManager: PermissionManager, daemonManage
                 daemonManager = daemonManager,
                 onModeSelected = { mode ->
                     selectedMode = mode
-                    startupPhase = StartupPhase.READY
+                    startupPhase = StartupPhase.NEEDS_PERMISSIONS
                 },
+            )
+        }
+        StartupPhase.NEEDS_PERMISSIONS -> {
+            PermissionSetupScreen(
+                onAllGranted = { startupPhase = StartupPhase.READY },
             )
         }
         StartupPhase.READY -> {
@@ -219,21 +219,6 @@ private fun MonitorAppContent(permissionManager: PermissionManager, daemonManage
 @Composable
 private fun MainScreen(permissionManager: PermissionManager) {
     val context = LocalContext.current
-
-    // 请求通知权限（Android 13+）
-    val notificationPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { _ -> }
-    LaunchedEffect(Unit) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val granted = ContextCompat.checkSelfPermission(
-                context, Manifest.permission.POST_NOTIFICATIONS
-            ) == PackageManager.PERMISSION_GRANTED
-            if (!granted) {
-                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }
-        }
-    }
 
     // Restore saved float monitors on app start
     LaunchedEffect(Unit) {
