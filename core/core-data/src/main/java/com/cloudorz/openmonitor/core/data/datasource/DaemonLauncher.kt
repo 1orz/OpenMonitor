@@ -38,10 +38,10 @@ class DaemonLauncher @Inject constructor(
         private const val LIB_NAME = "libmonitor-daemon.so"
         private const val COMMIT_ASSET_PATH = "daemon/daemon-commit.txt"
         private const val DAEMON_DIR_NAME = "daemon"
-        private const val LAUNCH_WAIT_MS = 2_000L
+        private const val LAUNCH_WAIT_MS = 1_500L
         private const val PING_RETRIES = 3
-        private const val LAUNCH_RETRIES = 5
-        private const val LAUNCH_RETRY_MS = 600L
+        private const val LAUNCH_RETRIES = 2
+        private const val LAUNCH_RETRY_MS = 500L
     }
 
     /** Path to daemon binary in the APK's native library directory. */

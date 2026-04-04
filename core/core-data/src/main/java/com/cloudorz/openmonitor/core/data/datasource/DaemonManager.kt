@@ -132,10 +132,12 @@ class DaemonManager @Inject constructor(
             daemonDataSource.resetDeadState()
             daemonDataSource.invalidate()
 
-            // Pre-bind Shizuku service to avoid 10s wait per launch attempt
+            // Pre-bind Shizuku service — fail fast if it can't connect
             if (newMode == PrivilegeMode.SHIZUKU) {
-                if (!permissionManager.awaitShizukuReady()) {
-                    XLog.tag(TAG).e("Shizuku service not ready, launch may fail")
+                if (!permissionManager.awaitShizukuReady(5_000L)) {
+                    XLog.tag(TAG).e("Shizuku service not ready, aborting mode switch")
+                    _state.value = DaemonState.FAILED
+                    return@withContext DaemonState.FAILED
                 }
             }
 

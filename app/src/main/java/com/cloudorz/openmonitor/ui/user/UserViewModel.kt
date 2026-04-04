@@ -16,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
@@ -51,6 +52,7 @@ class UserViewModel @Inject constructor(
 
     companion object {
         const val KEY_DARK_MODE = "dark_mode"
+        private const val SWITCH_TIMEOUT_MS = 15_000L
     }
 
     private val prefs = context.getSharedPreferences("monitor_settings", Context.MODE_PRIVATE)
@@ -191,7 +193,9 @@ class UserViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             _daemonStatus.update { it.copy(checking = true) }
-            val result = daemonManager.switchMode(oldMode, newMode, applyNewMode)
+            val result = withTimeoutOrNull(SWITCH_TIMEOUT_MS) {
+                daemonManager.switchMode(oldMode, newMode, applyNewMode)
+            } ?: DaemonState.FAILED
             val alive = result == DaemonState.RUNNING
             _daemonStatus.value = buildStatus(alive = alive)
             onComplete(result)

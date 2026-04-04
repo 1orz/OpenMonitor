@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import rikka.shizuku.Shizuku
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -33,6 +34,7 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
     companion object {
         private const val TAG = "ShizukuExecutor"
         private const val SHIZUKU_PERMISSION_REQUEST_CODE = 1001
+        private const val IPC_TIMEOUT_MS = 10_000L
     }
 
     // Binder alive state — updated by Shizuku's global listeners.
@@ -165,29 +167,35 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
         if (service == null) {
             XLog.tag(TAG).i("shellService null, calling bindService and waiting...")
             bindService()
-            // Wait up to 10s for service binding to complete
-            // (UserService needs app_process startup which can be slow on some devices)
-            for (i in 1..100) {
+            // Wait up to 5s for service binding
+            for (i in 1..50) {
                 delay(100)
                 service = shellService
                 if (service != null) break
             }
             if (service == null) {
-                XLog.tag(TAG).e("service still null after 10s wait")
+                XLog.tag(TAG).e("service still null after 5s wait")
                 return@withContext CommandResult.failure("Shizuku service not bound yet")
             }
             XLog.tag(TAG).i("shellService connected after waiting")
         }
 
         try {
-            val raw = service.executeCommand(command)
+            // Wrap Binder IPC in timeout to prevent indefinite blocking
+            val raw = withTimeoutOrNull(IPC_TIMEOUT_MS) {
+                service.executeCommand(command)
+            }
+            if (raw == null) {
+                shellService = null
+                bound = false
+                return@withContext CommandResult.failure("Shizuku IPC timeout")
+            }
             if (raw.startsWith("ERROR:")) {
                 CommandResult.failure(raw.removePrefix("ERROR:"))
             } else {
                 parseCommandResult(raw)
             }
         } catch (e: Exception) {
-            // Service may have died
             shellService = null
             bound = false
             CommandResult.failure("Shizuku call failed: ${e.message}")
