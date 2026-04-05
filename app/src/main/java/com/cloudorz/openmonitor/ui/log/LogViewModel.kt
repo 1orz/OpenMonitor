@@ -24,12 +24,12 @@ import java.io.InputStreamReader
 import javax.inject.Inject
 
 /** Log level priority for display filtering. */
-enum class LogLevelFilter(val char: Char, val label: String, val priority: Int) {
-    VERBOSE('V', "V", 0),
-    DEBUG('D', "D", 1),
-    INFO('I', "I", 2),
-    WARN('W', "W", 3),
-    ERROR('E', "E", 4),
+enum class LogLevelFilter(val char: Char, val label: String, val displayName: String, val priority: Int) {
+    VERBOSE('V', "V", "Verbose", 0),
+    DEBUG('D', "D", "Debug", 1),
+    INFO('I', "I", "Info", 2),
+    WARN('W', "W", "Warn", 3),
+    ERROR('E', "E", "Error", 4),
 }
 
 @HiltViewModel
@@ -51,7 +51,7 @@ class LogViewModel @Inject constructor(
 
     // ---- Display filter ----
 
-    private val _filterLevel = MutableStateFlow(LogLevelFilter.VERBOSE)
+    private val _filterLevel = MutableStateFlow(LogLevelFilter.INFO)
     val filterLevel: StateFlow<LogLevelFilter> = _filterLevel.asStateFlow()
 
     /** Filtered app logs — only entries >= filterLevel are shown. */
@@ -123,7 +123,7 @@ class LogViewModel @Inject constructor(
     // ---- Data loading ----
 
     private suspend fun refreshLogDates() = withContext(Dispatchers.IO) {
-        _logDates.value = AppLogger.listLogFiles().map { it.nameWithoutExtension }
+        _logDates.value = AppLogger.listLogFiles().map { it.name }
     }
 
     private suspend fun fetchAppLogs() = withContext(Dispatchers.IO) {
@@ -134,7 +134,8 @@ class LogViewModel @Inject constructor(
 
     private fun loadFromFile(date: String) {
         val dir = AppLogger.logDir ?: return
-        val file = File(dir, "$date.log")
+        // date is the actual filename (e.g. "2026-04-04" or "2026-04-04_1")
+        val file = File(dir, date)
         if (!file.exists()) { _rawAppLogs.value = emptyList(); return }
         _rawAppLogs.value = file.readLines().mapNotNull { parseXLogLine(it) }.takeLast(APP_LOG_MAX_LINES)
     }
@@ -205,7 +206,7 @@ class LogViewModel @Inject constructor(
             val date = _selectedDate.value
             if (date != null) {
                 val dir = AppLogger.logDir ?: return@launch
-                File(dir, "$date.log").delete()
+                File(dir, date).delete()
                 refreshLogDates()
             } else {
                 try { Runtime.getRuntime().exec(arrayOf("logcat", "-c")).waitFor() } catch (_: Exception) { }

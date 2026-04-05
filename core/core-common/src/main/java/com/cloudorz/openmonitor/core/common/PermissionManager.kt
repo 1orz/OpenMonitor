@@ -87,10 +87,9 @@ class PermissionManager @Inject constructor(
         _currentMode.value = mode
         persistMode(mode)
 
-        // Manage Shizuku UserService lifecycle
-        if (mode == PrivilegeMode.SHIZUKU && oldMode != PrivilegeMode.SHIZUKU) {
-            shizukuExecutor.bindService()
-        } else if (mode != PrivilegeMode.SHIZUKU && oldMode == PrivilegeMode.SHIZUKU) {
+        // Unbind Shizuku when switching away; binding is handled solely
+        // by awaitShizukuReady() to avoid double-bind race conditions.
+        if (mode != PrivilegeMode.SHIZUKU && oldMode == PrivilegeMode.SHIZUKU) {
             shizukuExecutor.unbindService()
         }
     }
@@ -100,14 +99,22 @@ class PermissionManager @Inject constructor(
      * Call before launching daemon in SHIZUKU mode to avoid 10s wait per launch attempt.
      */
     suspend fun awaitShizukuReady(timeoutMs: Long = 10_000L): Boolean {
+        XLog.tag("PermissionManager").e("awaitShizukuReady: isServiceBound=${shizukuExecutor.isServiceBound}, timeout=${timeoutMs}ms")
         if (shizukuExecutor.isServiceBound) return true
         shizukuExecutor.bindService()
-        return withTimeoutOrNull(timeoutMs) {
+        val result = withTimeoutOrNull(timeoutMs) {
+            var waited = 0L
             while (!shizukuExecutor.isServiceBound) {
-                delay(100)
+                delay(200)
+                waited += 200
+                if (waited % 2000 == 0L) {
+                    XLog.tag("PermissionManager").e("awaitShizukuReady: still waiting... ${waited}ms elapsed")
+                }
             }
             true
         } ?: false
+        XLog.tag("PermissionManager").e("awaitShizukuReady: result=$result")
+        return result
     }
 
     fun getExecutor(): ShellExecutor {

@@ -32,9 +32,20 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -43,6 +54,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import android.provider.Settings
+import com.cloudorz.openmonitor.BuildConfig
 import com.cloudorz.openmonitor.core.common.PermissionManager
 import com.cloudorz.openmonitor.core.common.PrivilegeMode
 import com.cloudorz.openmonitor.core.data.datasource.DaemonManager
@@ -212,6 +224,7 @@ private fun MonitorAppContent(permissionManager: PermissionManager, daemonManage
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MainScreen(permissionManager: PermissionManager) {
     val context = LocalContext.current
@@ -234,13 +247,60 @@ private fun MainScreen(permissionManager: PermissionManager) {
     val pagerState = rememberPagerState(initialPage = 1) { Route.all.size }
     val coroutineScope = rememberCoroutineScope()
 
-    // Show bottom bar only when on the main tabs screen
-    val showBottomBar = currentRoute == null || currentRoute == "tabs"
+    val isTopLevel = currentRoute == null || currentRoute == "tabs"
 
-    // Sync pager → tab click
+    // Per-page TopAppBar actions (set by child screens like LogScreen)
+    var topBarActions by remember { mutableStateOf<@Composable () -> Unit>({}) }
+    LaunchedEffect(currentRoute) { topBarActions = {} }
+
+    // Map routes to display titles
+    val subPageTitle = when (currentRoute) {
+        FeatureRoute.BATTERY -> "电池"
+        FeatureRoute.FPS -> "帧率"
+        FeatureRoute.FPS_SESSION_DETAIL -> "帧率详情"
+        FeatureRoute.PROCESS -> "进程"
+        FeatureRoute.PROCESS_DETAIL -> "进程详情"
+        FeatureRoute.FLOAT -> "悬浮监视器"
+        FeatureRoute.STORAGE -> "存储"
+        FeatureRoute.SENSOR -> "传感器"
+        FeatureRoute.NETWORK -> "网络"
+        FeatureRoute.LOG -> "调试日志"
+        else -> null
+    }
+
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    if (isTopLevel) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("OpenMonitor", style = MaterialTheme.typography.titleLarge)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = BuildConfig.VERSION_NAME,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    } else {
+                        Text(subPageTitle ?: "", style = MaterialTheme.typography.titleLarge)
+                    }
+                },
+                navigationIcon = {
+                    if (!isTopLevel) {
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        }
+                    }
+                },
+                actions = { topBarActions() },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ),
+            )
+        },
         bottomBar = {
-            if (showBottomBar) {
+            if (isTopLevel) {
                 NavigationBar {
                     Route.all.forEachIndexed { index, route ->
                         NavigationBarItem(
@@ -261,8 +321,11 @@ private fun MainScreen(permissionManager: PermissionManager) {
             navController = navController,
             startDestination = "tabs",
             modifier = Modifier.padding(innerPadding),
+            enterTransition = { slideInHorizontally { it } },
+            exitTransition = { slideOutHorizontally { -it } },
+            popEnterTransition = { slideInHorizontally { -it } },
+            popExitTransition = { slideOutHorizontally { it } },
         ) {
-            // ── Top-level tabs (HorizontalPager) ──
             composable("tabs") {
                 HorizontalPager(
                     state = pagerState,
@@ -278,7 +341,6 @@ private fun MainScreen(permissionManager: PermissionManager) {
                 }
             }
 
-            // ── Feature sub-pages ──
             composable(FeatureRoute.BATTERY) { BatteryScreen() }
             composable(FeatureRoute.FPS) {
                 FpsScreen(
@@ -288,7 +350,7 @@ private fun MainScreen(permissionManager: PermissionManager) {
                 )
             }
             composable(FeatureRoute.FPS_SESSION_DETAIL) {
-                FpsSessionDetailScreen(onBack = { navController.popBackStack() })
+                FpsSessionDetailScreen()
             }
             composable(FeatureRoute.PROCESS) {
                 ProcessScreen(
@@ -304,7 +366,9 @@ private fun MainScreen(permissionManager: PermissionManager) {
             composable(FeatureRoute.STORAGE) { StorageScreen() }
             composable(FeatureRoute.SENSOR) { SensorScreen() }
             composable(FeatureRoute.NETWORK) { NetworkScreen() }
-            composable(FeatureRoute.LOG) { LogScreen() }
+            composable(FeatureRoute.LOG) {
+                LogScreen(onProvideTopBarActions = { topBarActions = it })
+            }
         }
     }
 }

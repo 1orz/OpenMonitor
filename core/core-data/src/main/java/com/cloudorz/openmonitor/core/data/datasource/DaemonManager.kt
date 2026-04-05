@@ -122,20 +122,22 @@ class DaemonManager @Inject constructor(
 
         daemonDataSource.suppressKillall = true
         try {
-            // Stop daemon under old mode first (uses old executor)
             if (oldAutoLaunch || _state.value == DaemonState.RUNNING) {
+                XLog.tag(TAG).e("switchMode: stopping daemon under $oldMode")
                 stopDaemon()
             }
 
-            // Switch executor to new mode BEFORE launching
+            XLog.tag(TAG).e("switchMode: applying new mode $newMode")
             applyNewMode()
             daemonDataSource.resetDeadState()
             daemonDataSource.invalidate()
 
-            // Pre-bind Shizuku service — fail fast if it can't connect
             if (newMode == PrivilegeMode.SHIZUKU) {
-                if (!permissionManager.awaitShizukuReady(5_000L)) {
-                    XLog.tag(TAG).e("Shizuku service not ready, aborting mode switch")
+                XLog.tag(TAG).e("switchMode: awaiting Shizuku ready (10s timeout)...")
+                val ready = permissionManager.awaitShizukuReady(10_000L)
+                XLog.tag(TAG).e("switchMode: awaitShizukuReady returned $ready")
+                if (!ready) {
+                    XLog.tag(TAG).e("switchMode: Shizuku not ready → FAILED")
                     _state.value = DaemonState.FAILED
                     return@withContext DaemonState.FAILED
                 }
@@ -147,8 +149,10 @@ class DaemonManager @Inject constructor(
                 return@withContext DaemonState.NOT_NEEDED
             }
 
-            // Launch under new mode
-            ensureRunning()
+            XLog.tag(TAG).e("switchMode: launching daemon under $newMode")
+            val result = ensureRunning()
+            XLog.tag(TAG).e("switchMode: ensureRunning returned $result")
+            result
         } finally {
             daemonDataSource.suppressKillall = false
         }

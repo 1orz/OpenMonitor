@@ -142,13 +142,17 @@ class DaemonLauncher @Inject constructor(
     private suspend fun launch(): Boolean {
         val binary = binaryPath
         val dir = dataDir.absolutePath
-        val cmd = "'$binary' --data-dir '$dir'"
         return when (shellExecutor.mode) {
             PrivilegeMode.ROOT -> {
+                val cmd = "'$binary' --data-dir '$dir'"
                 val result = shellExecutor.executeAsRoot(cmd)
                 logResult(result, binary)
             }
             PrivilegeMode.SHIZUKU -> {
+                // Use nohup + --no-detach + background (&) so the daemon survives
+                // the UserService process teardown (avoids cgroup kill).
+                // The Go Daemonize() fork is bypassed with --no-detach.
+                val cmd = "nohup '$binary' --no-detach --data-dir '$dir' > '$dir/daemon.log' 2>&1 & echo \$!"
                 val result = shellExecutor.execute(cmd)
                 logResult(result, binary)
             }

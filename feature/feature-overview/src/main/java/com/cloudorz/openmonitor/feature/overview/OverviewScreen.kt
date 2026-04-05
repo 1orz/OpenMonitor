@@ -52,8 +52,10 @@ import com.cloudorz.openmonitor.core.model.memory.SwapInfo
 import com.cloudorz.openmonitor.core.model.process.ProcessInfo
 import com.cloudorz.openmonitor.core.ui.R
 import com.cloudorz.openmonitor.core.ui.chart.ArcGaugeChart
-import com.cloudorz.openmonitor.core.ui.chart.CpuCoreBarChart
-import com.cloudorz.openmonitor.core.ui.chart.CpuCoreBarData
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.text.style.TextAlign
 import com.cloudorz.openmonitor.core.ui.component.DeviceBrandLogo
 import com.cloudorz.openmonitor.core.ui.component.StatCard
 import com.cloudorz.openmonitor.core.ui.component.VendorLogo
@@ -276,7 +278,6 @@ private fun SpecRow(label: String, value: String, valueColor: Color) {
 // 2. CPU Performance Card
 // ---------------------------------------------------------------------------
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CpuPerformanceCard(cpuStatus: CpuGlobalStatus) {
     StatCard(title = "CPU", icon = Icons.Outlined.Speed) {
@@ -294,30 +295,9 @@ private fun CpuPerformanceCard(cpuStatus: CpuGlobalStatus) {
         if (cpuStatus.cores.isNotEmpty()) {
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Core bar chart
-            CpuCoreBarChart(
-                cores = cpuStatus.cores.map { core ->
-                    CpuCoreBarData(
-                        coreIndex = core.coreIndex,
-                        frequencyMHz = core.currentFreqKHz / 1000,
-                        loadPercent = core.loadPercent,
-                        isOnline = core.isOnline,
-                    )
-                },
-                maxFreqMHz = cpuStatus.cores.maxOfOrNull { it.maxFreqKHz / 1000 } ?: 3000,
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Core detail grid
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-                maxItemsInEachRow = 4,
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 cpuStatus.cores.forEach { core ->
-                    CpuCoreDetailItem(core = core, modifier = Modifier.weight(1f))
+                    CpuCoreProgressRow(core = core)
                 }
             }
         }
@@ -342,42 +322,71 @@ private fun SummaryItem(label: String, value: String, valueColor: Color) {
 }
 
 @Composable
-private fun CpuCoreDetailItem(core: CpuCoreInfo, modifier: Modifier = Modifier) {
+private fun CpuCoreProgressRow(core: CpuCoreInfo) {
+    val animatedProgress by animateFloatAsState(
+        targetValue = if (core.isOnline) (core.loadPercent / 100.0).toFloat().coerceIn(0f, 1f) else 0f,
+        animationSpec = tween(500),
+        label = "coreProgress_${core.coreIndex}",
+    )
+    val barColor = when {
+        !core.isOnline -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
+        core.loadPercent < 50.0 -> Color(0xFF4CAF50)
+        core.loadPercent < 80.0 -> Color(0xFFFFC107)
+        else -> Color(0xFFF44336)
+    }
     val alpha = if (core.isOnline) 1f else 0.4f
-    val textColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)
 
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(6.dp))
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f))
-            .padding(6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Text(
-            text = "Core ${core.coreIndex}",
-            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-            color = if (core.isOnline) MaterialTheme.colorScheme.primary
-            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+            text = "${core.coreIndex}",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha),
+            modifier = Modifier.width(14.dp),
+            textAlign = TextAlign.Center,
         )
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(12.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(animatedProgress)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(barColor),
+            )
+        }
         if (core.isOnline) {
             Text(
                 text = "%.0f%%".format(core.loadPercent),
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                color = loadColor(core.loadPercent),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = barColor,
+                modifier = Modifier.width(32.dp),
+                textAlign = TextAlign.End,
             )
             Text(
-                text = "${core.currentFreqKHz / 1000} MHz",
+                text = "${core.currentFreqKHz / 1000}",
                 style = MaterialTheme.typography.labelSmall,
-                fontSize = 9.sp,
-                color = textColor,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                modifier = Modifier.width(32.dp),
+                textAlign = TextAlign.End,
             )
         } else {
             Text(
-                text = "OFFLINE",
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                fontSize = 9.sp,
+                text = "OFF",
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                modifier = Modifier.width(64.dp),
+                textAlign = TextAlign.End,
             )
         }
     }

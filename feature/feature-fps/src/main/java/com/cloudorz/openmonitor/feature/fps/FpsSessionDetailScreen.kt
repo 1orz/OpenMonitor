@@ -27,7 +27,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Tune
@@ -36,15 +35,11 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.LaunchedEffect
@@ -136,7 +131,6 @@ private enum class ChartSection(val label: String) {
 
 @Composable
 fun FpsSessionDetailScreen(
-    onBack: () -> Unit = {},
     viewModel: FpsSessionDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -144,7 +138,6 @@ fun FpsSessionDetailScreen(
 
     FpsSessionDetailContent(
         state = state,
-        onBack = onBack,
         onExport = {
             viewModel.getExportIntent { intent ->
                 context.startActivity(intent)
@@ -153,11 +146,9 @@ fun FpsSessionDetailScreen(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FpsSessionDetailContent(
     state: FpsSessionDetailState,
-    onBack: () -> Unit,
     onExport: () -> Unit = {},
 ) {
     val session = state.session
@@ -165,83 +156,61 @@ private fun FpsSessionDetailContent(
     val sectionVisibility = remember {
         mutableStateMapOf<ChartSection, Boolean>().apply { ChartSection.entries.forEach { put(it, true) } }
     }
-    @Suppress("AssignedValueIsNeverRead")
     var showSectionOptions by remember { mutableStateOf(false) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = session?.let {
-                            it.sessionDesc.ifEmpty { it.appName.ifEmpty { it.packageName.ifEmpty { stringResource(R.string.fps_recording_title) } } }
-                        } ?: stringResource(R.string.fps_recording_title),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { showSectionOptions = true }) {
-                        Icon(Icons.Default.Tune, contentDescription = "Chart Options")
-                    }
-                    IconButton(onClick = onExport) {
-                        Icon(Icons.Default.Share, contentDescription = "CSV")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
-            )
-        },
-    ) { paddingValues ->
-        if (showSectionOptions) {
-            SectionOptionsDialog(
-                visibility = sectionVisibility,
-                onDismiss = { showSectionOptions = false },
-            )
-        }
-        if (state.loading) {
-            Box(Modifier.fillMaxSize().padding(paddingValues), Alignment.Center) {
-                CircularProgressIndicator()
-            }
-            return@Scaffold
-        }
+    if (showSectionOptions) {
+        SectionOptionsDialog(
+            visibility = sectionVisibility,
+            onDismiss = { showSectionOptions = false },
+        )
+    }
 
-        val records = state.records
-        if (records.isEmpty()) {
-            Box(Modifier.fillMaxSize().padding(paddingValues), Alignment.Center) {
-                Text(stringResource(R.string.no_recording_sessions), color = MaterialTheme.colorScheme.outline)
-            }
-            return@Scaffold
+    if (state.loading) {
+        Box(Modifier.fillMaxSize(), Alignment.Center) {
+            CircularProgressIndicator()
         }
+        return
+    }
 
-        ProvideVicoTheme(rememberM3VicoTheme()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+    val records = state.records
+    if (records.isEmpty()) {
+        Box(Modifier.fillMaxSize(), Alignment.Center) {
+            Text(stringResource(R.string.no_recording_sessions), color = MaterialTheme.colorScheme.outline)
+        }
+        return
+    }
+
+    ProvideVicoTheme(rememberM3VicoTheme()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
             ) {
-                if (session != null) SessionHeaderCard(session, dateFormat)
-                StatsGridCard(records)
-                AppSwitchTimeline(records)
-                if (sectionVisibility[ChartSection.FPS_TEMP] != false) FpsTempChart(records)
-                if (sectionVisibility[ChartSection.FRAME_TIME] != false) FrameTimeChart(records)
-                if (sectionVisibility[ChartSection.CPU_GPU] != false) CpuGpuUsageChart(records)
-                if (sectionVisibility[ChartSection.GPU_FREQ] != false) GpuFreqChart(records)
-                if (sectionVisibility[ChartSection.CPU_FREQ] != false) CpuCoreFreqChart(records)
-                if (sectionVisibility[ChartSection.POWER] != false) PowerBatteryChart(records)
-                if (sectionVisibility[ChartSection.CURRENT] != false) BatteryCurrentChart(records)
-                if (sectionVisibility[ChartSection.TEMPERATURE] != false) TemperatureChart(records)
-                Spacer(modifier = Modifier.height(16.dp))
+                IconButton(onClick = { showSectionOptions = true }) {
+                    Icon(Icons.Default.Tune, contentDescription = "Chart Options")
+                }
+                IconButton(onClick = onExport) {
+                    Icon(Icons.Default.Share, contentDescription = "CSV")
+                }
             }
+            if (session != null) SessionHeaderCard(session, dateFormat)
+            StatsGridCard(records)
+            AppSwitchTimeline(records)
+            if (sectionVisibility[ChartSection.FPS_TEMP] != false) FpsTempChart(records)
+            if (sectionVisibility[ChartSection.FRAME_TIME] != false) FrameTimeChart(records)
+            if (sectionVisibility[ChartSection.CPU_GPU] != false) CpuGpuUsageChart(records)
+            if (sectionVisibility[ChartSection.GPU_FREQ] != false) GpuFreqChart(records)
+            if (sectionVisibility[ChartSection.CPU_FREQ] != false) CpuCoreFreqChart(records)
+            if (sectionVisibility[ChartSection.POWER] != false) PowerBatteryChart(records)
+            if (sectionVisibility[ChartSection.CURRENT] != false) BatteryCurrentChart(records)
+            if (sectionVisibility[ChartSection.TEMPERATURE] != false) TemperatureChart(records)
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

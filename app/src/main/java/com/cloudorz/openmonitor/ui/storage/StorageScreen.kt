@@ -50,13 +50,8 @@ fun StorageScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        item {
-            Text(
-                text = stringResource(R.string.storage_title),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-            )
-        }
+
+
 
         item {
             StorageVolumeCard(

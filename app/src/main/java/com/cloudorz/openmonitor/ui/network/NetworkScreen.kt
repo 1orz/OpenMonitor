@@ -49,14 +49,6 @@ fun NetworkScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
-            Text(
-                text = stringResource(R.string.network_title),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-            )
-        }
-
-        item {
             ConnectionStatusCard(networkInfo = networkInfo)
         }
 

@@ -12,6 +12,14 @@
 # Keep Shizuku
 -keep class rikka.shizuku.** { *; }
 
+# Keep Shizuku UserService — instantiated by app_process in a separate process.
+# R8 must not rename/remove these or Shizuku.bindUserService() silently fails
+# (onServiceConnected callback never fires).
+-keep class com.cloudorz.openmonitor.core.common.ShellUserService { *; }
+-keep class com.cloudorz.openmonitor.core.common.IShellService { *; }
+-keep class com.cloudorz.openmonitor.core.common.IShellService$Stub { *; }
+-keep class com.cloudorz.openmonitor.core.common.IShellService$Stub$Proxy { *; }
+
 # Keep libsu
 -keep class com.topjohnwu.superuser.** { *; }
 

@@ -41,11 +41,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -120,53 +117,17 @@ private fun FpsContent(
     onDeleteSelected: () -> Unit,
     onSessionClick: (String) -> Unit = {},
 ) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = if (uiState.isSelectionMode) {
-                            pluralStringResource(R.plurals.fps_selected_count, uiState.selectedIds.size, uiState.selectedIds.size)
-                        } else {
-                            stringResource(R.string.fps_recording_title)
-                        },
-                        style = MaterialTheme.typography.titleLarge,
-                    )
-                },
-                actions = {
-                    if (uiState.isSelectionMode) {
-                        IconButton(onClick = onSelectAll) {
-                            Icon(Icons.Default.SelectAll, contentDescription = stringResource(R.string.fps_select_all))
-                        }
-                        IconButton(
-                            onClick = onDeleteSelected,
-                            enabled = uiState.selectedIds.isNotEmpty(),
-                        ) {
-                            Icon(
-                                Icons.Default.Delete,
-                                contentDescription = stringResource(R.string.delete),
-                                tint = if (uiState.selectedIds.isNotEmpty()) {
-                                    MaterialTheme.colorScheme.error
-                                } else {
-                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                                },
-                            )
-                        }
-                        IconButton(onClick = onExitSelectionMode) {
-                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.fps_cancel))
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
+    Column(modifier = Modifier.fillMaxSize()) {
+        if (uiState.isSelectionMode) {
+            SelectionModeBar(
+                selectedCount = uiState.selectedIds.size,
+                onSelectAll = onSelectAll,
+                onDeleteSelected = onDeleteSelected,
+                onExitSelectionMode = onExitSelectionMode,
             )
-        },
-    ) { paddingValues ->
+        }
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -209,6 +170,50 @@ private fun FpsContent(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SelectionModeBar(
+    selectedCount: Int,
+    onSelectAll: () -> Unit,
+    onDeleteSelected: () -> Unit,
+    onExitSelectionMode: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = pluralStringResource(R.plurals.fps_selected_count, selectedCount, selectedCount),
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 8.dp),
+            style = MaterialTheme.typography.titleMedium,
+        )
+        IconButton(onClick = onSelectAll) {
+            Icon(Icons.Default.SelectAll, contentDescription = stringResource(R.string.fps_select_all))
+        }
+        IconButton(
+            onClick = onDeleteSelected,
+            enabled = selectedCount > 0,
+        ) {
+            Icon(
+                Icons.Default.Delete,
+                contentDescription = stringResource(R.string.delete),
+                tint = if (selectedCount > 0) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                },
+            )
+        }
+        IconButton(onClick = onExitSelectionMode) {
+            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.fps_cancel))
         }
     }
 }

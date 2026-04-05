@@ -54,11 +54,14 @@ object AppLogger {
         XLog.init(config, AndroidPrinter(), filePrinter)
     }
 
-    /** List all log files sorted by date descending (newest first). */
+    /** List all log files sorted by date descending (newest first).
+     *  XLog DateFileNameGenerator creates files like "2026-04-04" (no extension).
+     *  Backup files are named "2026-04-04_1", "2026-04-04_2", etc. */
     fun listLogFiles(): List<File> {
         val dir = logDir ?: return emptyList()
+        val datePattern = Regex("""\d{4}-\d{2}-\d{2}(_\d+)?""")
         return dir.listFiles()
-            ?.filter { it.isFile && it.name.endsWith(".log") }
+            ?.filter { it.isFile && datePattern.matches(it.name) }
             ?.sortedByDescending { it.name }
             ?: emptyList()
     }

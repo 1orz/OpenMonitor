@@ -48,21 +48,20 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
     val permissionResult: StateFlow<Boolean?> = _permissionResult.asStateFlow()
 
     init {
+        XLog.tag(TAG).e("init: registering Shizuku listeners, initialBinder=${_binderAlive.value}")
         val handler = Handler(Looper.getMainLooper())
         try {
             Shizuku.addBinderDeadListener(
                 {
                     _binderAlive.value = false
-                    XLog.tag(TAG).w("binder dead")
+                    XLog.tag(TAG).e("binder DEAD")
                 },
                 handler,
             )
             Shizuku.addBinderReceivedListener(
                 {
                     _binderAlive.value = true
-                    XLog.tag(TAG).i("binder received")
-                    // Pre-bind UserService as soon as binder is available
-                    // (init-time bindService() often fails because binder isn't attached yet)
+                    XLog.tag(TAG).e("binder RECEIVED → calling bindService()")
                     bindService()
                 },
                 handler,
@@ -71,13 +70,14 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
                 { _, grantResult ->
                     val granted = grantResult == PackageManager.PERMISSION_GRANTED
                     _permissionResult.value = granted
-                    XLog.tag(TAG).i("permission result: granted=$granted")
+                    XLog.tag(TAG).e("permission result: granted=$granted")
                     if (granted) bindService()
                 },
                 handler,
             )
+            XLog.tag(TAG).e("init: listeners registered OK")
         } catch (e: Exception) {
-            XLog.tag(TAG).d("addListeners failed (Shizuku not yet attached)", e)
+            XLog.tag(TAG).e("init: addListeners FAILED", e)
         }
     }
 
@@ -102,19 +102,20 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            XLog.tag(TAG).e("onServiceConnected: name=$name, service=$service, pingBinder=${service?.pingBinder()}")
             if (service != null && service.pingBinder()) {
                 shellService = IShellService.Stub.asInterface(service)
                 bound = true
-                XLog.tag(TAG).i("onServiceConnected: UserService bound successfully")
+                XLog.tag(TAG).e("onServiceConnected: UserService bound OK ✓")
             } else {
-                XLog.tag(TAG).e("onServiceConnected: service null or binder dead")
+                XLog.tag(TAG).e("onServiceConnected: service null or binder dead ✗")
             }
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
             shellService = null
             bound = false
-            XLog.tag(TAG).w("onServiceDisconnected")
+            XLog.tag(TAG).e("onServiceDisconnected: name=$name")
         }
     }
 
@@ -123,25 +124,30 @@ class ShizukuExecutor @Inject constructor() : ShellExecutor {
      * Safe to call multiple times — skips if already bound.
      */
     fun bindService() {
+        XLog.tag(TAG).e("bindService: bound=$bound, shellService=${shellService != null}")
         if (bound && shellService != null) {
-            XLog.tag(TAG).d("bindService: already bound, skipping")
+            XLog.tag(TAG).e("bindService: already bound, skipping")
             return
         }
         try {
             val binderAlive = Shizuku.pingBinder()
+            XLog.tag(TAG).e("bindService: pingBinder=$binderAlive")
             if (!binderAlive) {
-                XLog.tag(TAG).w("bindService: binder not alive, skipping")
+                XLog.tag(TAG).e("bindService: binder NOT alive, skipping")
                 return
             }
-            val granted = Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
+            val permResult = Shizuku.checkSelfPermission()
+            val granted = permResult == PackageManager.PERMISSION_GRANTED
+            XLog.tag(TAG).e("bindService: checkSelfPermission=$permResult, granted=$granted")
             if (!granted) {
-                XLog.tag(TAG).w("bindService: permission not granted, skipping")
+                XLog.tag(TAG).e("bindService: permission NOT granted, skipping")
                 return
             }
-            XLog.tag(TAG).i("bindService: calling Shizuku.bindUserService()")
+            XLog.tag(TAG).e("bindService: calling Shizuku.bindUserService() now")
             Shizuku.bindUserService(userServiceArgs, serviceConnection)
+            XLog.tag(TAG).e("bindService: bindUserService() returned (callback pending)")
         } catch (e: Exception) {
-            XLog.tag(TAG).d("bindService failed", e)
+            XLog.tag(TAG).e("bindService: EXCEPTION", e)
         }
     }
 

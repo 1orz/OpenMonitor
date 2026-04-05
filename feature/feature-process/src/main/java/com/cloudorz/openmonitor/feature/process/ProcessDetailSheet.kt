@@ -19,20 +19,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -54,7 +48,6 @@ import com.cloudorz.openmonitor.core.ui.theme.ChartGreen
 import com.cloudorz.openmonitor.core.ui.theme.ChartRed
 import com.cloudorz.openmonitor.core.ui.theme.ChartYellow
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProcessDetailScreen(
     onBack: () -> Unit,
@@ -70,63 +63,26 @@ fun ProcessDetailScreen(
         return
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = process?.displayName ?: "Process Detail",
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                    }
-                },
-                actions = {
-                    if (process != null) {
-                        FilledTonalButton(
-                            onClick = { viewModel.killProcess() },
-                            colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer,
-                                contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                            ),
-                        ) {
-                            Text("Kill")
-                        }
-                    }
-                },
-            )
-        },
-    ) { innerPadding ->
-        if (loading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentAlignment = Alignment.Center,
-            ) {
-                CircularProgressIndicator()
-            }
-        } else if (process == null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("Process not found", color = MaterialTheme.colorScheme.outline)
-            }
-        } else {
-            ProcessDetailContent(
-                process = process!!,
-                threads = threads,
-                threadsLoading = false,
-                modifier = Modifier.padding(innerPadding),
-            )
+    if (loading) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            CircularProgressIndicator()
         }
+    } else if (process == null) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("Process not found", color = MaterialTheme.colorScheme.outline)
+        }
+    } else {
+        ProcessDetailContent(
+            process = process!!,
+            threads = threads,
+            onKill = { viewModel.killProcess() },
+        )
     }
 }
 
@@ -135,16 +91,33 @@ private fun ProcessDetailContent(
     process: ProcessInfo,
     threads: List<ThreadInfo>,
     threadsLoading: Boolean = false,
-    modifier: Modifier = Modifier,
+    onKill: (() -> Unit)? = null,
 ) {
     Column(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp)
             .padding(bottom = 32.dp),
     ) {
         ProcessDetailHeader(process = process)
+
+        if (onKill != null) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                FilledTonalButton(
+                    onClick = onKill,
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    ),
+                ) {
+                    Text("Kill")
+                }
+            }
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 

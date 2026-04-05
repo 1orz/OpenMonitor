@@ -133,11 +133,7 @@ fun PermissionSetupScreen(onAllGranted: () -> Unit) {
                 title = stringResource(R.string.perm_overlay_title),
                 description = stringResource(R.string.perm_overlay_desc),
                 granted = overlayGranted,
-                onGrant = {
-                    settingsLauncher.launch(
-                        Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, packageUri),
-                    )
-                },
+                onGrant = { settingsLauncher.launch(overlayPermissionIntent(context)) },
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -315,4 +311,26 @@ private fun hasUsageStatsPermission(context: Context): Boolean {
 private fun isIgnoringBatteryOptimizations(context: Context): Boolean {
     val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
     return pm.isIgnoringBatteryOptimizations(context.packageName)
+}
+
+/**
+ * Returns an Intent that opens this app's overlay permission toggle.
+ *
+ * Some OEM ROMs (OPPO/ColorOS, OnePlus/OxygenOS, Realme, vivo/OriginOS)
+ * redirect ACTION_MANAGE_OVERLAY_PERMISSION to a generic list page instead
+ * of the per-app toggle. For these, fall back to the app detail settings
+ * which always contains the overlay toggle on the app's own page.
+ */
+private fun overlayPermissionIntent(context: Context): Intent {
+    val packageUri = Uri.parse("package:${context.packageName}")
+    val brand = Build.MANUFACTURER.lowercase()
+    // These brands are known to redirect the overlay intent to a list page
+    val brokenOverlayIntent = brand in setOf(
+        "oppo", "oneplus", "realme", "vivo", "iqoo", "oplus",
+    )
+    return if (brokenOverlayIntent) {
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri)
+    } else {
+        Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, packageUri)
+    }
 }
