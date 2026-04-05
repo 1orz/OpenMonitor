@@ -41,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -359,15 +360,16 @@ fun FloatMiniMonitorContent(service: FloatMonitorService) {
     val coreFreqs by service.cpuCoreFreqs.collectAsState()
     val gpuFreq by service.gpuFreqMhz.collectAsState()
     val batTemp by service.batteryTemp.collectAsState()
+    val batVoltage by service.batteryVoltage.collectAsState()
     val showCpuFreq by service.miniShowCpuFreq.collectAsState()
     val showGpuFreq by service.miniShowGpuFreq.collectAsState()
 
-    // Alternate between battery current and battery temp every 3s
-    var showBatTemp by remember { mutableStateOf(false) }
+    // Cycle battery info: current → temp → power every 3s
+    var batCycleIndex by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) {
         while (true) {
             delay(3000)
-            showBatTemp = !showBatTemp
+            batCycleIndex = (batCycleIndex + 1) % 3
         }
     }
 
@@ -425,15 +427,24 @@ fun FloatMiniMonitorContent(service: FloatMonitorService) {
             }
             MiniIconLabel(R.drawable.ic_frame, fpsText, Color.White)
 
-            // Alternating: battery current ↔ battery temp (same icon & color)
+            // Cycle: battery current → temp → power
             val batTempVal = batTemp
             val mAVal = mA
-            if (showBatTemp && batTempVal != null && batTempVal > 0.0) {
-                MiniIconLabel(R.drawable.ic_current, "%.1f\u00B0".format(batTempVal), Color.White)
-            } else if (mAVal != null) {
-                MiniIconLabel(R.drawable.ic_current, "%dmA".format(mAVal), Color.White)
-            } else {
-                MiniIconLabel(R.drawable.ic_current, "--mA", Color.White)
+            val voltage = batVoltage
+            when (batCycleIndex) {
+                0 -> {
+                    val text = if (mAVal != null) "%dmA".format(mAVal) else "--mA"
+                    MiniIconLabel(R.drawable.ic_current, text, Color.White)
+                }
+                1 -> {
+                    val text = if (batTempVal != null && batTempVal > 0.0) "%.1f\u00B0".format(batTempVal) else "--\u00B0"
+                    MiniIconLabel(R.drawable.ic_current, text, Color.White)
+                }
+                2 -> {
+                    val powerW = if (mAVal != null && voltage > 0) mAVal * voltage / 1000.0 else null
+                    val text = if (powerW != null) "%.1fW".format(powerW) else "--W"
+                    MiniIconLabel(R.drawable.ic_current, text, Color.White)
+                }
             }
         }
     }

@@ -171,7 +171,7 @@ class FloatMonitorService : LifecycleService() {
     private var fpsInteractionJob: Job? = null
     private var fpsDurationMenuJob: Job? = null
     private var notificationUpdateJob: Job? = null
-    private val batteryVoltage = MutableStateFlow(0.0)
+    val batteryVoltage = MutableStateFlow(0.0)
     val memTotalMB = MutableStateFlow(0.0)
     val memUsedMB = MutableStateFlow(0.0)
     val loadMonitorCompact = MutableStateFlow(true)

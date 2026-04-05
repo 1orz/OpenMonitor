@@ -295,7 +295,7 @@ private fun MainScreen(permissionManager: PermissionManager) {
                 },
                 actions = { topBarActions() },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
                 ),
             )
         },

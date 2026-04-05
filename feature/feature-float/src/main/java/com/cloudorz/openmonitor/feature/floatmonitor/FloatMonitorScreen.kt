@@ -6,6 +6,7 @@ import androidx.core.net.toUri
 import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -19,17 +20,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -38,7 +35,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -77,13 +73,7 @@ fun FloatMonitorScreen(
         }
     }
 
-    Scaffold(
-        snackbarHost = {
-            SnackbarHost(snackbarHostState) { data ->
-                Snackbar(snackbarData = data)
-            }
-        },
-    ) { paddingValues ->
+    Box(modifier = Modifier.fillMaxSize()) {
         FloatMonitorScreenContent(
             hasOverlayPermission = uiState.hasOverlayPermission,
             canShowOverlay = uiState.canShowOverlay,
@@ -106,8 +96,11 @@ fun FloatMonitorScreen(
                     )
                 }
             },
-            modifier = Modifier.padding(paddingValues),
         )
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter),
+        ) { data -> Snackbar(snackbarData = data) }
     }
 }
 
@@ -120,31 +113,32 @@ private fun FloatMonitorScreenContent(
     onRequestOverlayPermission: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val expandedInfo = remember { mutableStateMapOf<FloatMonitorType, Boolean>() }
-
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
     ) {
-        // Monitor type cards
         items(
             items = FloatMonitorType.entries.toList(),
             key = { it.name },
         ) { monitorType ->
-            val isEnabled = monitorType in enabledMonitors
-            val isExpanded = expandedInfo[monitorType] == true
-
-            MonitorTypeCard(
-                monitorType = monitorType,
-                isEnabled = isEnabled,
-                isExpanded = isExpanded,
-                switchEnabled = canShowOverlay,
-                onToggle = { enabled -> onToggleMonitor(monitorType, enabled) },
-                onInfoClick = {
-                    expandedInfo[monitorType] = !(expandedInfo[monitorType] ?: false)
-                },
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(monitorType.displayNameRes),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f),
+                )
+                Switch(
+                    checked = monitorType in enabledMonitors,
+                    onCheckedChange = { enabled -> onToggleMonitor(monitorType, enabled) },
+                    enabled = canShowOverlay,
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
         }
 
         // Permission section
@@ -157,80 +151,6 @@ private fun FloatMonitorScreenContent(
                 hasOverlayPermission = hasOverlayPermission,
                 onRequestOverlayPermission = onRequestOverlayPermission,
             )
-        }
-    }
-}
-
-@Composable
-private fun MonitorTypeCard(
-    monitorType: FloatMonitorType,
-    isEnabled: Boolean,
-    isExpanded: Boolean,
-    switchEnabled: Boolean,
-    onToggle: (Boolean) -> Unit,
-    onInfoClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-        ),
-        shape = MaterialTheme.shapes.medium,
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text(
-                        text = stringResource(monitorType.displayNameRes),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = stringResource(monitorType.descriptionRes),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-
-                IconButton(onClick = onInfoClick) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = stringResource(R.string.detail_info),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-
-                Switch(
-                    checked = isEnabled,
-                    onCheckedChange = onToggle,
-                    enabled = switchEnabled,
-                )
-            }
-
-            if (isExpanded) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = stringResource(monitorType.infoRes),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            color = MaterialTheme.colorScheme.surface,
-                            shape = MaterialTheme.shapes.small,
-                        )
-                        .padding(12.dp),
-                )
-            }
         }
     }
 }

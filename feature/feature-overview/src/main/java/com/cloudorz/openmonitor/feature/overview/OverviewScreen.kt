@@ -139,10 +139,7 @@ private fun OverviewContent(
         // 4. GPU
         GpuCard(gpuInfo = uiState.gpuInfo)
 
-        // 5. Top processes
-        TopProcessesCard(processes = uiState.topProcesses, onProcessClick = onProcessClick)
-
-        // 6. Cache & features (conditional)
+        // 5. Cache & features (conditional)
         val cache = uiState.cpuStatus.cacheInfo
         val neon = uiState.cpuStatus.hasArmNeon
         if (cache.hasData || neon != null) {
@@ -456,45 +453,7 @@ private fun GpuCard(gpuInfo: GpuInfo) {
 }
 
 // ---------------------------------------------------------------------------
-// 5. Top Processes
-// ---------------------------------------------------------------------------
-
-@Composable
-private fun TopProcessesCard(processes: List<ProcessInfo>, onProcessClick: (Int) -> Unit) {
-    StatCard(title = "Top Processes") {
-        if (processes.isEmpty()) {
-            Text("No data", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        } else {
-            processes.forEach { process ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(4.dp))
-                        .clickable { onProcessClick(process.pid) }
-                        .padding(vertical = 3.dp, horizontal = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = process.displayName,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("%.1f%%".format(process.cpuPercent), style = MaterialTheme.typography.labelSmall, color = loadColor(process.cpuPercent))
-                            Text(formatBytes(process.memKB), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// 6. Cache & Features Card
+// 5. Cache & Features Card
 // ---------------------------------------------------------------------------
 
 @Composable
