@@ -380,7 +380,7 @@ private fun MainScreen(permissionManager: PermissionManager) {
                 )
             }
             composable(FeatureRoute.FPS_SESSION_DETAIL) {
-                FpsSessionDetailScreen()
+                FpsSessionDetailScreen(onProvideTopBarActions = { topBarActions = it })
             }
             composable(FeatureRoute.PROCESS) {
                 ProcessScreen(

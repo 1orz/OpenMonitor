@@ -81,6 +81,7 @@ import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.Icon
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.isSystemInDarkTheme
+import com.cloudorz.openmonitor.core.model.thermal.ThermalZone
 import kotlinx.coroutines.delay
 
 /** Modifier that performs haptic feedback on click. */
@@ -700,41 +701,137 @@ private fun formatCompactDuration(seconds: Long): String {
 }
 
 @Composable
-fun FloatTemperatureContent(service: FloatMonitorService) {
+fun FloatTemperatureContent(service: FloatMonitorService, showExtended: Boolean = false) {
     val zones by service.thermalZones.collectAsState()
 
     Box(
         modifier = Modifier
-            .width(130.dp)
+            .width(100.dp)
             .background(BG, RoundedCornerShape(8.dp))
-            .padding(10.dp),
+            .padding(horizontal = 8.dp, vertical = 6.dp),
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(
                 text = stringResource(R.string.float_temp_header),
                 style = MonoStyle.copy(fontSize = 10.sp, color = TextSecondary, letterSpacing = 0.5.sp),
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(3.dp))
 
-            val filtered = zones.filter { zone ->
-                zone.type.contains("cpu", ignoreCase = true) ||
-                    zone.type.contains("gpu", ignoreCase = true) ||
-                    zone.type.contains("battery", ignoreCase = true) ||
-                    zone.type.contains("soc", ignoreCase = true) ||
-                    zone.type.contains("skin", ignoreCase = true) ||
-                    zone.type.contains("tsens", ignoreCase = true)
-            }.take(10)
-
-            val display = filtered.ifEmpty { zones.take(8) }
-            if (display.isEmpty()) {
-                Text("No thermal data", style = TextStyle(fontSize = 11.sp, color = Color(0x80FFFFFF)))
+            val categories = remember(zones, showExtended) {
+                categorizeThermalZones(zones, showExtended)
+            }
+            if (categories.isEmpty()) {
+                Text(
+                    stringResource(R.string.thermal_no_data),
+                    style = TextStyle(fontSize = 11.sp, color = Color(0x80FFFFFF)),
+                )
             } else {
-                display.forEach { zone ->
-                    ThermalRow(zone.type.ifEmpty { zone.name }, zone.temperatureCelsius)
+                categories.forEach { cat ->
+                    ThermalRow(thermalCategoryLabel(cat.id), cat.maxTemp)
                 }
             }
         }
     }
+}
+
+// ---- Thermal zone classification ----
+
+private data class ThermalCategoryInfo(val id: String, val maxTemp: Double)
+
+private val CATEGORY_ORDER = listOf(
+    "cpu", "gpu", "npu", "soc", "modem", "battery", "skin",
+    "wifi", "camera", "ddr", "video", "charger", "pa",
+    "usb", "display", "audio", "storage", "tpu",
+)
+
+/** Categories that are hidden by default and only shown when extended mode is enabled. */
+private val EXTENDED_CATEGORIES = setOf("usb", "display", "audio", "storage", "tpu")
+
+private fun categorizeThermalZones(
+    zones: List<ThermalZone>,
+    showExtended: Boolean = false,
+): List<ThermalCategoryInfo> {
+    if (zones.isEmpty()) return emptyList()
+    return zones
+        .filter { it.temperatureCelsius > 0 }
+        .groupBy { classifyThermalType(it.type) }
+        .filterKeys { it != "other" && (showExtended || it !in EXTENDED_CATEGORIES) }
+        .map { (cat, list) -> ThermalCategoryInfo(cat, list.maxOf { it.temperatureCelsius }) }
+        .sortedBy { CATEGORY_ORDER.indexOf(it.id).let { i -> if (i < 0) 999 else i } }
+}
+
+private fun classifyThermalType(type: String): String {
+    val t = type.lowercase().trim()
+    return when {
+        // GPU（先于 CPU 检查，避免 "gpuss" 误匹配 "cpu"）
+        t.startsWith("gpuss") || t.contains("gpu") -> "gpu"
+        // CPU 各核心：cpu-X-Y-usr / cpu_X_Y 等
+        t.matches(Regex("cpu[_-]\\d+[_-]\\d+.*")) -> "cpu"
+        t.contains("cpu") -> "cpu"
+        // NPU / DSP（含 Hexagon HVX）
+        t.startsWith("nspss") || t.startsWith("cdsp") || t.contains("npu") ||
+            t.startsWith("q6-hvx") -> "npu"
+        // 基带 Modem
+        t.startsWith("mdmss") || t.contains("modem") -> "modem"
+        // 相机
+        t.startsWith("camera") -> "camera"
+        // WiFi（含高通 cwlan）
+        t.startsWith("wlan") || t.startsWith("cwlan") || t.contains("wifi") -> "wifi"
+        // 视频编解码
+        t.startsWith("video") -> "video"
+        // DDR 内存（含 PoP 封装内存）
+        t.startsWith("ddr") || t.contains("dram") || t.startsWith("pop-mem") -> "ddr"
+        // 电池 / PMIC / BMS
+        t.contains("battery") || t.contains("bms") ||
+            (t.startsWith("pm") && t.contains("_tz")) -> "battery"
+        // 充电器
+        t.contains("charger") -> "charger"
+        // 表面温度 / 环境
+        t.contains("skin") || t.contains("quiet-therm") || t.contains("xo-therm") ||
+            t.contains("shell-therm") || t.contains("back-therm") -> "skin"
+        // SoC
+        t.startsWith("aoss") || t.contains("soc") || t.contains("exynos") -> "soc"
+        // 功放 PA（含 rf-pa、pa-therm 格式）
+        t.matches(Regex("pa[_-]\\d+.*")) || t.contains("rf-pa") ||
+            t.startsWith("pa-therm") -> "pa"
+        // 高通 tsens（归类为 SoC）
+        t.contains("tsens") -> "soc"
+        // ---- Extended categories (opt-in) ----
+        // USB / 连接器
+        t.contains("usb") || t.startsWith("conn-therm") -> "usb"
+        // Display
+        t.contains("display") || t.startsWith("mdp") || t.contains("panel-therm") -> "display"
+        // 音频子系统
+        t.startsWith("audio") || t.startsWith("lpass") -> "audio"
+        // 存储（UFS/eMMC）
+        t.startsWith("nvm-therm") || t.contains("emmc-therm") || t.contains("ufs") -> "storage"
+        // TPU (Google Tensor)
+        t.contains("tpu") -> "tpu"
+        else -> "other"
+    }
+}
+
+@Composable
+private fun thermalCategoryLabel(id: String): String = when (id) {
+    "cpu" -> "CPU"
+    "gpu" -> "GPU"
+    "npu" -> "NPU"
+    "soc" -> "SoC"
+    "ddr" -> "DDR"
+    "wifi" -> "WiFi"
+    "pa" -> "PA"
+    "video" -> "Video"
+    "modem" -> "Modem"
+    "camera" -> "Cam"
+    "usb" -> "USB"
+    "display" -> "Disp"
+    "audio" -> "Audio"
+    "storage" -> "UFS"
+    "tpu" -> "TPU"
+    "battery" -> stringResource(R.string.thermal_cat_battery)
+    "skin" -> stringResource(R.string.thermal_cat_skin)
+    "charger" -> stringResource(R.string.thermal_cat_charger)
+    else -> id
 }
 
 @Composable
@@ -1093,8 +1190,8 @@ fun FloatControlPanelContent(service: FloatMonitorService) {
     val activeIds by service.activeMonitorIds.collectAsState()
     val miniShowCpuFreq by service.miniShowCpuFreq.collectAsState()
     val miniShowGpuFreq by service.miniShowGpuFreq.collectAsState()
+    val tempExtended by service.tempShowExtended.collectAsState()
 
-    // 全部 8 个按钮统一放入 4×2 网格
     data class Btn(val icon: ImageVector, val name: String, val active: Boolean, val onClick: () -> Unit)
     val buttons = listOf(
         Btn(Icons.Filled.Speed,       "负载",   FloatMonitorService.TYPE_LOAD        in activeIds) { service.toggleMonitorFromPanel(FloatMonitorService.TYPE_LOAD) },
@@ -1105,6 +1202,7 @@ fun FloatControlPanelContent(service: FloatMonitorService) {
         Btn(Icons.Filled.AccountTree, "线程",   FloatMonitorService.TYPE_THREAD      in activeIds) { service.toggleMonitorFromPanel(FloatMonitorService.TYPE_THREAD) },
         Btn(Icons.Filled.Memory,      "CPU频率", miniShowCpuFreq) { service.onMiniCpuFreqToggle() },
         Btn(Icons.Filled.Videocam,    "GPU频率", miniShowGpuFreq) { service.onMiniGpuFreqToggle() },
+        Btn(Icons.Filled.UnfoldMore, "扩展温度", tempExtended) { service.onTempExtendedToggle() },
     )
 
     val panelBg = if (isSystemInDarkTheme()) Color(0xF0222222) else Color(0xF0FFFFFF)
@@ -1137,8 +1235,9 @@ fun FloatControlPanelContent(service: FloatMonitorService) {
                 )
             }
             Spacer(modifier = Modifier.height(10.dp))
-            // 4×2 方形按钮网格
-            buttons.chunked(4).forEach { row ->
+            // 方形按钮网格（4 列）
+            val cols = 4
+            buttons.chunked(cols).forEach { row ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -1151,6 +1250,9 @@ fun FloatControlPanelContent(service: FloatMonitorService) {
                             onClick = btn.onClick,
                             modifier = Modifier.weight(1f).aspectRatio(1f),
                         )
+                    }
+                    repeat(cols - row.size) {
+                        Spacer(modifier = Modifier.weight(1f).aspectRatio(1f))
                     }
                 }
                 Spacer(modifier = Modifier.height(6.dp))

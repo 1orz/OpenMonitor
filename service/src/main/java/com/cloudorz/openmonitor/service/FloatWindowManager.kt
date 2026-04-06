@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.res.Configuration
 import androidx.core.content.edit
 import android.graphics.PixelFormat
+import android.graphics.Point
 import android.os.Build
 import android.util.Log
 import android.view.Gravity
@@ -40,6 +41,29 @@ class FloatWindowManager(private val context: Context) {
 
     companion object {
         private const val TAG = "FloatWindowManager"
+
+        /** 获取真实屏幕尺寸（包含系统栏区域） */
+        private fun getRealScreenSize(wm: WindowManager, res: android.content.res.Resources): Point {
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val bounds = wm.currentWindowMetrics.bounds
+                Point(bounds.width(), bounds.height())
+            } else {
+                val point = Point()
+                @Suppress("DEPRECATION")
+                wm.defaultDisplay?.getRealSize(point)
+                if (point.x == 0 || point.y == 0) {
+                    point.x = res.displayMetrics.widthPixels
+                    point.y = res.displayMetrics.heightPixels
+                }
+                point
+            }
+        }
+
+        /** 获取状态栏高度 */
+        private fun getStatusBarHeight(res: android.content.res.Resources): Int {
+            val resId = res.getIdentifier("status_bar_height", "dimen", "android")
+            return if (resId > 0) res.getDimensionPixelSize(resId) else 0
+        }
     }
 
     private val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
@@ -83,7 +107,8 @@ class FloatWindowManager(private val context: Context) {
                 @Suppress("DEPRECATION")
                 WindowManager.LayoutParams.FLAG_FULLSCREEN or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-            draggable -> baseFlags
+            draggable -> baseFlags or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
             onClick != null -> baseFlags // touchable but non-draggable (control panel)
             else -> baseFlags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
         }
@@ -109,7 +134,7 @@ class FloatWindowManager(private val context: Context) {
             }
             this.x = if (hasSaved) savedX else if (centerHorizontal || centerVertical) 0 else x
             this.y = if (hasSaved) savedY else if (centerVertical) 0 else y
-            if (aboveStatusBar && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            if ((aboveStatusBar || draggable) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 layoutInDisplayCutoutMode =
                     WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
             }
@@ -178,6 +203,14 @@ class FloatWindowManager(private val context: Context) {
         lifecycleOwner.handleLifecycleEvent(Lifecycle.Event.ON_START)
         lifecycleOwner.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
 
+        // 监听系统栏变化（沉浸模式退出、状态栏出现等），自动修正窗口位置
+        if (draggable) {
+            rootView.setOnApplyWindowInsetsListener { _, insets ->
+                ensureWindowsWithinBounds()
+                insets
+            }
+        }
+
         windowManager.addView(rootView, params)
         activeWindows[id] = FloatWindow(id, rootView, params)
 
@@ -241,6 +274,38 @@ class FloatWindowManager(private val context: Context) {
         }
     }
 
+    fun updateWindowPositionBounded(id: String, x: Int, y: Int) {
+        val window = activeWindows[id] ?: return
+        val w = window.view.width.coerceAtLeast(1)
+        val h = window.view.height.coerceAtLeast(1)
+
+        val topInset: Int
+        val screenW: Int
+        val screenH: Int
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val metrics = windowManager.currentWindowMetrics
+            screenW = metrics.bounds.width()
+            screenH = metrics.bounds.height()
+            topInset = metrics.windowInsets
+                .getInsets(android.view.WindowInsets.Type.statusBars()).top
+        } else {
+            val res = context.resources
+            val realSize = getRealScreenSize(windowManager, res)
+            screenW = realSize.x
+            screenH = realSize.y
+            topInset = getStatusBarHeight(res)
+        }
+
+        window.params.x = x.coerceIn(0, (screenW - w).coerceAtLeast(0))
+        window.params.y = y.coerceIn(topInset, (screenH - h).coerceAtLeast(topInset))
+
+        try {
+            windowManager.updateViewLayout(window.view, window.params)
+        } catch (e: Exception) {
+            Log.d(TAG, "updateWindowPositionBounded($id) failed", e)
+        }
+    }
+
     fun getWindowPosition(id: String): Pair<Int, Int>? {
         val window = activeWindows[id] ?: return null
         return window.params.x to window.params.y
@@ -261,6 +326,50 @@ class FloatWindowManager(private val context: Context) {
             windowManager.updateViewLayout(window.view, window.params)
         } catch (e: Exception) {
             Log.d(TAG, "refreshWindowLayout($id) failed", e)
+        }
+    }
+
+    /**
+     * 确保所有可拖拽悬浮窗在当前屏幕安全区域内。
+     * 当状态栏出现/消失或屏幕旋转时调用，防止窗口被系统栏遮挡。
+     */
+    fun ensureWindowsWithinBounds() {
+        val topInset: Int
+        val screenW: Int
+        val screenH: Int
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val metrics = windowManager.currentWindowMetrics
+            screenW = metrics.bounds.width()
+            screenH = metrics.bounds.height()
+            topInset = metrics.windowInsets
+                .getInsets(android.view.WindowInsets.Type.statusBars()).top
+        } else {
+            val res = context.resources
+            val realSize = getRealScreenSize(windowManager, res)
+            screenW = realSize.x
+            screenH = realSize.y
+            topInset = getStatusBarHeight(res)
+        }
+
+        activeWindows.values.forEach { window ->
+            val v = window.view
+            if (v !is DraggableFrameLayout) return@forEach
+            val p = window.params
+            val w = v.width.coerceAtLeast(1)
+            val h = v.height.coerceAtLeast(1)
+            val clampedX = p.x.coerceIn(0, (screenW - w).coerceAtLeast(0))
+            val clampedY = p.y.coerceIn(topInset, (screenH - h).coerceAtLeast(topInset))
+            if (clampedX != p.x || clampedY != p.y) {
+                p.x = clampedX
+                p.y = clampedY
+                try {
+                    windowManager.updateViewLayout(v, p)
+                } catch (_: Exception) {}
+                posPrefs.edit {
+                    putInt("${window.id}_x", clampedX)
+                    putInt("${window.id}_y", clampedY)
+                }
+            }
         }
     }
 
@@ -364,15 +473,32 @@ class FloatWindowManager(private val context: Context) {
                         }
                     }
                     val params = windowParams ?: return true
-                    val screenWidth = resources.displayMetrics.widthPixels
-                    val screenHeight = resources.displayMetrics.heightPixels
                     val w = width.coerceAtLeast(1)
                     val h = height.coerceAtLeast(1)
+                    val newX = initialX + (event.rawX - initialTouchX).toInt()
+                    val newY = initialY + (event.rawY - initialTouchY).toInt()
 
-                    params.x = (initialX + (event.rawX - initialTouchX).toInt())
-                        .coerceIn(0, (screenWidth - w).coerceAtLeast(0))
-                    params.y = (initialY + (event.rawY - initialTouchY).toInt())
-                        .coerceIn(0, (screenHeight - h).coerceAtLeast(0))
+                    // 实时检测状态栏是否存在，有则留出高度，无则撑满
+                    val wm = windowMgr
+                    val topInset: Int
+                    val screenW: Int
+                    val screenH: Int
+                    if (wm != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        val metrics = wm.currentWindowMetrics
+                        screenW = metrics.bounds.width()
+                        screenH = metrics.bounds.height()
+                        topInset = metrics.windowInsets
+                            .getInsets(android.view.WindowInsets.Type.statusBars()).top
+                    } else {
+                        val realSize = if (wm != null) getRealScreenSize(wm, resources)
+                            else Point(resources.displayMetrics.widthPixels, resources.displayMetrics.heightPixels)
+                        screenW = realSize.x
+                        screenH = realSize.y
+                        topInset = getStatusBarHeight(resources)
+                    }
+
+                    params.x = newX.coerceIn(0, (screenW - w).coerceAtLeast(0))
+                    params.y = newY.coerceIn(topInset, (screenH - h).coerceAtLeast(topInset))
                     try {
                         windowMgr?.updateViewLayout(this, params)
                     } catch (e: Exception) {

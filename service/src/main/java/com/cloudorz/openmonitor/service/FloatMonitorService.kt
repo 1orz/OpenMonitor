@@ -42,6 +42,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
+import androidx.compose.runtime.collectAsState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
@@ -86,6 +87,7 @@ class FloatMonitorService : LifecycleService() {
         const val KEY_POLL_INTERVAL = "poll_interval"
         const val DEFAULT_POLL_INTERVAL = 500L
         private const val KEY_DARK_MODE = "dark_mode"
+        private const val KEY_TEMP_EXTENDED = "temp_extended_categories"
 
         fun startIntent(context: Context): Intent =
             Intent(context, FloatMonitorService::class.java).apply { action = ACTION_START }
@@ -177,6 +179,7 @@ class FloatMonitorService : LifecycleService() {
     val loadMonitorCompact = MutableStateFlow(true)
     val miniShowCpuFreq = MutableStateFlow(false)
     val miniShowGpuFreq = MutableStateFlow(false)
+    val tempShowExtended = MutableStateFlow(false)
 
     // Dark theme for float windows: considers app pref (0=system,1=light,2=dark) + system config
     val floatDarkTheme = MutableStateFlow(false)
@@ -192,6 +195,16 @@ class FloatMonitorService : LifecycleService() {
         val newVal = !miniShowGpuFreq.value
         miniShowGpuFreq.value = newVal
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit { putBoolean(KEY_MINI_GPU_FREQ, newVal) }
+    }
+
+    fun onTempExtendedToggle() {
+        val newVal = !tempShowExtended.value
+        tempShowExtended.value = newVal
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit { putBoolean(KEY_TEMP_EXTENDED, newVal) }
+        lifecycleScope.launch {
+            delay(50)
+            floatWindowManager.refreshWindowLayout(TYPE_TEMPERATURE)
+        }
     }
 
     fun onLoadMonitorModeToggle() {
@@ -225,7 +238,7 @@ class FloatMonitorService : LifecycleService() {
     fun moveProcessWindow(dx: Float, dy: Float) {
         if (processLocked.value) return
         val pos = floatWindowManager.getWindowPosition(TYPE_PROCESS) ?: return
-        floatWindowManager.updateWindowPosition(TYPE_PROCESS, pos.first + dx.toInt(), pos.second + dy.toInt())
+        floatWindowManager.updateWindowPositionBounded(TYPE_PROCESS, pos.first + dx.toInt(), pos.second + dy.toInt())
     }
 
     fun saveProcessWindowPosition() {
@@ -399,11 +412,26 @@ class FloatMonitorService : LifecycleService() {
         return START_STICKY
     }
 
+    /** 监听配置变化（屏幕旋转），确保悬浮窗不被系统栏遮挡 */
+    private val configCallback = object : android.content.ComponentCallbacks {
+        override fun onConfigurationChanged(newConfig: Configuration) {
+            // 延迟让 WindowManager metrics 更新完成
+            lifecycleScope.launch {
+                delay(350)
+                floatWindowManager.ensureWindowsWithinBounds()
+            }
+        }
+        override fun onLowMemory() {}
+    }
+
     private fun startFloatService() {
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         miniShowCpuFreq.value = prefs.getBoolean(KEY_MINI_CPU_FREQ, false)
         miniShowGpuFreq.value = prefs.getBoolean(KEY_MINI_GPU_FREQ, false)
+        tempShowExtended.value = prefs.getBoolean(KEY_TEMP_EXTENDED, false)
         prefs.edit { putBoolean(KEY_SERVICE_ACTIVE, true) }
+
+        applicationContext.registerComponentCallbacks(configCallback)
 
         startForeground(NOTIFICATION_ID, buildCustomNotification())
         startNotificationUpdateJob()
@@ -642,7 +670,7 @@ class FloatMonitorService : LifecycleService() {
                     onDoubleTap = { removeMonitor(type) },
                     darkTheme = floatDarkTheme,
                 ) {
-                    FloatTemperatureContent(service)
+                    FloatTemperatureContent(service, showExtended = service.tempShowExtended.collectAsState().value)
                 }
             }
             TYPE_PROCESS -> {
@@ -893,6 +921,7 @@ class FloatMonitorService : LifecycleService() {
     }
 
     override fun onDestroy() {
+        applicationContext.unregisterComponentCallbacks(configCallback)
         prefChangeListener?.let {
             getSharedPreferences(PREFS_NAME, MODE_PRIVATE).unregisterOnSharedPreferenceChangeListener(it)
         }

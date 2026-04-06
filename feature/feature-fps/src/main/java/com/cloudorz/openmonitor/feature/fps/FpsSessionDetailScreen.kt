@@ -41,6 +41,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -132,36 +133,50 @@ private enum class ChartSection(val label: String) {
 @Composable
 fun FpsSessionDetailScreen(
     viewModel: FpsSessionDetailViewModel = hiltViewModel(),
+    onProvideTopBarActions: (@Composable () -> Unit) -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    var showSectionOptions by remember { mutableStateOf(false) }
 
-    FpsSessionDetailContent(
-        state = state,
-        onExport = {
+    val actions: @Composable () -> Unit = {
+        IconButton(onClick = { showSectionOptions = true }) {
+            Icon(Icons.Default.Tune, contentDescription = "Chart Options")
+        }
+        IconButton(onClick = {
             viewModel.getExportIntent { intent ->
                 context.startActivity(intent)
             }
-        },
+        }) {
+            Icon(Icons.Default.Share, contentDescription = "Export CSV")
+        }
+    }
+    LaunchedEffect(Unit) { onProvideTopBarActions(actions) }
+    DisposableEffect(Unit) { onDispose { onProvideTopBarActions {} } }
+
+    FpsSessionDetailContent(
+        state = state,
+        showSectionOptions = showSectionOptions,
+        onDismissSectionOptions = { showSectionOptions = false },
     )
 }
 
 @Composable
 private fun FpsSessionDetailContent(
     state: FpsSessionDetailState,
-    onExport: () -> Unit = {},
+    showSectionOptions: Boolean = false,
+    onDismissSectionOptions: () -> Unit = {},
 ) {
     val session = state.session
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()) }
     val sectionVisibility = remember {
         mutableStateMapOf<ChartSection, Boolean>().apply { ChartSection.entries.forEach { put(it, true) } }
     }
-    var showSectionOptions by remember { mutableStateOf(false) }
 
     if (showSectionOptions) {
         SectionOptionsDialog(
             visibility = sectionVisibility,
-            onDismiss = { showSectionOptions = false },
+            onDismiss = onDismissSectionOptions,
         )
     }
 
@@ -188,17 +203,6 @@ private fun FpsSessionDetailContent(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                IconButton(onClick = { showSectionOptions = true }) {
-                    Icon(Icons.Default.Tune, contentDescription = "Chart Options")
-                }
-                IconButton(onClick = onExport) {
-                    Icon(Icons.Default.Share, contentDescription = "CSV")
-                }
-            }
             if (session != null) SessionHeaderCard(session, dateFormat)
             StatsGridCard(records)
             AppSwitchTimeline(records)
