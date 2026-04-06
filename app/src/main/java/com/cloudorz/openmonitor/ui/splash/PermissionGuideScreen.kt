@@ -4,8 +4,8 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Monitor
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -48,38 +47,43 @@ import androidx.compose.ui.unit.dp
 import com.cloudorz.openmonitor.R
 import com.cloudorz.openmonitor.core.common.PermissionManager
 import com.cloudorz.openmonitor.core.common.PrivilegeMode
+import com.cloudorz.openmonitor.core.common.RootFrameworkDetector
+import com.cloudorz.openmonitor.core.common.ShizukuVariantDetector
 import com.cloudorz.openmonitor.core.data.datasource.DaemonManager
 import com.cloudorz.openmonitor.core.data.datasource.DaemonState
 
-private enum class DetectState { IDLE, DETECTING, DONE, LAUNCHING_DAEMON, DAEMON_FAILED }
+private enum class GuideState { PROBING, DETECTED, LAUNCHING_DAEMON, DAEMON_FAILED }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PermissionGuideScreen(
     permissionManager: PermissionManager,
     daemonManager: DaemonManager,
     onModeSelected: (PrivilegeMode) -> Unit,
 ) {
+    var guideState by remember { mutableStateOf(GuideState.PROBING) }
     var selectedMode by remember { mutableStateOf<PrivilegeMode?>(null) }
-    var detectState by remember { mutableStateOf(DetectState.IDLE) }
-    // True while waiting for user to respond to Shizuku permission dialog
+    var rootResult by remember { mutableStateOf(RootFrameworkDetector.Result()) }
+    var shizukuResult by remember { mutableStateOf(ShizukuVariantDetector.Result()) }
     var waitingForShizuku by remember { mutableStateOf(false) }
 
-    if (detectState == DetectState.DETECTING) {
-        LaunchedEffect(Unit) {
-            val best = permissionManager.detectBestMode()
-            selectedMode = best
-            detectState = DetectState.DONE
+    // Start parallel detection immediately on first composition
+    LaunchedEffect(Unit) {
+        val (root, shizuku) = permissionManager.detectParallel()
+        rootResult = root
+        shizukuResult = shizuku
+        // Auto-select best recommendation so the Confirm button is ready
+        selectedMode = when {
+            root.isAvailable   -> PrivilegeMode.ROOT
+            shizuku.isRunning  -> PrivilegeMode.SHIZUKU
+            else               -> PrivilegeMode.BASIC
         }
+        guideState = GuideState.DETECTED
     }
 
-    // Daemon launch step: triggered after user confirms ROOT/SHIZUKU
-    if (detectState == DetectState.LAUNCHING_DAEMON) {
+    // Daemon launch step
+    if (guideState == GuideState.LAUNCHING_DAEMON) {
         LaunchedEffect(Unit) {
             val mode = selectedMode ?: return@LaunchedEffect
-            // Set the mode BEFORE ensureRunning so the correct executor is used.
-            // Without this, currentMode is still BASIC on first-time SHIZUKU setup,
-            // causing ensureRunning() to return NOT_NEEDED and skip daemon launch entirely.
             permissionManager.setMode(mode)
             val result = withTimeoutOrNull(5_000L) { daemonManager.ensureRunning() }
                 ?: DaemonState.FAILED
@@ -87,12 +91,11 @@ fun PermissionGuideScreen(
                 result == DaemonState.RUNNING || result == DaemonState.NOT_NEEDED -> {
                     onModeSelected(mode)
                 }
-                // ADB mode: daemon might not be running yet, allow user to proceed
                 mode == PrivilegeMode.ADB && result == DaemonState.IDLE -> {
                     onModeSelected(mode)
                 }
                 else -> {
-                    detectState = DetectState.DAEMON_FAILED
+                    guideState = GuideState.DAEMON_FAILED
                 }
             }
         }
@@ -106,36 +109,25 @@ fun PermissionGuideScreen(
         waitingForShizuku = false
         permissionManager.resetShizukuPermissionResult()
         if (granted) {
-            // Shizuku authorized — now launch daemon before proceeding
             selectedMode = PrivilegeMode.SHIZUKU
-            detectState = DetectState.LAUNCHING_DAEMON
+            guideState = GuideState.LAUNCHING_DAEMON
         }
-        // If denied: stay on guide screen; user can try again or choose another mode
     }
 
-    // Auto-detection dialog
-    if (detectState == DetectState.DETECTING) {
-        DetectingDialog()
-    }
-
-    // Daemon launching dialog
-    if (detectState == DetectState.LAUNCHING_DAEMON) {
+    // Dialogs
+    if (guideState == GuideState.LAUNCHING_DAEMON) {
         DaemonLaunchingDialog()
     }
-
-    // Daemon launch failed dialog
-    if (detectState == DetectState.DAEMON_FAILED) {
+    if (guideState == GuideState.DAEMON_FAILED) {
         DaemonFailedDialog(
-            onRetry = { detectState = DetectState.LAUNCHING_DAEMON },
+            onRetry = { guideState = GuideState.LAUNCHING_DAEMON },
             onFallbackBasic = {
-                detectState = DetectState.IDLE
+                guideState = GuideState.DETECTED
                 permissionManager.setMode(PrivilegeMode.BASIC)
                 onModeSelected(PrivilegeMode.BASIC)
             },
         )
     }
-
-    // Shizuku permission waiting dialog
     if (waitingForShizuku) {
         ShizukuWaitingDialog(onCancel = {
             waitingForShizuku = false
@@ -154,7 +146,6 @@ fun PermissionGuideScreen(
                 .padding(horizontal = 24.dp, vertical = 48.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // -- Header: Logo + Title --
             Spacer(modifier = Modifier.height(24.dp))
 
             Icon(
@@ -176,129 +167,125 @@ fun PermissionGuideScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = stringResource(R.string.guide_subtitle),
+                text = if (guideState == GuideState.PROBING) {
+                    stringResource(R.string.guide_probing)
+                } else {
+                    stringResource(R.string.guide_select_mode)
+                },
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // -- Mode Cards --
-            ModeCard(
-                iconRes = R.drawable.ic_mode_root,
-                title = stringResource(R.string.mode_root_title),
-                description = stringResource(R.string.mode_root_desc),
-                tagText = stringResource(R.string.mode_root_tag),
-                tagColor = Color(0xFF4CAF50),
-                isSelected = selectedMode == PrivilegeMode.ROOT,
-                onClick = { selectedMode = PrivilegeMode.ROOT },
-            )
+            when (guideState) {
+                GuideState.PROBING -> {
+                    repeat(4) {
+                        ProbingCard()
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                }
+                else -> {
+                    val recommended: PrivilegeMode? = when {
+                        rootResult.isAvailable  -> PrivilegeMode.ROOT
+                        shizukuResult.isRunning -> PrivilegeMode.SHIZUKU
+                        else                    -> null
+                    }
+                    val badgeLabel = stringResource(R.string.guide_badge_recommended)
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            ModeCard(
-                iconRes = R.drawable.ic_mode_shizuku,
-                title = stringResource(R.string.mode_shizuku_title),
-                description = stringResource(R.string.mode_shizuku_desc),
-                tagText = stringResource(R.string.mode_shizuku_tag),
-                tagColor = Color(0xFF2196F3),
-                isSelected = selectedMode == PrivilegeMode.SHIZUKU,
-                onClick = { selectedMode = PrivilegeMode.SHIZUKU },
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            ModeCard(
-                iconRes = R.drawable.ic_mode_adb,
-                title = "ADB 模式",
-                description = "通过 ADB 手动启动 Daemon，无需 Root 或 Shizuku",
-                tagText = "FPS / 进程等可用",
-                tagColor = Color(0xFFFF9800),
-                isSelected = selectedMode == PrivilegeMode.ADB,
-                onClick = { selectedMode = PrivilegeMode.ADB },
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            ModeCard(
-                iconRes = R.drawable.ic_mode_basic,
-                title = stringResource(R.string.mode_basic_title),
-                description = stringResource(R.string.mode_basic_desc),
-                tagText = stringResource(R.string.mode_basic_tag),
-                tagColor = Color(0xFF9E9E9E),
-                isSelected = selectedMode == PrivilegeMode.BASIC,
-                onClick = { selectedMode = PrivilegeMode.BASIC },
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // -- Auto-detect button --
-            Button(
-                onClick = { detectState = DetectState.DETECTING },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = detectState != DetectState.DETECTING,
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.AutoAwesome,
-                    contentDescription = null,
-                    modifier = Modifier.size(ButtonDefaults.IconSize),
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.guide_auto_detect),
-                    style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.padding(vertical = 4.dp),
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = stringResource(R.string.guide_manual_hint),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                textAlign = TextAlign.Center,
-            )
-
-            // -- Confirm button (visible when a mode is selected) --
-            if (selectedMode != null) {
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Button(
-                    onClick = {
-                        val mode = selectedMode ?: return@Button
-                        if (mode == PrivilegeMode.SHIZUKU) {
-                            if (permissionManager.isShizukuAvailableSync()) {
-                                // Permission granted — launch daemon before proceeding
-                                detectState = DetectState.LAUNCHING_DAEMON
-                            } else {
-                                permissionManager.resetShizukuPermissionResult()
-                                permissionManager.requestShizukuPermission()
-                                waitingForShizuku = true
-                            }
-                        } else if (mode == PrivilegeMode.ROOT) {
-                            // ROOT — launch daemon before proceeding
-                            detectState = DetectState.LAUNCHING_DAEMON
-                        } else if (mode == PrivilegeMode.ADB) {
-                            // ADB — try to connect to manually started daemon, then proceed
-                            permissionManager.setMode(mode)
-                            detectState = DetectState.LAUNCHING_DAEMON
-                        } else {
-                            // BASIC — no daemon needed
-                            permissionManager.setMode(mode)
-                            onModeSelected(mode)
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.tertiary,
-                    ),
-                ) {
-                    Text(
-                        text = stringResource(R.string.guide_confirm, selectedMode!!.displayName),
-                        style = MaterialTheme.typography.labelLarge,
-                        modifier = Modifier.padding(vertical = 4.dp),
+                    // ROOT card
+                    DetectionCard(
+                        iconRes = R.drawable.ic_mode_root,
+                        title = stringResource(R.string.mode_root_title),
+                        subtitle = buildRootSubtitle(rootResult),
+                        tagText = stringResource(R.string.mode_root_tag),
+                        tagColor = Color(0xFF4CAF50),
+                        badge = if (recommended == PrivilegeMode.ROOT) badgeLabel else null,
+                        isSelected = selectedMode == PrivilegeMode.ROOT,
+                        onClick = { selectedMode = PrivilegeMode.ROOT },
                     )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // SHIZUKU card
+                    DetectionCard(
+                        iconRes = R.drawable.ic_mode_shizuku,
+                        title = stringResource(R.string.mode_shizuku_title),
+                        subtitle = buildShizukuSubtitle(shizukuResult),
+                        tagText = stringResource(R.string.mode_shizuku_tag),
+                        tagColor = Color(0xFF2196F3),
+                        badge = if (recommended == PrivilegeMode.SHIZUKU) badgeLabel else null,
+                        isSelected = selectedMode == PrivilegeMode.SHIZUKU,
+                        onClick = { selectedMode = PrivilegeMode.SHIZUKU },
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // ADB card
+                    DetectionCard(
+                        iconRes = R.drawable.ic_mode_adb,
+                        title = stringResource(R.string.mode_adb),
+                        subtitle = stringResource(R.string.mode_adb_subtitle),
+                        tagText = stringResource(R.string.mode_shizuku_tag),
+                        tagColor = Color(0xFFFF9800),
+                        badge = null,
+                        isSelected = selectedMode == PrivilegeMode.ADB,
+                        onClick = { selectedMode = PrivilegeMode.ADB },
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // BASIC card
+                    DetectionCard(
+                        iconRes = R.drawable.ic_mode_basic,
+                        title = stringResource(R.string.mode_basic_title),
+                        subtitle = stringResource(R.string.mode_basic_subtitle),
+                        tagText = stringResource(R.string.mode_basic_tag),
+                        tagColor = Color(0xFF9E9E9E),
+                        badge = null,
+                        isSelected = selectedMode == PrivilegeMode.BASIC,
+                        onClick = { selectedMode = PrivilegeMode.BASIC },
+                    )
+
+                    Spacer(modifier = Modifier.height(32.dp))
+
+                    // Confirm button
+                    val mode = selectedMode
+                    if (mode != null) {
+                        Button(
+                            onClick = {
+                                when (mode) {
+                                    PrivilegeMode.SHIZUKU -> {
+                                        if (permissionManager.isShizukuAvailableSync()) {
+                                            guideState = GuideState.LAUNCHING_DAEMON
+                                        } else {
+                                            permissionManager.resetShizukuPermissionResult()
+                                            permissionManager.requestShizukuPermission()
+                                            waitingForShizuku = true
+                                        }
+                                    }
+                                    PrivilegeMode.ROOT -> {
+                                        guideState = GuideState.LAUNCHING_DAEMON
+                                    }
+                                    PrivilegeMode.ADB -> {
+                                        permissionManager.setMode(mode)
+                                        guideState = GuideState.LAUNCHING_DAEMON
+                                    }
+                                    PrivilegeMode.BASIC -> {
+                                        permissionManager.setMode(mode)
+                                        onModeSelected(mode)
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.guide_use_mode, mode.displayName),
+                                style = MaterialTheme.typography.labelLarge,
+                                modifier = Modifier.padding(vertical = 4.dp),
+                            )
+                        }
+                    }
                 }
             }
 
@@ -308,12 +295,86 @@ fun PermissionGuideScreen(
 }
 
 @Composable
-private fun ModeCard(
+private fun buildRootSubtitle(result: RootFrameworkDetector.Result): String {
+    // Strip any leading 'v' from versionName (e.g. "v3.2.4" → "v3.2.4", not "vv3.2.4")
+    val ver = result.version?.let { " v${it.trimStart('v', 'V')}" } ?: ""
+    val frameworkName = when (result.framework) {
+        RootFrameworkDetector.Framework.MAGISK   -> "Magisk$ver"
+        RootFrameworkDetector.Framework.KERNELSU -> "KernelSU$ver"
+        RootFrameworkDetector.Framework.APATCH   -> "APatch$ver"
+        null -> null
+    }
+    return when {
+        frameworkName != null  -> stringResource(R.string.mode_root_detected, frameworkName)
+        result.hasSuBinary     -> stringResource(R.string.mode_root_su_detected)
+        else                   -> stringResource(R.string.mode_root_not_detected)
+    }
+}
+
+@Composable
+private fun buildShizukuSubtitle(result: ShizukuVariantDetector.Result): String {
+    if (!result.isRunning) {
+        return if (result.isShizukuInstalled) {
+            stringResource(R.string.mode_shizuku_installed_not_running)
+        } else {
+            stringResource(R.string.mode_shizuku_not_installed)
+        }
+    }
+    val ver = result.version?.let { "v${it.trimStart('v', 'V')}" } ?: ""
+    val authLabel = when (result.authMethod) {
+        ShizukuVariantDetector.AuthMethod.ROOT -> stringResource(R.string.mode_shizuku_auth_root)
+        ShizukuVariantDetector.AuthMethod.ADB  -> stringResource(R.string.mode_shizuku_auth_adb)
+        null -> ""
+    }
+    val parts = listOfNotNull(ver.takeIf { it.isNotEmpty() }, authLabel.takeIf { it.isNotEmpty() })
+    val suffix = if (parts.isNotEmpty()) " · ${parts.joinToString(" · ")}" else ""
+    val base = stringResource(R.string.mode_shizuku_running) + suffix
+    return if (result.isAuthorized) base
+    else "$base（${stringResource(R.string.mode_shizuku_pending)}）"
+}
+
+// ── Probing skeleton card ─────────────────────────────────────────────────────
+
+@Composable
+private fun ProbingCard() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(24.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+            )
+            Text(
+                text = stringResource(R.string.settings_detecting),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+            )
+        }
+    }
+}
+
+// ── Detection result card ─────────────────────────────────────────────────────
+
+@Composable
+private fun DetectionCard(
     iconRes: Int,
     title: String,
-    description: String,
+    subtitle: String,
     tagText: String,
     tagColor: Color,
+    badge: String?,
     isSelected: Boolean,
     onClick: () -> Unit,
 ) {
@@ -323,15 +384,13 @@ private fun ModeCard(
         label = "borderColor",
     )
 
-    val elevation = if (isSelected) 4.dp else 1.dp
-
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = elevation),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 4.dp else 1.dp),
         border = BorderStroke(
             width = if (isSelected) 2.dp else 0.dp,
             color = borderColor,
@@ -353,17 +412,36 @@ private fun ModeCard(
             Spacer(modifier = Modifier.width(16.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    if (badge != null) {
+                        Surface(
+                            shape = MaterialTheme.shapes.small,
+                            color = MaterialTheme.colorScheme.primary,
+                        ) {
+                            Text(
+                                text = badge,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
+                }
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(2.dp))
 
                 Text(
-                    text = description,
+                    text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -387,50 +465,25 @@ private fun ModeCard(
     }
 }
 
+// ── Dialogs ───────────────────────────────────────────────────────────────────
+
 @Composable
 private fun ShizukuWaitingDialog(onCancel: () -> Unit) {
     AlertDialog(
         onDismissRequest = onCancel,
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onCancel) { Text("取消") }
+            TextButton(onClick = onCancel) { Text(stringResource(android.R.string.cancel)) }
         },
         icon = {
             CircularProgressIndicator(modifier = Modifier.size(48.dp))
         },
         title = {
-            Text(
-                text = "等待 Shizuku 授权",
-                textAlign = TextAlign.Center,
-            )
+            Text(text = stringResource(R.string.shizuku_wait_title), textAlign = TextAlign.Center)
         },
         text = {
             Text(
-                text = "请在弹出的 Shizuku 授权对话框中点击【允许】。\n\n若 Shizuku 未运行，请先启动 Shizuku 后重试。",
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        },
-    )
-}
-
-@Composable
-private fun DetectingDialog() {
-    AlertDialog(
-        onDismissRequest = {},
-        confirmButton = {},
-        icon = {
-            CircularProgressIndicator(modifier = Modifier.size(48.dp))
-        },
-        title = {
-            Text(
-                text = stringResource(R.string.guide_detecting_title),
-                textAlign = TextAlign.Center,
-            )
-        },
-        text = {
-            Text(
-                text = stringResource(R.string.guide_detecting_desc),
+                text = stringResource(R.string.shizuku_wait_desc),
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -447,10 +500,7 @@ private fun DaemonLaunchingDialog() {
             CircularProgressIndicator(modifier = Modifier.size(48.dp))
         },
         title = {
-            Text(
-                text = stringResource(R.string.daemon_launching),
-                textAlign = TextAlign.Center,
-            )
+            Text(text = stringResource(R.string.daemon_launching), textAlign = TextAlign.Center)
         },
     )
 }
@@ -463,9 +513,7 @@ private fun DaemonFailedDialog(
     AlertDialog(
         onDismissRequest = {},
         confirmButton = {
-            Button(onClick = onRetry) {
-                Text(stringResource(R.string.daemon_retry))
-            }
+            Button(onClick = onRetry) { Text(stringResource(R.string.daemon_retry)) }
         },
         dismissButton = {
             TextButton(onClick = onFallbackBasic) {
@@ -473,10 +521,7 @@ private fun DaemonFailedDialog(
             }
         },
         title = {
-            Text(
-                text = stringResource(R.string.daemon_launch_failed),
-                textAlign = TextAlign.Center,
-            )
+            Text(text = stringResource(R.string.daemon_launch_failed), textAlign = TextAlign.Center)
         },
     )
 }

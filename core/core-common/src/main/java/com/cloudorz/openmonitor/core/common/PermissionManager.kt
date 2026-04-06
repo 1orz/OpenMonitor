@@ -4,6 +4,8 @@ import android.content.Context
 import com.elvishew.xlog.XLog
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,6 +23,8 @@ class PermissionManager @Inject constructor(
     private val shizukuExecutor: ShizukuExecutor,
     private val adbExecutor: AdbExecutor,
     private val basicExecutor: BasicExecutor,
+    private val rootFrameworkDetector: RootFrameworkDetector,
+    private val shizukuVariantDetector: ShizukuVariantDetector,
 ) {
     companion object {
         private const val TAG = "PermissionManager"
@@ -63,6 +67,19 @@ class PermissionManager @Inject constructor(
             }
         }
     }
+
+    /**
+     * Parallel framework detection with 6s hard timeout. Does NOT call `su` — no popup
+     * for new users. Returns raw detection results for the UI to present.
+     */
+    suspend fun detectParallel(): Pair<RootFrameworkDetector.Result, ShizukuVariantDetector.Result> =
+        coroutineScope {
+            withTimeoutOrNull(6_000L) {
+                val rootDeferred = async { rootFrameworkDetector.detect() }
+                val shizukuDeferred = async { shizukuVariantDetector.detect() }
+                rootDeferred.await() to shizukuDeferred.await()
+            } ?: (RootFrameworkDetector.Result() to ShizukuVariantDetector.Result())
+        }
 
     suspend fun detectBestMode(): PrivilegeMode = withContext(Dispatchers.IO) {
         val rootAvailable = withTimeoutOrNull(5000L) {

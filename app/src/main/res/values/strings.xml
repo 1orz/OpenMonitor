@@ -21,6 +21,25 @@
     <string name="mode_basic_desc">Basic monitoring. No special permissions needed</string>
     <string name="mode_basic_tag">Basic monitoring available</string>
 
+    <!-- Permission Guide Screen - detection results -->
+    <string name="guide_probing">Detecting available permissions\u2026</string>
+    <string name="guide_select_mode">Select Permission Mode</string>
+    <string name="guide_use_mode">Use %1$s Mode</string>
+    <string name="guide_badge_recommended">Recommended</string>
+    <string name="mode_root_detected">%1$s detected</string>
+    <string name="mode_root_su_detected">su binary detected</string>
+    <string name="mode_root_not_detected">No root framework detected</string>
+    <string name="mode_shizuku_running">Shizuku running</string>
+    <string name="mode_shizuku_auth_root">Root auth</string>
+    <string name="mode_shizuku_auth_adb">ADB mode</string>
+    <string name="mode_shizuku_pending">pending authorization</string>
+    <string name="mode_shizuku_installed_not_running">Shizuku installed but not running</string>
+    <string name="mode_shizuku_not_installed">Shizuku not installed</string>
+    <string name="mode_adb_subtitle">Manually start Daemon via ADB</string>
+    <string name="mode_basic_subtitle">No permissions, limited to world-readable files</string>
+    <string name="shizuku_wait_title">Waiting for Shizuku</string>
+    <string name="shizuku_wait_desc">Tap [Allow] in the Shizuku authorization dialog.\n\nIf Shizuku is not running, please start it first and try again.</string>
+
     <!-- Quick Settings Tile -->
     <string name="tile_label">System Monitor</string>
     <string name="tile_label_format">CPU %1$d%% · %2$s°C</string>

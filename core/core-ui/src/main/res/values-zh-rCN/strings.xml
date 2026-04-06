@@ -220,4 +220,28 @@
     <string name="cpu_max_freq">最高频率</string>
     <string name="cpu_min_freq">最低频率</string>
     <string name="hw_partitions">磁盘分区</string>
+
+    <!-- Process Screen -->
+    <string name="process_search_hint">搜索进程…</string>
+    <string name="process_filter_all">全部</string>
+    <string name="process_filter_app">应用</string>
+    <string name="process_sort_cpu">CPU %</string>
+    <string name="process_sort_memory">内存</string>
+    <string name="process_sort_name">名称</string>
+    <string name="process_sort_pid">PID</string>
+    <string name="process_total_format">共 %d 个</string>
+    <string name="process_empty">无进程</string>
+    <string name="process_empty_search">未找到匹配 \"%s\" 的进程</string>
+
+    <!-- Process Detail Screen -->
+    <string name="process_not_found">进程未找到</string>
+    <string name="process_kill">终止</string>
+    <string name="process_info">进程信息</string>
+    <string name="process_resource_usage">资源使用</string>
+    <string name="process_system_details">系统详情</string>
+    <string name="process_command_line">命令行</string>
+    <string name="process_threads">线程</string>
+    <string name="process_threads_count">%d 个线程</string>
+    <string name="process_no_threads">无线程</string>
+    <string name="process_unnamed_thread">&lt;未命名&gt;</string>
 </resources>

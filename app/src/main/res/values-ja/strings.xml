@@ -20,6 +20,25 @@
     <string name="mode_basic_desc">基本的な監視。特別な権限不要</string>
     <string name="mode_basic_tag">基本監視のみ</string>
 
+    <!-- 権限ガイド画面 - 検出結果 -->
+    <string name="guide_probing">利用可能な権限を検出中\u2026</string>
+    <string name="guide_select_mode">権限モードを選択</string>
+    <string name="guide_use_mode">%1$s モードを使用</string>
+    <string name="guide_badge_recommended">推奨</string>
+    <string name="mode_root_detected">%1$s を検出しました</string>
+    <string name="mode_root_su_detected">su バイナリを検出しました</string>
+    <string name="mode_root_not_detected">Rootフレームワークが検出されませんでした</string>
+    <string name="mode_shizuku_running">Shizuku 実行中</string>
+    <string name="mode_shizuku_auth_root">Root 認証</string>
+    <string name="mode_shizuku_auth_adb">ADB モード</string>
+    <string name="mode_shizuku_pending">認証待ち</string>
+    <string name="mode_shizuku_installed_not_running">Shizuku はインストール済みですが実行されていません</string>
+    <string name="mode_shizuku_not_installed">Shizuku がインストールされていません</string>
+    <string name="mode_adb_subtitle">ADB経由でDaemonを手動起動</string>
+    <string name="mode_basic_subtitle">権限不要、世界可読ファイルのみ</string>
+    <string name="shizuku_wait_title">Shizuku の認証を待機中</string>
+    <string name="shizuku_wait_desc">表示された Shizuku 認証ダイアログで【許可】をタップしてください。\n\nShizuku が実行されていない場合は、先に Shizuku を起動してください。</string>
+
     <!-- クイック設定タイル -->
     <string name="tile_label">システムモニター</string>
     <string name="tile_label_format">CPU %1$d%% · %2$s°C</string>

@@ -26,7 +26,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -50,6 +49,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -57,7 +57,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cloudorz.openmonitor.core.model.process.ProcessFilterMode
 import com.cloudorz.openmonitor.core.model.process.ProcessInfo
-import com.cloudorz.openmonitor.core.ui.component.SectionHeader
+import com.cloudorz.openmonitor.core.ui.R
 import com.cloudorz.openmonitor.core.ui.theme.ChartGreen
 import com.cloudorz.openmonitor.core.ui.theme.ChartRed
 import com.cloudorz.openmonitor.core.ui.theme.ChartYellow
@@ -110,17 +110,19 @@ private fun ProcessScreenContent(
                 .padding(horizontal = 16.dp, vertical = 4.dp),
         )
 
-        // Process count header
-        SectionHeader(
-            title = "Processes",
-            action = {
-                Text(
-                    text = "${uiState.filteredProcesses.size} total",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            },
-        )
+        // Process count
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.End,
+        ) {
+            Text(
+                text = stringResource(R.string.process_total_format, uiState.filteredProcesses.size),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
 
         // Loading or list
         AnimatedVisibility(
@@ -169,7 +171,7 @@ private fun ProcessSearchBar(
         modifier = modifier,
         placeholder = {
             Text(
-                text = "Search processes...",
+                text = stringResource(R.string.process_search_hint),
                 style = MaterialTheme.typography.bodyLarge,
             )
         },
@@ -221,8 +223,8 @@ private fun FilterAndSortChipsRow(
                 label = {
                     Text(
                         text = when (mode) {
-                            ProcessFilterMode.ALL -> "All"
-                            ProcessFilterMode.APP_ONLY -> "App"
+                            ProcessFilterMode.ALL -> stringResource(R.string.process_filter_all)
+                            ProcessFilterMode.APP_ONLY -> stringResource(R.string.process_filter_app)
                         },
                         style = MaterialTheme.typography.labelMedium,
                     )
@@ -242,10 +244,10 @@ private fun FilterAndSortChipsRow(
                 label = {
                     Text(
                         text = when (sort) {
-                            SortBy.CPU -> "CPU %"
-                            SortBy.MEMORY -> "Memory"
-                            SortBy.NAME -> "Name"
-                            SortBy.PID -> "PID"
+                            SortBy.CPU -> stringResource(R.string.process_sort_cpu)
+                            SortBy.MEMORY -> stringResource(R.string.process_sort_memory)
+                            SortBy.NAME -> stringResource(R.string.process_sort_name)
+                            SortBy.PID -> stringResource(R.string.process_sort_pid)
                         },
                         style = MaterialTheme.typography.labelMedium,
                     )
@@ -298,9 +300,9 @@ private fun ProcessListItem(
                 if (drawable is BitmapDrawable) {
                     drawable.bitmap
                 } else {
-                    Bitmap.createBitmap(48, 48, Bitmap.Config.ARGB_8888).also { bmp ->
+                    Bitmap.createBitmap(192, 192, Bitmap.Config.ARGB_8888).also { bmp ->
                         val canvas = Canvas(bmp)
-                        drawable.setBounds(0, 0, 48, 48)
+                        drawable.setBounds(0, 0, 192, 192)
                         drawable.draw(canvas)
                     }
                 }
@@ -407,8 +409,8 @@ private fun EmptyState(
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = if (query.isNotEmpty()) "No processes matching \"$query\""
-                else "No processes found",
+                text = if (query.isNotEmpty()) stringResource(R.string.process_empty_search, query)
+                else stringResource(R.string.process_empty),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

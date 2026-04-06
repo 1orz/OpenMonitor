@@ -119,16 +119,25 @@ class CpuDataSource @Inject constructor(
         return result.distinct().sorted()
     }
 
-    suspend fun getCpuTemperature(): Double = withContext(Dispatchers.IO) {
-        // Try common thermal zones for CPU temperature
-        for (i in 0..20) {
-            val type = sysfsReader.readString("/sys/class/thermal/thermal_zone$i/type") ?: continue
-            if (type.contains("cpu", ignoreCase = true) || type.contains("tsens_tz_sensor", ignoreCase = true)) {
-                val temp = sysfsReader.readInt("/sys/class/thermal/thermal_zone$i/temp") ?: continue
-                return@withContext if (temp > 1000) temp / 1000.0 else temp.toDouble()
+    suspend fun getCpuTemperature(): Double? = withContext(Dispatchers.IO) {
+        // Read thermal zone files directly (world-readable) to avoid shell executor contention.
+        for (i in 0..30) {
+            val zonePath = "/sys/class/thermal/thermal_zone$i"
+            val type = try {
+                java.io.File("$zonePath/type").readText().trim()
+            } catch (_: Exception) { continue }
+            if (type.contains("cpu", ignoreCase = true) ||
+                type.contains("tsens_tz_sensor", ignoreCase = true) ||
+                type.contains("mtktscpu", ignoreCase = true)
+            ) {
+                val temp = try {
+                    java.io.File("$zonePath/temp").readText().trim().toIntOrNull()
+                } catch (_: Exception) { null } ?: continue
+                val celsius = if (temp > 1000) temp / 1000.0 else temp.toDouble()
+                if (celsius > -40 && celsius < 200) return@withContext celsius
             }
         }
-        -1.0
+        null
     }
 
     suspend fun getCpuName(): String = withContext(Dispatchers.IO) {

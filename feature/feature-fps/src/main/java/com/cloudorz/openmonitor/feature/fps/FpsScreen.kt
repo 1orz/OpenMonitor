@@ -540,9 +540,9 @@ private fun SessionIcon(session: FpsWatchSession) {
             if (appIcon is android.graphics.drawable.BitmapDrawable && appIcon.bitmap != null) {
                 appIcon.bitmap
             } else {
-                val bmp = createBitmap(96, 96, Bitmap.Config.ARGB_8888)
+                val bmp = createBitmap(192, 192, Bitmap.Config.ARGB_8888)
                 val canvas = Canvas(bmp)
-                appIcon.setBounds(0, 0, 96, 96)
+                appIcon.setBounds(0, 0, 192, 192)
                 appIcon.draw(canvas)
                 bmp
             }

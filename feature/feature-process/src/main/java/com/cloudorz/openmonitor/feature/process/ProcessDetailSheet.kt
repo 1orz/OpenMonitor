@@ -1,5 +1,9 @@
 package com.cloudorz.openmonitor.feature.process
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.BitmapDrawable
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,10 +33,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -42,6 +50,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cloudorz.openmonitor.core.model.process.ProcessInfo
 import com.cloudorz.openmonitor.core.model.process.ProcessState
 import com.cloudorz.openmonitor.core.model.process.ThreadInfo
+import com.cloudorz.openmonitor.core.ui.R
 import com.cloudorz.openmonitor.core.ui.component.SectionHeader
 import com.cloudorz.openmonitor.core.ui.component.StatCard
 import com.cloudorz.openmonitor.core.ui.theme.ChartGreen
@@ -75,7 +84,10 @@ fun ProcessDetailScreen(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center,
         ) {
-            Text("Process not found", color = MaterialTheme.colorScheme.outline)
+            Text(
+                stringResource(R.string.process_not_found),
+                color = MaterialTheme.colorScheme.outline,
+            )
         }
     } else {
         ProcessDetailContent(
@@ -100,29 +112,12 @@ private fun ProcessDetailContent(
             .padding(horizontal = 16.dp)
             .padding(bottom = 32.dp),
     ) {
-        ProcessDetailHeader(process = process)
-
-        if (onKill != null) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                FilledTonalButton(
-                    onClick = onKill,
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                    ),
-                ) {
-                    Text("Kill")
-                }
-            }
-        }
+        ProcessDetailHeader(process = process, onKill = onKill)
 
         Spacer(modifier = Modifier.height(16.dp))
 
         StatCard(
-            title = "Process Info",
+            title = stringResource(R.string.process_info),
             icon = Icons.Default.Info,
         ) {
             DetailRow(label = "PID", value = process.pid.toString())
@@ -136,7 +131,7 @@ private fun ProcessDetailContent(
         Spacer(modifier = Modifier.height(12.dp))
 
         StatCard(
-            title = "Resource Usage",
+            title = stringResource(R.string.process_resource_usage),
             icon = Icons.Default.Memory,
         ) {
             DetailRow(
@@ -152,7 +147,7 @@ private fun ProcessDetailContent(
         Spacer(modifier = Modifier.height(12.dp))
 
         StatCard(
-            title = "System Details",
+            title = stringResource(R.string.process_system_details),
             icon = Icons.Default.Settings,
         ) {
             DetailRow(label = "OOM Adj", value = process.oomAdj.toString())
@@ -173,7 +168,7 @@ private fun ProcessDetailContent(
         Spacer(modifier = Modifier.height(12.dp))
 
         if (process.cmdline.isNotEmpty()) {
-            StatCard(title = "Command Line") {
+            StatCard(title = stringResource(R.string.process_command_line)) {
                 Text(
                     text = process.cmdline,
                     style = MaterialTheme.typography.bodySmall.copy(
@@ -188,10 +183,10 @@ private fun ProcessDetailContent(
         }
 
         SectionHeader(
-            title = "Threads",
+            title = stringResource(R.string.process_threads),
             action = {
                 Text(
-                    text = "${threads.size} threads",
+                    text = stringResource(R.string.process_threads_count, threads.size),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -220,7 +215,7 @@ private fun ProcessDetailContent(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = "No threads",
+                    text = stringResource(R.string.process_no_threads),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.outline,
                 )
@@ -244,31 +239,99 @@ private fun ProcessDetailContent(
 }
 
 @Composable
-private fun ProcessDetailHeader(process: ProcessInfo) {
+private fun ProcessDetailHeader(
+    process: ProcessInfo,
+    onKill: (() -> Unit)? = null,
+) {
+    val context = LocalContext.current
+    val appIcon = remember(process.packageName) {
+        if (process.isAndroidApp) {
+            try {
+                val drawable = context.packageManager.getApplicationIcon(process.packageName)
+                if (drawable is BitmapDrawable && drawable.bitmap.width >= 192) {
+                    drawable.bitmap
+                } else {
+                    Bitmap.createBitmap(192, 192, Bitmap.Config.ARGB_8888).also { bmp ->
+                        val canvas = Canvas(bmp)
+                        drawable.setBounds(0, 0, 192, 192)
+                        drawable.draw(canvas)
+                    }
+                }
+            } catch (_: Exception) { null }
+        } else null
+    }
+
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        val iconShape = RoundedCornerShape(12.dp)
+        if (appIcon != null) {
+            Image(
+                bitmap = appIcon.asImageBitmap(),
+                contentDescription = null,
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(iconShape),
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(iconShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center,
+            ) {
+                androidx.compose.material3.Icon(
+                    imageVector = Icons.Default.Memory,
+                    contentDescription = null,
+                    modifier = Modifier.size(28.dp),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.width(14.dp))
+
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = process.displayName,
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "PID ${process.pid}  |  PPID ${process.ppid}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "PID ${process.pid}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = "  |  ",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                )
+                ProcessStateBadge(state = process.state)
+            }
         }
-        ProcessStateBadge(
-            state = process.state,
-            modifier = Modifier.padding(start = 12.dp),
-        )
+
+        if (onKill != null) {
+            Spacer(modifier = Modifier.width(8.dp))
+            FilledTonalButton(
+                onClick = onKill,
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                ),
+            ) {
+                Text(stringResource(R.string.process_kill))
+            }
+        }
     }
 }
 
@@ -381,7 +444,7 @@ private fun ThreadListItem(
         )
 
         Text(
-            text = thread.name.ifEmpty { "<unnamed>" },
+            text = thread.name.ifEmpty { stringResource(R.string.process_unnamed_thread) },
             style = MaterialTheme.typography.bodySmall,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

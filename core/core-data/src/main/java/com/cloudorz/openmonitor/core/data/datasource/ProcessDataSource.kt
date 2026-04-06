@@ -186,24 +186,46 @@ class ProcessDataSource @Inject constructor(
         val oomScoreAdj = sysfsReader.readString("/proc/$pid/oom_score_adj") ?: ""
         val cGroup = sysfsReader.readString("/proc/$pid/cgroup") ?: ""
 
-        ProcessInfo(
-            pid = pid,
-            ppid = ppid,
-            name = name,
-            state = state,
-            command = cmdline,
-            cmdline = cmdline,
-            friendlyName = cmdline.split("/").lastOrNull() ?: name,
-            rssKB = rssPages,
-            swapKB = swapKB,
-            cpuSet = cpuSet,
-            cpusAllowed = cpuSet,
-            ctxtSwitches = ctxtSwitches.toLongOrNull() ?: 0L,
-            oomAdj = oomAdj.toIntOrNull() ?: 0,
-            oomScore = oomScore.toIntOrNull() ?: 0,
-            oomScoreAdj = oomScoreAdj.toIntOrNull() ?: 0,
-            cGroup = cGroup,
-            user = statusMap["Uid"]?.split("\\s+".toRegex())?.firstOrNull() ?: ""
+        val user = statusMap["Uid"]?.split("\\s+".toRegex())?.firstOrNull() ?: ""
+
+        // /proc/status Uid is numeric (e.g. "10123"), not "u0_a123" format.
+        // Android app UIDs start at 10000 (FIRST_APPLICATION_UID).
+        val isAppUid = (user.toIntOrNull() ?: 0) >= 10000
+        val packageName = when {
+            isAppUid && cmdline.contains('.') -> {
+                val candidate = cmdline.substringBefore(':').substringBefore(' ').trim()
+                if (packageNamePattern.matches(candidate)) candidate else ""
+            }
+            isAppUid && name.contains('.') -> {
+                val candidate = name.substringBefore(':')
+                if (packageNamePattern.matches(candidate)) candidate else ""
+            }
+            else -> ""
+        }
+
+        val friendlyName = cmdline.substringBefore(' ').substringAfterLast('/').ifEmpty { name }
+
+        enrichWithAppInfo(
+            ProcessInfo(
+                pid = pid,
+                ppid = ppid,
+                name = name,
+                state = state,
+                command = cmdline,
+                cmdline = cmdline,
+                friendlyName = friendlyName,
+                packageName = packageName,
+                rssKB = rssPages,
+                swapKB = swapKB,
+                cpuSet = cpuSet,
+                cpusAllowed = cpuSet,
+                ctxtSwitches = ctxtSwitches.toLongOrNull() ?: 0L,
+                oomAdj = oomAdj.toIntOrNull() ?: 0,
+                oomScore = oomScore.toIntOrNull() ?: 0,
+                oomScoreAdj = oomScoreAdj.toIntOrNull() ?: 0,
+                cGroup = cGroup,
+                user = user,
+            )
         )
     }
 

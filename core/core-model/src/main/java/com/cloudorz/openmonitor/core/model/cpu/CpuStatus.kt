@@ -22,7 +22,7 @@ data class CpuStatus(
 data class CpuGlobalStatus(
     val cpuName: String = "",
     val totalLoadPercent: Double = 0.0,
-    val temperatureCelsius: Double = 0.0,
+    val temperatureCelsius: Double? = null,
     val uptimeSeconds: Long = 0,
     val cores: List<CpuCoreInfo> = emptyList(),
     val clusters: List<CpuClusterStatus> = emptyList(),

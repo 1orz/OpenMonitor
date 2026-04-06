@@ -220,4 +220,28 @@
     <string name="cpu_max_freq">最大周波数</string>
     <string name="cpu_min_freq">最小周波数</string>
     <string name="hw_partitions">パーティション</string>
+
+    <!-- Process Screen -->
+    <string name="process_search_hint">プロセスを検索…</string>
+    <string name="process_filter_all">すべて</string>
+    <string name="process_filter_app">アプリ</string>
+    <string name="process_sort_cpu">CPU %</string>
+    <string name="process_sort_memory">メモリ</string>
+    <string name="process_sort_name">名前</string>
+    <string name="process_sort_pid">PID</string>
+    <string name="process_total_format">合計 %d</string>
+    <string name="process_empty">プロセスなし</string>
+    <string name="process_empty_search">\"%s\" に一致するプロセスなし</string>
+
+    <!-- Process Detail Screen -->
+    <string name="process_not_found">プロセスが見つかりません</string>
+    <string name="process_kill">終了</string>
+    <string name="process_info">プロセス情報</string>
+    <string name="process_resource_usage">リソース使用量</string>
+    <string name="process_system_details">システム詳細</string>
+    <string name="process_command_line">コマンドライン</string>
+    <string name="process_threads">スレッド</string>
+    <string name="process_threads_count">%d スレッド</string>
+    <string name="process_no_threads">スレッドなし</string>
+    <string name="process_unnamed_thread">&lt;無名&gt;</string>
 </resources>

@@ -6,5 +6,11 @@
     <string name="float_channel_desc">懸浮監視器背景通知</string>
     <string name="float_notification_action_panel">控制面板</string>
     <string name="float_temp_header">溫度</string>
+    <string name="thermal_cat_battery">電池</string>
+    <string name="thermal_cat_skin">表面</string>
+    <string name="thermal_cat_modem">基帶</string>
+    <string name="thermal_cat_camera">相機</string>
+    <string name="thermal_cat_charger">充電</string>
+    <string name="thermal_no_data">無溫度數據</string>
     <string name="notification_battery_label">電池</string>
 </resources>

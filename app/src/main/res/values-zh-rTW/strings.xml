@@ -20,6 +20,25 @@
     <string name="mode_basic_desc">基本監控，無需特殊權限</string>
     <string name="mode_basic_tag">基本監控可用</string>
 
+    <!-- 權限引導頁 - 偵測結果 -->
+    <string name="guide_probing">正在偵測可用權限\u2026</string>
+    <string name="guide_select_mode">選擇權限模式</string>
+    <string name="guide_use_mode">使用 %1$s 模式</string>
+    <string name="guide_badge_recommended">推薦</string>
+    <string name="mode_root_detected">%1$s 已偵測到</string>
+    <string name="mode_root_su_detected">偵測到 su 二進位檔案</string>
+    <string name="mode_root_not_detected">未偵測到 Root 框架</string>
+    <string name="mode_shizuku_running">Shizuku 執行中</string>
+    <string name="mode_shizuku_auth_root">Root 授權</string>
+    <string name="mode_shizuku_auth_adb">ADB 模式</string>
+    <string name="mode_shizuku_pending">待授權</string>
+    <string name="mode_shizuku_installed_not_running">Shizuku 已安裝但未執行</string>
+    <string name="mode_shizuku_not_installed">Shizuku 未安裝</string>
+    <string name="mode_adb_subtitle">透過 ADB 手動啟動 Daemon</string>
+    <string name="mode_basic_subtitle">無需權限，僅限世界可讀檔案</string>
+    <string name="shizuku_wait_title">等待 Shizuku 授權</string>
+    <string name="shizuku_wait_desc">請在彈出的 Shizuku 授權對話框中點擊【允許】。\n\n若 Shizuku 未執行，請先啟動 Shizuku 後重試。</string>
+
     <!-- Quick Settings Tile -->
     <string name="tile_label">系統監控</string>
     <string name="tile_label_format">CPU %1$d%% · %2$s°C</string>

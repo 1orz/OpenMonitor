@@ -78,7 +78,7 @@ class MonitorTileService : TileService() {
         val loadPercent = totalLoad.toInt()
 
         val cpuTemp = thermalDataSource.getCpuTemperature()
-        val tempStr = if (cpuTemp > 0) "${cpuTemp.toInt()}" else "--"
+        val tempStr = if (cpuTemp != null) "${cpuTemp.toInt()}" else "--"
 
         tile.label = getString(R.string.tile_label_format, loadPercent, tempStr)
         tile.state = Tile.STATE_ACTIVE

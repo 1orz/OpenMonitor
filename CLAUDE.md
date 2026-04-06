@@ -8,6 +8,17 @@ Android 系统监控工具，Kotlin/Compose，多模块 Gradle 项目。
 - C++ JNI（cpuinfo-bridge，CMake 构建）
 - Shizuku AIDL IPC
 
+## UI 字符串规范（强制）
+
+**所有用户可见的 UI 字符串必须使用 i18n 资源，禁止硬编码。**
+
+- Compose 中使用 `stringResource(R.string.xxx)`
+- 字符串定义在 `app/src/main/res/values/strings.xml`（英文基准）
+- 必须同步添加到四个语言文件：`values/`（EN）、`values-zh-rCN/`、`values-zh-rTW/`、`values-ja/`
+- 应用名称 `OpenMonitor`、版本号、品牌名（Magisk、KernelSU 等）不需要翻译
+- 违规示例（禁止）：`Text("检测中…")` `Text("Detecting…")`
+- 合规示例：`Text(stringResource(R.string.settings_detecting))`
+
 ## 构建
 
 标准 Android 项目，macOS / x86_64 Linux 直接构建：

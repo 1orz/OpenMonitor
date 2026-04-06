@@ -15,6 +15,6 @@ class ThermalRepository @Inject constructor(
         pollingFlow(intervalMs) { thermalDataSource.getAllThermalZones() }
 
     suspend fun getAllThermalZones(): List<ThermalZone> = thermalDataSource.getAllThermalZones()
-    suspend fun getCpuTemperature(): Double = thermalDataSource.getCpuTemperature()
-    suspend fun getGpuTemperature(): Double = thermalDataSource.getGpuTemperature()
+    suspend fun getCpuTemperature(): Double? = thermalDataSource.getCpuTemperature()
+    suspend fun getGpuTemperature(): Double? = thermalDataSource.getGpuTemperature()
 }

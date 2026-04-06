@@ -44,13 +44,13 @@ class AppInfoResolver @Inject constructor(
         return try {
             val info = pm.getApplicationInfo(packageName, 0)
             val drawable = pm.getApplicationIcon(info)
-            val bitmap = if (drawable is BitmapDrawable) {
+            val bitmap = if (drawable is BitmapDrawable && drawable.bitmap.width >= ICON_RENDER_PX) {
                 drawable.bitmap
             } else {
-                val size = 48
-                val bmp = createBitmap(size, size, Bitmap.Config.ARGB_8888)
+                // Render at xxxhdpi (192px) for crisp display at any size
+                val bmp = createBitmap(ICON_RENDER_PX, ICON_RENDER_PX, Bitmap.Config.ARGB_8888)
                 val canvas = Canvas(bmp)
-                drawable.setBounds(0, 0, size, size)
+                drawable.setBounds(0, 0, ICON_RENDER_PX, ICON_RENDER_PX)
                 drawable.draw(canvas)
                 bmp
             }
@@ -59,6 +59,11 @@ class AppInfoResolver @Inject constructor(
         } catch (_: PackageManager.NameNotFoundException) {
             null
         }
+    }
+
+    companion object {
+        /** Render icons at xxxhdpi equivalent for maximum clarity. */
+        private const val ICON_RENDER_PX = 192
     }
 
     fun isSystemApp(packageName: String): Boolean {

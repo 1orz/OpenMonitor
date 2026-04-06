@@ -232,7 +232,7 @@ private fun SessionHeaderCard(session: FpsWatchSession, dateFormat: SimpleDateFo
     Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             if (appIcon != null) {
-                val bitmap = remember(appIcon) { appIcon.toBitmap(96, 96) }
+                val bitmap = remember(appIcon) { appIcon.toBitmap(192, 192) }
                 Image(
                     painter = BitmapPainter(bitmap.asImageBitmap()),
                     contentDescription = null,
@@ -366,7 +366,7 @@ private fun AppSwitchTimeline(records: List<FpsFrameRecord>) {
                     val icon: Bitmap? = remember(pkg) {
                         try {
                             val drawable = context.packageManager.getApplicationIcon(pkg)
-                            drawable.toBitmap(48, 48)
+                            drawable.toBitmap(192, 192)
                         } catch (_: Exception) { null }
                     }
                     val appName = remember(pkg) {

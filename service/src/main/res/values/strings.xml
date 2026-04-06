@@ -6,5 +6,11 @@
     <string name="float_channel_desc">Float monitor background notification</string>
     <string name="float_notification_action_panel">Control Panel</string>
     <string name="float_temp_header">Temp</string>
+    <string name="thermal_cat_battery">Battery</string>
+    <string name="thermal_cat_skin">Skin</string>
+    <string name="thermal_cat_modem">Modem</string>
+    <string name="thermal_cat_camera">Camera</string>
+    <string name="thermal_cat_charger">Charger</string>
+    <string name="thermal_no_data">No thermal data</string>
     <string name="notification_battery_label">Battery</string>
 </resources>

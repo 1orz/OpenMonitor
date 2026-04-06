@@ -15,7 +15,13 @@ fun <T> pollingFlow(
     emitter: suspend () -> T
 ): Flow<T> = flow {
     while (currentCoroutineContext().isActive) {
-        emit(emitter())
+        try {
+            emit(emitter())
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            android.util.Log.w("pollingFlow", "emitter failed, retrying next cycle", e)
+        }
         delay(intervalMs)
     }
 }
@@ -35,17 +41,23 @@ fun <T> adaptivePollingFlow(
     var lastValue: T? = null
 
     while (currentCoroutineContext().isActive) {
-        val value = emitter()
-        emit(value)
+        try {
+            val value = emitter()
+            emit(value)
 
-        @Suppress("UNCHECKED_CAST")
-        currentInterval = if (lastValue != null && hasChanged(lastValue as T, value)) {
-            (currentInterval * 0.8).toLong().coerceAtLeast(minIntervalMs)
-        } else {
-            (currentInterval * 1.2).toLong().coerceAtMost(maxIntervalMs)
+            @Suppress("UNCHECKED_CAST")
+            currentInterval = if (lastValue != null && hasChanged(lastValue as T, value)) {
+                (currentInterval * 0.8).toLong().coerceAtLeast(minIntervalMs)
+            } else {
+                (currentInterval * 1.2).toLong().coerceAtMost(maxIntervalMs)
+            }
+
+            lastValue = value
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            android.util.Log.w("pollingFlow", "adaptive emitter failed, retrying next cycle", e)
         }
-
-        lastValue = value
         delay(currentInterval)
     }
 }

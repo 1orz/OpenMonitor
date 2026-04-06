@@ -284,7 +284,11 @@ private fun CpuPerformanceCard(cpuStatus: CpuGlobalStatus) {
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
             SummaryItem(label = "Load", value = "%.1f%%".format(cpuStatus.totalLoadPercent), valueColor = loadColor(cpuStatus.totalLoadPercent))
-            SummaryItem(label = "Temp", value = "%.1f°C".format(cpuStatus.temperatureCelsius), valueColor = temperatureColor(cpuStatus.temperatureCelsius))
+            SummaryItem(
+                label = "Temp",
+                value = cpuStatus.temperatureCelsius?.let { "%.1f°C".format(it) } ?: "N/A",
+                valueColor = cpuStatus.temperatureCelsius?.let { temperatureColor(it) } ?: MaterialTheme.colorScheme.outline,
+            )
             SummaryItem(label = "Avg Freq", value = "%.0f MHz".format(cpuStatus.averageFreqMHz), valueColor = MaterialTheme.colorScheme.primary)
             SummaryItem(label = "Cores", value = "${cpuStatus.onlineCoreCount}/${cpuStatus.coreCount}", valueColor = MaterialTheme.colorScheme.onSurfaceVariant)
         }

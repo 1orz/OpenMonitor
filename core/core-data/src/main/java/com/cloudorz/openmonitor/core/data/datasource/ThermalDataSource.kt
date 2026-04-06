@@ -42,7 +42,7 @@ class ThermalDataSource @Inject constructor(
         zones
     }
 
-    suspend fun getCpuTemperature(): Double {
+    suspend fun getCpuTemperature(): Double? {
         // Priority 1: thermal_zone type matching
         val zones = getAllThermalZones()
         val fromZone = zones.firstOrNull { zone ->
@@ -50,26 +50,26 @@ class ThermalDataSource @Inject constructor(
                 zone.type.contains("tsens_tz_sensor", ignoreCase = true) ||
                 zone.type.contains("mtktscpu", ignoreCase = true)
         }?.temperatureCelsius
-        if (fromZone != null && fromZone > 0) return fromZone
+        if (fromZone != null) return fromZone
 
         // Priority 2: hardcoded fallback paths
         return readCpuTempFromFallbackPaths()
     }
 
-    suspend fun getGpuTemperature(): Double {
+    suspend fun getGpuTemperature(): Double? {
         val zones = getAllThermalZones()
         return zones.firstOrNull { zone ->
             zone.type.contains("gpu", ignoreCase = true) ||
                 zone.type.contains("tsens_tz_sensor10", ignoreCase = true)
-        }?.temperatureCelsius ?: -1.0
+        }?.temperatureCelsius
     }
 
-    suspend fun getBatteryTemperature(): Double {
+    suspend fun getBatteryTemperature(): Double? {
         val zones = getAllThermalZones()
         return zones.firstOrNull { zone ->
             zone.type.contains("battery", ignoreCase = true) ||
                 zone.type.contains("pm8998_tz", ignoreCase = true)
-        }?.temperatureCelsius ?: -1.0
+        }?.temperatureCelsius
     }
 
     /**
@@ -77,7 +77,7 @@ class ThermalDataSource @Inject constructor(
      * On first call (or after a cached path becomes stale), probes all
      * [CPU_TEMP_FALLBACK_PATHS] to find the first one returning a valid reading.
      */
-    private suspend fun readCpuTempFromFallbackPaths(): Double {
+    private suspend fun readCpuTempFromFallbackPaths(): Double? {
         val path = cachedCpuTempPath.get()
         if (!path.isNullOrEmpty()) {
             val temp = readTempFromPath(path)
@@ -85,7 +85,7 @@ class ThermalDataSource @Inject constructor(
             // Cached path went stale — re-probe
             cachedCpuTempPath.set(null)
         }
-        if (path == PROBED_NONE) return -1.0
+        if (path == PROBED_NONE) return null
 
         return probeCpuTempPaths()
     }
@@ -93,7 +93,7 @@ class ThermalDataSource @Inject constructor(
     /**
      * Probes all [CPU_TEMP_FALLBACK_PATHS] and caches the first valid one.
      */
-    private suspend fun probeCpuTempPaths(): Double {
+    private suspend fun probeCpuTempPaths(): Double? {
         for (candidate in CPU_TEMP_FALLBACK_PATHS) {
             val temp = readTempFromPath(candidate)
             if (temp != null) {
@@ -102,7 +102,7 @@ class ThermalDataSource @Inject constructor(
             }
         }
         cachedCpuTempPath.set(PROBED_NONE)
-        return -1.0
+        return null
     }
 
     /**
@@ -112,7 +112,7 @@ class ThermalDataSource @Inject constructor(
     private suspend fun readTempFromPath(path: String): Double? {
         val raw = sysfsReader.readInt(path) ?: return null
         val celsius = if (raw > 1000) raw / 1000.0 else raw.toDouble()
-        return if (celsius > 0 && celsius < 200) celsius else null
+        return if (celsius > -40 && celsius < 200) celsius else null
     }
 
     companion object {

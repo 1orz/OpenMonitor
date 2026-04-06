@@ -57,7 +57,7 @@ class MonitorWidgetProvider : AppWidgetProvider() {
             val temp = readCpuTemperature()
             views.setTextViewText(
                 R.id.widget_temp_value,
-                if (temp > 0) "${temp}°C" else "--°C"
+                if (temp != null) "${temp}°C" else "--°C"
             )
 
             // Read memory usage
@@ -111,7 +111,7 @@ class MonitorWidgetProvider : AppWidgetProvider() {
                 .toLongArray()
         }
 
-        private fun readCpuTemperature(): Int {
+        private fun readCpuTemperature(): Int? {
             return try {
                 for (i in 0..20) {
                     val typeFile = File("/sys/class/thermal/thermal_zone$i/type")
@@ -127,10 +127,10 @@ class MonitorWidgetProvider : AppWidgetProvider() {
                         return if (raw > 1000) raw / 1000 else raw
                     }
                 }
-                -1
+                null
             } catch (e: Exception) {
                 Log.d(TAG, "readCpuTemperature failed", e)
-                -1
+                null
             }
         }
 
