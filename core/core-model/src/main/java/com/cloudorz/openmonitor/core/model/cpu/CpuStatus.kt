@@ -30,6 +30,8 @@ data class CpuGlobalStatus(
     val cacheInfo: CpuCacheInfo = CpuCacheInfo(),
     val hasArmNeon: Boolean? = null,
     val socInfo: SocInfo = SocInfo(),
+    val cpuFeatures: List<String> = emptyList(),
+    val rawCpuInfo: String = "",
 ) {
     val coreCount: Int
         get() = cores.size

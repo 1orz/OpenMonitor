@@ -77,6 +77,12 @@ class LogViewModel @Inject constructor(
     private val _daemonLogStatus = MutableStateFlow<String?>(null)
     val daemonLogStatus: StateFlow<String?> = _daemonLogStatus.asStateFlow()
 
+    private val _daemonLogDates = MutableStateFlow<List<String>>(emptyList())
+    val daemonLogDates: StateFlow<List<String>> = _daemonLogDates.asStateFlow()
+
+    private val _selectedDaemonDate = MutableStateFlow<String?>(null)
+    val selectedDaemonDate: StateFlow<String?> = _selectedDaemonDate.asStateFlow()
+
     private val daemonLogPath: String
         get() = "${daemonLauncher.dataDir.absolutePath}/daemon.log"
 
@@ -105,19 +111,26 @@ class LogViewModel @Inject constructor(
         viewModelScope.launch { fetchAppLogs() }
     }
 
+    fun selectDaemonDate(date: String?) {
+        _selectedDaemonDate.value = date
+        viewModelScope.launch { fetchDaemonLogs() }
+    }
+
     // ---- Level helpers ----
 
     private fun levelPriority(c: Char): Int = when (c) {
         'V' -> 0; 'D' -> 1; 'I' -> 2; 'W' -> 3; 'E', 'F' -> 4; else -> 0
     }
 
-    /** Extract level priority from daemon log line (e.g. " ERROR ", " WARN  ", " INFO  ", " DEBUG "). */
+    /** Extract level priority from daemon log line.
+     *  Daemon format: "15:44:27.814692 [main] message" — no explicit level marker.
+     *  Treat unrecognized lines as INFO so they pass the default filter. */
     private fun parseDaemonLineLevel(line: String): Int = when {
-        line.contains(" ERROR ") -> 4
-        line.contains(" WARN") -> 3
-        line.contains(" INFO") -> 2
-        line.contains(" DEBUG") -> 1
-        else -> 0
+        line.contains(" ERROR ") || line.contains(" error:") -> 4
+        line.contains(" WARN") || line.contains(" warn:") -> 3
+        line.contains(" DEBUG") || line.contains(" debug:") -> 1
+        line.contains(" TRACE") || line.contains(" trace:") -> 0
+        else -> 2 // default = INFO level so lines are visible at default filter
     }
 
     // ---- Data loading ----
@@ -134,10 +147,11 @@ class LogViewModel @Inject constructor(
 
     private fun loadFromFile(date: String) {
         val dir = AppLogger.logDir ?: return
-        // date is the actual filename (e.g. "2026-04-04" or "2026-04-04_1")
         val file = File(dir, date)
         if (!file.exists()) { _rawAppLogs.value = emptyList(); return }
-        _rawAppLogs.value = file.readLines().mapNotNull { parseXLogLine(it) }.takeLast(APP_LOG_MAX_LINES)
+        _rawAppLogs.value = file.readLines()
+            .mapNotNull { parseXLogLine(it) ?: parseXLogPipeLine(it) }
+            .takeLast(APP_LOG_MAX_LINES)
     }
 
     private fun loadFromLogcat() {
@@ -155,10 +169,26 @@ class LogViewModel @Inject constructor(
     }
 
     private fun parseXLogLine(line: String): AppLogEntry? {
+        // Standard xlog format: "2026-04-04 12:34:56.789 E/TAG: message"
         val regex = Regex("""^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s+([VDIWEF])/(.+?):\s*(.*)$""")
         val match = regex.matchEntire(line) ?: return null
         val (time, level, tag, message) = match.destructured
         return AppLogEntry(time.substringAfter(' '), level[0], tag.trim(), message)
+    }
+
+    /** Parse xLog pipe-delimited format: "1775429508398|E|TAG|message" */
+    private fun parseXLogPipeLine(line: String): AppLogEntry? {
+        val parts = line.split("|", limit = 4)
+        if (parts.size < 4) return null
+        val millis = parts[0].toLongOrNull() ?: return null
+        val level = parts[1].firstOrNull() ?: return null
+        if (level !in "VDIWEF") return null
+        val tag = parts[2]
+        val message = parts[3]
+        // Convert millis to HH:MM:SS.mmm
+        val time = java.text.SimpleDateFormat("HH:mm:ss.SSS", java.util.Locale.US)
+            .format(java.util.Date(millis))
+        return AppLogEntry(time, level, tag, message)
     }
 
     private fun parseLogcatLine(line: String): AppLogEntry? {
@@ -169,32 +199,78 @@ class LogViewModel @Inject constructor(
         return AppLogEntry(time.substringAfter(' '), level[0], tag.trim(), message)
     }
 
+    private fun refreshDaemonLogDates() {
+        val files = daemonLauncher.listDaemonLogFiles()
+        _daemonLogDates.value = files.map { f ->
+            if (f.name == "daemon.log") "实时"
+            else f.name.removePrefix("daemon-").removeSuffix(".log")
+        }
+    }
+
     private suspend fun fetchDaemonLogs() = withContext(Dispatchers.IO) {
+        refreshDaemonLogDates()
         try {
-            val logFile = File(daemonLogPath)
-            if (logFile.exists() && logFile.canRead()) {
-                val lines = logFile.readLines().filter { it.isNotBlank() }.takeLast(DAEMON_TAIL_LINES)
-                if (lines.isNotEmpty()) {
-                    _rawDaemonLogs.value = lines
-                    _daemonLogStatus.value = null
-                    return@withContext
-                }
+            val selectedDate = _selectedDaemonDate.value
+            val logFile = if (selectedDate != null) {
+                File(daemonLauncher.dataDir, "daemon-$selectedDate.log")
+            } else {
+                File(daemonLogPath)
             }
-            val process = Runtime.getRuntime().exec(
-                arrayOf("sh", "-c", "tail -n $DAEMON_TAIL_LINES '$daemonLogPath' 2>/dev/null")
-            )
-            val reader = BufferedReader(InputStreamReader(process.inputStream))
-            val lines = reader.readLines().filter { it.isNotBlank() }
-            process.waitFor()
+            if (!logFile.exists()) {
+                if (_rawDaemonLogs.value.isEmpty()) {
+                    _daemonLogStatus.value = if (selectedDate != null) "该日期暂无 daemon 日志"
+                    else "暂无 daemon 日志（daemon 未运行）"
+                }
+                return@withContext
+            }
+
+            // For large files, read only the tail portion to avoid OOM
+            val lines = tailFile(logFile, DAEMON_TAIL_LINES)
             if (lines.isNotEmpty()) {
                 _rawDaemonLogs.value = lines
                 _daemonLogStatus.value = null
             } else if (_rawDaemonLogs.value.isEmpty()) {
-                _daemonLogStatus.value = "暂无 daemon 日志（daemon 未运行）\n路径: $daemonLogPath"
+                _daemonLogStatus.value = "日志为空"
             }
         } catch (_: Exception) {
             if (_rawDaemonLogs.value.isEmpty()) {
                 _daemonLogStatus.value = "暂无 daemon 日志（daemon 未运行）"
+            }
+        }
+    }
+
+    /** Read last N lines from a file efficiently using RandomAccessFile. */
+    private fun tailFile(file: File, maxLines: Int): List<String> {
+        if (!file.exists() || file.length() == 0L) return emptyList()
+        try {
+            val raf = java.io.RandomAccessFile(file, "r")
+            val fileLength = raf.length()
+            // Read up to 512KB from end (enough for ~300 lines)
+            val readSize = minOf(fileLength, 512L * 1024)
+            val startPos = fileLength - readSize
+            raf.seek(startPos)
+            val bytes = ByteArray(readSize.toInt())
+            raf.readFully(bytes)
+            raf.close()
+            // Skip first partial line if we didn't read from beginning
+            val text = String(bytes, Charsets.UTF_8)
+            val allLines = text.lines().filter { it.isNotBlank() }
+            // If we started mid-file, drop the first (possibly truncated) line
+            val lines = if (startPos > 0 && allLines.isNotEmpty()) allLines.drop(1) else allLines
+            return lines.takeLast(maxLines)
+        } catch (e: Exception) {
+            // RandomAccessFile failed — maybe permission issue, try FileInputStream
+            return try {
+                file.inputStream().bufferedReader().useLines { seq ->
+                    val buf = ArrayDeque<String>(maxLines + 1)
+                    seq.filter { it.isNotBlank() }.forEach { line ->
+                        buf.addLast(line)
+                        if (buf.size > maxLines) buf.removeFirst()
+                    }
+                    buf.toList()
+                }
+            } catch (_: Exception) {
+                emptyList()
             }
         }
     }

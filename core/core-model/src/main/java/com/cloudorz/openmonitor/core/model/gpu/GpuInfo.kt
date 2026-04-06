@@ -20,6 +20,20 @@ data class GpuInfo(
     val driverVersion: String = "",
     val glesVersion: String = "",
     val vulkanVersion: String = "",
+    // Adreno-specific
+    val chipId: String = "",
+    val gmemSizeKB: Int = 0,
+    // Mali-specific
+    val shaderCores: Int = 0,
+    val busWidthBits: Int = 0,
+    val l2CacheKB: Int = 0,
+    // Vulkan full info (JSON from native VulkanInfoBridge)
+    val vulkanInfoJson: String = "{}",
+    // OpenGL ES full strings (from EGL context via EglHelper)
+    val glRenderer: String = "",
+    val glVersionFull: String = "",
+    val glVendor: String = "",
+    val glExtensionsCount: Int = 0,
 ) {
     val memoryUsagePercent: Double
         get() = if (memoryTotalMB > 0) (memoryUsedMB.toDouble() / memoryTotalMB) * 100.0 else 0.0

@@ -123,6 +123,7 @@ class DaemonLauncher @Inject constructor(
         if (daemonClient.isAlive()) {
             XLog.tag(TAG).e("daemon still alive after fullStop, port may be occupied")
         }
+        daemonClient.disconnect()
     }
 
     /** Returns true if the running daemon's commit matches the bundled version. */
@@ -139,20 +140,67 @@ class DaemonLauncher @Inject constructor(
      * ROOT:    su -c '<binary> --data-dir <dir>'
      * SHIZUKU: shell exec '<binary> --data-dir <dir>'
      */
+    /** Rotate daemon.log to daemon-YYYY-MM-DD.log before starting a new session.
+     *  Uses shell commands because the file may be owned by root. */
+    private suspend fun rotateDaemonLog() {
+        try {
+            val dir = dataDir.absolutePath
+            val logFile = File(dataDir, "daemon.log")
+            if (!logFile.exists() || logFile.length() == 0L) return
+            val date = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+                .format(java.util.Date(logFile.lastModified()))
+            val archiveName = "daemon-$date.log"
+            // Use shell to handle root-owned files
+            val rotateCmd = "cat '$dir/daemon.log' >> '$dir/$archiveName' 2>/dev/null; " +
+                "> '$dir/daemon.log' 2>/dev/null; " +
+                "chmod 666 '$dir/$archiveName' 2>/dev/null"
+            when (shellExecutor.mode) {
+                PrivilegeMode.ROOT -> shellExecutor.executeAsRoot(rotateCmd)
+                PrivilegeMode.SHIZUKU,
+                PrivilegeMode.ADB -> shellExecutor.execute(rotateCmd)
+                PrivilegeMode.BASIC -> {
+                    // Try Java-level rotation (only works if app owns the file)
+                    val archive = File(dataDir, archiveName)
+                    if (archive.exists()) archive.appendBytes(logFile.readBytes())
+                    else logFile.renameTo(archive)
+                    if (logFile.exists()) logFile.writeText("")
+                }
+            }
+            // Cleanup: remove archives older than 7 days
+            val cutoff = System.currentTimeMillis() - 7L * 24 * 3600 * 1000
+            dataDir.listFiles()
+                ?.filter { it.name.startsWith("daemon-") && it.name.endsWith(".log") && it.lastModified() < cutoff }
+                ?.forEach { it.delete() }
+        } catch (e: Exception) {
+            XLog.tag(TAG).e("rotateDaemonLog failed: ${e.message}")
+        }
+    }
+
+    /** List daemon log files (current + archives), newest first. */
+    fun listDaemonLogFiles(): List<File> {
+        val files = mutableListOf<File>()
+        val current = File(dataDir, "daemon.log")
+        if (current.exists() && current.length() > 0) files.add(current)
+        dataDir.listFiles()
+            ?.filter { it.name.startsWith("daemon-") && it.name.endsWith(".log") && it.length() > 0 }
+            ?.sortedByDescending { it.name }
+            ?.let { files.addAll(it) }
+        return files
+    }
+
     private suspend fun launch(): Boolean {
         val binary = binaryPath
         val dir = dataDir.absolutePath
+        rotateDaemonLog()
+        // Daemon self-daemonizes: forks a child with Setsid, redirects stdio to daemon.log,
+        // writes PID file, then parent exits. No shell nohup/redirection needed.
+        val cmd = "'$binary' --data-dir '$dir'"
         return when (shellExecutor.mode) {
             PrivilegeMode.ROOT -> {
-                val cmd = "'$binary' --data-dir '$dir'"
                 val result = shellExecutor.executeAsRoot(cmd)
                 logResult(result, binary)
             }
             PrivilegeMode.SHIZUKU -> {
-                // Use nohup + --no-detach + background (&) so the daemon survives
-                // the UserService process teardown (avoids cgroup kill).
-                // The Go Daemonize() fork is bypassed with --no-detach.
-                val cmd = "nohup '$binary' --no-detach --data-dir '$dir' > '$dir/daemon.log' 2>&1 & echo \$!"
                 val result = shellExecutor.execute(cmd)
                 logResult(result, binary)
             }

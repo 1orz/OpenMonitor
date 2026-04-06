@@ -67,6 +67,8 @@ fun LogScreen(
     val daemonLogStatus by viewModel.daemonLogStatus.collectAsStateWithLifecycle()
     val logDates by viewModel.logDates.collectAsStateWithLifecycle()
     val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
+    val daemonLogDates by viewModel.daemonLogDates.collectAsStateWithLifecycle()
+    val selectedDaemonDate by viewModel.selectedDaemonDate.collectAsStateWithLifecycle()
     val filterLevel by viewModel.filterLevel.collectAsStateWithLifecycle()
 
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -141,7 +143,7 @@ fun LogScreen(
         }
         IconButton(onClick = {
             val text = if (selectedTab == 0) {
-                appLogs.joinToString("\n") { "${it.time} ${it.level}/${it.tag}: ${it.message}" }
+                appLogs.joinToString("\n") { "${it.time} ${levelName(it.level)}/${it.tag}: ${it.message}" }
             } else {
                 daemonLogs.joinToString("\n")
             }
@@ -173,12 +175,12 @@ fun LogScreen(
         }
 
         FilterBar(
-            dates = if (selectedTab == 0) logDates else emptyList(),
-            selectedDate = if (selectedTab == 0) selectedDate else null,
-            onSelectDate = { viewModel.selectDate(it) },
+            dates = if (selectedTab == 0) logDates else daemonLogDates,
+            selectedDate = if (selectedTab == 0) selectedDate else selectedDaemonDate,
+            onSelectDate = { if (selectedTab == 0) viewModel.selectDate(it) else viewModel.selectDaemonDate(it) },
             filterLevel = filterLevel,
             onFilterLevel = { viewModel.setFilterLevel(it) },
-            showDateSelector = selectedTab == 0,
+            showDateSelector = true,
         )
 
         when (selectedTab) {
@@ -250,7 +252,7 @@ private fun FilterBar(
         var levelExpanded by remember { mutableStateOf(false) }
         Box {
             Text(
-                text = filterLevel.label,
+                text = filterLevel.displayName,
                 modifier = Modifier
                     .clip(RoundedCornerShape(4.dp))
                     .background(levelColor(filterLevel).copy(alpha = 0.2f))
@@ -265,7 +267,7 @@ private fun FilterBar(
                     DropdownMenuItem(
                         text = {
                             Text(
-                                "${level.label} — ${level.displayName}",
+                                level.displayName,
                                 color = levelColor(level),
                                 fontWeight = if (level == filterLevel) FontWeight.Bold else FontWeight.Normal,
                             )
@@ -285,6 +287,16 @@ private fun levelColor(level: LogLevelFilter): Color = when (level) {
     LogLevelFilter.INFO -> MaterialTheme.colorScheme.primary
     LogLevelFilter.WARN -> Color(0xFFFFAB40)
     LogLevelFilter.ERROR -> Color(0xFFFF5252)
+}
+
+private fun levelName(c: Char): String = when (c) {
+    'V' -> "VERBOSE"
+    'D' -> "DEBUG"
+    'I' -> "INFO"
+    'W' -> "WARN"
+    'E' -> "ERROR"
+    'F' -> "FATAL"
+    else -> c.toString()
 }
 
 @Composable
@@ -360,7 +372,7 @@ private fun AppLogRow(entry: AppLogEntry) {
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     Text(
-        text = "${entry.time} ${entry.level}/${entry.tag}: ${entry.message}",
+        text = "${entry.time} ${levelName(entry.level)}/${entry.tag}: ${entry.message}",
         fontFamily = FontFamily.Monospace,
         fontSize = 11.sp,
         lineHeight = 16.sp,

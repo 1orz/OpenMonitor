@@ -23,7 +23,6 @@ func main() {
 		daemon.Daemonize(*addr, *sampleMs, *dataDir)
 	}
 
-	// Set PidPath for child process (passed via --data-dir)
 	daemon.PidPath = *dataDir + "/monitor-daemon.pid"
 	defer daemon.CleanupPidFile()
 

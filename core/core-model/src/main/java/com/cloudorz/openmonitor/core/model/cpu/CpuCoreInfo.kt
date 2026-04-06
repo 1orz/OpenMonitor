@@ -8,6 +8,7 @@ data class CpuCoreInfo(
     val loadPercent: Double = 0.0,
     val isOnline: Boolean = true,
     val microarchName: String? = null,
+    val vendorName: String? = null,
 ) {
     val currentFreqMHz: Double
         get() = currentFreqKHz / 1000.0

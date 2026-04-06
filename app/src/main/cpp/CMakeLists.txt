@@ -21,3 +21,7 @@ target_link_libraries(cpuinfo-bridge
         android
         lib_cpuinfo
         log)
+
+# Vulkan info bridge
+add_library(vulkan-info SHARED vulkan_info.cpp)
+target_link_libraries(vulkan-info android log dl)

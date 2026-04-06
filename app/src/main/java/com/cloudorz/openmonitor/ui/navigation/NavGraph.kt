@@ -30,6 +30,11 @@ object FeatureRoute {
     const val SENSOR = "features/sensor"
     const val NETWORK = "features/network"
     const val LOG = "features/log"
+    const val HARDWARE = "features/hardware"
+    const val CPU_ANALYSIS = "features/hardware/cpu-analysis"
+    const val VULKAN_INFO = "features/hardware/vulkan-info"
+    const val OPENGL_INFO = "features/hardware/opengl-info"
+    const val PARTITIONS = "features/hardware/partitions"
     const val FPS_SESSION_DETAIL = "features/fps/session/{sessionId}"
     const val PROCESS_DETAIL = "features/process/{pid}"
 

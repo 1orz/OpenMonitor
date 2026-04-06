@@ -26,6 +26,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import android.content.Context
+import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -68,6 +69,11 @@ import com.cloudorz.openmonitor.feature.fps.FpsSessionDetailScreen
 import com.cloudorz.openmonitor.feature.overview.OverviewScreen
 import com.cloudorz.openmonitor.feature.process.ProcessDetailScreen
 import com.cloudorz.openmonitor.feature.process.ProcessScreen
+import com.cloudorz.openmonitor.feature.hardware.CpuAnalysisScreen
+import com.cloudorz.openmonitor.feature.hardware.HardwareInfoScreen
+import com.cloudorz.openmonitor.feature.hardware.OpenGLInfoScreen
+import com.cloudorz.openmonitor.feature.hardware.PartitionScreen
+import com.cloudorz.openmonitor.feature.hardware.VulkanInfoScreen
 import com.cloudorz.openmonitor.ui.features.FeaturesScreen
 import com.cloudorz.openmonitor.ui.log.LogScreen
 import com.cloudorz.openmonitor.ui.network.NetworkScreen
@@ -265,6 +271,11 @@ private fun MainScreen(permissionManager: PermissionManager) {
         FeatureRoute.SENSOR -> "传感器"
         FeatureRoute.NETWORK -> "网络"
         FeatureRoute.LOG -> "调试日志"
+        FeatureRoute.HARDWARE -> "硬件信息"
+        FeatureRoute.CPU_ANALYSIS -> "CPU 分析"
+        FeatureRoute.VULKAN_INFO -> "Vulkan 功能"
+        FeatureRoute.OPENGL_INFO -> "OpenGL ES 功能"
+        FeatureRoute.PARTITIONS -> "磁盘分区"
         else -> null
     }
 
@@ -341,6 +352,24 @@ private fun MainScreen(permissionManager: PermissionManager) {
                 }
             }
 
+            composable(FeatureRoute.HARDWARE) {
+                HardwareInfoScreen(
+                    onCpuAnalysisClick = { navController.navigate(FeatureRoute.CPU_ANALYSIS) },
+                    onVulkanInfoClick = { navController.navigate(FeatureRoute.VULKAN_INFO) },
+                    onOpenGLInfoClick = { navController.navigate(FeatureRoute.OPENGL_INFO) },
+                    onPartitionsClick = { navController.navigate(FeatureRoute.PARTITIONS) },
+                )
+            }
+            composable(FeatureRoute.CPU_ANALYSIS) { CpuAnalysisScreen() }
+            composable(FeatureRoute.VULKAN_INFO) {
+                val entry = navController.previousBackStackEntry
+                val vm: com.cloudorz.openmonitor.feature.hardware.HardwareInfoViewModel =
+                    if (entry != null) androidx.hilt.navigation.compose.hiltViewModel(entry) else androidx.hilt.navigation.compose.hiltViewModel()
+                val gpuInfo = vm.uiState.collectAsState().value.gpuInfo
+                VulkanInfoScreen(vulkanInfoJson = gpuInfo.vulkanInfoJson)
+            }
+            composable(FeatureRoute.OPENGL_INFO) { OpenGLInfoScreen() }
+            composable(FeatureRoute.PARTITIONS) { PartitionScreen() }
             composable(FeatureRoute.BATTERY) { BatteryScreen() }
             composable(FeatureRoute.FPS) {
                 FpsScreen(

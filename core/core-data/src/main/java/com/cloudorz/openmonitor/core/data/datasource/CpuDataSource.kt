@@ -78,15 +78,45 @@ class CpuDataSource @Inject constructor(
     suspend fun getClusterStatus(policyIndex: Int): CpuClusterStatus? = withContext(Dispatchers.IO) {
         val basePath = "$cpuBasePath/cpufreq/policy$policyIndex"
         val governor = sysfsReader.readString("$basePath/scaling_governor") ?: return@withContext null
+
+        // Parse related_cpus or affected_cpus to get core indices for this cluster
+        val coreIndices = parseCpuRange(
+            sysfsReader.readString("$basePath/related_cpus")
+                ?: sysfsReader.readString("$basePath/affected_cpus")
+                ?: ""
+        )
+
         CpuClusterStatus(
+            clusterIndex = policyIndex,
             minFreqKHz = sysfsReader.readLong("$basePath/scaling_min_freq") ?: 0L,
             maxFreqKHz = sysfsReader.readLong("$basePath/scaling_max_freq") ?: 0L,
             governor = governor,
             availableGovernors = sysfsReader.readString("$basePath/scaling_available_governors")
                 ?.split(" ")?.filter { it.isNotBlank() } ?: emptyList(),
             availableFrequenciesKHz = sysfsReader.readString("$basePath/scaling_available_frequencies")
-                ?.split(" ")?.mapNotNull { it.trim().toLongOrNull() } ?: emptyList()
+                ?.split(" ")?.mapNotNull { it.trim().toLongOrNull() } ?: emptyList(),
+            coreIndices = coreIndices,
         )
+    }
+
+    /** Parse "0 1 2 3" or "0-5" style CPU list into int list. */
+    private fun parseCpuRange(raw: String): List<Int> {
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty()) return emptyList()
+        val result = mutableListOf<Int>()
+        for (part in trimmed.split("\\s+|-".toRegex())) {
+            part.trim().toIntOrNull()?.let { result.add(it) }
+        }
+        if (result.isEmpty() && trimmed.contains("-")) {
+            // Handle "0-5" range format
+            val parts = trimmed.split("-")
+            if (parts.size == 2) {
+                val start = parts[0].trim().toIntOrNull() ?: return emptyList()
+                val end = parts[1].trim().toIntOrNull() ?: return emptyList()
+                return (start..end).toList()
+            }
+        }
+        return result.distinct().sorted()
     }
 
     suspend fun getCpuTemperature(): Double = withContext(Dispatchers.IO) {
@@ -127,23 +157,49 @@ class CpuDataSource @Inject constructor(
 
     fun getArmNeon(): Boolean? = cpuNativeInfo.hasArmNeon()
 
-    private suspend fun getMidrMap(): Map<Int, String> = withContext(Dispatchers.IO) {
+    private suspend fun readRawCpuInfo(): String = withContext(Dispatchers.IO) {
         try {
-            MidrDecoder.parseProcCpuInfo(File("/proc/cpuinfo").readText())
+            File("/proc/cpuinfo").readText()
+        } catch (e: Exception) {
+            ""
+        }
+    }
+
+    private fun getMidrFullMap(cpuInfoContent: String): Map<Int, MidrDecoder.CoreMidrInfo> {
+        return try {
+            MidrDecoder.parseProcCpuInfoFull(cpuInfoContent)
         } catch (e: Exception) {
             Log.d("CpuDataSource", "MIDR parse failed", e)
             emptyMap()
         }
     }
 
+    private fun parseCpuFeatures(cpuInfoContent: String): List<String> {
+        val line = cpuInfoContent.lineSequence().firstOrNull { it.startsWith("Features") }
+            ?: return emptyList()
+        return line.substringAfter(":").trim().split("\\s+".toRegex())
+    }
+
+    suspend fun getCpuFeatures(): List<String> = withContext(Dispatchers.IO) {
+        try {
+            parseCpuFeatures(File("/proc/cpuinfo").readText())
+        } catch (e: Exception) {
+            Log.d("CpuDataSource", "CPU features parse failed", e)
+            emptyList()
+        }
+    }
+
     suspend fun getGlobalStatus(): CpuGlobalStatus {
         val coreCount = getCpuCoreCount()
         val loads = getCpuLoad()
-        val midrMap = getMidrMap()
+        val rawCpuInfo = readRawCpuInfo()
+        val midrFullMap = getMidrFullMap(rawCpuInfo)
         val cores = (0 until coreCount).map { i ->
+            val midrInfo = midrFullMap[i]
             getCoreInfo(i).copy(
                 loadPercent = loads.getOrElse(i + 1) { 0.0 },
-                microarchName = midrMap[i],
+                microarchName = midrInfo?.microarchName,
+                vendorName = midrInfo?.vendorName,
             )
         }
 
@@ -167,6 +223,8 @@ class CpuDataSource @Inject constructor(
             cacheInfo = getCacheInfo(),
             hasArmNeon = getArmNeon(),
             socInfo = socInfo,
+            cpuFeatures = parseCpuFeatures(rawCpuInfo),
+            rawCpuInfo = rawCpuInfo,
         )
     }
 
