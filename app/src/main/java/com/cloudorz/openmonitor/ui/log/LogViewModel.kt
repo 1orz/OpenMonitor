@@ -201,10 +201,10 @@ class LogViewModel @Inject constructor(
 
     private fun refreshDaemonLogDates() {
         val files = daemonLauncher.listDaemonLogFiles()
-        _daemonLogDates.value = files.map { f ->
-            if (f.name == "daemon.log") "实时"
-            else f.name.removePrefix("daemon-").removeSuffix(".log")
-        }
+        // Only list archived files (daemon-YYYY-MM-DD.log), not current daemon.log
+        _daemonLogDates.value = files
+            .filter { it.name != "daemon.log" }
+            .map { it.name.removePrefix("daemon-").removeSuffix(".log") }
     }
 
     private suspend fun fetchDaemonLogs() = withContext(Dispatchers.IO) {

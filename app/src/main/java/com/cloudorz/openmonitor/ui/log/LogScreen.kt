@@ -181,6 +181,7 @@ fun LogScreen(
             filterLevel = filterLevel,
             onFilterLevel = { viewModel.setFilterLevel(it) },
             showDateSelector = true,
+            realtimeLabel = if (selectedTab == 0) "实时 (logcat)" else "实时",
         )
 
         when (selectedTab) {
@@ -198,6 +199,7 @@ private fun FilterBar(
     filterLevel: LogLevelFilter,
     onFilterLevel: (LogLevelFilter) -> Unit,
     showDateSelector: Boolean,
+    realtimeLabel: String = "实时 (logcat)",
 ) {
     Row(
         modifier = Modifier
@@ -230,7 +232,7 @@ private fun FilterBar(
                 )
                 DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                     DropdownMenuItem(
-                        text = { Text("实时 (logcat)", fontWeight = if (selectedDate == null) FontWeight.Bold else FontWeight.Normal) },
+                        text = { Text(realtimeLabel, fontWeight = if (selectedDate == null) FontWeight.Bold else FontWeight.Normal) },
                         onClick = { onSelectDate(null); expanded = false },
                     )
                     dates.forEach { date ->
