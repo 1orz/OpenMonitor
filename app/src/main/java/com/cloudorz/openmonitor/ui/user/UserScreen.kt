@@ -59,9 +59,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
+import com.cloudorz.openmonitor.R
 import com.cloudorz.openmonitor.core.common.PermissionManager
 import com.cloudorz.openmonitor.core.common.PrivilegeMode
 import kotlinx.coroutines.launch
@@ -121,7 +125,7 @@ fun UserScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text(
-            text = "设置",
+            text = stringResource(R.string.settings_title),
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
         )
@@ -155,7 +159,7 @@ fun UserScreen(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
-                                text = "切换运行模式",
+                                text = stringResource(R.string.settings_switch_mode),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -304,6 +308,9 @@ fun UserScreen(
             onDarkModeSelected = viewModel::setDarkMode,
         )
 
+        // Language settings card
+        LanguageCard()
+
         // App info card
         var showAboutDialog by remember { mutableStateOf(false) }
         if (showAboutDialog) {
@@ -341,7 +348,7 @@ fun UserScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "版本 ${com.cloudorz.openmonitor.BuildConfig.VERSION_NAME} · Author: 1orz · License: GPLv3",
+                        text = stringResource(R.string.settings_version_format, com.cloudorz.openmonitor.BuildConfig.VERSION_NAME) + " · Author: 1orz · License: GPLv3",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -410,7 +417,7 @@ private fun DaemonStatusCard(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "检测中...",
+                        text = stringResource(R.string.settings_detecting),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f),
@@ -424,7 +431,7 @@ private fun DaemonStatusCard(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     val info = listOfNotNull(
-                        "运行中",
+                        stringResource(R.string.settings_running),
                         status.runner?.uppercase()?.ifEmpty { null },
                         status.uptimeSeconds?.let { formatUptime(it) }?.ifEmpty { null },
                     ).joinToString(" · ")
@@ -462,7 +469,7 @@ private fun DaemonStatusCard(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "未运行",
+                        text = stringResource(R.string.settings_not_running),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.weight(1f),
@@ -470,7 +477,7 @@ private fun DaemonStatusCard(
                 }
                 else -> {
                     Text(
-                        text = "未检测",
+                        text = stringResource(R.string.settings_not_detected),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.outline,
                         modifier = Modifier.weight(1f),
@@ -504,7 +511,7 @@ private fun VersionInfoDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("确定") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.settings_confirm)) }
         },
         icon = {
             Icon(
@@ -515,7 +522,7 @@ private fun VersionInfoDialog(
             )
         },
         title = {
-            Text(if (isMatch) "版本一致" else "版本不一致")
+            Text(if (isMatch) stringResource(R.string.settings_version_match) else stringResource(R.string.settings_version_mismatch))
         },
         text = {
             Column {
@@ -576,11 +583,12 @@ private fun modeIcon(mode: PrivilegeMode): ImageVector = when (mode) {
     PrivilegeMode.BASIC -> Icons.Filled.Info
 }
 
+@Composable
 private fun modeDisplayName(mode: PrivilegeMode): String = when (mode) {
-    PrivilegeMode.ROOT -> "Root 模式"
-    PrivilegeMode.ADB -> "ADB 模式"
-    PrivilegeMode.SHIZUKU -> "Shizuku 模式"
-    PrivilegeMode.BASIC -> "基础模式"
+    PrivilegeMode.ROOT -> stringResource(R.string.mode_root)
+    PrivilegeMode.ADB -> stringResource(R.string.mode_adb)
+    PrivilegeMode.SHIZUKU -> stringResource(R.string.mode_shizuku)
+    PrivilegeMode.BASIC -> stringResource(R.string.mode_basic)
 }
 
 private fun modeDescription(mode: PrivilegeMode): String = when (mode) {
@@ -613,7 +621,7 @@ private fun AboutDialog(onDismiss: () -> Unit) {
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("关闭") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.settings_close)) }
         },
         title = {
             Text("OpenMonitor")
@@ -651,49 +659,84 @@ private fun PollSettingsCard(
     pollSettings: UserViewModel.PollSettings,
     onIntervalSelected: (Long) -> Unit,
 ) {
+    var expanded by remember { mutableStateOf(false) }
+    val intervals = listOf(200L, 500L, 1000L, 2000L)
+    val currentLabel = if (pollSettings.intervalMs < 1000) "${pollSettings.intervalMs}ms" else "${pollSettings.intervalMs / 1000}s"
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         ),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = true }
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Speed,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp),
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = stringResource(R.string.settings_sampling),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = currentLabel,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
                 Icon(
-                    imageVector = Icons.Filled.Speed,
+                    imageVector = Icons.Filled.ArrowDropDown,
                     contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "采样设置",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Spacer(modifier = Modifier.height(12.dp))
 
-            Text(
-                text = "数据刷新间隔（所有悬浮窗）",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(200L, 500L, 1000L, 2000L).forEach { interval ->
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+            ) {
+                intervals.forEach { interval ->
                     val label = if (interval < 1000) "${interval}ms" else "${interval / 1000}s"
-                    FilterChip(
-                        selected = pollSettings.intervalMs == interval,
-                        onClick = { onIntervalSelected(interval) },
-                        label = { Text(label) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        ),
+                    val isSelected = pollSettings.intervalMs == interval
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = label,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            )
+                        },
+                        trailingIcon = {
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Filled.CheckCircle,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            }
+                        },
+                        onClick = {
+                            expanded = false
+                            onIntervalSelected(interval)
+                        },
                     )
                 }
             }
@@ -727,7 +770,7 @@ private fun AdbSetupCard(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "ADB Daemon 设置",
+                    text = stringResource(R.string.settings_adb_setup),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -735,7 +778,7 @@ private fun AdbSetupCard(
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
-                text = "在电脑终端执行以下命令启动 Daemon：",
+                text = stringResource(R.string.settings_adb_run_cmd),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -760,16 +803,16 @@ private fun AdbSetupCard(
                     val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
                     clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("adb command", adbCommand))
                 }) {
-                    Text("复制命令")
+                    Text(stringResource(R.string.settings_copy_command))
                 }
                 OutlinedButton(onClick = onCheck) {
-                    Text("检测连接")
+                    Text(stringResource(R.string.settings_check_connection))
                 }
             }
 
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "启动后将自动检测连接",
+                text = stringResource(R.string.settings_auto_detect_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.outline,
             )
@@ -782,41 +825,204 @@ private fun DarkModeCard(
     darkMode: Int,
     onDarkModeSelected: (Int) -> Unit,
 ) {
+    var expanded by remember { mutableStateOf(false) }
+    val options = listOf(
+        0 to stringResource(R.string.settings_follow_system),
+        1 to stringResource(R.string.settings_light),
+        2 to stringResource(R.string.settings_dark),
+    )
+    val currentLabel = options.firstOrNull { it.first == darkMode }?.second ?: options[0].second
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         ),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = true }
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Brightness4,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp),
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = stringResource(R.string.settings_display_mode),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = currentLabel,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
                 Icon(
-                    imageVector = Icons.Filled.Brightness4,
+                    imageVector = Icons.Filled.ArrowDropDown,
                     contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "显示模式",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("跟随系统" to 0, "日间" to 1, "深色" to 2).forEach { (label, value) ->
-                    FilterChip(
-                        selected = darkMode == value,
-                        onClick = { onDarkModeSelected(value) },
-                        label = { Text(label) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        ),
+
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+            ) {
+                options.forEach { (value, label) ->
+                    val isSelected = darkMode == value
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = label,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            )
+                        },
+                        trailingIcon = {
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Filled.CheckCircle,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            }
+                        },
+                        onClick = {
+                            expanded = false
+                            onDarkModeSelected(value)
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LanguageCard() {
+    val currentLocale = AppCompatDelegate.getApplicationLocales()
+    val currentTag = currentLocale.toLanguageTags().ifEmpty { "" }
+    var expanded by remember { mutableStateOf(false) }
+
+    data class LangOption(val tag: String, val label: String, val nativeLabel: String)
+    val options = listOf(
+        LangOption("", stringResource(R.string.settings_language_system), ""),
+        LangOption("en", "English", ""),
+        LangOption("zh-Hans", "简体中文", "Simplified Chinese"),
+        LangOption("zh-Hant", "繁體中文", "Traditional Chinese"),
+        LangOption("ja", "日本語", "Japanese"),
+    )
+
+    val currentOption = options.firstOrNull { opt ->
+        when {
+            opt.tag.isEmpty() && currentTag.isEmpty() -> true
+            opt.tag.isNotEmpty() && currentTag.startsWith(opt.tag) -> true
+            else -> false
+        }
+    } ?: options[0]
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        ),
+    ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = true }
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Info,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp),
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = stringResource(R.string.settings_language),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = currentOption.label,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+                Icon(
+                    imageVector = Icons.Filled.ArrowDropDown,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+            ) {
+                options.forEach { option ->
+                    val isSelected = option.tag == currentOption.tag
+                    DropdownMenuItem(
+                        text = {
+                            Column {
+                                Text(
+                                    text = option.label,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                )
+                                if (option.nativeLabel.isNotEmpty()) {
+                                    Text(
+                                        text = option.nativeLabel,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        },
+                        trailingIcon = {
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Filled.CheckCircle,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            }
+                        },
+                        onClick = {
+                            expanded = false
+                            val locales = if (option.tag.isEmpty()) {
+                                LocaleListCompat.getEmptyLocaleList()
+                            } else {
+                                LocaleListCompat.forLanguageTags(option.tag)
+                            }
+                            AppCompatDelegate.setApplicationLocales(locales)
+                        },
                     )
                 }
             }

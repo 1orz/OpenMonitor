@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="accessibility_service_description">Displays float monitor windows above other apps (no overlay permission needed) and detects foreground app for accurate FPS monitoring.</string>
     <string name="float_notification_title">OpenMonitor</string>
     <string name="float_notification_text">Float monitor running</string>
     <string name="float_channel_name">Float Monitor</string>

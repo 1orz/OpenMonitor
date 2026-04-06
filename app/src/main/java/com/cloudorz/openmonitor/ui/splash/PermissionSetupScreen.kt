@@ -5,7 +5,7 @@ import android.app.AppOpsManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
+import androidx.core.net.toUri
 import android.os.Build
 import android.os.PowerManager
 import android.os.Process
@@ -60,7 +60,7 @@ import com.cloudorz.openmonitor.R
 @Composable
 fun PermissionSetupScreen(onAllGranted: () -> Unit) {
     val context = LocalContext.current
-    val packageUri = Uri.parse("package:${context.packageName}")
+    val packageUri = "package:${context.packageName}".toUri()
 
     // Bump this counter to force recomposition when returning from settings
     var refreshTick by remember { mutableIntStateOf(0) }
@@ -299,12 +299,20 @@ private fun PermissionCard(
 
 private fun hasUsageStatsPermission(context: Context): Boolean {
     val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
-    @Suppress("DEPRECATION")
-    val mode = appOps.unsafeCheckOpNoThrow(
-        AppOpsManager.OPSTR_GET_USAGE_STATS,
-        Process.myUid(),
-        context.packageName,
-    )
+    val mode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+        appOps.unsafeCheckOpNoThrow(
+            AppOpsManager.OPSTR_GET_USAGE_STATS,
+            Process.myUid(),
+            context.packageName,
+        )
+    } else {
+        @Suppress("DEPRECATION")
+        appOps.checkOpNoThrow(
+            AppOpsManager.OPSTR_GET_USAGE_STATS,
+            Process.myUid(),
+            context.packageName,
+        )
+    }
     return mode == AppOpsManager.MODE_ALLOWED
 }
 
@@ -322,7 +330,7 @@ private fun isIgnoringBatteryOptimizations(context: Context): Boolean {
  * which always contains the overlay toggle on the app's own page.
  */
 private fun overlayPermissionIntent(context: Context): Intent {
-    val packageUri = Uri.parse("package:${context.packageName}")
+    val packageUri = "package:${context.packageName}".toUri()
     val brand = Build.MANUFACTURER.lowercase()
     // These brands are known to redirect the overlay intent to a list page
     val brokenOverlayIntent = brand in setOf(

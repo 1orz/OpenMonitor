@@ -72,7 +72,6 @@
     <string name="perm_battery_desc">防止系统在后台杀死监控服务</string>
     <string name="perm_notification_title">通知权限</string>
     <string name="perm_notification_desc">显示前台服务通知以保持监控运行</string>
-    <string name="perm_granted">已授权</string>
     <string name="perm_go_grant">去授权</string>
     <string name="perm_start">开始使用</string>
     <string name="perm_grant_all_hint">请先授予以上全部权限后继续</string>
@@ -84,8 +83,61 @@
     <string name="daemon_retry">重试</string>
     <string name="daemon_fallback_basic">以基础模式继续</string>
 
-    <!-- 悬浮监视器通知 -->
-    <string name="float_channel_name">悬浮监视器</string>
-    <string name="float_channel_desc">悬浮监视器后台通知</string>
+    <!-- 导航标题 -->
+    <string name="nav_back">返回</string>
+    <string name="nav_battery">电池</string>
+    <string name="nav_fps">帧率</string>
+    <string name="nav_fps_detail">帧率详情</string>
+    <string name="nav_process">进程</string>
+    <string name="nav_process_detail">进程详情</string>
+    <string name="nav_float_monitor">悬浮监视器</string>
+    <string name="nav_storage">存储</string>
+    <string name="nav_sensor">传感器</string>
+    <string name="nav_network">网络</string>
+    <string name="nav_debug_log">调试日志</string>
+    <string name="nav_hardware_info">硬件信息</string>
+    <string name="nav_cpu_analysis">CPU 分析</string>
+
+    <!-- 功能列表 -->
+    <string name="feature_hardware_info">硬件信息</string>
+    <string name="feature_battery">电池电量</string>
+    <string name="feature_fps_recording">帧率记录</string>
+    <string name="feature_process_monitor">进程监控</string>
+    <string name="feature_float_monitor">悬浮监视器</string>
+    <string name="feature_storage_info">存储信息</string>
+    <string name="feature_sensor">传感器</string>
+    <string name="feature_network_monitor">网络监控</string>
+    <string name="feature_debug_log">调试日志</string>
+
+    <!-- 设置 -->
+    <string name="settings_title">设置</string>
+    <string name="settings_switch_mode">切换运行模式</string>
+    <string name="settings_detecting">检测中…</string>
+    <string name="settings_running">运行中</string>
+    <string name="settings_not_running">未运行</string>
+    <string name="settings_not_detected">未检测</string>
+    <string name="settings_sampling">采样频率</string>
+    <string name="settings_display_mode">显示模式</string>
+    <string name="settings_follow_system">跟随系统</string>
+    <string name="settings_light">日间</string>
+    <string name="settings_dark">深色</string>
+    <string name="settings_language">语言</string>
+    <string name="settings_language_system">跟随系统</string>
+    <string name="settings_close">关闭</string>
+    <string name="settings_confirm">确定</string>
+    <string name="settings_version_match">版本一致</string>
+    <string name="settings_version_mismatch">版本不一致</string>
+    <string name="settings_version_format">版本 %s</string>
+    <string name="settings_adb_setup">ADB Daemon 设置</string>
+    <string name="settings_adb_run_cmd">在电脑终端执行以下命令启动 Daemon：</string>
+    <string name="settings_copy_command">复制命令</string>
+    <string name="settings_check_connection">检测连接</string>
+    <string name="settings_auto_detect_hint">启动后将自动检测连接</string>
+
+    <!-- 模式名称 -->
+    <string name="mode_root">Root 模式</string>
+    <string name="mode_adb">ADB 模式</string>
+    <string name="mode_shizuku">Shizuku 模式</string>
+    <string name="mode_basic">基础模式</string>
 
 </resources>

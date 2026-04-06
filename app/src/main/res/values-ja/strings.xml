@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 権限ガイド画面 -->
+    <string name="guide_subtitle">実行モードを選択</string>
+    <string name="guide_auto_detect">最適なモードを自動検出</string>
+    <string name="guide_manual_hint">または上からモードを手動選択</string>
+    <string name="guide_confirm">%1$s モードで開始</string>
+    <string name="guide_detecting_title">権限を検出中</string>
+    <string name="guide_detecting_desc">利用可能な権限レベルを確認中\u2026</string>
+
+    <string name="mode_root_title">ROOT モード</string>
+    <string name="mode_root_desc">全機能利用可。KernelSU / Magisk / APatch 必要</string>
+    <string name="mode_root_tag">全機能利用可能</string>
+
+    <string name="mode_shizuku_title">Shizuku モード</string>
+    <string name="mode_shizuku_desc">ほとんどの機能。Root 不要</string>
+    <string name="mode_shizuku_tag">FPS / プロセス等利用可能</string>
+
+    <string name="mode_basic_title">基本モード</string>
+    <string name="mode_basic_desc">基本的な監視。特別な権限不要</string>
+    <string name="mode_basic_tag">基本監視のみ</string>
+
+    <!-- クイック設定タイル -->
+    <string name="tile_label">システムモニター</string>
+    <string name="tile_label_format">CPU %1$d%% · %2$s°C</string>
+
+    <!-- ストレージ -->
+    <string name="storage_title">ストレージ情報</string>
+    <string name="internal_storage">内部ストレージ</string>
+    <string name="external_storage">外部ストレージ</string>
+    <string name="partitions">パーティション</string>
+    <string name="used">使用済み</string>
+    <string name="available">空き</string>
+    <string name="total">合計</string>
+
+    <!-- センサー -->
+    <string name="sensor_title">センサー</string>
+    <plurals name="sensor_count_format">
+        <item quantity="other">%d 個のセンサーを検出</item>
+    </plurals>
+    <string name="sensor_vendor">ベンダー</string>
+    <string name="sensor_resolution">解像度</string>
+    <string name="sensor_max_range">最大範囲</string>
+    <string name="sensor_power">消費電力</string>
+    <string name="sensor_min_delay">最小遅延</string>
+    <string name="sensor_version">バージョン</string>
+
+    <!-- ネットワーク -->
+    <string name="network_title">ネットワークモニター</string>
+    <string name="network_connected">接続中</string>
+    <string name="network_disconnected">未接続</string>
+    <string name="realtime_speed">リアルタイム速度</string>
+    <string name="download">ダウンロード</string>
+    <string name="upload">アップロード</string>
+    <string name="total_traffic">累計トラフィック</string>
+    <string name="total_received">累計受信</string>
+    <string name="total_sent">累計送信</string>
+    <string name="wifi_details">WiFi 詳細</string>
+    <string name="signal_strength">信号強度</string>
+    <string name="link_speed">接続速度</string>
+    <string name="frequency">周波数</string>
+    <string name="ip_address">IPアドレス</string>
+
+    <!-- 権限設定 -->
+    <string name="perm_setup_title">必要な権限を許可</string>
+    <string name="perm_setup_subtitle">OpenMonitorの正常動作に以下の権限が必要です。すべて必須です。</string>
+    <string name="perm_overlay_title">オーバーレイ（フロートウィンドウ）</string>
+    <string name="perm_overlay_desc">他のアプリの上にリアルタイムモニターを表示</string>
+    <string name="perm_usage_title">使用状況統計</string>
+    <string name="perm_usage_desc">バッテリー使用量とアプリ使用統計を読み取り</string>
+    <string name="perm_battery_title">バッテリー最適化の無効化</string>
+    <string name="perm_battery_desc">バックグラウンドでのモニタリングサービス終了を防止</string>
+    <string name="perm_notification_title">通知</string>
+    <string name="perm_notification_desc">モニタリング用フォアグラウンドサービス通知を表示</string>
+    <string name="perm_go_grant">許可する</string>
+    <string name="perm_start">使用開始</string>
+    <string name="perm_grant_all_hint">続行するにはすべての権限を許可してください</string>
+
+    <!-- Daemon -->
+    <string name="app_name">OpenMonitor</string>
+    <string name="daemon_launching">モニターサービスを展開中…</string>
+    <string name="daemon_launch_failed">モニターサービスの起動に失敗</string>
+    <string name="daemon_retry">再試行</string>
+    <string name="daemon_fallback_basic">基本モードで続行</string>
+
+    <!-- ナビゲーション -->
+    <string name="nav_back">戻る</string>
+    <string name="nav_battery">バッテリー</string>
+    <string name="nav_fps">FPS</string>
+    <string name="nav_fps_detail">FPS詳細</string>
+    <string name="nav_process">プロセス</string>
+    <string name="nav_process_detail">プロセス詳細</string>
+    <string name="nav_float_monitor">フロートモニター</string>
+    <string name="nav_storage">ストレージ</string>
+    <string name="nav_sensor">センサー</string>
+    <string name="nav_network">ネットワーク</string>
+    <string name="nav_debug_log">デバッグログ</string>
+    <string name="nav_hardware_info">ハードウェア情報</string>
+    <string name="nav_cpu_analysis">CPU 分析</string>
+
+    <!-- 機能リスト -->
+    <string name="feature_hardware_info">ハードウェア情報</string>
+    <string name="feature_battery">バッテリー</string>
+    <string name="feature_fps_recording">FPS記録</string>
+    <string name="feature_process_monitor">プロセスモニター</string>
+    <string name="feature_float_monitor">フロートモニター</string>
+    <string name="feature_storage_info">ストレージ情報</string>
+    <string name="feature_sensor">センサー</string>
+    <string name="feature_network_monitor">ネットワークモニター</string>
+    <string name="feature_debug_log">デバッグログ</string>
+
+    <!-- 設定 -->
+    <string name="settings_title">設定</string>
+    <string name="settings_switch_mode">実行モード切替</string>
+    <string name="settings_detecting">検出中…</string>
+    <string name="settings_running">実行中</string>
+    <string name="settings_not_running">停止中</string>
+    <string name="settings_not_detected">未検出</string>
+    <string name="settings_sampling">サンプリング</string>
+    <string name="settings_display_mode">表示モード</string>
+    <string name="settings_follow_system">システムに従う</string>
+    <string name="settings_light">ライト</string>
+    <string name="settings_dark">ダーク</string>
+    <string name="settings_language">言語</string>
+    <string name="settings_language_system">システムに従う</string>
+    <string name="settings_close">閉じる</string>
+    <string name="settings_confirm">OK</string>
+    <string name="settings_version_match">バージョン一致</string>
+    <string name="settings_version_mismatch">バージョン不一致</string>
+    <string name="settings_version_format">バージョン %s</string>
+    <string name="settings_adb_setup">ADB Daemon 設定</string>
+    <string name="settings_adb_run_cmd">ターミナルで以下のコマンドを実行してDaemonを起動：</string>
+    <string name="settings_copy_command">コマンドをコピー</string>
+    <string name="settings_check_connection">接続確認</string>
+    <string name="settings_auto_detect_hint">起動後に自動で接続を検出します</string>
+
+    <!-- モード名 -->
+    <string name="mode_root">Root モード</string>
+    <string name="mode_adb">ADB モード</string>
+    <string name="mode_shizuku">Shizuku モード</string>
+    <string name="mode_basic">基本モード</string>
+
+</resources>

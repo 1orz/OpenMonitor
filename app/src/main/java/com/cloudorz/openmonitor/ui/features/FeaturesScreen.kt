@@ -26,11 +26,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.cloudorz.openmonitor.R
 import com.cloudorz.openmonitor.ui.navigation.FeatureRoute
 
 data class FeatureItem(
@@ -44,15 +46,15 @@ fun FeaturesScreen(
     onFeatureClick: (String) -> Unit,
 ) {
     val features = listOf(
-        FeatureItem("硬件信息", Icons.Outlined.PhoneAndroid, FeatureRoute.HARDWARE),
-        FeatureItem("电池电量", Icons.Outlined.BatteryStd, FeatureRoute.BATTERY),
-        FeatureItem("帧率记录", Icons.Outlined.Speed, FeatureRoute.FPS),
-        FeatureItem("进程监控", Icons.Outlined.Memory, FeatureRoute.PROCESS),
-        FeatureItem("悬浮监视器", Icons.Outlined.Layers, FeatureRoute.FLOAT),
-        FeatureItem("存储信息", Icons.Outlined.Storage, FeatureRoute.STORAGE),
-        FeatureItem("传感器", Icons.Outlined.Sensors, FeatureRoute.SENSOR),
-        FeatureItem("网络监控", Icons.Outlined.NetworkCheck, FeatureRoute.NETWORK),
-        FeatureItem("调试日志", Icons.Outlined.BugReport, FeatureRoute.LOG),
+        FeatureItem(stringResource(R.string.feature_hardware_info), Icons.Outlined.PhoneAndroid, FeatureRoute.HARDWARE),
+        FeatureItem(stringResource(R.string.feature_battery), Icons.Outlined.BatteryStd, FeatureRoute.BATTERY),
+        FeatureItem(stringResource(R.string.feature_fps_recording), Icons.Outlined.Speed, FeatureRoute.FPS),
+        FeatureItem(stringResource(R.string.feature_process_monitor), Icons.Outlined.Memory, FeatureRoute.PROCESS),
+        FeatureItem(stringResource(R.string.feature_float_monitor), Icons.Outlined.Layers, FeatureRoute.FLOAT),
+        FeatureItem(stringResource(R.string.feature_storage_info), Icons.Outlined.Storage, FeatureRoute.STORAGE),
+        FeatureItem(stringResource(R.string.feature_sensor), Icons.Outlined.Sensors, FeatureRoute.SENSOR),
+        FeatureItem(stringResource(R.string.feature_network_monitor), Icons.Outlined.NetworkCheck, FeatureRoute.NETWORK),
+        FeatureItem(stringResource(R.string.feature_debug_log), Icons.Outlined.BugReport, FeatureRoute.LOG),
     )
 
     LazyColumn(

@@ -39,11 +39,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cloudorz.openmonitor.core.model.cpu.CpuGlobalStatus
+import com.cloudorz.openmonitor.core.ui.R
 import com.cloudorz.openmonitor.core.model.display.DisplayInfo
 import com.cloudorz.openmonitor.core.model.gpu.GpuInfo
 import com.cloudorz.openmonitor.core.model.memory.MemoryInfo
@@ -91,7 +93,7 @@ fun HardwareInfoScreen(
 private fun ProcessorCard(cpuStatus: CpuGlobalStatus, onCpuAnalysisClick: () -> Unit) {
     val socInfo = cpuStatus.socInfo
 
-    SectionCard(title = "处理器", icon = Icons.Outlined.Memory, titleColor = MaterialTheme.colorScheme.primary) {
+    SectionCard(title = stringResource(R.string.hw_processor), icon = Icons.Outlined.Memory, titleColor = MaterialTheme.colorScheme.primary) {
         // SoC header
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (socInfo.vendor.isNotBlank()) {
@@ -113,8 +115,8 @@ private fun ProcessorCard(cpuStatus: CpuGlobalStatus, onCpuAnalysisClick: () -> 
         // Badges
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             if (socInfo.fab.isNotBlank()) InfoBadge(socInfo.fab)
-            InfoBadge("${cpuStatus.coreCount} 核心数")
-            InfoBadge("64-bit")
+            InfoBadge(stringResource(R.string.hw_core_count, cpuStatus.coreCount))
+            InfoBadge(stringResource(R.string.hw_bit_64))
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -127,7 +129,7 @@ private fun ProcessorCard(cpuStatus: CpuGlobalStatus, onCpuAnalysisClick: () -> 
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     Text(
-                        text = "CPU 配置",
+                        text = stringResource(R.string.hw_cpu_config),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     )
@@ -173,14 +175,14 @@ private fun ProcessorCard(cpuStatus: CpuGlobalStatus, onCpuAnalysisClick: () -> 
         }
 
         // Detail rows
-        if (socInfo.vendor.isNotBlank()) InfoRow("供应商", socInfo.vendor)
-        if (socInfo.hardwareId.isNotBlank()) InfoRow("硬件", socInfo.hardwareId)
-        if (socInfo.architecture.isNotBlank()) InfoRow("架构", socInfo.architecture)
+        if (socInfo.vendor.isNotBlank()) InfoRow(stringResource(R.string.hw_vendor), socInfo.vendor)
+        if (socInfo.hardwareId.isNotBlank()) InfoRow(stringResource(R.string.hw_hardware), socInfo.hardwareId)
+        if (socInfo.architecture.isNotBlank()) InfoRow(stringResource(R.string.hw_architecture), socInfo.architecture)
         if (socInfo.abi.isNotBlank()) InfoRow("ABI", "${socInfo.abi} (64-bit)")
 
         // Governor from first cluster
         val governor = cpuStatus.clusters.firstOrNull()?.governor ?: ""
-        if (governor.isNotBlank()) InfoRow("调频器", governor)
+        if (governor.isNotBlank()) InfoRow(stringResource(R.string.hw_governor), governor)
 
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -196,7 +198,7 @@ private fun ProcessorCard(cpuStatus: CpuGlobalStatus, onCpuAnalysisClick: () -> 
         ) {
             Icon(Icons.Outlined.Memory, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text("CPU 分析", fontWeight = FontWeight.Medium)
+            Text(stringResource(R.string.hw_cpu_analysis), fontWeight = FontWeight.Medium)
             Spacer(modifier = Modifier.weight(1f))
             Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
         }
@@ -228,22 +230,22 @@ private fun GpuCard(gpuInfo: GpuInfo, onVulkanInfoClick: () -> Unit = {}, onOpen
         Spacer(modifier = Modifier.height(12.dp))
 
         // Key info in rows
-        InfoRow("供应商", gpuInfo.vendor.displayName.substringBefore(" "))
+        InfoRow(stringResource(R.string.hw_vendor), gpuInfo.vendor.displayName.substringBefore(" "))
         if (gpuInfo.glRenderer.isNotBlank()) {
-            InfoRow("渲染器", gpuInfo.glRenderer)
+            InfoRow(stringResource(R.string.hw_renderer), gpuInfo.glRenderer)
         } else if (gpuInfo.model.isNotEmpty()) {
-            InfoRow("渲染器", gpuInfo.model)
+            InfoRow(stringResource(R.string.hw_renderer), gpuInfo.model)
         }
 
         // Chip details
-        if (gpuInfo.chipId.isNotBlank()) InfoRow("芯片", gpuInfo.chipId)
+        if (gpuInfo.chipId.isNotBlank()) InfoRow(stringResource(R.string.hw_chip), gpuInfo.chipId)
         if (gpuInfo.gmemSizeKB > 0) {
-            InfoRow("片上存储器", "%.2f MB".format(gpuInfo.gmemSizeKB / 1024.0))
+            InfoRow(stringResource(R.string.hw_on_chip_memory), "%.2f MB".format(gpuInfo.gmemSizeKB / 1024.0))
         }
 
         // Mali-specific
-        if (gpuInfo.shaderCores > 0) InfoRow("着色器核心", gpuInfo.shaderCores.toString())
-        if (gpuInfo.busWidthBits > 0) InfoRow("总线宽度", "${gpuInfo.busWidthBits} bits")
+        if (gpuInfo.shaderCores > 0) InfoRow(stringResource(R.string.hw_shader_cores), gpuInfo.shaderCores.toString())
+        if (gpuInfo.busWidthBits > 0) InfoRow(stringResource(R.string.hw_bus_width), "${gpuInfo.busWidthBits} bits")
         if (gpuInfo.l2CacheKB > 0) InfoRow("L2 缓存", "${gpuInfo.l2CacheKB} KB")
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -252,7 +254,7 @@ private fun GpuCard(gpuInfo: GpuInfo, onVulkanInfoClick: () -> Unit = {}, onOpen
 
         // ── Graphics API section ──────────────────────────────────────────
         Text(
-            text = "图形 API",
+            text = stringResource(R.string.hw_graphics_api),
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.error,
@@ -261,7 +263,7 @@ private fun GpuCard(gpuInfo: GpuInfo, onVulkanInfoClick: () -> Unit = {}, onOpen
 
         // Vulkan
         if (gpuInfo.vulkanVersion.isNotBlank()) {
-            InfoRow("Vulkan API 版本", gpuInfo.vulkanVersion)
+            InfoRow(stringResource(R.string.hw_vulkan_api_version), gpuInfo.vulkanVersion)
 
             Spacer(modifier = Modifier.height(4.dp))
             Button(
@@ -317,7 +319,7 @@ private fun GpuCard(gpuInfo: GpuInfo, onVulkanInfoClick: () -> Unit = {}, onOpen
 
         if (gpuInfo.driverVersion.isNotBlank()) {
             Spacer(modifier = Modifier.height(4.dp))
-            InfoRow("驱动版本", gpuInfo.driverVersion)
+            InfoRow(stringResource(R.string.hw_driver_version), gpuInfo.driverVersion)
         }
     }
 }
@@ -334,7 +336,7 @@ private fun formatGlesVersion(raw: String): String {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun DisplayCard(displayInfo: DisplayInfo) {
-    SectionCard(title = "屏幕", icon = Icons.Outlined.ScreenshotMonitor, titleColor = MaterialTheme.colorScheme.primary) {
+    SectionCard(title = stringResource(R.string.hw_display), icon = Icons.Outlined.ScreenshotMonitor, titleColor = MaterialTheme.colorScheme.primary) {
         // Resolution header
         Text(
             text = "${displayInfo.widthPixels} x ${displayInfo.heightPixels}",
@@ -363,10 +365,10 @@ private fun DisplayCard(displayInfo: DisplayInfo) {
 
         // Detail rows
         if (displayInfo.widthPixels > 0) {
-            InfoRow("当前分辨率", "${displayInfo.widthPixels} x ${displayInfo.heightPixels} @ %.0f Hz".format(displayInfo.refreshRateHz))
+            InfoRow(stringResource(R.string.hw_current_resolution), "${displayInfo.widthPixels} x ${displayInfo.heightPixels} @ %.0f Hz".format(displayInfo.refreshRateHz))
         }
         if (displayInfo.physicalSizeInch > 0) {
-            InfoRow("屏幕尺寸", "%.2f in / %d mm".format(displayInfo.physicalSizeInch, displayInfo.physicalSizeMM))
+            InfoRow(stringResource(R.string.hw_screen_size), "%.2f in / %d mm".format(displayInfo.physicalSizeInch, displayInfo.physicalSizeMM))
         }
 
         // Supported resolutions (deduplicated)
@@ -374,7 +376,7 @@ private fun DisplayCard(displayInfo: DisplayInfo) {
             .map { "${it.width} x ${it.height}" }
             .distinct()
         if (uniqueResolutions.isNotEmpty()) {
-            InfoRow("支持的分辨率", uniqueResolutions.joinToString("\n"))
+            InfoRow(stringResource(R.string.hw_supported_resolutions), uniqueResolutions.joinToString("\n"))
         }
 
         // Supported refresh rates (deduplicated, sorted)
@@ -383,25 +385,25 @@ private fun DisplayCard(displayInfo: DisplayInfo) {
             .distinct()
             .sorted()
         if (uniqueRefreshRates.isNotEmpty()) {
-            InfoRow("支持的刷新率", uniqueRefreshRates.joinToString(", ") { "%.0f Hz".format(it) })
+            InfoRow(stringResource(R.string.hw_supported_refresh_rates), uniqueRefreshRates.joinToString(", ") { "%.0f Hz".format(it) })
         }
 
-        if (displayInfo.aspectRatio.isNotBlank()) InfoRow("宽高比", displayInfo.aspectRatio)
+        if (displayInfo.aspectRatio.isNotBlank()) InfoRow(stringResource(R.string.hw_aspect_ratio), displayInfo.aspectRatio)
         if (displayInfo.densityDpi > 0) {
             val dpWidth = (displayInfo.widthPixels * 160f / displayInfo.densityDpi).toInt()
             val dpHeight = (displayInfo.heightPixels * 160f / displayInfo.densityDpi).toInt()
-            InfoRow("Android 密度 (dpi)", "${displayInfo.densityDpi} dpi (${displayInfo.densityBucket})\n${dpHeight}dp x ${dpWidth}dp")
+            InfoRow(stringResource(R.string.hw_android_density), "${displayInfo.densityDpi} dpi (${displayInfo.densityBucket})\n${dpHeight}dp x ${dpWidth}dp")
         }
-        InfoRow("广色域", if (displayInfo.wideColorGamut) "是" else "否")
+        InfoRow(stringResource(R.string.hw_wide_color_gamut), if (displayInfo.wideColorGamut) stringResource(R.string.hw_yes) else stringResource(R.string.hw_no))
 
         if (displayInfo.hdrCapabilities.isNotEmpty()) {
-            InfoRow("HDR支持", displayInfo.hdrCapabilities.joinToString("\n"))
+            InfoRow(stringResource(R.string.hw_hdr_support), displayInfo.hdrCapabilities.joinToString("\n"))
         }
 
         // Panel name (DevCheck reads this from sysfs)
         if (displayInfo.panelName.isNotBlank()) {
             Spacer(modifier = Modifier.height(4.dp))
-            InfoRow("面板", displayInfo.panelName)
+            InfoRow(stringResource(R.string.hw_panel), displayInfo.panelName)
         }
     }
 }
@@ -410,7 +412,7 @@ private fun DisplayCard(displayInfo: DisplayInfo) {
 
 @Composable
 private fun MemoryCard(memoryInfo: MemoryInfo, swapInfo: SwapInfo) {
-    SectionCard(title = "内存", icon = Icons.Outlined.Memory, titleColor = MaterialTheme.colorScheme.primary) {
+    SectionCard(title = stringResource(R.string.hw_memory), icon = Icons.Outlined.Memory, titleColor = MaterialTheme.colorScheme.primary) {
         // RAM size
         val totalGB = memoryInfo.totalKB / 1024.0 / 1024.0
         val ramLabel = when {
@@ -422,7 +424,7 @@ private fun MemoryCard(memoryInfo: MemoryInfo, swapInfo: SwapInfo) {
             else -> "%.1f GB".format(totalGB)
         }
         Text(
-            text = "内存大小",
+            text = stringResource(R.string.hw_memory_size),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
         )
@@ -439,10 +441,10 @@ private fun MemoryCard(memoryInfo: MemoryInfo, swapInfo: SwapInfo) {
         val usedMB = memoryInfo.usedKB / 1024.0
         val availMB = memoryInfo.availableKB / 1024.0
         UsageBarSection(
-            label = "内存",
-            totalLabel = "%.2f GB 总计".format(totalMB / 1024.0),
-            usedLabel = "%.2f GB 已使用".format(usedMB / 1024.0),
-            freeLabel = "%.2f GB 空闲".format(availMB / 1024.0),
+            label = stringResource(R.string.hw_memory),
+            totalLabel = stringResource(R.string.hw_total_format, "%.2f GB".format(totalMB / 1024.0)),
+            usedLabel = stringResource(R.string.hw_used_format, "%.2f GB".format(usedMB / 1024.0)),
+            freeLabel = stringResource(R.string.hw_free_format, "%.2f GB".format(availMB / 1024.0)),
             progress = (memoryInfo.usedPercent / 100.0).toFloat(),
         )
 
@@ -452,9 +454,9 @@ private fun MemoryCard(memoryInfo: MemoryInfo, swapInfo: SwapInfo) {
             Spacer(modifier = Modifier.height(12.dp))
             UsageBarSection(
                 label = "ZRAM",
-                totalLabel = "%.2f GB 总计".format(zram.memLimitKB / 1024.0 / 1024.0),
-                usedLabel = "%.2f GB 已使用".format(zram.memUsedKB / 1024.0 / 1024.0),
-                freeLabel = "%.2f GB 空闲".format((zram.memLimitKB - zram.memUsedKB) / 1024.0 / 1024.0),
+                totalLabel = stringResource(R.string.hw_total_format, "%.2f GB".format(zram.memLimitKB / 1024.0 / 1024.0)),
+                usedLabel = stringResource(R.string.hw_used_format, "%.2f GB".format(zram.memUsedKB / 1024.0 / 1024.0)),
+                freeLabel = stringResource(R.string.hw_free_format, "%.2f GB".format((zram.memLimitKB - zram.memUsedKB) / 1024.0 / 1024.0)),
                 progress = (zram.memUsagePercent / 100.0).toFloat(),
             )
         }
@@ -507,15 +509,15 @@ private fun StorageCard(storageInfo: StorageInfo, onPartitionsClick: () -> Unit 
         else -> "%.0f GB".format(totalGB)
     }
 
-    SectionCard(title = "存储", icon = Icons.Outlined.SdStorage, titleColor = MaterialTheme.colorScheme.primary) {
+    SectionCard(title = stringResource(R.string.hw_storage), icon = Icons.Outlined.SdStorage, titleColor = MaterialTheme.colorScheme.primary) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Column {
-                Text("大小", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                Text(stringResource(R.string.hw_size), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                 Text(marketingSize, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
             if (storageInfo.storageType.isNotBlank()) {
                 Column {
-                    Text("类型", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                    Text(stringResource(R.string.hw_type), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                     Text(storageInfo.storageType, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 }
             }
@@ -527,8 +529,8 @@ private fun StorageCard(storageInfo: StorageInfo, onPartitionsClick: () -> Unit 
         val usedGB = internal.usedBytes / 1024.0 / 1024.0 / 1024.0
         val availGB = internal.availableBytes / 1024.0 / 1024.0 / 1024.0
         UsageBarSection(
-            label = "%.0f GB 已使用".format(usedGB),
-            totalLabel = "%s 总计".format(marketingSize),
+            label = stringResource(R.string.hw_used_format, "%.0f GB".format(usedGB)),
+            totalLabel = stringResource(R.string.hw_total_format, marketingSize),
             usedLabel = "",
             freeLabel = "",
             progress = (internal.usedPercent / 100.0).toFloat(),
@@ -559,19 +561,19 @@ private fun StorageCard(storageInfo: StorageInfo, onPartitionsClick: () -> Unit 
 
         // Internal storage details
         Text(
-            text = "内部存储器",
+            text = stringResource(R.string.hw_internal_storage),
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
         )
         Spacer(modifier = Modifier.height(8.dp))
-        if (storageInfo.fileSystem.isNotBlank()) InfoRow("文件系统", storageInfo.fileSystem)
-        if (storageInfo.blockSizeBytes > 0) InfoRow("Block 大小", "${storageInfo.blockSizeBytes / 1024} kB")
+        if (storageInfo.fileSystem.isNotBlank()) InfoRow(stringResource(R.string.hw_file_system), storageInfo.fileSystem)
+        if (storageInfo.blockSizeBytes > 0) InfoRow(stringResource(R.string.hw_block_size), "${storageInfo.blockSizeBytes / 1024} kB")
 
         // /data partition info
         storageInfo.partitions.firstOrNull { it.path == "/data" }?.let { data ->
             val dataTotalGB = data.totalBytes / 1024.0 / 1024.0 / 1024.0
-            InfoRow("/data", "%.0f GB 总计".format(dataTotalGB))
+            InfoRow("/data", stringResource(R.string.hw_total_format, "%.0f GB".format(dataTotalGB)))
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -588,7 +590,7 @@ private fun StorageCard(storageInfo: StorageInfo, onPartitionsClick: () -> Unit 
         ) {
             Icon(Icons.Outlined.SdStorage, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text("磁盘分区", fontWeight = FontWeight.Medium)
+            Text(stringResource(R.string.hw_partitions), fontWeight = FontWeight.Medium)
             Spacer(modifier = Modifier.weight(1f))
             Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
         }

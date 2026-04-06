@@ -33,12 +33,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cloudorz.openmonitor.core.model.cpu.CpuClusterStatus
+import com.cloudorz.openmonitor.core.ui.R
 import com.cloudorz.openmonitor.core.model.cpu.CpuCoreInfo
 import com.cloudorz.openmonitor.core.model.cpu.CpuGlobalStatus
 
@@ -79,18 +81,18 @@ private fun CpuAnalysisContent(cpuStatus: CpuGlobalStatus) {
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "处理器",
+                        text = stringResource(R.string.hw_processor),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                     )
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    if (socInfo.hardwareId.isNotBlank()) SpecRow("硬件", socInfo.hardwareId)
-                    if (socInfo.vendor.isNotBlank()) SpecRow("制造商", socInfo.vendor)
-                    if (socInfo.name.isNotBlank()) SpecRow("市场名称", socInfo.name)
-                    if (socInfo.fab.isNotBlank()) SpecRow("制程", socInfo.fab)
-                    SpecRow("核心数", cpuStatus.coreCount.toString())
+                    if (socInfo.hardwareId.isNotBlank()) SpecRow(stringResource(R.string.hw_hardware), socInfo.hardwareId)
+                    if (socInfo.vendor.isNotBlank()) SpecRow(stringResource(R.string.cpu_manufacturer), socInfo.vendor)
+                    if (socInfo.name.isNotBlank()) SpecRow(stringResource(R.string.cpu_market_name), socInfo.name)
+                    if (socInfo.fab.isNotBlank()) SpecRow(stringResource(R.string.cpu_process_node), socInfo.fab)
+                    SpecRow(stringResource(R.string.cpu_core_count), cpuStatus.coreCount.toString())
 
                     // CPU types
                     if (socInfo.cpuDescription.isNotBlank()) {
@@ -102,12 +104,12 @@ private fun CpuAnalysisContent(cpuStatus: CpuGlobalStatus) {
                         val freqText = cpuStatus.clusters.joinToString("\n") { cluster ->
                             "%.0f MHz - %.0f MHz".format(cluster.minFreqKHz / 1000.0, cluster.maxFreqKHz / 1000.0)
                         }
-                        SpecRow("频率", freqText)
+                        SpecRow(stringResource(R.string.cpu_frequency), freqText)
                     }
 
-                    if (socInfo.architecture.isNotBlank()) SpecRow("架构", socInfo.architecture)
+                    if (socInfo.architecture.isNotBlank()) SpecRow(stringResource(R.string.hw_architecture), socInfo.architecture)
                     if (socInfo.abi.isNotBlank()) SpecRow("ABI", "${socInfo.abi} (64-bit)")
-                    SpecRow("支持的ABIs", Build.SUPPORTED_ABIS.joinToString(", "))
+                    SpecRow(stringResource(R.string.cpu_supported_abis), Build.SUPPORTED_ABIS.joinToString(", "))
 
                     // CPU Features
                     if (cpuStatus.cpuFeatures.isNotEmpty()) {
@@ -118,7 +120,7 @@ private fun CpuAnalysisContent(cpuStatus: CpuGlobalStatus) {
                                 .padding(vertical = 4.dp),
                         ) {
                             Text(
-                                text = "特性",
+                                text = stringResource(R.string.cpu_features_label),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                                 modifier = Modifier.width(100.dp),
@@ -158,7 +160,7 @@ private fun CpuAnalysisContent(cpuStatus: CpuGlobalStatus) {
                         Spacer(modifier = Modifier.height(4.dp))
                         val freqContent = buildString {
                             cpuStatus.clusters.forEachIndexed { idx, cluster ->
-                                appendLine("簇 ${idx + 1}:")
+                                appendLine("Cluster ${idx + 1}:")
                                 if (cluster.availableFrequenciesKHz.isNotEmpty()) {
                                     cluster.availableFrequenciesKHz.sorted().forEach { freqKHz ->
                                         appendLine("  %.0f MHz".format(freqKHz / 1000.0))
@@ -172,7 +174,7 @@ private fun CpuAnalysisContent(cpuStatus: CpuGlobalStatus) {
                             }
                         }.trim()
                         ExpandableSection(
-                            label = "CPU频率",
+                            label = "CPU Freq",
                             content = freqContent,
                         )
                     }
@@ -194,7 +196,7 @@ private fun CpuAnalysisContent(cpuStatus: CpuGlobalStatus) {
     }
 }
 
-// ── Expandable Section (like DevCheck's "显示" button) ──────────────────────
+// ── Expandable Section ──────────────────────────────────────────────────────
 
 @Composable
 private fun ExpandableSection(label: String, content: String) {
@@ -214,7 +216,7 @@ private fun ExpandableSection(label: String, content: String) {
                 modifier = Modifier.width(100.dp),
             )
             Text(
-                text = if (expanded) "隐藏" else "显示",
+                text = if (expanded) "▲" else "▼",
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.primary,
@@ -257,7 +259,7 @@ private fun ClusterDetailCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "簇 $clusterIndex",
+                text = stringResource(R.string.cpu_cluster_format, clusterIndex),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
@@ -295,16 +297,16 @@ private fun CoreDetailSection(
 
     val archName = core.microarchName
     if (archName != null) {
-        SpecRow("类型", archName)
+        SpecRow(stringResource(R.string.cpu_core_type), archName)
     }
     val vendor = core.vendorName
     if (vendor != null) {
-        SpecRow("供应商", vendor)
+        SpecRow(stringResource(R.string.hw_vendor), vendor)
     }
-    SpecRow("簇", cluster.coreIndices.joinToString(prefix = "[", postfix = "]", separator = ", "))
-    SpecRow("最高频率", "%.0f MHz".format(core.maxFreqKHz / 1000.0))
-    SpecRow("最低频率", "%.0f MHz".format(core.minFreqKHz / 1000.0))
-    if (cluster.governor.isNotBlank()) SpecRow("调频器", cluster.governor)
+    SpecRow(stringResource(R.string.cpu_cluster_label), cluster.coreIndices.joinToString(prefix = "[", postfix = "]", separator = ", "))
+    SpecRow(stringResource(R.string.cpu_max_freq), "%.0f MHz".format(core.maxFreqKHz / 1000.0))
+    SpecRow(stringResource(R.string.cpu_min_freq), "%.0f MHz".format(core.minFreqKHz / 1000.0))
+    if (cluster.governor.isNotBlank()) SpecRow(stringResource(R.string.hw_governor), cluster.governor)
 }
 
 // ── Shared ──────────────────────────────────────────────────────────────────

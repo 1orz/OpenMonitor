@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="float_notification_title">OpenMonitor</string>
+    <string name="float_notification_text">懸浮監視器執行中</string>
+    <string name="float_channel_name">懸浮監視器</string>
+    <string name="float_channel_desc">懸浮監視器背景通知</string>
+    <string name="float_notification_action_panel">控制面板</string>
+    <string name="float_temp_header">溫度</string>
+    <string name="notification_battery_label">電池</string>
+</resources>

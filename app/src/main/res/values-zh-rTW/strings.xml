@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 權限引導頁 -->
+    <string name="guide_subtitle">選擇執行模式</string>
+    <string name="guide_auto_detect">自動偵測最佳模式</string>
+    <string name="guide_manual_hint">或手動選擇上方模式</string>
+    <string name="guide_confirm">進入 %1$s 模式</string>
+    <string name="guide_detecting_title">正在偵測權限</string>
+    <string name="guide_detecting_desc">正在檢查可用的權限級別\u2026</string>
+
+    <string name="mode_root_title">ROOT 模式</string>
+    <string name="mode_root_desc">完整功能，需要 KernelSU / Magisk / APatch</string>
+    <string name="mode_root_tag">全部功能可用</string>
+
+    <string name="mode_shizuku_title">Shizuku 模式</string>
+    <string name="mode_shizuku_desc">大部分功能，無需 Root 權限</string>
+    <string name="mode_shizuku_tag">FPS/進程等可用</string>
+
+    <string name="mode_basic_title">基礎模式</string>
+    <string name="mode_basic_desc">基本監控，無需特殊權限</string>
+    <string name="mode_basic_tag">基本監控可用</string>
+
+    <!-- Quick Settings Tile -->
+    <string name="tile_label">系統監控</string>
+    <string name="tile_label_format">CPU %1$d%% · %2$s°C</string>
+
+    <!-- 儲存資訊 -->
+    <string name="storage_title">儲存資訊</string>
+    <string name="internal_storage">內部儲存</string>
+    <string name="external_storage">外部儲存</string>
+    <string name="partitions">分區</string>
+    <string name="used">已用</string>
+    <string name="available">可用</string>
+    <string name="total">總計</string>
+
+    <!-- 感測器 -->
+    <string name="sensor_title">感測器</string>
+    <plurals name="sensor_count_format">
+        <item quantity="other">偵測到 %d 個感測器</item>
+    </plurals>
+    <string name="sensor_vendor">廠商</string>
+    <string name="sensor_resolution">解析度</string>
+    <string name="sensor_max_range">最大範圍</string>
+    <string name="sensor_power">功耗</string>
+    <string name="sensor_min_delay">最小延遲</string>
+    <string name="sensor_version">版本</string>
+
+    <!-- 網路監控 -->
+    <string name="network_title">網路監控</string>
+    <string name="network_connected">已連線</string>
+    <string name="network_disconnected">未連線</string>
+    <string name="realtime_speed">即時速率</string>
+    <string name="download">下載</string>
+    <string name="upload">上傳</string>
+    <string name="total_traffic">累計流量</string>
+    <string name="total_received">累計接收</string>
+    <string name="total_sent">累計傳送</string>
+    <string name="wifi_details">WiFi 詳情</string>
+    <string name="signal_strength">訊號強度</string>
+    <string name="link_speed">連線速度</string>
+    <string name="frequency">頻率</string>
+    <string name="ip_address">IP 位址</string>
+
+    <!-- 權限設定頁 -->
+    <string name="perm_setup_title">授予必要權限</string>
+    <string name="perm_setup_subtitle">OpenMonitor 需要以下權限才能正常運作，所有權限均為必須。</string>
+    <string name="perm_overlay_title">懸浮窗權限</string>
+    <string name="perm_overlay_desc">在其他應用上方顯示即時監控視窗</string>
+    <string name="perm_usage_title">使用量統計權限</string>
+    <string name="perm_usage_desc">讀取電池用量和應用使用統計資料</string>
+    <string name="perm_battery_title">忽略電池最佳化</string>
+    <string name="perm_battery_desc">防止系統在背景終止監控服務</string>
+    <string name="perm_notification_title">通知權限</string>
+    <string name="perm_notification_desc">顯示前台服務通知以保持監控執行</string>
+    <string name="perm_go_grant">去授權</string>
+    <string name="perm_start">開始使用</string>
+    <string name="perm_grant_all_hint">請先授予以上全部權限後繼續</string>
+
+    <!-- Daemon -->
+    <string name="app_name">OpenMonitor</string>
+    <string name="daemon_launching">正在部署監控服務…</string>
+    <string name="daemon_launch_failed">監控服務啟動失敗</string>
+    <string name="daemon_retry">重試</string>
+    <string name="daemon_fallback_basic">以基礎模式繼續</string>
+
+    <!-- 導覽標題 -->
+    <string name="nav_back">返回</string>
+    <string name="nav_battery">電池</string>
+    <string name="nav_fps">幀率</string>
+    <string name="nav_fps_detail">幀率詳情</string>
+    <string name="nav_process">進程</string>
+    <string name="nav_process_detail">進程詳情</string>
+    <string name="nav_float_monitor">懸浮監視器</string>
+    <string name="nav_storage">儲存</string>
+    <string name="nav_sensor">感測器</string>
+    <string name="nav_network">網路</string>
+    <string name="nav_debug_log">偵錯日誌</string>
+    <string name="nav_hardware_info">硬體資訊</string>
+    <string name="nav_cpu_analysis">CPU 分析</string>
+
+    <!-- 功能列表 -->
+    <string name="feature_hardware_info">硬體資訊</string>
+    <string name="feature_battery">電池電量</string>
+    <string name="feature_fps_recording">幀率記錄</string>
+    <string name="feature_process_monitor">進程監控</string>
+    <string name="feature_float_monitor">懸浮監視器</string>
+    <string name="feature_storage_info">儲存資訊</string>
+    <string name="feature_sensor">感測器</string>
+    <string name="feature_network_monitor">網路監控</string>
+    <string name="feature_debug_log">偵錯日誌</string>
+
+    <!-- 設定 -->
+    <string name="settings_title">設定</string>
+    <string name="settings_switch_mode">切換執行模式</string>
+    <string name="settings_detecting">偵測中…</string>
+    <string name="settings_running">執行中</string>
+    <string name="settings_not_running">未執行</string>
+    <string name="settings_not_detected">未偵測</string>
+    <string name="settings_sampling">取樣頻率</string>
+    <string name="settings_display_mode">顯示模式</string>
+    <string name="settings_follow_system">跟隨系統</string>
+    <string name="settings_light">日間</string>
+    <string name="settings_dark">深色</string>
+    <string name="settings_language">語言</string>
+    <string name="settings_language_system">跟隨系統</string>
+    <string name="settings_close">關閉</string>
+    <string name="settings_confirm">確定</string>
+    <string name="settings_version_match">版本一致</string>
+    <string name="settings_version_mismatch">版本不一致</string>
+    <string name="settings_version_format">版本 %s</string>
+    <string name="settings_adb_setup">ADB Daemon 設定</string>
+    <string name="settings_adb_run_cmd">在電腦終端執行以下命令啟動 Daemon：</string>
+    <string name="settings_copy_command">複製命令</string>
+    <string name="settings_check_connection">偵測連線</string>
+    <string name="settings_auto_detect_hint">啟動後將自動偵測連線</string>
+
+    <!-- 模式名稱 -->
+    <string name="mode_root">Root 模式</string>
+    <string name="mode_adb">ADB 模式</string>
+    <string name="mode_shizuku">Shizuku 模式</string>
+    <string name="mode_basic">基礎模式</string>
+
+</resources>

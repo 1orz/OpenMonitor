@@ -80,7 +80,6 @@
     <string name="perm_battery_desc">Prevent the system from killing the monitoring service in background</string>
     <string name="perm_notification_title">Notifications</string>
     <string name="perm_notification_desc">Show foreground service notifications for monitoring</string>
-    <string name="perm_granted">Granted</string>
     <string name="perm_go_grant">Go to Grant</string>
     <string name="perm_start">Start Using</string>
     <string name="perm_grant_all_hint">Please grant all permissions above to continue</string>
@@ -91,8 +90,61 @@
     <string name="daemon_retry">Retry</string>
     <string name="daemon_fallback_basic">Continue in Basic Mode</string>
 
-    <!-- Float Monitor Notification -->
-    <string name="float_channel_name">Float Monitor</string>
-    <string name="float_channel_desc">Float monitor background notification</string>
+    <!-- Navigation titles -->
+    <string name="nav_back">Back</string>
+    <string name="nav_battery">Battery</string>
+    <string name="nav_fps">FPS</string>
+    <string name="nav_fps_detail">FPS Detail</string>
+    <string name="nav_process">Processes</string>
+    <string name="nav_process_detail">Process Detail</string>
+    <string name="nav_float_monitor">Float Monitor</string>
+    <string name="nav_storage">Storage</string>
+    <string name="nav_sensor">Sensors</string>
+    <string name="nav_network">Network</string>
+    <string name="nav_debug_log">Debug Log</string>
+    <string name="nav_hardware_info">Hardware Info</string>
+    <string name="nav_cpu_analysis">CPU Analysis</string>
+
+    <!-- Feature list -->
+    <string name="feature_hardware_info">Hardware Info</string>
+    <string name="feature_battery">Battery</string>
+    <string name="feature_fps_recording">FPS Recording</string>
+    <string name="feature_process_monitor">Process Monitor</string>
+    <string name="feature_float_monitor">Float Monitor</string>
+    <string name="feature_storage_info">Storage Info</string>
+    <string name="feature_sensor">Sensors</string>
+    <string name="feature_network_monitor">Network Monitor</string>
+    <string name="feature_debug_log">Debug Log</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_switch_mode">Switch Running Mode</string>
+    <string name="settings_detecting">Detecting…</string>
+    <string name="settings_running">Running</string>
+    <string name="settings_not_running">Not Running</string>
+    <string name="settings_not_detected">Not Detected</string>
+    <string name="settings_sampling">Sampling</string>
+    <string name="settings_display_mode">Display Mode</string>
+    <string name="settings_follow_system">Follow System</string>
+    <string name="settings_light">Light</string>
+    <string name="settings_dark">Dark</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_language_system">Follow System</string>
+    <string name="settings_close">Close</string>
+    <string name="settings_confirm">OK</string>
+    <string name="settings_version_match">Version Match</string>
+    <string name="settings_version_mismatch">Version Mismatch</string>
+    <string name="settings_version_format">Version %s</string>
+    <string name="settings_adb_setup">ADB Daemon Setup</string>
+    <string name="settings_adb_run_cmd">Run the following command in terminal to start Daemon:</string>
+    <string name="settings_copy_command">Copy Command</string>
+    <string name="settings_check_connection">Check Connection</string>
+    <string name="settings_auto_detect_hint">Will auto-detect connection after start</string>
+
+    <!-- Mode names -->
+    <string name="mode_root">Root Mode</string>
+    <string name="mode_adb">ADB Mode</string>
+    <string name="mode_shizuku">Shizuku Mode</string>
+    <string name="mode_basic">Basic Mode</string>
 
 </resources>

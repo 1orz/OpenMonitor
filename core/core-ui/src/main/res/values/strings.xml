@@ -50,8 +50,6 @@
     <string name="detail_info">Details</string>
     <string name="permission_desc_title">Permission Info</string>
     <string name="permission_desc_body">Float window supports two methods:\n1. Accessibility Service (recommended) — no overlay permission needed, also provides foreground app detection\n2. Overlay Permission — traditional method, requires manual authorization</string>
-    <string name="accessibility_enabled">Accessibility Service is enabled</string>
-    <string name="accessibility_disabled">Accessibility Service is disabled</string>
     <string name="go_enable">Enable</string>
     <string name="overlay_granted">Overlay permission granted</string>
     <string name="overlay_not_granted">Overlay permission not granted</string>
@@ -60,10 +58,8 @@
     <string name="overlay_mode_title">Float Window Mode</string>
     <string name="overlay_mode_auto">Auto</string>
     <string name="overlay_mode_overlay_only">Overlay Only</string>
-    <string name="overlay_mode_accessibility_only">Accessibility Only</string>
     <string name="overlay_mode_desc_auto">Auto-select best method (prefer accessibility)</string>
     <string name="overlay_mode_desc_overlay">Use standard overlay permission only. Avoids triggering risk controls in payment apps that detect accessibility services.</string>
-    <string name="overlay_mode_desc_accessibility">Use accessibility service only. No overlay permission needed.</string>
     <string name="session_chart_power">Power(W)</string>
     <string name="session_chart_battery">Battery(%%)</string>
     <string name="session_chart_temp">Temp(\u00B0C)</string>
@@ -166,4 +162,63 @@
     <string name="battery_usage_stats_hint">Grant usage access permission to display foreground app icons on the battery chart</string>
     <string name="battery_grant_permission">Grant Permission</string>
     <string name="battery_export_csv">Export CSV</string>
+
+    <!-- Hardware Info Screen -->
+    <string name="hw_processor">Processor</string>
+    <string name="hw_vendor">Vendor</string>
+    <string name="hw_hardware">Hardware</string>
+    <string name="hw_architecture">Architecture</string>
+    <string name="hw_governor">Governor</string>
+    <string name="hw_core_count">%d Cores</string>
+    <string name="hw_cpu_config">CPU Config</string>
+    <string name="hw_cpu_analysis">CPU Analysis</string>
+    <string name="hw_gpu">GPU</string>
+    <string name="hw_graphics_api">Graphics API</string>
+    <string name="hw_renderer">Renderer</string>
+    <string name="hw_driver_version">Driver Version</string>
+    <string name="hw_vulkan_api_version">Vulkan API Version</string>
+    <string name="hw_opengl_es">OpenGL ES</string>
+    <string name="hw_chip">Chip</string>
+    <string name="hw_on_chip_memory">On-Chip Memory</string>
+    <string name="hw_shader_cores">Shader Cores</string>
+    <string name="hw_bus_width">Bus Width</string>
+    <string name="hw_display">Display</string>
+    <string name="hw_current_resolution">Current Resolution</string>
+    <string name="hw_screen_size">Screen Size</string>
+    <string name="hw_supported_resolutions">Supported Resolutions</string>
+    <string name="hw_supported_refresh_rates">Supported Refresh Rates</string>
+    <string name="hw_aspect_ratio">Aspect Ratio</string>
+    <string name="hw_android_density">Android Density (dpi)</string>
+    <string name="hw_wide_color_gamut">Wide Color Gamut</string>
+    <string name="hw_hdr_support">HDR Support</string>
+    <string name="hw_panel">Panel</string>
+    <string name="hw_memory">Memory</string>
+    <string name="hw_memory_size">Memory Size</string>
+    <string name="hw_total_format">%s Total</string>
+    <string name="hw_used_format">%s Used</string>
+    <string name="hw_free_format">%s Free</string>
+    <string name="hw_storage">Storage</string>
+    <string name="hw_size">Size</string>
+    <string name="hw_type">Type</string>
+    <string name="hw_internal_storage">Internal Storage</string>
+    <string name="hw_file_system">File System</string>
+    <string name="hw_block_size">Block Size</string>
+    <string name="hw_yes">Yes</string>
+    <string name="hw_no">No</string>
+    <string name="hw_bit_64">64-bit</string>
+
+    <!-- CPU Analysis Screen -->
+    <string name="cpu_manufacturer">Manufacturer</string>
+    <string name="cpu_market_name">Market Name</string>
+    <string name="cpu_process_node">Process Node</string>
+    <string name="cpu_core_count">Cores</string>
+    <string name="cpu_frequency">Frequency</string>
+    <string name="cpu_supported_abis">Supported ABIs</string>
+    <string name="cpu_features_label">Features</string>
+    <string name="cpu_cluster_format">Cluster %d</string>
+    <string name="cpu_core_type">Type</string>
+    <string name="cpu_cluster_label">Cluster</string>
+    <string name="cpu_max_freq">Max Frequency</string>
+    <string name="cpu_min_freq">Min Frequency</string>
+    <string name="hw_partitions">Partitions</string>
 </resources>

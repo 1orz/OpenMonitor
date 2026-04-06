@@ -1,7 +1,7 @@
 package com.cloudorz.openmonitor
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
@@ -49,6 +49,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -83,13 +84,13 @@ import com.cloudorz.openmonitor.ui.navigation.FeatureRoute
 import com.cloudorz.openmonitor.ui.navigation.Route
 import com.cloudorz.openmonitor.ui.splash.PermissionGuideScreen
 import com.cloudorz.openmonitor.ui.splash.PermissionSetupScreen
-import com.cloudorz.openmonitor.ui.user.UserScreen  // 设置页复用
+import com.cloudorz.openmonitor.ui.user.UserScreen
 import androidx.compose.ui.platform.LocalContext
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
 
     @Inject
     lateinit var permissionManager: PermissionManager
@@ -261,21 +262,21 @@ private fun MainScreen(permissionManager: PermissionManager) {
 
     // Map routes to display titles
     val subPageTitle = when (currentRoute) {
-        FeatureRoute.BATTERY -> "电池"
-        FeatureRoute.FPS -> "帧率"
-        FeatureRoute.FPS_SESSION_DETAIL -> "帧率详情"
-        FeatureRoute.PROCESS -> "进程"
-        FeatureRoute.PROCESS_DETAIL -> "进程详情"
-        FeatureRoute.FLOAT -> "悬浮监视器"
-        FeatureRoute.STORAGE -> "存储"
-        FeatureRoute.SENSOR -> "传感器"
-        FeatureRoute.NETWORK -> "网络"
-        FeatureRoute.LOG -> "调试日志"
-        FeatureRoute.HARDWARE -> "硬件信息"
-        FeatureRoute.CPU_ANALYSIS -> "CPU 分析"
-        FeatureRoute.VULKAN_INFO -> "Vulkan 功能"
-        FeatureRoute.OPENGL_INFO -> "OpenGL ES 功能"
-        FeatureRoute.PARTITIONS -> "磁盘分区"
+        FeatureRoute.BATTERY -> stringResource(R.string.nav_battery)
+        FeatureRoute.FPS -> stringResource(R.string.nav_fps)
+        FeatureRoute.FPS_SESSION_DETAIL -> stringResource(R.string.nav_fps_detail)
+        FeatureRoute.PROCESS -> stringResource(R.string.nav_process)
+        FeatureRoute.PROCESS_DETAIL -> stringResource(R.string.nav_process_detail)
+        FeatureRoute.FLOAT -> stringResource(R.string.nav_float_monitor)
+        FeatureRoute.STORAGE -> stringResource(R.string.nav_storage)
+        FeatureRoute.SENSOR -> stringResource(R.string.nav_sensor)
+        FeatureRoute.NETWORK -> stringResource(R.string.nav_network)
+        FeatureRoute.LOG -> stringResource(R.string.nav_debug_log)
+        FeatureRoute.HARDWARE -> stringResource(R.string.nav_hardware_info)
+        FeatureRoute.CPU_ANALYSIS -> stringResource(R.string.nav_cpu_analysis)
+        FeatureRoute.VULKAN_INFO -> "Vulkan"
+        FeatureRoute.OPENGL_INFO -> "OpenGL ES"
+        FeatureRoute.PARTITIONS -> stringResource(com.cloudorz.openmonitor.R.string.partitions)
         else -> null
     }
 
@@ -300,7 +301,7 @@ private fun MainScreen(permissionManager: PermissionManager) {
                 navigationIcon = {
                     if (!isTopLevel) {
                         IconButton(onClick = { navController.popBackStack() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.nav_back))
                         }
                     }
                 },

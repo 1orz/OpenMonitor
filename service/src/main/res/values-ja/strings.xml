@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="float_notification_title">OpenMonitor</string>
+    <string name="float_notification_text">フロートモニター実行中</string>
+    <string name="float_channel_name">フロートモニター</string>
+    <string name="float_channel_desc">フロートモニター バックグラウンド通知</string>
+    <string name="float_notification_action_panel">コントロールパネル</string>
+    <string name="float_temp_header">温度</string>
+    <string name="notification_battery_label">バッテリー</string>
+</resources>
