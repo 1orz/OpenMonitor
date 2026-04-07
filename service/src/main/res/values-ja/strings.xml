@@ -28,4 +28,6 @@
     <string name="float_btn_cpu_freq">CPU周波数</string>
     <string name="float_btn_gpu_freq">GPU周波数</string>
     <string name="float_btn_ext_temp">拡張温度</string>
+    <string name="float_btn_net_speed">通信速度</string>
+    <string name="float_btn_net_split">分離表示</string>
 </resources>

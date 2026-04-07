@@ -78,6 +78,8 @@ import androidx.compose.material.icons.filled.UnfoldLess
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.Widgets
+import androidx.compose.material.icons.filled.SwapVert
+import androidx.compose.material.icons.filled.CompareArrows
 import androidx.compose.material3.Icon
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -364,6 +366,10 @@ fun FloatMiniMonitorContent(service: FloatMonitorService) {
     val batVoltage by service.batteryVoltage.collectAsState()
     val showCpuFreq by service.miniShowCpuFreq.collectAsState()
     val showGpuFreq by service.miniShowGpuFreq.collectAsState()
+    val showNetSpeed by service.miniShowNetSpeed.collectAsState()
+    val netSpeedMode by service.miniNetSpeedMode.collectAsState()
+    val rxSpeed by service.netRxSpeed.collectAsState()
+    val txSpeed by service.netTxSpeed.collectAsState()
 
     // Cycle battery info: current → temp → power every 3s
     var batCycleIndex by remember { mutableIntStateOf(0) }
@@ -447,6 +453,18 @@ fun FloatMiniMonitorContent(service: FloatMonitorService) {
                     MiniIconLabel(R.drawable.ic_current, text, Color.White)
                 }
             }
+
+            // Network speed
+            if (showNetSpeed) {
+                if (netSpeedMode == 0) {
+                    // Combined mode
+                    MiniText("\u2195${formatMiniSpeed(rxSpeed + txSpeed)}", Color(0xFF80DEEA))
+                } else {
+                    // Split mode
+                    MiniText("\u2193${formatMiniSpeed(rxSpeed)}", Color(0xFF66BB6A))
+                    MiniText("\u2191${formatMiniSpeed(txSpeed)}", Color(0xFFFF7043))
+                }
+            }
         }
     }
 }
@@ -474,6 +492,12 @@ private fun MiniIconLabel(iconRes: Int, value: String, color: Color) {
             softWrap = false,
         )
     }
+}
+
+private fun formatMiniSpeed(bytesPerSec: Long): String = when {
+    bytesPerSec >= 1_000_000L -> "%.1fM".format(bytesPerSec / 1_000_000.0)
+    bytesPerSec >= 1_000L -> "%.0fK".format(bytesPerSec / 1_000.0)
+    else -> "${bytesPerSec}B"
 }
 
 @Composable
@@ -1191,6 +1215,8 @@ fun FloatControlPanelContent(service: FloatMonitorService) {
     val miniShowCpuFreq by service.miniShowCpuFreq.collectAsState()
     val miniShowGpuFreq by service.miniShowGpuFreq.collectAsState()
     val tempExtended by service.tempShowExtended.collectAsState()
+    val miniShowNetSpeed by service.miniShowNetSpeed.collectAsState()
+    val miniNetSpeedMode by service.miniNetSpeedMode.collectAsState()
 
     data class Btn(val icon: ImageVector, val name: String, val active: Boolean, val onClick: () -> Unit)
     val buttons = listOf(
@@ -1203,6 +1229,8 @@ fun FloatControlPanelContent(service: FloatMonitorService) {
         Btn(Icons.Filled.Memory,      stringResource(R.string.float_btn_cpu_freq), miniShowCpuFreq) { service.onMiniCpuFreqToggle() },
         Btn(Icons.Filled.Videocam,    stringResource(R.string.float_btn_gpu_freq), miniShowGpuFreq) { service.onMiniGpuFreqToggle() },
         Btn(Icons.Filled.UnfoldMore, stringResource(R.string.float_btn_ext_temp), tempExtended) { service.onTempExtendedToggle() },
+        Btn(Icons.Filled.SwapVert,   stringResource(R.string.float_btn_net_speed), miniShowNetSpeed) { service.onMiniNetSpeedToggle() },
+        Btn(Icons.Filled.CompareArrows, stringResource(R.string.float_btn_net_split), miniNetSpeedMode == 1) { service.onMiniNetSpeedModeToggle() },
     )
 
     val panelBg = if (isSystemInDarkTheme()) Color(0xF0222222) else Color(0xF0FFFFFF)

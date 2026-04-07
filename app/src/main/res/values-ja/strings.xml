@@ -135,7 +135,7 @@
     <string name="settings_running">実行中</string>
     <string name="settings_not_running">停止中</string>
     <string name="settings_not_detected">未検出</string>
-    <string name="settings_sampling">サンプリング</string>
+    <string name="settings_sampling">データ更新頻度</string>
     <string name="settings_display_mode">表示モード</string>
     <string name="settings_follow_system">システムに従う</string>
     <string name="settings_light">ライト</string>

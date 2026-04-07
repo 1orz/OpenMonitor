@@ -28,4 +28,6 @@
     <string name="float_btn_cpu_freq">CPU Freq</string>
     <string name="float_btn_gpu_freq">GPU Freq</string>
     <string name="float_btn_ext_temp">Ext. Temp</string>
+    <string name="float_btn_net_speed">Net Speed</string>
+    <string name="float_btn_net_split">Split Net</string>
 </resources>

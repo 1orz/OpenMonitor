@@ -88,6 +88,8 @@ class FloatMonitorService : LifecycleService() {
         const val DEFAULT_POLL_INTERVAL = 500L
         private const val KEY_DARK_MODE = "dark_mode"
         private const val KEY_TEMP_EXTENDED = "temp_extended_categories"
+        private const val KEY_MINI_NET_SPEED = "mini_show_net_speed"
+        private const val KEY_MINI_NET_SPEED_MODE = "mini_net_speed_mode"
 
         fun startIntent(context: Context): Intent =
             Intent(context, FloatMonitorService::class.java).apply { action = ACTION_START }
@@ -129,6 +131,7 @@ class FloatMonitorService : LifecycleService() {
     @Inject lateinit var fpsRecordingManager: com.cloudorz.openmonitor.core.data.datasource.FpsRecordingManager
     @Inject lateinit var batteryRecordDao: BatteryRecordDao
     @Inject lateinit var foregroundAppDataSource: ForegroundAppDataSource
+    @Inject lateinit var networkDataSource: com.cloudorz.openmonitor.core.data.datasource.NetworkDataSource
 
     private lateinit var floatWindowManager: FloatWindowManager
     private var restoreJob: Job? = null
@@ -180,6 +183,10 @@ class FloatMonitorService : LifecycleService() {
     val miniShowCpuFreq = MutableStateFlow(false)
     val miniShowGpuFreq = MutableStateFlow(false)
     val tempShowExtended = MutableStateFlow(false)
+    val miniShowNetSpeed = MutableStateFlow(false)
+    val miniNetSpeedMode = MutableStateFlow(0) // 0=combined, 1=split
+    val netRxSpeed = MutableStateFlow(0L)  // bytes/sec
+    val netTxSpeed = MutableStateFlow(0L)  // bytes/sec
 
     // Dark theme for float windows: considers app pref (0=system,1=light,2=dark) + system config
     val floatDarkTheme = MutableStateFlow(false)
@@ -195,6 +202,18 @@ class FloatMonitorService : LifecycleService() {
         val newVal = !miniShowGpuFreq.value
         miniShowGpuFreq.value = newVal
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit { putBoolean(KEY_MINI_GPU_FREQ, newVal) }
+    }
+
+    fun onMiniNetSpeedToggle() {
+        val newVal = !miniShowNetSpeed.value
+        miniShowNetSpeed.value = newVal
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit { putBoolean(KEY_MINI_NET_SPEED, newVal) }
+    }
+
+    fun onMiniNetSpeedModeToggle() {
+        val newMode = if (miniNetSpeedMode.value == 0) 1 else 0
+        miniNetSpeedMode.value = newMode
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit { putInt(KEY_MINI_NET_SPEED_MODE, newMode) }
     }
 
     fun onTempExtendedToggle() {
@@ -429,6 +448,8 @@ class FloatMonitorService : LifecycleService() {
         miniShowCpuFreq.value = prefs.getBoolean(KEY_MINI_CPU_FREQ, false)
         miniShowGpuFreq.value = prefs.getBoolean(KEY_MINI_GPU_FREQ, false)
         tempShowExtended.value = prefs.getBoolean(KEY_TEMP_EXTENDED, false)
+        miniShowNetSpeed.value = prefs.getBoolean(KEY_MINI_NET_SPEED, false)
+        miniNetSpeedMode.value = prefs.getInt(KEY_MINI_NET_SPEED_MODE, 0)
         prefs.edit { putBoolean(KEY_SERVICE_ACTIVE, true) }
 
         applicationContext.registerComponentCallbacks(configCallback)
@@ -805,6 +826,16 @@ class FloatMonitorService : LifecycleService() {
             batteryTemp.value = batteryDataSource.getBatteryStatus().temperatureCelsius
         } catch (e: Exception) {
             Log.w(TAG, "getBatteryStatus for mini failed", e)
+        }
+
+        if (miniShowNetSpeed.value) {
+            try {
+                val netInfo = networkDataSource.getNetworkInfo()
+                netRxSpeed.value = netInfo.rxSpeedBytesPerSec
+                netTxSpeed.value = netInfo.txSpeedBytesPerSec
+            } catch (e: Exception) {
+                Log.w(TAG, "getNetworkInfo for mini failed", e)
+            }
         }
     }
 

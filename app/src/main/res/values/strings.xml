@@ -142,7 +142,7 @@
     <string name="settings_running">Running</string>
     <string name="settings_not_running">Not Running</string>
     <string name="settings_not_detected">Not Detected</string>
-    <string name="settings_sampling">Sampling</string>
+    <string name="settings_sampling">Data Refresh Rate</string>
     <string name="settings_display_mode">Display Mode</string>
     <string name="settings_follow_system">Follow System</string>
     <string name="settings_light">Light</string>
