@@ -13,4 +13,19 @@
     <string name="thermal_cat_charger">充電</string>
     <string name="thermal_no_data">温度データなし</string>
     <string name="notification_battery_label">バッテリー</string>
+    <!-- フロートウィンドウUI -->
+    <string name="float_process_title">プロセスマネージャー</string>
+    <string name="float_filter_all">すべて</string>
+    <string name="float_filter_app">アプリ</string>
+    <string name="float_need_shell">Shell権限が必要</string>
+    <string name="float_loading">読み込み中…</string>
+    <string name="float_tap_to_kill">もう一度タップして終了</string>
+    <string name="float_btn_load">負荷</string>
+    <string name="float_btn_mini">ミニ</string>
+    <string name="float_btn_temp">温度</string>
+    <string name="float_btn_process">プロセス</string>
+    <string name="float_btn_thread">スレッド</string>
+    <string name="float_btn_cpu_freq">CPU周波数</string>
+    <string name="float_btn_gpu_freq">GPU周波数</string>
+    <string name="float_btn_ext_temp">拡張温度</string>
 </resources>

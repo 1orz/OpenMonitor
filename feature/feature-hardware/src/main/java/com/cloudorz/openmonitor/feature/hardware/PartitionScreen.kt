@@ -34,11 +34,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cloudorz.openmonitor.core.model.storage.MountInfo
+import com.cloudorz.openmonitor.core.ui.R
 
 @Composable
 fun PartitionScreen(
@@ -79,12 +81,12 @@ fun PartitionScreen(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("搜索分区…", style = MaterialTheme.typography.bodyMedium) },
+                    placeholder = { Text(stringResource(R.string.partition_search), style = MaterialTheme.typography.bodyMedium) },
                     leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
                             IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Outlined.Close, contentDescription = "清除", modifier = Modifier.size(20.dp))
+                                Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.partition_clear), modifier = Modifier.size(20.dp))
                             }
                         }
                     },
@@ -100,7 +102,7 @@ fun PartitionScreen(
             // Result count
             item {
                 Text(
-                    text = "${filtered.size} 个分区",
+                    text = stringResource(R.string.partition_count_format, filtered.size),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                 )
@@ -133,8 +135,8 @@ private fun MountCard(mount: MountInfo) {
             Spacer(modifier = Modifier.height(8.dp))
 
             // Device + filesystem
-            MountRow("分区", mount.device)
-            MountRow("文件系统", mount.fileSystem)
+            MountRow(stringResource(R.string.partition_device), mount.device)
+            MountRow(stringResource(R.string.partition_filesystem), mount.fileSystem)
 
             // Size info
             if (mount.totalBytes > 0) {
@@ -143,7 +145,7 @@ private fun MountCard(mount: MountInfo) {
                 val totalStr = formatSize(mount.totalBytes)
                 val usedStr = formatSize(mount.usedBytes)
                 val freeStr = formatSize(mount.availableBytes)
-                val roLabel = if (mount.isReadOnly) "只读" else "读写"
+                val roLabel = if (mount.isReadOnly) stringResource(R.string.partition_readonly) else stringResource(R.string.partition_readwrite)
 
                 // Size header line
                 Row(
@@ -181,20 +183,20 @@ private fun MountCard(mount: MountInfo) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
-                        text = "$usedStr 已使用",
+                        text = stringResource(R.string.partition_used_format, usedStr),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     )
                     Text(
-                        text = "$freeStr 空闲",
+                        text = stringResource(R.string.partition_free_format, freeStr),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
                     )
                 }
             } else {
                 // No size info (likely a special mount)
-                val roLabel = if (mount.isReadOnly) "只读" else "读写"
-                MountRow("访问", roLabel)
+                val roLabel = if (mount.isReadOnly) stringResource(R.string.partition_readonly) else stringResource(R.string.partition_readwrite)
+                MountRow(stringResource(R.string.partition_access), roLabel)
             }
         }
     }

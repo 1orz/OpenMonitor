@@ -31,9 +31,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.cloudorz.openmonitor.R
 import com.cloudorz.openmonitor.core.common.PermissionManager
 import com.cloudorz.openmonitor.core.common.PrivilegeMode
 
@@ -113,7 +115,7 @@ fun SplashScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "请选择运行模式",
+                text = stringResource(R.string.splash_select_mode),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -122,7 +124,7 @@ fun SplashScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Root模式可获取完整系统信息，基础模式仅能读取部分数据",
+                text = stringResource(R.string.splash_mode_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 textAlign = TextAlign.Center,
@@ -139,7 +141,7 @@ fun SplashScreen(
                 ),
             ) {
                 Text(
-                    text = "Root 模式",
+                    text = stringResource(R.string.mode_root_title),
                     style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.padding(vertical = 4.dp),
                 )
@@ -156,7 +158,7 @@ fun SplashScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
-                    text = "ADB 模式",
+                    text = stringResource(R.string.mode_adb),
                     style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.padding(vertical = 4.dp),
                 )
@@ -173,7 +175,7 @@ fun SplashScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
-                    text = "基础模式",
+                    text = stringResource(R.string.mode_basic_title),
                     style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.padding(vertical = 4.dp),
                 )
@@ -192,13 +194,13 @@ private fun RootCheckingDialog() {
         },
         title = {
             Text(
-                text = "正在检查 Root 权限",
+                text = stringResource(R.string.splash_checking_root),
                 textAlign = TextAlign.Center,
             )
         },
         text = {
             Text(
-                text = "请在 Root 管理器中授予权限...",
+                text = stringResource(R.string.splash_grant_root),
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -223,29 +225,26 @@ private fun RootDeniedDialog(
             )
         },
         title = {
-            Text(text = "未获取 Root 权限")
+            Text(text = stringResource(R.string.splash_root_denied))
         },
         text = {
             Text(
-                text = "未检测到 Root 权限。请确认：\n" +
-                    "\n1. 设备已 Root\n" +
-                    "2. Root 管理器（如 Magisk/KernelSU）已安装\n" +
-                    "3. 已在弹出的授权对话框中允许",
+                text = stringResource(R.string.splash_root_denied_detail),
             )
         },
         confirmButton = {
             Button(onClick = onRetry) {
-                Text("重试")
+                Text(stringResource(R.string.splash_retry))
             }
         },
         dismissButton = {
             Row {
                 TextButton(onClick = onFallbackBasic) {
-                    Text("使用基础模式")
+                    Text(stringResource(R.string.splash_use_basic))
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 TextButton(onClick = onDismiss) {
-                    Text("返回")
+                    Text(stringResource(R.string.splash_go_back))
                 }
             }
         },

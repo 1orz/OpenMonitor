@@ -50,7 +50,9 @@ import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
+import com.cloudorz.openmonitor.R
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cloudorz.openmonitor.core.common.AppLogEntry
@@ -64,7 +66,8 @@ fun LogScreen(
 ) {
     val appLogs by viewModel.appLogs.collectAsStateWithLifecycle()
     val daemonLogs by viewModel.daemonLogs.collectAsStateWithLifecycle()
-    val daemonLogStatus by viewModel.daemonLogStatus.collectAsStateWithLifecycle()
+    val daemonLogStatusResId by viewModel.daemonLogStatus.collectAsStateWithLifecycle()
+    val daemonLogStatus = daemonLogStatusResId?.let { stringResource(it) }
     val logDates by viewModel.logDates.collectAsStateWithLifecycle()
     val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
     val daemonLogDates by viewModel.daemonLogDates.collectAsStateWithLifecycle()
@@ -131,14 +134,14 @@ fun LogScreen(
         }) {
             Icon(
                 imageVector = if (autoScroll) Icons.Outlined.PauseCircle else Icons.Outlined.PlayCircle,
-                contentDescription = if (autoScroll) "暂停自动滚动" else "恢复自动滚动",
+                contentDescription = if (autoScroll) stringResource(R.string.log_pause_scroll) else stringResource(R.string.log_resume_scroll),
                 tint = if (autoScroll) MaterialTheme.colorScheme.primary
                        else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         if (selectedTab == 1) {
             IconButton(onClick = { viewModel.refreshDaemonLogs() }) {
-                Icon(Icons.Outlined.Refresh, contentDescription = "立即刷新")
+                Icon(Icons.Outlined.Refresh, contentDescription = stringResource(R.string.log_refresh))
             }
         }
         IconButton(onClick = {
@@ -149,12 +152,12 @@ fun LogScreen(
             }
             scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("logs", text))) }
         }) {
-            Icon(Icons.Outlined.ContentCopy, contentDescription = "复制全部")
+            Icon(Icons.Outlined.ContentCopy, contentDescription = stringResource(R.string.log_copy_all))
         }
         IconButton(onClick = {
             if (selectedTab == 0) viewModel.clearAppLogs() else viewModel.clearDaemonLogs()
         }) {
-            Icon(Icons.Outlined.ClearAll, contentDescription = "清空")
+            Icon(Icons.Outlined.ClearAll, contentDescription = stringResource(R.string.log_clear))
         }
     }
     LaunchedEffect(Unit) { onProvideTopBarActions(actions) }
@@ -165,12 +168,12 @@ fun LogScreen(
             Tab(
                 selected = selectedTab == 0,
                 onClick = { selectedTab = 0 },
-                text = { Text("App 日志") },
+                text = { Text(stringResource(R.string.log_tab_app)) },
             )
             Tab(
                 selected = selectedTab == 1,
                 onClick = { selectedTab = 1 },
-                text = { Text("Daemon 日志") },
+                text = { Text(stringResource(R.string.log_tab_daemon)) },
             )
         }
 
@@ -181,7 +184,7 @@ fun LogScreen(
             filterLevel = filterLevel,
             onFilterLevel = { viewModel.setFilterLevel(it) },
             showDateSelector = true,
-            realtimeLabel = if (selectedTab == 0) "实时 (logcat)" else "实时",
+            realtimeLabel = if (selectedTab == 0) stringResource(R.string.log_realtime_logcat) else stringResource(R.string.log_realtime),
         )
 
         when (selectedTab) {
@@ -199,7 +202,7 @@ private fun FilterBar(
     filterLevel: LogLevelFilter,
     onFilterLevel: (LogLevelFilter) -> Unit,
     showDateSelector: Boolean,
-    realtimeLabel: String = "实时 (logcat)",
+    realtimeLabel: String,
 ) {
     Row(
         modifier = Modifier
@@ -211,10 +214,10 @@ private fun FilterBar(
     ) {
         if (showDateSelector) {
             var expanded by remember { mutableStateOf(false) }
-            val label = selectedDate ?: "实时"
+            val label = selectedDate ?: stringResource(R.string.log_realtime)
 
             Text(
-                "来源:",
+                stringResource(R.string.log_source),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -247,7 +250,7 @@ private fun FilterBar(
 
         // Level filter dropdown
         Text(
-            "级别:",
+            stringResource(R.string.log_level),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -307,7 +310,7 @@ private fun AppLogTab(
     listState: androidx.compose.foundation.lazy.LazyListState,
 ) {
     if (entries.isEmpty()) {
-        EmptyState("暂无日志")
+        EmptyState(stringResource(R.string.log_empty))
         return
     }
     SelectionContainer {
@@ -333,7 +336,7 @@ private fun DaemonLogTab(
     listState: androidx.compose.foundation.lazy.LazyListState,
 ) {
     if (lines.isEmpty()) {
-        EmptyState(status ?: "暂无 Daemon 日志")
+        EmptyState(status ?: stringResource(R.string.log_daemon_empty))
         return
     }
     SelectionContainer {

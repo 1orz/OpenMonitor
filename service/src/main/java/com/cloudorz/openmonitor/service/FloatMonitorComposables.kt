@@ -913,7 +913,7 @@ fun FloatProcessContent(service: FloatMonitorService) {
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "进程管理",
+                        text = stringResource(R.string.float_process_title),
                         style = TextStyle(fontSize = 10.sp, color = ProcessTextPrimary),
                     )
                     Spacer(modifier = Modifier.width(6.dp))
@@ -951,15 +951,15 @@ fun FloatProcessContent(service: FloatMonitorService) {
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "进程管理",
+                        text = stringResource(R.string.float_process_title),
                         style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Medium, color = ProcessTextPrimary),
                         modifier = Modifier.weight(1f),
                     )
                     if (hasShell) {
                         Text(
                             text = when (filterMode) {
-                                com.cloudorz.openmonitor.core.model.process.ProcessFilterMode.ALL -> "全部"
-                                com.cloudorz.openmonitor.core.model.process.ProcessFilterMode.APP_ONLY -> "应用"
+                                com.cloudorz.openmonitor.core.model.process.ProcessFilterMode.ALL -> stringResource(R.string.float_filter_all)
+                                com.cloudorz.openmonitor.core.model.process.ProcessFilterMode.APP_ONLY -> stringResource(R.string.float_filter_app)
                             },
                             style = TextStyle(fontSize = 9.sp, color = Color(0xFF2196F3)),
                             modifier = Modifier
@@ -994,9 +994,9 @@ fun FloatProcessContent(service: FloatMonitorService) {
                 Spacer(modifier = Modifier.height(3.dp))
 
                 if (!hasShell) {
-                    Text("需要 Shell 权限", style = TextStyle(fontSize = 10.sp, color = Color(0xFFFFC107)), modifier = Modifier.padding(vertical = 8.dp))
+                    Text(stringResource(R.string.float_need_shell), style = TextStyle(fontSize = 10.sp, color = Color(0xFFFFC107)), modifier = Modifier.padding(vertical = 8.dp))
                 } else if (processes.isEmpty()) {
-                    Text("加载中...", style = TextStyle(fontSize = 10.sp, color = ProcessTextSecondary), modifier = Modifier.padding(vertical = 8.dp))
+                    Text(stringResource(R.string.float_loading), style = TextStyle(fontSize = 10.sp, color = ProcessTextSecondary), modifier = Modifier.padding(vertical = 8.dp))
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxWidth().heightIn(max = 160.dp),
@@ -1022,7 +1022,7 @@ fun FloatProcessContent(service: FloatMonitorService) {
                     if (selectedPid != null) {
                         Spacer(modifier = Modifier.height(3.dp))
                         Text(
-                            text = "再次点击结束",
+                            text = stringResource(R.string.float_tap_to_kill),
                             style = TextStyle(fontSize = 8.sp, color = Color(0xFFF44336).copy(alpha = 0.7f)),
                             modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
                         )
@@ -1132,9 +1132,9 @@ fun FloatThreadContent(service: FloatMonitorService) {
             }
 
             if (!hasShell) {
-                Text("需要 Shell 权限", style = TextStyle(fontSize = 9.sp, color = Color(0xFFFFC107)))
+                Text(stringResource(R.string.float_need_shell), style = TextStyle(fontSize = 9.sp, color = Color(0xFFFFC107)))
             } else if (!isLoaded) {
-                Text("加载中...", style = TextStyle(fontSize = 9.sp, color = TextSecondary))
+                Text(stringResource(R.string.float_loading), style = TextStyle(fontSize = 9.sp, color = TextSecondary))
             } else {
                 threads.forEach { thread ->
                     Row(
@@ -1194,15 +1194,15 @@ fun FloatControlPanelContent(service: FloatMonitorService) {
 
     data class Btn(val icon: ImageVector, val name: String, val active: Boolean, val onClick: () -> Unit)
     val buttons = listOf(
-        Btn(Icons.Filled.Speed,       "负载",   FloatMonitorService.TYPE_LOAD        in activeIds) { service.toggleMonitorFromPanel(FloatMonitorService.TYPE_LOAD) },
-        Btn(Icons.Filled.Widgets,     "迷你",   FloatMonitorService.TYPE_MINI        in activeIds) { service.toggleMonitorFromPanel(FloatMonitorService.TYPE_MINI) },
+        Btn(Icons.Filled.Speed,       stringResource(R.string.float_btn_load),   FloatMonitorService.TYPE_LOAD        in activeIds) { service.toggleMonitorFromPanel(FloatMonitorService.TYPE_LOAD) },
+        Btn(Icons.Filled.Widgets,     stringResource(R.string.float_btn_mini),   FloatMonitorService.TYPE_MINI        in activeIds) { service.toggleMonitorFromPanel(FloatMonitorService.TYPE_MINI) },
         Btn(Icons.Filled.SportsEsports,"FPS",  FloatMonitorService.TYPE_FPS         in activeIds) { service.toggleMonitorFromPanel(FloatMonitorService.TYPE_FPS) },
-        Btn(Icons.Filled.Thermostat,  "温度",   FloatMonitorService.TYPE_TEMPERATURE in activeIds) { service.toggleMonitorFromPanel(FloatMonitorService.TYPE_TEMPERATURE) },
-        Btn(Icons.Filled.Apps,        "进程",   FloatMonitorService.TYPE_PROCESS     in activeIds) { service.toggleMonitorFromPanel(FloatMonitorService.TYPE_PROCESS) },
-        Btn(Icons.Filled.AccountTree, "线程",   FloatMonitorService.TYPE_THREAD      in activeIds) { service.toggleMonitorFromPanel(FloatMonitorService.TYPE_THREAD) },
-        Btn(Icons.Filled.Memory,      "CPU频率", miniShowCpuFreq) { service.onMiniCpuFreqToggle() },
-        Btn(Icons.Filled.Videocam,    "GPU频率", miniShowGpuFreq) { service.onMiniGpuFreqToggle() },
-        Btn(Icons.Filled.UnfoldMore, "扩展温度", tempExtended) { service.onTempExtendedToggle() },
+        Btn(Icons.Filled.Thermostat,  stringResource(R.string.float_btn_temp),   FloatMonitorService.TYPE_TEMPERATURE in activeIds) { service.toggleMonitorFromPanel(FloatMonitorService.TYPE_TEMPERATURE) },
+        Btn(Icons.Filled.Apps,        stringResource(R.string.float_btn_process),   FloatMonitorService.TYPE_PROCESS     in activeIds) { service.toggleMonitorFromPanel(FloatMonitorService.TYPE_PROCESS) },
+        Btn(Icons.Filled.AccountTree, stringResource(R.string.float_btn_thread),   FloatMonitorService.TYPE_THREAD      in activeIds) { service.toggleMonitorFromPanel(FloatMonitorService.TYPE_THREAD) },
+        Btn(Icons.Filled.Memory,      stringResource(R.string.float_btn_cpu_freq), miniShowCpuFreq) { service.onMiniCpuFreqToggle() },
+        Btn(Icons.Filled.Videocam,    stringResource(R.string.float_btn_gpu_freq), miniShowGpuFreq) { service.onMiniGpuFreqToggle() },
+        Btn(Icons.Filled.UnfoldMore, stringResource(R.string.float_btn_ext_temp), tempExtended) { service.onTempExtendedToggle() },
     )
 
     val panelBg = if (isSystemInDarkTheme()) Color(0xF0222222) else Color(0xF0FFFFFF)

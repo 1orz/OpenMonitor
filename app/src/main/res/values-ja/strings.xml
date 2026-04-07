@@ -159,4 +159,44 @@
     <string name="mode_shizuku">Shizuku モード</string>
     <string name="mode_basic">基本モード</string>
 
+    <!-- ログ画面 -->
+    <string name="log_pause_scroll">自動スクロール一時停止</string>
+    <string name="log_resume_scroll">自動スクロール再開</string>
+    <string name="log_refresh">今すぐ更新</string>
+    <string name="log_copy_all">すべてコピー</string>
+    <string name="log_clear">クリア</string>
+    <string name="log_tab_app">アプリログ</string>
+    <string name="log_tab_daemon">Daemonログ</string>
+    <string name="log_realtime_logcat">リアルタイム (logcat)</string>
+    <string name="log_realtime">リアルタイム</string>
+    <string name="log_source">ソース:</string>
+    <string name="log_level">レベル:</string>
+    <string name="log_empty">ログなし</string>
+    <string name="log_daemon_empty">Daemonログなし</string>
+    <string name="log_daemon_no_date">この日付のdaemonログなし</string>
+    <string name="log_daemon_not_running">daemonログなし（daemon未実行）</string>
+    <string name="log_daemon_log_empty">ログが空です</string>
+
+    <!-- スプラッシュ画面 -->
+    <string name="splash_select_mode">実行モードを選択</string>
+    <string name="splash_mode_desc">Rootモードで完全なシステム情報を取得、基本モードは一部のデータのみ</string>
+    <string name="splash_checking_root">Root権限を確認中</string>
+    <string name="splash_grant_root">Root管理アプリで権限を許可してください…</string>
+    <string name="splash_root_denied">Root権限を取得できません</string>
+    <string name="splash_root_denied_detail">Root権限が検出されませんでした。確認事項：\n\n1. デバイスがRoot化済み\n2. Root管理アプリ（Magisk/KernelSU等）がインストール済み\n3. 認証ダイアログで許可済み</string>
+    <string name="splash_retry">再試行</string>
+    <string name="splash_use_basic">基本モードを使用</string>
+    <string name="splash_go_back">戻る</string>
+
+    <!-- ボトムナビゲーション -->
+    <string name="nav_features">機能</string>
+    <string name="nav_overview">概要</string>
+    <string name="nav_settings">設定</string>
+
+    <!-- モード説明 -->
+    <string name="mode_root_description">Magisk / KernelSU、完全なRoot権限</string>
+    <string name="mode_adb_description">ADB経由でDaemonを手動起動（FPS/プロセス等利用可能）</string>
+    <string name="mode_shizuku_description">Shizuku経由でShell権限を取得（推奨）</string>
+    <string name="mode_basic_description">特権なし、フレームレート監視不可</string>
+
 </resources>

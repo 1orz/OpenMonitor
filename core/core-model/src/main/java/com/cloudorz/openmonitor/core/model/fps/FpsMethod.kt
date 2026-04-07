@@ -6,6 +6,6 @@ enum class FpsMethod(
 ) {
     DAEMON(
         displayName = "Daemon",
-        description = "monitor-daemon 直连，需 Root/Shizuku",
+        description = "monitor-daemon direct connection, requires Root/Shizuku",
     ),
 }

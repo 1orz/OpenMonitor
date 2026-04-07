@@ -18,8 +18,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.cloudorz.openmonitor.core.ui.R
 import org.json.JSONObject
 
 @Composable
@@ -36,64 +38,65 @@ fun VulkanInfoScreen(vulkanInfoJson: String) {
 
         // GPU Identity
         item {
-            VkSectionCard("GPU 标识") {
+            VkSectionCard(stringResource(R.string.vk_gpu_identity)) {
                 val device = vk.device
-                VkRow("名称", device.deviceName)
-                VkRow("供应商", device.vendorStr)
-                VkRow("设备 ID", device.deviceIdHex)
-                VkRow("设备类型", device.deviceType)
-                VkRow("实例 API", vk.instanceApiVersion)
-                VkRow("设备 API", device.apiVersion)
-                VkRow("驱动版本", device.driverVersionStr)
-                VkRow("设备扩展", "${vk.deviceExtensionsCount}")
-                VkRow("实例扩展", "${vk.instanceExtensionsCount}")
+                VkRow(stringResource(R.string.vk_name), device.deviceName)
+                VkRow(stringResource(R.string.vk_vendor), device.vendorStr)
+                VkRow(stringResource(R.string.vk_device_id), device.deviceIdHex)
+                VkRow(stringResource(R.string.vk_device_type), device.deviceType)
+                VkRow(stringResource(R.string.vk_instance_api), vk.instanceApiVersion)
+                VkRow(stringResource(R.string.vk_device_api), device.apiVersion)
+                VkRow(stringResource(R.string.vk_driver_version), device.driverVersionStr)
+                VkRow(stringResource(R.string.vk_device_extensions), "${vk.deviceExtensionsCount}")
+                VkRow(stringResource(R.string.vk_instance_extensions), "${vk.instanceExtensionsCount}")
             }
         }
 
         // Memory
         item {
-            VkSectionCard("内存") {
-                VkRow("设备本地（共享）", vk.memory.totalDeviceLocal)
+            VkSectionCard(stringResource(R.string.vk_memory)) {
+                VkRow(stringResource(R.string.vk_device_local), vk.memory.totalDeviceLocal)
                 vk.memory.heaps.forEachIndexed { i, heap ->
-                    VkRow("堆 $i", "${heap.sizeHuman}${if (heap.deviceLocal) " (设备本地)" else ""}")
+                    VkRow(stringResource(R.string.vk_heap_format, i), "${heap.sizeHuman}${if (heap.deviceLocal) stringResource(R.string.vk_device_local_suffix) else ""}")
                 }
             }
         }
 
         // Limits
         item {
-            VkSectionCard("限制") {
+            VkSectionCard(stringResource(R.string.vk_limits)) {
                 val lim = vk.limits
-                VkRow("最大 1D 图像", lim.maxImageDimension1D)
-                VkRow("最大 2D 图像", "${lim.maxImageDimension2D} x ${lim.maxImageDimension2D}")
-                VkRow("最大 3D 图像", "${lim.maxImageDimension3D} x ${lim.maxImageDimension3D} x ${lim.maxImageDimension3D}")
-                VkRow("最大立方体图像", "${lim.maxImageDimensionCube} x ${lim.maxImageDimensionCube}")
-                VkRow("最大数组层", lim.maxImageArrayLayers)
-                VkRow("Uniform 缓冲区范围", formatBytes(lim.maxUniformBufferRange.toLong()))
-                VkRow("存储缓冲区范围", formatBytes(lim.maxStorageBufferRange.toLong()))
-                VkRow("最大各向异性", "%.0f".format(lim.maxSamplerAnisotropy))
-                VkRow("最大计算调用", lim.maxComputeWorkGroupInvocations)
-                VkRow("最大内存分配", lim.maxMemoryAllocationCount)
-                VkRow("最大采样器分配", lim.maxSamplerAllocationCount)
+                VkRow(stringResource(R.string.vk_max_1d_image), lim.maxImageDimension1D)
+                VkRow(stringResource(R.string.vk_max_2d_image), "${lim.maxImageDimension2D} x ${lim.maxImageDimension2D}")
+                VkRow(stringResource(R.string.vk_max_3d_image), "${lim.maxImageDimension3D} x ${lim.maxImageDimension3D} x ${lim.maxImageDimension3D}")
+                VkRow(stringResource(R.string.vk_max_cube_image), "${lim.maxImageDimensionCube} x ${lim.maxImageDimensionCube}")
+                VkRow(stringResource(R.string.vk_max_array_layers), lim.maxImageArrayLayers)
+                VkRow(stringResource(R.string.vk_uniform_buffer_range), formatBytes(lim.maxUniformBufferRange.toLong()))
+                VkRow(stringResource(R.string.vk_storage_buffer_range), formatBytes(lim.maxStorageBufferRange.toLong()))
+                VkRow(stringResource(R.string.vk_max_anisotropy), "%.0f".format(lim.maxSamplerAnisotropy))
+                VkRow(stringResource(R.string.vk_max_compute_invocations), lim.maxComputeWorkGroupInvocations)
+                VkRow(stringResource(R.string.vk_max_memory_alloc), lim.maxMemoryAllocationCount)
+                VkRow(stringResource(R.string.vk_max_sampler_alloc), lim.maxSamplerAllocationCount)
             }
         }
 
         // Core Features
         item {
-            VkSectionCard("核心功能") {
+            VkSectionCard(stringResource(R.string.vk_core_features)) {
                 vk.features.forEach { (name, value) ->
-                    VkRow(name, if (value) "是" else "否")
+                    val displayName = vulkanFeatureDisplayName(name)
+                    VkRow(displayName, if (value) stringResource(R.string.vk_yes) else stringResource(R.string.vk_no))
                 }
             }
         }
 
         // Queues
         item {
-            VkSectionCard("队列") {
+            VkSectionCard(stringResource(R.string.vk_queues)) {
                 vk.queues.forEachIndexed { i, queue ->
-                    VkRow("队列 $i 标志", queue.flags)
-                    VkRow("队列 $i 数量", queue.count)
-                    VkRow("队列 $i 时间戳位数", queue.timestampBits)
+                    VkRow(stringResource(R.string.vk_queue_flags, i), queue.flags)
+                    VkRow(stringResource(R.string.vk_queue_count, i), queue.count)
+                    VkRow(stringResource(R.string.vk_queue_timestamp_bits, i), queue.timestampBits)
                     if (i < vk.queues.lastIndex) Spacer(modifier = Modifier.height(8.dp))
                 }
             }
@@ -102,7 +105,7 @@ fun VulkanInfoScreen(vulkanInfoJson: String) {
         // Device Extensions
         if (vk.deviceExtensions.isNotEmpty()) {
             item {
-                VkSectionCard("设备扩展 (${vk.deviceExtensionsCount})") {
+                VkSectionCard(stringResource(R.string.vk_device_extensions_format, vk.deviceExtensionsCount)) {
                     vk.deviceExtensions.forEach { ext ->
                         Text(
                             text = ext,
@@ -118,7 +121,7 @@ fun VulkanInfoScreen(vulkanInfoJson: String) {
         // Instance Extensions
         if (vk.instanceExtensions.isNotEmpty()) {
             item {
-                VkSectionCard("实例扩展 (${vk.instanceExtensionsCount})") {
+                VkSectionCard(stringResource(R.string.vk_instance_extensions_format, vk.instanceExtensionsCount)) {
                     vk.instanceExtensions.forEach { ext ->
                         Text(
                             text = ext,
@@ -133,6 +136,20 @@ fun VulkanInfoScreen(vulkanInfoJson: String) {
 
         item { Spacer(modifier = Modifier.height(16.dp)) }
     }
+}
+
+@Composable
+private fun vulkanFeatureDisplayName(apiName: String): String = when (apiName) {
+    "robustBufferAccess" -> stringResource(R.string.vk_feat_robust_buffer)
+    "samplerAnisotropy" -> stringResource(R.string.vk_feat_sampler_anisotropy)
+    "geometryShader" -> stringResource(R.string.vk_feat_geometry_shader)
+    "tessellationShader" -> stringResource(R.string.vk_feat_tessellation_shader)
+    "multiViewport" -> stringResource(R.string.vk_feat_multi_viewport)
+    "dualSrcBlend" -> stringResource(R.string.vk_feat_dual_src_blend)
+    "depthClamp" -> stringResource(R.string.vk_feat_depth_clamp)
+    "wideLines" -> stringResource(R.string.vk_feat_wide_lines)
+    "largePoints" -> stringResource(R.string.vk_feat_large_points)
+    else -> apiName
 }
 
 // ── Shared UI Components ────────────────────────────────────────────────────
@@ -287,20 +304,20 @@ private fun parseVulkanJson(json: String): VulkanData {
         val featuresObj = root.optJSONObject("features")
         val features = mutableListOf<Pair<String, Boolean>>()
         if (featuresObj != null) {
-            val featureNames = mapOf(
-                "robustBufferAccess" to "健壮缓冲区访问",
-                "samplerAnisotropy" to "采样器各向异性",
-                "geometryShader" to "几何着色器",
-                "tessellationShader" to "曲面细分着色器",
-                "multiViewport" to "多视口",
-                "dualSrcBlend" to "双源混合",
-                "depthClamp" to "深度钳位",
-                "wideLines" to "宽线条",
-                "largePoints" to "大点",
+            val featureKeys = listOf(
+                "robustBufferAccess",
+                "samplerAnisotropy",
+                "geometryShader",
+                "tessellationShader",
+                "multiViewport",
+                "dualSrcBlend",
+                "depthClamp",
+                "wideLines",
+                "largePoints",
             )
-            for ((key, label) in featureNames) {
+            for (key in featureKeys) {
                 if (featuresObj.has(key)) {
-                    features.add(label to featuresObj.optBoolean(key, false))
+                    features.add(key to featuresObj.optBoolean(key, false))
                 }
             }
         }

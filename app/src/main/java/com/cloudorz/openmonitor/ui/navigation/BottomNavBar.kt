@@ -6,6 +6,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 
 /**
  * Bottom navigation bar displaying the four top-level tabs.
@@ -28,10 +29,10 @@ fun BottomNavBar(
                 icon = {
                     Icon(
                         imageVector = route.icon,
-                        contentDescription = route.label,
+                        contentDescription = stringResource(route.labelResId),
                     )
                 },
-                label = { Text(text = route.label) },
+                label = { Text(text = stringResource(route.labelResId)) },
                 alwaysShowLabel = true,
             )
         }

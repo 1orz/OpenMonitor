@@ -244,4 +244,81 @@
     <string name="process_threads_count">%d 个线程</string>
     <string name="process_no_threads">无线程</string>
     <string name="process_unnamed_thread">&lt;未命名&gt;</string>
+
+    <!-- 硬件 - GPU L2 缓存 -->
+    <string name="hw_l2_cache">L2 缓存</string>
+    <!-- 硬件 - Vulkan/OpenGL 按钮 -->
+    <string name="hw_vulkan_features">Vulkan 功能</string>
+    <string name="hw_opengl_es_features">OpenGL ES 功能</string>
+
+    <!-- OpenGL 信息页 -->
+    <string name="gl_info_title">OpenGL ES 信息</string>
+    <string name="gl_version">版本</string>
+    <string name="gl_renderer">渲染器</string>
+    <string name="gl_vendor">供应商</string>
+    <string name="gl_shading_lang_version">着色器语言版本</string>
+    <string name="gl_extensions_count">扩展数量</string>
+    <string name="gl_egl_info">EGL 信息</string>
+    <string name="gl_extensions_format">扩展 (%d)</string>
+    <string name="gl_egl_extensions_format">EGL 扩展 (%d)</string>
+
+    <!-- Vulkan 信息页 -->
+    <string name="vk_gpu_identity">GPU 标识</string>
+    <string name="vk_name">名称</string>
+    <string name="vk_vendor">供应商</string>
+    <string name="vk_device_id">设备 ID</string>
+    <string name="vk_device_type">设备类型</string>
+    <string name="vk_instance_api">实例 API</string>
+    <string name="vk_device_api">设备 API</string>
+    <string name="vk_driver_version">驱动版本</string>
+    <string name="vk_device_extensions">设备扩展</string>
+    <string name="vk_instance_extensions">实例扩展</string>
+    <string name="vk_memory">内存</string>
+    <string name="vk_device_local">设备本地（共享）</string>
+    <string name="vk_heap_format">堆 %d</string>
+    <string name="vk_device_local_suffix"> (设备本地)</string>
+    <string name="vk_limits">限制</string>
+    <string name="vk_max_1d_image">最大 1D 图像</string>
+    <string name="vk_max_2d_image">最大 2D 图像</string>
+    <string name="vk_max_3d_image">最大 3D 图像</string>
+    <string name="vk_max_cube_image">最大立方体图像</string>
+    <string name="vk_max_array_layers">最大数组层</string>
+    <string name="vk_uniform_buffer_range">Uniform 缓冲区范围</string>
+    <string name="vk_storage_buffer_range">存储缓冲区范围</string>
+    <string name="vk_max_anisotropy">最大各向异性</string>
+    <string name="vk_max_compute_invocations">最大计算调用</string>
+    <string name="vk_max_memory_alloc">最大内存分配</string>
+    <string name="vk_max_sampler_alloc">最大采样器分配</string>
+    <string name="vk_core_features">核心功能</string>
+    <string name="vk_yes">是</string>
+    <string name="vk_no">否</string>
+    <string name="vk_queues">队列</string>
+    <string name="vk_queue_flags">队列 %d 标志</string>
+    <string name="vk_queue_count">队列 %d 数量</string>
+    <string name="vk_queue_timestamp_bits">队列 %d 时间戳位数</string>
+    <string name="vk_device_extensions_format">设备扩展 (%d)</string>
+    <string name="vk_instance_extensions_format">实例扩展 (%d)</string>
+
+    <!-- Vulkan 功能名称 -->
+    <string name="vk_feat_robust_buffer">健壮缓冲区访问</string>
+    <string name="vk_feat_sampler_anisotropy">采样器各向异性</string>
+    <string name="vk_feat_geometry_shader">几何着色器</string>
+    <string name="vk_feat_tessellation_shader">曲面细分着色器</string>
+    <string name="vk_feat_multi_viewport">多视口</string>
+    <string name="vk_feat_dual_src_blend">双源混合</string>
+    <string name="vk_feat_depth_clamp">深度钳位</string>
+    <string name="vk_feat_wide_lines">宽线条</string>
+    <string name="vk_feat_large_points">大点</string>
+
+    <!-- 分区页 -->
+    <string name="partition_search">搜索分区…</string>
+    <string name="partition_clear">清除</string>
+    <string name="partition_count_format">%d 个分区</string>
+    <string name="partition_device">分区</string>
+    <string name="partition_filesystem">文件系统</string>
+    <string name="partition_readonly">只读</string>
+    <string name="partition_readwrite">读写</string>
+    <string name="partition_used_format">%s 已使用</string>
+    <string name="partition_free_format">%s 空闲</string>
+    <string name="partition_access">访问</string>
 </resources>

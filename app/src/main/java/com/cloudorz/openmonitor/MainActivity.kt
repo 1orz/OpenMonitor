@@ -320,8 +320,8 @@ private fun MainScreen(permissionManager: PermissionManager) {
                             onClick = {
                                 coroutineScope.launch { pagerState.animateScrollToPage(index) }
                             },
-                            icon = { Icon(route.icon, route.label) },
-                            label = { Text(route.label) },
+                            icon = { Icon(route.icon, stringResource(route.labelResId)) },
+                            label = { Text(stringResource(route.labelResId)) },
                             alwaysShowLabel = true,
                         )
                     }

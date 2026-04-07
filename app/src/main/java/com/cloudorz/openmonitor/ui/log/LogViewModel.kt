@@ -3,6 +3,7 @@ package com.cloudorz.openmonitor.ui.log
 import android.os.Process
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.cloudorz.openmonitor.R
 import com.cloudorz.openmonitor.core.common.AppLogEntry
 import com.cloudorz.openmonitor.core.common.AppLogger
 import com.cloudorz.openmonitor.core.data.datasource.DaemonLauncher
@@ -74,8 +75,8 @@ class LogViewModel @Inject constructor(
     private val _selectedDate = MutableStateFlow<String?>(null)
     val selectedDate: StateFlow<String?> = _selectedDate.asStateFlow()
 
-    private val _daemonLogStatus = MutableStateFlow<String?>(null)
-    val daemonLogStatus: StateFlow<String?> = _daemonLogStatus.asStateFlow()
+    private val _daemonLogStatus = MutableStateFlow<Int?>(null)
+    val daemonLogStatus: StateFlow<Int?> = _daemonLogStatus.asStateFlow()
 
     private val _daemonLogDates = MutableStateFlow<List<String>>(emptyList())
     val daemonLogDates: StateFlow<List<String>> = _daemonLogDates.asStateFlow()
@@ -218,8 +219,8 @@ class LogViewModel @Inject constructor(
             }
             if (!logFile.exists()) {
                 if (_rawDaemonLogs.value.isEmpty()) {
-                    _daemonLogStatus.value = if (selectedDate != null) "该日期暂无 daemon 日志"
-                    else "暂无 daemon 日志（daemon 未运行）"
+                    _daemonLogStatus.value = if (selectedDate != null) R.string.log_daemon_no_date
+                    else R.string.log_daemon_not_running
                 }
                 return@withContext
             }
@@ -230,11 +231,11 @@ class LogViewModel @Inject constructor(
                 _rawDaemonLogs.value = lines
                 _daemonLogStatus.value = null
             } else if (_rawDaemonLogs.value.isEmpty()) {
-                _daemonLogStatus.value = "日志为空"
+                _daemonLogStatus.value = R.string.log_daemon_log_empty
             }
         } catch (_: Exception) {
             if (_rawDaemonLogs.value.isEmpty()) {
-                _daemonLogStatus.value = "暂无 daemon 日志（daemon 未运行）"
+                _daemonLogStatus.value = R.string.log_daemon_not_running
             }
         }
     }

@@ -13,4 +13,19 @@
     <string name="thermal_cat_charger">充电</string>
     <string name="thermal_no_data">无温度数据</string>
     <string name="notification_battery_label">电池</string>
+    <!-- 悬浮窗界面 -->
+    <string name="float_process_title">进程管理</string>
+    <string name="float_filter_all">全部</string>
+    <string name="float_filter_app">应用</string>
+    <string name="float_need_shell">需要 Shell 权限</string>
+    <string name="float_loading">加载中…</string>
+    <string name="float_tap_to_kill">再次点击结束</string>
+    <string name="float_btn_load">负载</string>
+    <string name="float_btn_mini">迷你</string>
+    <string name="float_btn_temp">温度</string>
+    <string name="float_btn_process">进程</string>
+    <string name="float_btn_thread">线程</string>
+    <string name="float_btn_cpu_freq">CPU频率</string>
+    <string name="float_btn_gpu_freq">GPU频率</string>
+    <string name="float_btn_ext_temp">扩展温度</string>
 </resources>

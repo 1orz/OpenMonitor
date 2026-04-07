@@ -1,19 +1,21 @@
 package com.cloudorz.openmonitor.ui.navigation
 
+import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.Monitor
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.cloudorz.openmonitor.R
 
 sealed class Route(
     val route: String,
-    val label: String,
+    @StringRes val labelResId: Int,
     val icon: ImageVector,
 ) {
-    data object Features : Route("features", "功能", Icons.Outlined.Dashboard)
-    data object Overview : Route("overview", "概览", Icons.Outlined.Monitor)
-    data object Settings : Route("settings", "设置", Icons.Outlined.Settings)
+    data object Features : Route("features", R.string.nav_features, Icons.Outlined.Dashboard)
+    data object Overview : Route("overview", R.string.nav_overview, Icons.Outlined.Monitor)
+    data object Settings : Route("settings", R.string.nav_settings, Icons.Outlined.Settings)
 
     companion object {
         val all: List<Route> = listOf(Features, Overview, Settings)

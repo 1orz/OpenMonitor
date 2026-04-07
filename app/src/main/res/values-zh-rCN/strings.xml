@@ -159,4 +159,44 @@
     <string name="mode_shizuku">Shizuku 模式</string>
     <string name="mode_basic">基础模式</string>
 
+    <!-- 日志页 -->
+    <string name="log_pause_scroll">暂停自动滚动</string>
+    <string name="log_resume_scroll">恢复自动滚动</string>
+    <string name="log_refresh">立即刷新</string>
+    <string name="log_copy_all">复制全部</string>
+    <string name="log_clear">清空</string>
+    <string name="log_tab_app">App 日志</string>
+    <string name="log_tab_daemon">Daemon 日志</string>
+    <string name="log_realtime_logcat">实时 (logcat)</string>
+    <string name="log_realtime">实时</string>
+    <string name="log_source">来源:</string>
+    <string name="log_level">级别:</string>
+    <string name="log_empty">暂无日志</string>
+    <string name="log_daemon_empty">暂无 Daemon 日志</string>
+    <string name="log_daemon_no_date">该日期暂无 daemon 日志</string>
+    <string name="log_daemon_not_running">暂无 daemon 日志（daemon 未运行）</string>
+    <string name="log_daemon_log_empty">日志为空</string>
+
+    <!-- 启动页 -->
+    <string name="splash_select_mode">请选择运行模式</string>
+    <string name="splash_mode_desc">Root模式可获取完整系统信息，基础模式仅能读取部分数据</string>
+    <string name="splash_checking_root">正在检查 Root 权限</string>
+    <string name="splash_grant_root">请在 Root 管理器中授予权限…</string>
+    <string name="splash_root_denied">未获取 Root 权限</string>
+    <string name="splash_root_denied_detail">未检测到 Root 权限。请确认：\n\n1. 设备已 Root\n2. Root 管理器（如 Magisk/KernelSU）已安装\n3. 已在弹出的授权对话框中允许</string>
+    <string name="splash_retry">重试</string>
+    <string name="splash_use_basic">使用基础模式</string>
+    <string name="splash_go_back">返回</string>
+
+    <!-- 底部导航 -->
+    <string name="nav_features">功能</string>
+    <string name="nav_overview">概览</string>
+    <string name="nav_settings">设置</string>
+
+    <!-- 模式描述 -->
+    <string name="mode_root_description">Magisk / KernelSU，完整 Root 权限</string>
+    <string name="mode_adb_description">通过 ADB 手动启动 Daemon（FPS/进程等可用）</string>
+    <string name="mode_shizuku_description">通过 Shizuku 获取 Shell 权限（推荐）</string>
+    <string name="mode_basic_description">无特权，帧率监控等功能不可用</string>
+
 </resources>

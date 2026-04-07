@@ -244,4 +244,81 @@
     <string name="process_threads_count">%d スレッド</string>
     <string name="process_no_threads">スレッドなし</string>
     <string name="process_unnamed_thread">&lt;無名&gt;</string>
+
+    <!-- ハードウェア - GPU L2キャッシュ -->
+    <string name="hw_l2_cache">L2 キャッシュ</string>
+    <!-- ハードウェア - Vulkan/OpenGLボタン -->
+    <string name="hw_vulkan_features">Vulkan 機能</string>
+    <string name="hw_opengl_es_features">OpenGL ES 機能</string>
+
+    <!-- OpenGL情報画面 -->
+    <string name="gl_info_title">OpenGL ES 情報</string>
+    <string name="gl_version">バージョン</string>
+    <string name="gl_renderer">レンダラー</string>
+    <string name="gl_vendor">ベンダー</string>
+    <string name="gl_shading_lang_version">シェーディング言語バージョン</string>
+    <string name="gl_extensions_count">拡張数</string>
+    <string name="gl_egl_info">EGL 情報</string>
+    <string name="gl_extensions_format">拡張 (%d)</string>
+    <string name="gl_egl_extensions_format">EGL 拡張 (%d)</string>
+
+    <!-- Vulkan情報画面 -->
+    <string name="vk_gpu_identity">GPU ID</string>
+    <string name="vk_name">名前</string>
+    <string name="vk_vendor">ベンダー</string>
+    <string name="vk_device_id">デバイス ID</string>
+    <string name="vk_device_type">デバイスタイプ</string>
+    <string name="vk_instance_api">インスタンス API</string>
+    <string name="vk_device_api">デバイス API</string>
+    <string name="vk_driver_version">ドライバーバージョン</string>
+    <string name="vk_device_extensions">デバイス拡張</string>
+    <string name="vk_instance_extensions">インスタンス拡張</string>
+    <string name="vk_memory">メモリ</string>
+    <string name="vk_device_local">デバイスローカル（共有）</string>
+    <string name="vk_heap_format">ヒープ %d</string>
+    <string name="vk_device_local_suffix"> (デバイスローカル)</string>
+    <string name="vk_limits">制限</string>
+    <string name="vk_max_1d_image">最大 1D イメージ</string>
+    <string name="vk_max_2d_image">最大 2D イメージ</string>
+    <string name="vk_max_3d_image">最大 3D イメージ</string>
+    <string name="vk_max_cube_image">最大キューブイメージ</string>
+    <string name="vk_max_array_layers">最大配列レイヤー</string>
+    <string name="vk_uniform_buffer_range">Uniformバッファ範囲</string>
+    <string name="vk_storage_buffer_range">ストレージバッファ範囲</string>
+    <string name="vk_max_anisotropy">最大異方性</string>
+    <string name="vk_max_compute_invocations">最大コンピュート呼び出し</string>
+    <string name="vk_max_memory_alloc">最大メモリ割り当て</string>
+    <string name="vk_max_sampler_alloc">最大サンプラー割り当て</string>
+    <string name="vk_core_features">コア機能</string>
+    <string name="vk_yes">はい</string>
+    <string name="vk_no">いいえ</string>
+    <string name="vk_queues">キュー</string>
+    <string name="vk_queue_flags">キュー %d フラグ</string>
+    <string name="vk_queue_count">キュー %d 数</string>
+    <string name="vk_queue_timestamp_bits">キュー %d タイムスタンプビット</string>
+    <string name="vk_device_extensions_format">デバイス拡張 (%d)</string>
+    <string name="vk_instance_extensions_format">インスタンス拡張 (%d)</string>
+
+    <!-- Vulkan機能名 -->
+    <string name="vk_feat_robust_buffer">堅牢バッファアクセス</string>
+    <string name="vk_feat_sampler_anisotropy">サンプラー異方性</string>
+    <string name="vk_feat_geometry_shader">ジオメトリシェーダー</string>
+    <string name="vk_feat_tessellation_shader">テッセレーションシェーダー</string>
+    <string name="vk_feat_multi_viewport">マルチビューポート</string>
+    <string name="vk_feat_dual_src_blend">デュアルソースブレンド</string>
+    <string name="vk_feat_depth_clamp">デプスクランプ</string>
+    <string name="vk_feat_wide_lines">ワイドライン</string>
+    <string name="vk_feat_large_points">ラージポイント</string>
+
+    <!-- パーティション画面 -->
+    <string name="partition_search">パーティションを検索…</string>
+    <string name="partition_clear">クリア</string>
+    <string name="partition_count_format">%d パーティション</string>
+    <string name="partition_device">デバイス</string>
+    <string name="partition_filesystem">ファイルシステム</string>
+    <string name="partition_readonly">読み取り専用</string>
+    <string name="partition_readwrite">読み書き</string>
+    <string name="partition_used_format">%s 使用中</string>
+    <string name="partition_free_format">%s 空き</string>
+    <string name="partition_access">アクセス</string>
 </resources>

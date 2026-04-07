@@ -246,7 +246,7 @@ private fun GpuCard(gpuInfo: GpuInfo, onVulkanInfoClick: () -> Unit = {}, onOpen
         // Mali-specific
         if (gpuInfo.shaderCores > 0) InfoRow(stringResource(R.string.hw_shader_cores), gpuInfo.shaderCores.toString())
         if (gpuInfo.busWidthBits > 0) InfoRow(stringResource(R.string.hw_bus_width), "${gpuInfo.busWidthBits} bits")
-        if (gpuInfo.l2CacheKB > 0) InfoRow("L2 缓存", "${gpuInfo.l2CacheKB} KB")
+        if (gpuInfo.l2CacheKB > 0) InfoRow(stringResource(R.string.hw_l2_cache), "${gpuInfo.l2CacheKB} KB")
 
         Spacer(modifier = Modifier.height(8.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
@@ -275,7 +275,7 @@ private fun GpuCard(gpuInfo: GpuInfo, onVulkanInfoClick: () -> Unit = {}, onOpen
                 ),
                 shape = MaterialTheme.shapes.large,
             ) {
-                Text("Vulkan 功能", fontWeight = FontWeight.Medium)
+                Text(stringResource(R.string.hw_vulkan_features), fontWeight = FontWeight.Medium)
                 Spacer(modifier = Modifier.weight(1f))
                 Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
             }
@@ -312,7 +312,7 @@ private fun GpuCard(gpuInfo: GpuInfo, onVulkanInfoClick: () -> Unit = {}, onOpen
             ),
             shape = MaterialTheme.shapes.large,
         ) {
-            Text("OpenGL ES 功能", fontWeight = FontWeight.Medium)
+            Text(stringResource(R.string.hw_opengl_es_features), fontWeight = FontWeight.Medium)
             Spacer(modifier = Modifier.weight(1f))
             Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
         }

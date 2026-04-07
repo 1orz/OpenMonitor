@@ -17,9 +17,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cloudorz.openmonitor.core.data.datasource.EglHelper
+import com.cloudorz.openmonitor.core.ui.R
 
 @Composable
 fun OpenGLInfoScreen() {
@@ -38,21 +40,21 @@ fun OpenGLInfoScreen() {
 
         // GL Info card
         item {
-            GlSectionCard("OpenGL ES 信息") {
-                GlRow("版本", fullInfo.version)
-                GlRow("渲染器", fullInfo.renderer)
-                GlRow("供应商", fullInfo.vendor)
-                GlRow("着色器语言版本", fullInfo.shadingLanguageVersion)
-                GlRow("扩展数量", "${fullInfo.extensionsCount}")
+            GlSectionCard(stringResource(R.string.gl_info_title)) {
+                GlRow(stringResource(R.string.gl_version), fullInfo.version)
+                GlRow(stringResource(R.string.gl_renderer), fullInfo.renderer)
+                GlRow(stringResource(R.string.gl_vendor), fullInfo.vendor)
+                GlRow(stringResource(R.string.gl_shading_lang_version), fullInfo.shadingLanguageVersion)
+                GlRow(stringResource(R.string.gl_extensions_count), "${fullInfo.extensionsCount}")
             }
         }
 
         // EGL info
         if (fullInfo.eglVersion.isNotBlank()) {
             item {
-                GlSectionCard("EGL 信息") {
-                    GlRow("版本", fullInfo.eglVersion)
-                    GlRow("供应商", fullInfo.eglVendor)
+                GlSectionCard(stringResource(R.string.gl_egl_info)) {
+                    GlRow(stringResource(R.string.gl_version), fullInfo.eglVersion)
+                    GlRow(stringResource(R.string.gl_vendor), fullInfo.eglVendor)
                     GlRow("Client APIs", fullInfo.eglClientApis)
                 }
             }
@@ -61,7 +63,7 @@ fun OpenGLInfoScreen() {
         // Extensions list
         if (fullInfo.extensions.isNotEmpty()) {
             item {
-                GlSectionCard("扩展 (${fullInfo.extensionsCount})") {
+                GlSectionCard(stringResource(R.string.gl_extensions_format, fullInfo.extensionsCount)) {
                     fullInfo.extensions.forEach { ext ->
                         Text(
                             text = ext,
@@ -77,7 +79,7 @@ fun OpenGLInfoScreen() {
         // EGL extensions
         if (fullInfo.eglExtensions.isNotEmpty()) {
             item {
-                GlSectionCard("EGL 扩展 (${fullInfo.eglExtensions.size})") {
+                GlSectionCard(stringResource(R.string.gl_egl_extensions_format, fullInfo.eglExtensions.size)) {
                     fullInfo.eglExtensions.forEach { ext ->
                         Text(
                             text = ext,

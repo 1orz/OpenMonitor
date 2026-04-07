@@ -591,11 +591,12 @@ private fun modeDisplayName(mode: PrivilegeMode): String = when (mode) {
     PrivilegeMode.BASIC -> stringResource(R.string.mode_basic)
 }
 
+@Composable
 private fun modeDescription(mode: PrivilegeMode): String = when (mode) {
-    PrivilegeMode.ROOT -> "Magisk / KernelSU，完整 Root 权限"
-    PrivilegeMode.ADB -> "通过 ADB 手动启动 Daemon（FPS/进程等可用）"
-    PrivilegeMode.SHIZUKU -> "通过 Shizuku 获取 Shell 权限（推荐）"
-    PrivilegeMode.BASIC -> "无特权，帧率监控等功能不可用"
+    PrivilegeMode.ROOT -> stringResource(R.string.mode_root_description)
+    PrivilegeMode.ADB -> stringResource(R.string.mode_adb_description)
+    PrivilegeMode.SHIZUKU -> stringResource(R.string.mode_shizuku_description)
+    PrivilegeMode.BASIC -> stringResource(R.string.mode_basic_description)
 }
 
 @Composable

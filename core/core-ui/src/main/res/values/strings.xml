@@ -245,4 +245,81 @@
     <string name="process_threads_count">%d threads</string>
     <string name="process_no_threads">No threads</string>
     <string name="process_unnamed_thread">&lt;unnamed&gt;</string>
+
+    <!-- Hardware - GPU L2 Cache -->
+    <string name="hw_l2_cache">L2 Cache</string>
+    <!-- Hardware - Vulkan/OpenGL buttons -->
+    <string name="hw_vulkan_features">Vulkan Features</string>
+    <string name="hw_opengl_es_features">OpenGL ES Features</string>
+
+    <!-- OpenGL Info Screen -->
+    <string name="gl_info_title">OpenGL ES Info</string>
+    <string name="gl_version">Version</string>
+    <string name="gl_renderer">Renderer</string>
+    <string name="gl_vendor">Vendor</string>
+    <string name="gl_shading_lang_version">Shading Language Version</string>
+    <string name="gl_extensions_count">Extensions Count</string>
+    <string name="gl_egl_info">EGL Info</string>
+    <string name="gl_extensions_format">Extensions (%d)</string>
+    <string name="gl_egl_extensions_format">EGL Extensions (%d)</string>
+
+    <!-- Vulkan Info Screen -->
+    <string name="vk_gpu_identity">GPU Identity</string>
+    <string name="vk_name">Name</string>
+    <string name="vk_vendor">Vendor</string>
+    <string name="vk_device_id">Device ID</string>
+    <string name="vk_device_type">Device Type</string>
+    <string name="vk_instance_api">Instance API</string>
+    <string name="vk_device_api">Device API</string>
+    <string name="vk_driver_version">Driver Version</string>
+    <string name="vk_device_extensions">Device Extensions</string>
+    <string name="vk_instance_extensions">Instance Extensions</string>
+    <string name="vk_memory">Memory</string>
+    <string name="vk_device_local">Device Local (shared)</string>
+    <string name="vk_heap_format">Heap %d</string>
+    <string name="vk_device_local_suffix"> (Device Local)</string>
+    <string name="vk_limits">Limits</string>
+    <string name="vk_max_1d_image">Max 1D Image</string>
+    <string name="vk_max_2d_image">Max 2D Image</string>
+    <string name="vk_max_3d_image">Max 3D Image</string>
+    <string name="vk_max_cube_image">Max Cube Image</string>
+    <string name="vk_max_array_layers">Max Array Layers</string>
+    <string name="vk_uniform_buffer_range">Uniform Buffer Range</string>
+    <string name="vk_storage_buffer_range">Storage Buffer Range</string>
+    <string name="vk_max_anisotropy">Max Anisotropy</string>
+    <string name="vk_max_compute_invocations">Max Compute Invocations</string>
+    <string name="vk_max_memory_alloc">Max Memory Allocations</string>
+    <string name="vk_max_sampler_alloc">Max Sampler Allocations</string>
+    <string name="vk_core_features">Core Features</string>
+    <string name="vk_yes">Yes</string>
+    <string name="vk_no">No</string>
+    <string name="vk_queues">Queues</string>
+    <string name="vk_queue_flags">Queue %d Flags</string>
+    <string name="vk_queue_count">Queue %d Count</string>
+    <string name="vk_queue_timestamp_bits">Queue %d Timestamp Bits</string>
+    <string name="vk_device_extensions_format">Device Extensions (%d)</string>
+    <string name="vk_instance_extensions_format">Instance Extensions (%d)</string>
+
+    <!-- Vulkan feature names -->
+    <string name="vk_feat_robust_buffer">Robust Buffer Access</string>
+    <string name="vk_feat_sampler_anisotropy">Sampler Anisotropy</string>
+    <string name="vk_feat_geometry_shader">Geometry Shader</string>
+    <string name="vk_feat_tessellation_shader">Tessellation Shader</string>
+    <string name="vk_feat_multi_viewport">Multi Viewport</string>
+    <string name="vk_feat_dual_src_blend">Dual Source Blend</string>
+    <string name="vk_feat_depth_clamp">Depth Clamp</string>
+    <string name="vk_feat_wide_lines">Wide Lines</string>
+    <string name="vk_feat_large_points">Large Points</string>
+
+    <!-- Partition Screen -->
+    <string name="partition_search">Search partitions…</string>
+    <string name="partition_clear">Clear</string>
+    <string name="partition_count_format">%d partitions</string>
+    <string name="partition_device">Device</string>
+    <string name="partition_filesystem">File System</string>
+    <string name="partition_readonly">Read-only</string>
+    <string name="partition_readwrite">Read-write</string>
+    <string name="partition_used_format">%s used</string>
+    <string name="partition_free_format">%s free</string>
+    <string name="partition_access">Access</string>
 </resources>
