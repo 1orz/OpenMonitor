@@ -166,6 +166,7 @@ dependencies {
     implementation(project(":feature:feature-cpu"))
     implementation(project(":feature:feature-float"))
     implementation(project(":feature:feature-hardware"))
+    implementation(project(":feature:feature-key-attestation"))
     implementation(project(":service"))
 
     implementation(libs.shizuku.api)

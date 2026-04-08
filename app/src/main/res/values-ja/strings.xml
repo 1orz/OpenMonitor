@@ -106,6 +106,7 @@
     <string name="nav_float_monitor">フロートモニター</string>
     <string name="nav_sensor">センサー</string>
     <string name="nav_network">ネットワーク</string>
+    <string name="nav_key_attestation">キー認証</string>
     <string name="nav_debug_log">デバッグログ</string>
     <string name="nav_hardware_info">ハードウェア情報</string>
     <string name="nav_cpu_analysis">CPU 分析</string>
@@ -118,6 +119,7 @@
     <string name="feature_float_monitor">フロートモニター</string>
     <string name="feature_sensor">センサー</string>
     <string name="feature_network_monitor">ネットワークモニター</string>
+    <string name="feature_key_attestation">キー認証</string>
     <string name="feature_debug_log">デバッグログ</string>
 
     <!-- 設定 -->

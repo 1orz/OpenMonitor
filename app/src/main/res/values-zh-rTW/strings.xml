@@ -106,6 +106,7 @@
     <string name="nav_float_monitor">懸浮監視器</string>
     <string name="nav_sensor">感測器</string>
     <string name="nav_network">網路</string>
+    <string name="nav_key_attestation">金鑰認證</string>
     <string name="nav_debug_log">偵錯日誌</string>
     <string name="nav_hardware_info">硬體資訊</string>
     <string name="nav_cpu_analysis">CPU 分析</string>
@@ -118,6 +119,7 @@
     <string name="feature_float_monitor">懸浮監視器</string>
     <string name="feature_sensor">感測器</string>
     <string name="feature_network_monitor">網路監控</string>
+    <string name="feature_key_attestation">金鑰認證</string>
     <string name="feature_debug_log">偵錯日誌</string>
 
     <!-- 設定 -->

@@ -147,6 +147,42 @@ val allLibraries = listOf(
         url = "https://github.com/firebase/firebase-android-sdk",
     ),
     LibraryInfo(
+        name = "KeyAttestation",
+        version = "1.8.4",
+        copyright = "Copyright (c) 2021 vvb2060",
+        description = "Android key attestation parsing and verification",
+        license = "Apache-2.0",
+        licenseFile = "KeyAttestation-LICENSE-Apache-2.0.txt",
+        url = "https://github.com/vvb2060/KeyAttestation",
+    ),
+    LibraryInfo(
+        name = "Bouncy Castle",
+        version = "1.83",
+        copyright = "Copyright (c) 2000-2024 The Legion of the Bouncy Castle Inc.",
+        description = "Lightweight cryptography APIs and ASN.1 parsing",
+        license = "Apache-2.0",
+        licenseFile = "BouncyCastle-LICENSE-Apache-2.0.txt",
+        url = "https://github.com/bcgit/bc-java",
+    ),
+    LibraryInfo(
+        name = "Guava",
+        version = "33.5.0",
+        copyright = "Copyright (C) 2010 The Guava Authors",
+        description = "Google core libraries for Java (Android variant)",
+        license = "Apache-2.0",
+        licenseFile = "Guava-LICENSE-Apache-2.0.txt",
+        url = "https://github.com/google/guava",
+    ),
+    LibraryInfo(
+        name = "CBOR",
+        version = "0.9",
+        copyright = "Copyright (c) 2014-2024 Constantin Rack",
+        description = "Concise Binary Object Representation (RFC 7049) for Java",
+        license = "Apache-2.0",
+        licenseFile = "CBOR-LICENSE-Apache-2.0.txt",
+        url = "https://github.com/c-rack/cbor-java",
+    ),
+    LibraryInfo(
         name = "cpuinfo",
         version = "main",
         copyright = "Copyright (c) 2019 Google LLC, 2017-2018 Facebook Inc., 2012-2017 Georgia Institute of Technology, 2010-2012 Marat Dukhan",
@@ -155,7 +191,7 @@ val allLibraries = listOf(
         licenseFile = "cpuinfo-LICENSE-BSD-2-Clause.txt",
         url = "https://github.com/pytorch/cpuinfo",
     ),
-)
+).sortedBy { it.name.lowercase() }
 
 // ── License list screen ─────────────────────────────────────────────────────
 

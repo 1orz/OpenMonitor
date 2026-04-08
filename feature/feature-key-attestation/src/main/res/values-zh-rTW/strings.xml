@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 金鑰認證頁 -->
+    <string name="ka_attestation_failed">認證失敗</string>
+    <string name="ka_retry">重試</string>
+
+    <!-- 啟動狀態卡片 -->
+    <string name="ka_boot_state">驗證啟動狀態</string>
+    <string name="ka_bootloader_locked">引導載入程式已鎖定</string>
+    <string name="ka_bootloader_unlocked">引導載入程式已解鎖</string>
+
+    <!-- 信任橫幅 -->
+    <string name="ka_trust_chain_untrusted">憑證鏈不受信任</string>
+    <string name="ka_trust_chain_desc">憑證鏈中有憑證被撤銷或簽名驗證失敗</string>
+
+    <!-- 認證資訊卡片 -->
+    <string name="ka_attestation_info">認證資訊</string>
+    <string name="ka_attestation_version">認證版本</string>
+    <string name="ka_attestation_security">認證安全等級</string>
+    <string name="ka_keymaster_version">KM 版本</string>
+    <string name="ka_keymaster_security">KM 安全等級</string>
+    <string name="ka_challenge">認證質詢</string>
+    <string name="ka_unique_id">唯一 ID</string>
+
+    <!-- 撤銷清單列 -->
+    <string name="ka_revocation_list">撤銷清單</string>
+    <string name="ka_revocation_entries">%d 筆</string>
+    <string name="ka_revocation_no_data">暫無資料</string>
+    <string name="ka_revocation_refresh">重新整理</string>
+
+    <!-- 憑證鏈卡片 -->
+    <string name="ka_cert_chain">憑證鏈</string>
+    <string name="ka_cert_index">憑證 #%d</string>
+    <string name="ka_subject">使用者</string>
+    <string name="ka_cert_not_before">不早於</string>
+    <string name="ka_cert_not_after">不晚於</string>
+    <string name="ka_cert_revoked">已撤銷</string>
+
+    <!-- HW / SW 標籤 -->
+    <string name="ka_hw_badge">HW</string>
+    <string name="ka_sw_badge">SW</string>
+
+    <!-- 授權清單卡片 -->
+    <string name="ka_authorization_list">授權清單</string>
+    <string name="ka_purposes">用途</string>
+    <string name="ka_algorithm">演算法</string>
+    <string name="ka_key_size">金鑰長度</string>
+    <string name="ka_digest">摘要</string>
+    <string name="ka_ec_curve">EC 曲線</string>
+    <string name="ka_no_auth_required">無需認證</string>
+    <string name="ka_rollback_resistance">回滾保護</string>
+    <string name="ka_early_boot_only">僅早期啟動</string>
+    <string name="ka_creation_time">建立時間</string>
+    <string name="ka_origin">來源</string>
+    <string name="ka_os_version">系統版本</string>
+    <string name="ka_os_patch">系統修補</string>
+    <string name="ka_vendor_patch">廠商修補</string>
+    <string name="ka_boot_patch">啟動修補</string>
+    <string name="ka_device_locked">裝置已鎖定</string>
+    <string name="ka_boot_key">啟動金鑰</string>
+    <string name="ka_boot_hash">啟動雜湊</string>
+    <string name="ka_brand">品牌</string>
+    <string name="ka_device">裝置</string>
+    <string name="ka_product">產品</string>
+    <string name="ka_manufacturer">製造商</string>
+    <string name="ka_model">型號</string>
+
+    <!-- 頂列選單 -->
+    <string name="ka_menu_more">更多選項</string>
+    <string name="ka_menu_use_attest_key">使用 Attest Key</string>
+    <string name="ka_menu_use_strongbox">使用 StrongBox</string>
+    <string name="ka_menu_use_shizuku">Shizuku 模式</string>
+    <string name="ka_menu_reset">重置金鑰</string>
+    <string name="ka_menu_save">儲存至檔案</string>
+    <string name="ka_menu_load">從檔案載入</string>
+</resources>

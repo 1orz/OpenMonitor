@@ -75,6 +75,7 @@ import com.cloudorz.openmonitor.feature.hardware.HardwareInfoScreen
 import com.cloudorz.openmonitor.feature.hardware.OpenGLInfoScreen
 import com.cloudorz.openmonitor.feature.hardware.PartitionScreen
 import com.cloudorz.openmonitor.feature.hardware.VulkanInfoScreen
+import com.cloudorz.openmonitor.feature.keyattestation.KeyAttestationScreen
 import com.cloudorz.openmonitor.ui.features.FeaturesScreen
 import com.cloudorz.openmonitor.ui.log.LogScreen
 import com.cloudorz.openmonitor.ui.network.NetworkScreen
@@ -272,6 +273,7 @@ private fun MainScreen(permissionManager: PermissionManager) {
         FeatureRoute.FLOAT -> stringResource(R.string.nav_float_monitor)
         FeatureRoute.SENSOR -> stringResource(R.string.nav_sensor)
         FeatureRoute.NETWORK -> stringResource(R.string.nav_network)
+        FeatureRoute.KEY_ATTESTATION -> stringResource(R.string.nav_key_attestation)
         FeatureRoute.LOG -> stringResource(R.string.nav_debug_log)
         FeatureRoute.HARDWARE -> stringResource(R.string.nav_hardware_info)
         FeatureRoute.CPU_ANALYSIS -> stringResource(R.string.nav_cpu_analysis)
@@ -404,6 +406,9 @@ private fun MainScreen(permissionManager: PermissionManager) {
             composable(FeatureRoute.FLOAT) { FloatMonitorScreen() }
             composable(FeatureRoute.SENSOR) { SensorScreen() }
             composable(FeatureRoute.NETWORK) { NetworkScreen() }
+            composable(FeatureRoute.KEY_ATTESTATION) {
+                KeyAttestationScreen(onProvideTopBarActions = { topBarActions = it })
+            }
             composable(FeatureRoute.LOG) {
                 LogScreen(onProvideTopBarActions = { topBarActions = it })
             }

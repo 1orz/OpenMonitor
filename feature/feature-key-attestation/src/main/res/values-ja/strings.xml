@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- キー認証画面 -->
+    <string name="ka_attestation_failed">認証失敗</string>
+    <string name="ka_retry">再試行</string>
+
+    <!-- ブート状態カード -->
+    <string name="ka_boot_state">検証済みブート状態</string>
+    <string name="ka_bootloader_locked">ブートローダーロック済み</string>
+    <string name="ka_bootloader_unlocked">ブートローダー未ロック</string>
+
+    <!-- 信頼バナー -->
+    <string name="ka_trust_chain_untrusted">証明書チェーンが信頼されていません</string>
+    <string name="ka_trust_chain_desc">証明書チェーンに失効または無効な証明書が含まれています</string>
+
+    <!-- 認証情報カード -->
+    <string name="ka_attestation_info">認証情報</string>
+    <string name="ka_attestation_version">認証バージョン</string>
+    <string name="ka_attestation_security">認証セキュリティ</string>
+    <string name="ka_keymaster_version">KM バージョン</string>
+    <string name="ka_keymaster_security">KM セキュリティ</string>
+    <string name="ka_challenge">認証チャレンジ</string>
+    <string name="ka_unique_id">ユニーク ID</string>
+
+    <!-- 失効リスト行 -->
+    <string name="ka_revocation_list">失効リスト</string>
+    <string name="ka_revocation_entries">%d 件</string>
+    <string name="ka_revocation_no_data">データなし</string>
+    <string name="ka_revocation_refresh">更新</string>
+
+    <!-- 証明書チェーンカード -->
+    <string name="ka_cert_chain">証明書チェーン</string>
+    <string name="ka_cert_index">証明書 #%d</string>
+    <string name="ka_subject">サブジェクト</string>
+    <string name="ka_cert_not_before">有効期間開始</string>
+    <string name="ka_cert_not_after">有効期間終了</string>
+    <string name="ka_cert_revoked">失効済み</string>
+
+    <!-- HW / SW バッジ -->
+    <string name="ka_hw_badge">HW</string>
+    <string name="ka_sw_badge">SW</string>
+
+    <!-- 認可リストカード -->
+    <string name="ka_authorization_list">認可リスト</string>
+    <string name="ka_purposes">用途</string>
+    <string name="ka_algorithm">アルゴリズム</string>
+    <string name="ka_key_size">キーサイズ</string>
+    <string name="ka_digest">ダイジェスト</string>
+    <string name="ka_ec_curve">EC カーブ</string>
+    <string name="ka_no_auth_required">認証不要</string>
+    <string name="ka_rollback_resistance">ロールバック保護</string>
+    <string name="ka_early_boot_only">早期ブートのみ</string>
+    <string name="ka_creation_time">作成日時</string>
+    <string name="ka_origin">出所</string>
+    <string name="ka_os_version">OS バージョン</string>
+    <string name="ka_os_patch">OS パッチ</string>
+    <string name="ka_vendor_patch">ベンダーパッチ</string>
+    <string name="ka_boot_patch">ブートパッチ</string>
+    <string name="ka_device_locked">デバイスロック</string>
+    <string name="ka_boot_key">ブートキー</string>
+    <string name="ka_boot_hash">ブートハッシュ</string>
+    <string name="ka_brand">ブランド</string>
+    <string name="ka_device">デバイス</string>
+    <string name="ka_product">製品</string>
+    <string name="ka_manufacturer">メーカー</string>
+    <string name="ka_model">モデル</string>
+
+    <!-- トップバーメニュー -->
+    <string name="ka_menu_more">その他のオプション</string>
+    <string name="ka_menu_use_attest_key">Attest Key を使用</string>
+    <string name="ka_menu_use_strongbox">StrongBox を使用</string>
+    <string name="ka_menu_use_shizuku">Shizuku モード</string>
+    <string name="ka_menu_reset">キーをリセット</string>
+    <string name="ka_menu_save">ファイルに保存</string>
+    <string name="ka_menu_load">ファイルから読み込む</string>
+</resources>
