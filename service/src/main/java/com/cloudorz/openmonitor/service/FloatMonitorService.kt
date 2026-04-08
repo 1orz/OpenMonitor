@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.os.IBinder
 import android.os.PowerManager
@@ -454,7 +455,11 @@ class FloatMonitorService : LifecycleService() {
 
         applicationContext.registerComponentCallbacks(configCallback)
 
-        startForeground(NOTIFICATION_ID, buildCustomNotification())
+        startForeground(
+            NOTIFICATION_ID,
+            buildCustomNotification(),
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
+        )
         startNotificationUpdateJob()
         startBatterySampling()
 

@@ -40,7 +40,6 @@
         android:theme="@style/Theme.OpenMonitor"
         android:allowBackup="true"
         android:enableOnBackInvokedCallback="true"
-        android:localeConfig="@xml/locales_config"
         tools:targetApi="tiramisu">
 
         <activity

@@ -13,7 +13,7 @@ android {
     defaultConfig {
         applicationId = "com.cloudorz.openmonitor"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0.0"
 
@@ -39,6 +39,13 @@ android {
             // Force extraction of native libs so daemon binary is executable from nativeLibraryDir
             useLegacyPackaging = true
         }
+        resources {
+            excludes += "**"
+        }
+    }
+
+    androidResources {
+        generateLocaleConfig = true
     }
 
     signingConfigs {
@@ -55,9 +62,15 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            vcsInfo.include = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("release")
         }
+    }
+
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
     }
 
     compileOptions {
