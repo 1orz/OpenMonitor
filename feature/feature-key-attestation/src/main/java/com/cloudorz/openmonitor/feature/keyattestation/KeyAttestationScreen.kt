@@ -26,6 +26,7 @@ import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.CloudDone
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.Shield
@@ -317,6 +318,15 @@ private fun RevocationListRow(state: AttestationUiState, onRefresh: () -> Unit) 
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Medium,
             )
+            if (state.revocationSource == "network") {
+                Spacer(Modifier.width(4.dp))
+                Icon(
+                    Icons.Outlined.CloudDone,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
             Spacer(Modifier.weight(1f))
             if (state.revocationEntryCount > 0) {
                 val df = DateFormat.getTimeInstance(DateFormat.SHORT)

@@ -84,6 +84,7 @@ data class AttestationUiState(
     val revocationEntryCount: Int = 0,
     val revocationLastFetchMs: Long = 0,
     val revocationCacheExpiryMs: Long = 0,
+    val revocationSource: String = "",   // "embedded" | "cache" | "network"
 
     // Certificate chain
     val rootCertIssuer: String? = null,
@@ -370,6 +371,7 @@ class KeyAttestationViewModel @Inject constructor(
             revocationEntryCount = RevocationList.getEntryCount(),
             revocationLastFetchMs = RevocationList.getLastFetchTime(),
             revocationCacheExpiryMs = RevocationList.getCacheExpiryTime(),
+            revocationSource = RevocationList.getSource(),
             rootCertIssuer = certChainItems.lastOrNull()?.issuerTag,
             certChainInfo = certChainItems,
             authFields = hwFields + swFields,
