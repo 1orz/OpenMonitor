@@ -189,11 +189,26 @@ class KeyAttestationViewModel @Inject constructor(
     fun refreshRevocationList() {
         viewModelScope.launch(Dispatchers.IO) {
             RevocationList.refresh()
-            _uiState.value = _uiState.value.copy(
-                revocationEntryCount = RevocationList.getEntryCount(),
-                revocationLastFetchMs = RevocationList.getLastFetchTime(),
-                revocationCacheExpiryMs = RevocationList.getCacheExpiryTime(),
-            )
+            // Re-parse the current cert chain so revocation status reflects the updated list.
+            val certs = currentCerts
+            if (certs.isNotEmpty()) {
+                try {
+                    _uiState.value = parseCertsToUiState(certs, _settings.value)
+                } catch (e: Exception) {
+                    Log.w("KeyAttestation", "refreshRevocationList: re-parse failed", e)
+                    _uiState.value = _uiState.value.copy(
+                        revocationEntryCount = RevocationList.getEntryCount(),
+                        revocationLastFetchMs = RevocationList.getLastFetchTime(),
+                        revocationCacheExpiryMs = RevocationList.getCacheExpiryTime(),
+                    )
+                }
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    revocationEntryCount = RevocationList.getEntryCount(),
+                    revocationLastFetchMs = RevocationList.getLastFetchTime(),
+                    revocationCacheExpiryMs = RevocationList.getCacheExpiryTime(),
+                )
+            }
         }
     }
 

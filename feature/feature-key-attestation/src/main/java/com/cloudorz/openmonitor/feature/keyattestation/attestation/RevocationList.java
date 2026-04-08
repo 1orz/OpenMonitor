@@ -4,6 +4,8 @@ import android.content.Context;
 import android.os.Build;
 import android.util.Log;
 
+import com.cloudorz.openmonitor.feature.keyattestation.R;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -55,12 +57,17 @@ public class RevocationList {
 
     /**
      * Initialize the revocation list. Called from a background thread.
-     * Tries cache first, then fetches from network.
+     * Always loads embedded resource first (guarantees data != null),
+     * then tries cache or network for a fresher list.
      */
     public static void init(Context context) {
         appContext = context.getApplicationContext();
 
-        // Try cache first
+        // Always load embedded resource first — ensures data is never null
+        // even when network/cache is unavailable.
+        loadFromEmbeddedResource(appContext);
+
+        // Try cache if it's fresh enough
         File cacheFile = new File(appContext.getFilesDir(), CACHE_FILE);
         if (cacheFile.exists()) {
             long cacheTime = cacheFile.lastModified();
@@ -78,8 +85,18 @@ public class RevocationList {
             }
         }
 
-        // Try to fetch from network
+        // Try to fetch from network (fresher data)
         fetchFromNetwork();
+    }
+
+    private static void loadFromEmbeddedResource(Context context) {
+        try (var input = context.getResources().openRawResource(R.raw.status)) {
+            data = parseStatus(readStream(input));
+            source = "embedded";
+            Log.i(TAG, "Loaded from embedded resource, entries: " + (data != null ? data.length() : 0));
+        } catch (IOException e) {
+            Log.w(TAG, "Failed to load embedded revocation list", e);
+        }
     }
 
     public static boolean refresh() {
