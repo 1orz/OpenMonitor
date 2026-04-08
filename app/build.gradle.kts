@@ -83,12 +83,15 @@ android {
 }
 
 // ── Build monitor-daemon from Go source ─────────────────────────────────────
+// All project-level APIs (file(), fileTree(), providers.exec()) are resolved here
+// at configuration time, so the Exec task closure captures only plain Java types
+// (File, String, FileCollection) and stays configuration-cache compatible.
+
 val daemonSrcDir = file("${rootProject.projectDir}/monitor-daemon")
 val daemonBinary = file("src/main/jniLibs/arm64-v8a/libmonitor-daemon.so")
 val daemonCommitFile = file("src/main/assets/daemon/daemon-commit.txt")
+val daemonGoModExists = daemonSrcDir.resolve("go.mod").exists()
 
-// Resolve the `go` binary at configuration time — Gradle's Exec uses JVM ProcessBuilder
-// which searches only the JVM's own PATH (not the shell's), so Homebrew/nvm paths are missing.
 val goExecutable: String = listOf(
     System.getenv("GOROOT")?.let { "$it/bin/go" },
     "/opt/homebrew/bin/go",
@@ -97,19 +100,25 @@ val goExecutable: String = listOf(
     "/usr/bin/go",
 ).firstOrNull { it != null && file(it).exists() } ?: "go"
 
+// --no-show-signature avoids GPG verification text polluting stdout
+val daemonHash: String = providers.exec {
+    workingDir = rootProject.projectDir
+    commandLine("git", "log", "-1", "--format=%h", "--no-show-signature", "--", "monitor-daemon")
+}.standardOutput.asText.map { it.trim() }.getOrElse("unknown")
+
+val daemonSourceFiles = fileTree(daemonSrcDir) { include("**/*.go", "go.mod", "go.sum") }
+
+// Write daemon commit hash at configuration time — it's a tiny text file and
+// the hash is already resolved, so no need for a task action lambda.
+daemonCommitFile.parentFile.mkdirs()
+daemonCommitFile.writeText(daemonHash)
+
 val buildMonitorDaemon by tasks.registering(Exec::class) {
     group = "build"
     description = "Compile monitor-daemon (Go → Android arm64)"
-    onlyIf { daemonSrcDir.resolve("go.mod").exists() }
+    enabled = daemonGoModExists
 
     workingDir = daemonSrcDir
-
-    // Use hash of daemon source tree (no longer a submodule)
-    // --no-show-signature avoids GPG verification text polluting stdout
-    val daemonHash = providers.exec {
-        workingDir = rootProject.projectDir
-        commandLine("git", "log", "-1", "--format=%h", "--no-show-signature", "--", "monitor-daemon")
-    }.standardOutput.asText.map { it.trim() }.getOrElse("unknown")
 
     val ldflags = "-s -w -X monitor-daemon/collector.GitCommit=$daemonHash"
     commandLine = listOf(goExecutable, "build", "-ldflags", ldflags, "-o", daemonBinary.absolutePath, "./cmd/daemon")
@@ -117,15 +126,10 @@ val buildMonitorDaemon by tasks.registering(Exec::class) {
     environment("GOARCH", "arm64")
     environment("CGO_ENABLED", "0")
 
-    inputs.files(fileTree(daemonSrcDir) { include("**/*.go", "go.mod", "go.sum") })
+    inputs.files(daemonSourceFiles)
         .withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.property("daemonHash", daemonHash)
     outputs.file(daemonBinary)
-
-    doLast {
-        daemonCommitFile.parentFile.mkdirs()
-        daemonCommitFile.writeText(daemonHash)
-    }
 }
 
 tasks.named("preBuild") {
