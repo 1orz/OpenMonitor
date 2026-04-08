@@ -20,7 +20,6 @@ import androidx.compose.material.icons.outlined.NetworkCheck
 import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.Sensors
 import androidx.compose.material.icons.outlined.Speed
-import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -51,7 +50,6 @@ fun FeaturesScreen(
         FeatureItem(stringResource(R.string.feature_fps_recording), Icons.Outlined.Speed, FeatureRoute.FPS),
         FeatureItem(stringResource(R.string.feature_process_monitor), Icons.Outlined.Memory, FeatureRoute.PROCESS),
         FeatureItem(stringResource(R.string.feature_float_monitor), Icons.Outlined.Layers, FeatureRoute.FLOAT),
-        FeatureItem(stringResource(R.string.feature_storage_info), Icons.Outlined.Storage, FeatureRoute.STORAGE),
         FeatureItem(stringResource(R.string.feature_sensor), Icons.Outlined.Sensors, FeatureRoute.SENSOR),
         FeatureItem(stringResource(R.string.feature_network_monitor), Icons.Outlined.NetworkCheck, FeatureRoute.NETWORK),
         FeatureItem(stringResource(R.string.feature_debug_log), Icons.Outlined.BugReport, FeatureRoute.LOG),

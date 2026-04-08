@@ -44,13 +44,7 @@
     <string name="tile_label_format">CPU %1$d%% · %2$s°C</string>
 
     <!-- ストレージ -->
-    <string name="storage_title">ストレージ情報</string>
-    <string name="internal_storage">内部ストレージ</string>
-    <string name="external_storage">外部ストレージ</string>
     <string name="partitions">パーティション</string>
-    <string name="used">使用済み</string>
-    <string name="available">空き</string>
-    <string name="total">合計</string>
 
     <!-- センサー -->
     <string name="sensor_title">センサー</string>
@@ -110,7 +104,6 @@
     <string name="nav_process">プロセス</string>
     <string name="nav_process_detail">プロセス詳細</string>
     <string name="nav_float_monitor">フロートモニター</string>
-    <string name="nav_storage">ストレージ</string>
     <string name="nav_sensor">センサー</string>
     <string name="nav_network">ネットワーク</string>
     <string name="nav_debug_log">デバッグログ</string>
@@ -123,7 +116,6 @@
     <string name="feature_fps_recording">FPS記録</string>
     <string name="feature_process_monitor">プロセスモニター</string>
     <string name="feature_float_monitor">フロートモニター</string>
-    <string name="feature_storage_info">ストレージ情報</string>
     <string name="feature_sensor">センサー</string>
     <string name="feature_network_monitor">ネットワークモニター</string>
     <string name="feature_debug_log">デバッグログ</string>

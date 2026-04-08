@@ -79,7 +79,6 @@ import com.cloudorz.openmonitor.ui.features.FeaturesScreen
 import com.cloudorz.openmonitor.ui.log.LogScreen
 import com.cloudorz.openmonitor.ui.network.NetworkScreen
 import com.cloudorz.openmonitor.ui.sensor.SensorScreen
-import com.cloudorz.openmonitor.ui.storage.StorageScreen
 import com.cloudorz.openmonitor.ui.navigation.FeatureRoute
 import com.cloudorz.openmonitor.ui.navigation.Route
 import com.cloudorz.openmonitor.ui.splash.PermissionGuideScreen
@@ -271,7 +270,6 @@ private fun MainScreen(permissionManager: PermissionManager) {
         FeatureRoute.PROCESS -> stringResource(R.string.nav_process)
         FeatureRoute.PROCESS_DETAIL -> stringResource(R.string.nav_process_detail)
         FeatureRoute.FLOAT -> stringResource(R.string.nav_float_monitor)
-        FeatureRoute.STORAGE -> stringResource(R.string.nav_storage)
         FeatureRoute.SENSOR -> stringResource(R.string.nav_sensor)
         FeatureRoute.NETWORK -> stringResource(R.string.nav_network)
         FeatureRoute.LOG -> stringResource(R.string.nav_debug_log)
@@ -404,7 +402,6 @@ private fun MainScreen(permissionManager: PermissionManager) {
                 ProcessDetailScreen(onBack = { navController.popBackStack() })
             }
             composable(FeatureRoute.FLOAT) { FloatMonitorScreen() }
-            composable(FeatureRoute.STORAGE) { StorageScreen() }
             composable(FeatureRoute.SENSOR) { SensorScreen() }
             composable(FeatureRoute.NETWORK) { NetworkScreen() }
             composable(FeatureRoute.LOG) {

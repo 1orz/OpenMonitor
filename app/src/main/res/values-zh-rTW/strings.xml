@@ -44,13 +44,7 @@
     <string name="tile_label_format">CPU %1$d%% · %2$s°C</string>
 
     <!-- 儲存資訊 -->
-    <string name="storage_title">儲存資訊</string>
-    <string name="internal_storage">內部儲存</string>
-    <string name="external_storage">外部儲存</string>
     <string name="partitions">分區</string>
-    <string name="used">已用</string>
-    <string name="available">可用</string>
-    <string name="total">總計</string>
 
     <!-- 感測器 -->
     <string name="sensor_title">感測器</string>
@@ -110,7 +104,6 @@
     <string name="nav_process">進程</string>
     <string name="nav_process_detail">進程詳情</string>
     <string name="nav_float_monitor">懸浮監視器</string>
-    <string name="nav_storage">儲存</string>
     <string name="nav_sensor">感測器</string>
     <string name="nav_network">網路</string>
     <string name="nav_debug_log">偵錯日誌</string>
@@ -123,7 +116,6 @@
     <string name="feature_fps_recording">幀率記錄</string>
     <string name="feature_process_monitor">進程監控</string>
     <string name="feature_float_monitor">懸浮監視器</string>
-    <string name="feature_storage_info">儲存資訊</string>
     <string name="feature_sensor">感測器</string>
     <string name="feature_network_monitor">網路監控</string>
     <string name="feature_debug_log">偵錯日誌</string>

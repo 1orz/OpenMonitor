@@ -28,7 +28,6 @@ object FeatureRoute {
     const val FPS = "features/fps"
     const val PROCESS = "features/process"
     const val FLOAT = "features/float"
-    const val STORAGE = "features/storage"
     const val SENSOR = "features/sensor"
     const val NETWORK = "features/network"
     const val LOG = "features/log"

@@ -44,13 +44,7 @@
     <string name="tile_label_format">CPU %1$d%% · %2$s°C</string>
 
     <!-- 存储信息 -->
-    <string name="storage_title">存储信息</string>
-    <string name="internal_storage">内部存储</string>
-    <string name="external_storage">外部存储</string>
     <string name="partitions">分区</string>
-    <string name="used">已用</string>
-    <string name="available">可用</string>
-    <string name="total">总计</string>
 
     <!-- 传感器 -->
     <string name="sensor_title">传感器</string>
@@ -110,7 +104,6 @@
     <string name="nav_process">进程</string>
     <string name="nav_process_detail">进程详情</string>
     <string name="nav_float_monitor">悬浮监视器</string>
-    <string name="nav_storage">存储</string>
     <string name="nav_sensor">传感器</string>
     <string name="nav_network">网络</string>
     <string name="nav_debug_log">调试日志</string>
@@ -123,7 +116,6 @@
     <string name="feature_fps_recording">帧率记录</string>
     <string name="feature_process_monitor">进程监控</string>
     <string name="feature_float_monitor">悬浮监视器</string>
-    <string name="feature_storage_info">存储信息</string>
     <string name="feature_sensor">传感器</string>
     <string name="feature_network_monitor">网络监控</string>
     <string name="feature_debug_log">调试日志</string>
