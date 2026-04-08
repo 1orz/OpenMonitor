@@ -84,8 +84,10 @@ import com.cloudorz.openmonitor.ui.navigation.FeatureRoute
 import com.cloudorz.openmonitor.ui.navigation.Route
 import com.cloudorz.openmonitor.ui.splash.PermissionGuideScreen
 import com.cloudorz.openmonitor.ui.splash.PermissionSetupScreen
+import com.cloudorz.openmonitor.ui.user.LicenseDetailScreen
 import com.cloudorz.openmonitor.ui.user.OpenSourceLicensesScreen
 import com.cloudorz.openmonitor.ui.user.UserScreen
+import com.cloudorz.openmonitor.ui.user.allLibraries
 import androidx.compose.ui.platform.LocalContext
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -279,6 +281,10 @@ private fun MainScreen(permissionManager: PermissionManager) {
         FeatureRoute.OPENGL_INFO -> "OpenGL ES"
         FeatureRoute.PARTITIONS -> stringResource(com.cloudorz.openmonitor.R.string.partitions)
         FeatureRoute.LICENSES -> stringResource(R.string.settings_open_source_licenses)
+        FeatureRoute.LICENSE_DETAIL -> {
+            val index = navBackStackEntry?.arguments?.getString("index")?.toIntOrNull() ?: 0
+            allLibraries.getOrNull(index)?.name ?: "License"
+        }
         else -> null
     }
 
@@ -405,7 +411,15 @@ private fun MainScreen(permissionManager: PermissionManager) {
                 LogScreen(onProvideTopBarActions = { topBarActions = it })
             }
             composable(FeatureRoute.LICENSES) {
-                OpenSourceLicensesScreen()
+                OpenSourceLicensesScreen(
+                    onLicenseClick = { index ->
+                        navController.navigate(FeatureRoute.licenseDetail(index))
+                    },
+                )
+            }
+            composable(FeatureRoute.LICENSE_DETAIL) { backStackEntry ->
+                val index = backStackEntry.arguments?.getString("index")?.toIntOrNull() ?: 0
+                LicenseDetailScreen(libraryIndex = index)
             }
         }
     }

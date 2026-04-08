@@ -46,7 +46,7 @@ class MonitorApp : Application(), Configuration.Provider {
         init {
             Shell.setDefaultBuilder(
                 Shell.Builder.create()
-                    .setFlags(Shell.FLAG_MOUNT_MASTER or Shell.FLAG_REDIRECT_STDERR)
+                    .setFlags(Shell.FLAG_MOUNT_MASTER)
                     .setTimeout(15)
             )
         }

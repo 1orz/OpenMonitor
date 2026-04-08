@@ -1,8 +1,9 @@
 package com.cloudorz.openmonitor.ui.user
 
+import android.content.Context
 import android.content.Intent
 import androidx.core.net.toUri
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -18,9 +19,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.automirrored.filled.NavigateNext
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -32,10 +34,7 @@ import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -46,186 +45,138 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.cloudorz.openmonitor.R
 
-private data class LibraryInfo(
+data class LibraryInfo(
     val name: String,
     val version: String,
+    val copyright: String,
     val description: String,
     val license: String,
+    val licenseFile: String,
     val url: String,
 )
 
-private val libraries = listOf(
-    // Kotlin & Coroutines
+val allLibraries = listOf(
     LibraryInfo(
         name = "Kotlin",
         version = "2.3.20",
+        copyright = "Copyright 2000-2020 JetBrains s.r.o. and Kotlin Programming Language contributors",
         description = "The Kotlin programming language",
         license = "Apache-2.0",
+        licenseFile = "Kotlin-LICENSE-Apache-2.0.txt",
         url = "https://github.com/JetBrains/kotlin",
     ),
     LibraryInfo(
         name = "Kotlin Coroutines",
         version = "1.10.2",
+        copyright = "Copyright 2000-2020 JetBrains s.r.o. and Kotlin Programming Language contributors",
         description = "Kotlin coroutines for asynchronous programming",
         license = "Apache-2.0",
+        licenseFile = "KotlinCoroutines-LICENSE-Apache-2.0.txt",
         url = "https://github.com/Kotlin/kotlinx.coroutines",
     ),
-
-    // Jetpack Compose
     LibraryInfo(
-        name = "Jetpack Compose BOM",
+        name = "Jetpack Compose",
         version = "2026.03.01",
-        description = "Modern declarative UI toolkit for Android",
+        copyright = "Copyright The Android Open Source Project",
+        description = "Modern declarative UI toolkit (UI, Material 3, Icons, Foundation)",
         license = "Apache-2.0",
+        licenseFile = "JetpackCompose-LICENSE-Apache-2.0.txt",
         url = "https://github.com/androidx/androidx",
     ),
     LibraryInfo(
-        name = "Compose Material 3",
-        version = "BOM",
-        description = "Material Design 3 components for Compose",
+        name = "AndroidX",
+        version = "various",
+        copyright = "Copyright The Android Open Source Project",
+        description = "Core KTX, AppCompat, Activity, Navigation, Lifecycle, Room, WorkManager",
         license = "Apache-2.0",
+        licenseFile = "AndroidX-LICENSE-Apache-2.0.txt",
         url = "https://github.com/androidx/androidx",
     ),
-    LibraryInfo(
-        name = "Compose Material Icons Extended",
-        version = "BOM",
-        description = "Extended Material Design icons for Compose",
-        license = "Apache-2.0",
-        url = "https://github.com/androidx/androidx",
-    ),
-
-    // AndroidX
-    LibraryInfo(
-        name = "AndroidX Core KTX",
-        version = "1.18.0",
-        description = "Kotlin extensions for Android core libraries",
-        license = "Apache-2.0",
-        url = "https://github.com/androidx/androidx",
-    ),
-    LibraryInfo(
-        name = "AndroidX AppCompat",
-        version = "1.7.1",
-        description = "Backwards-compatible Android UI components",
-        license = "Apache-2.0",
-        url = "https://github.com/androidx/androidx",
-    ),
-    LibraryInfo(
-        name = "AndroidX Activity Compose",
-        version = "1.13.0",
-        description = "Compose integration for AndroidX Activity",
-        license = "Apache-2.0",
-        url = "https://github.com/androidx/androidx",
-    ),
-    LibraryInfo(
-        name = "AndroidX Navigation Compose",
-        version = "2.9.7",
-        description = "Navigation component for Jetpack Compose",
-        license = "Apache-2.0",
-        url = "https://github.com/androidx/androidx",
-    ),
-    LibraryInfo(
-        name = "AndroidX Lifecycle",
-        version = "2.10.0",
-        description = "Lifecycle-aware components (ViewModel, runtime, service)",
-        license = "Apache-2.0",
-        url = "https://github.com/androidx/androidx",
-    ),
-    LibraryInfo(
-        name = "AndroidX Room",
-        version = "2.8.4",
-        description = "SQLite database abstraction layer",
-        license = "Apache-2.0",
-        url = "https://github.com/androidx/androidx",
-    ),
-    LibraryInfo(
-        name = "AndroidX WorkManager",
-        version = "2.11.2",
-        description = "Schedule deferrable, asynchronous tasks",
-        license = "Apache-2.0",
-        url = "https://github.com/androidx/androidx",
-    ),
-
-    // Dependency Injection
     LibraryInfo(
         name = "Dagger Hilt",
         version = "2.59.2",
+        copyright = "Copyright 2012 The Dagger Authors",
         description = "Dependency injection framework for Android",
         license = "Apache-2.0",
+        licenseFile = "DaggerHilt-LICENSE-Apache-2.0.txt",
         url = "https://github.com/google/dagger",
     ),
-
-    // Root & Privilege
     LibraryInfo(
         name = "libsu",
         version = "6.0.0",
-        description = "Android root shell library (KernelSU/Magisk/APatch)",
-        license = "GPL-3.0",
+        copyright = "Copyright 2023 John Wu",
+        description = "Android root shell library (KernelSU / Magisk / APatch)",
+        license = "Apache-2.0",
+        licenseFile = "libsu-LICENSE-Apache-2.0.txt",
         url = "https://github.com/topjohnwu/libsu",
     ),
     LibraryInfo(
-        name = "Shizuku",
+        name = "Shizuku API",
         version = "13.1.5",
+        copyright = "Copyright (c) 2021 RikkaW",
         description = "Use system APIs directly with ADB/root privileges",
-        license = "Apache-2.0",
+        license = "MIT",
+        licenseFile = "ShizukuAPI-LICENSE-MIT.txt",
         url = "https://github.com/RikkaApps/Shizuku-API",
     ),
-
-    // Charts
     LibraryInfo(
         name = "Vico",
         version = "3.1.0",
+        copyright = "Copyright 2022 by Patryk Goworowski and Patrick Michalik",
         description = "Chart library for Jetpack Compose and Material 3",
         license = "Apache-2.0",
+        licenseFile = "Vico-LICENSE-Apache-2.0.txt",
         url = "https://github.com/patrykandpatrick/vico",
     ),
-
-    // Logging
     LibraryInfo(
         name = "XLog",
         version = "1.11.1",
+        copyright = "Copyright 2016 Elvis Hew",
         description = "Lightweight and extensible Android logger",
         license = "Apache-2.0",
-        url = "https://github.com/nicholasbrailo/xLog",
+        licenseFile = "XLog-LICENSE-Apache-2.0.txt",
+        url = "https://github.com/elvishew/xLog",
     ),
-
-    // Firebase
     LibraryInfo(
-        name = "Firebase Analytics",
+        name = "Firebase Android SDK",
         version = "34.11.0",
+        copyright = "Copyright The Android Open Source Project",
         description = "Google Analytics for Firebase",
         license = "Apache-2.0",
+        licenseFile = "Firebase-LICENSE-Apache-2.0.txt",
         url = "https://github.com/firebase/firebase-android-sdk",
     ),
-
-    // Native
     LibraryInfo(
         name = "cpuinfo",
         version = "main",
+        copyright = "Copyright (c) 2019 Google LLC, 2017-2018 Facebook Inc., 2012-2017 Georgia Institute of Technology, 2010-2012 Marat Dukhan",
         description = "CPU information library (L1/L2/L3 cache, NEON detection)",
         license = "BSD-2-Clause",
+        licenseFile = "cpuinfo-LICENSE-BSD-2-Clause.txt",
         url = "https://github.com/pytorch/cpuinfo",
     ),
 )
 
+// ── License list screen ─────────────────────────────────────────────────────
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun OpenSourceLicensesScreen() {
+fun OpenSourceLicensesScreen(
+    onLicenseClick: (index: Int) -> Unit = {},
+) {
     val context = LocalContext.current
-
-    // Group by license type for summary
-    val licenseCounts = libraries.groupBy { it.license }.mapValues { it.value.size }
+    val licenseCounts = allLibraries.groupBy { it.license }.mapValues { it.value.size }
 
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
-        // Header summary
         item {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = stringResource(R.string.licenses_summary, libraries.size),
+                text = stringResource(R.string.licenses_summary, allLibraries.size),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -244,172 +195,198 @@ fun OpenSourceLicensesScreen() {
             Spacer(modifier = Modifier.height(8.dp))
         }
 
-        items(libraries, key = { it.name }) { lib ->
-            var expanded by rememberSaveable(lib.name) { mutableStateOf(false) }
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                ),
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { expanded = !expanded }
-                        .padding(16.dp),
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = lib.name,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.SemiBold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = lib.version,
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontFamily = FontFamily.Monospace,
-                                    ),
-                                    color = MaterialTheme.colorScheme.outline,
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = lib.description,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = if (expanded) Int.MAX_VALUE else 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                        Icon(
-                            imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-
-                    AnimatedVisibility(visible = expanded) {
-                        Column {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            HorizontalDivider()
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                SuggestionChip(
-                                    onClick = {},
-                                    label = {
-                                        Text(
-                                            text = lib.license,
-                                            style = MaterialTheme.typography.labelMedium,
-                                        )
-                                    },
-                                    colors = SuggestionChipDefaults.suggestionChipColors(
-                                        containerColor = when (lib.license) {
-                                            "GPL-3.0" -> MaterialTheme.colorScheme.errorContainer
-                                            "BSD-2-Clause" -> MaterialTheme.colorScheme.tertiaryContainer
-                                            else -> MaterialTheme.colorScheme.secondaryContainer
-                                        },
-                                    ),
-                                )
-                                IconButton(
-                                    onClick = {
-                                        try {
-                                            context.startActivity(
-                                                Intent(Intent.ACTION_VIEW, lib.url.toUri()),
-                                            )
-                                        } catch (_: Exception) {}
-                                    },
-                                    modifier = Modifier.size(32.dp),
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.OpenInNew,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp),
-                                        tint = MaterialTheme.colorScheme.primary,
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = licenseText(lib.license),
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontFamily = FontFamily.Monospace,
-                                ),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-            }
+        items(allLibraries.size) { index ->
+            val lib = allLibraries[index]
+            if (index > 0) HorizontalDivider()
+            LibraryRow(
+                lib = lib,
+                onLinkClick = {
+                    try {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, lib.url.toUri()))
+                    } catch (_: Exception) {}
+                },
+                onDetailClick = { onLicenseClick(index) },
+            )
         }
 
         item { Spacer(modifier = Modifier.height(16.dp)) }
     }
 }
 
-private fun licenseText(license: String): String = when (license) {
-    "Apache-2.0" -> """
-        Licensed under the Apache License, Version 2.0 (the "License");
-        you may not use this file except in compliance with the License.
-        You may obtain a copy of the License at
+@Composable
+private fun LibraryRow(
+    lib: LibraryInfo,
+    onLinkClick: () -> Unit,
+    onDetailClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onDetailClick)
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // Left: name + version + tag + description
+        Column(modifier = Modifier.weight(1f)) {
+            // Row 1: name  version  [license tag]
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = lib.name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = lib.version,
+                    style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
+                    color = MaterialTheme.colorScheme.outline,
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = lib.license,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = when (lib.license) {
+                        "MIT", "BSD-2-Clause" -> MaterialTheme.colorScheme.onTertiaryContainer
+                        else -> MaterialTheme.colorScheme.onSecondaryContainer
+                    },
+                    modifier = Modifier
+                        .background(
+                            color = when (lib.license) {
+                                "MIT", "BSD-2-Clause" -> MaterialTheme.colorScheme.tertiaryContainer
+                                else -> MaterialTheme.colorScheme.secondaryContainer
+                            },
+                            shape = MaterialTheme.shapes.extraSmall,
+                        )
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                )
+            }
+            // Row 2: description
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = lib.description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
 
-            http://www.apache.org/licenses/LICENSE-2.0
+        // Right: Link icon + >
+        IconButton(
+            onClick = onLinkClick,
+            modifier = Modifier.size(36.dp),
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.NavigateNext,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
 
-        Unless required by applicable law or agreed to in writing, software
-        distributed under the License is distributed on an "AS IS" BASIS,
-        WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied. See the License for the specific language governing
-        permissions and limitations under the License.
-    """.trimIndent()
+// ── License detail screen ───────────────────────────────────────────────────
 
-    "GPL-3.0" -> """
-        This program is free software: you can redistribute it and/or
-        modify it under the terms of the GNU General Public License as
-        published by the Free Software Foundation, either version 3 of
-        the License, or (at your option) any later version.
+fun readLicenseAsset(context: Context, fileName: String): String =
+    try {
+        context.assets.open("licenses/$fileName").bufferedReader().use { it.readText() }
+    } catch (_: Exception) {
+        "License file not found: $fileName"
+    }
 
-        This program is distributed in the hope that it will be useful,
-        but WITHOUT ANY WARRANTY; without even the implied warranty of
-        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-        GNU General Public License for more details.
+@Composable
+fun LicenseDetailScreen(libraryIndex: Int) {
+    val lib = allLibraries.getOrNull(libraryIndex) ?: return
+    val context = LocalContext.current
+    val licenseText = remember(lib.licenseFile) { readLicenseAsset(context, lib.licenseFile) }
 
-        You should have received a copy of the GNU General Public License
-        along with this program. If not, see <https://www.gnu.org/licenses/>.
-    """.trimIndent()
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+    ) {
+        // Header card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+            ),
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = lib.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        text = lib.version,
+                        style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace),
+                        color = MaterialTheme.colorScheme.outline,
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = lib.copyright,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    SuggestionChip(
+                        onClick = {},
+                        label = { Text(lib.license) },
+                        colors = SuggestionChipDefaults.suggestionChipColors(
+                            containerColor = when (lib.license) {
+                                "MIT" -> MaterialTheme.colorScheme.tertiaryContainer
+                                "BSD-2-Clause" -> MaterialTheme.colorScheme.tertiaryContainer
+                                else -> MaterialTheme.colorScheme.secondaryContainer
+                            },
+                        ),
+                    )
+                    IconButton(
+                        onClick = {
+                            try {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, lib.url.toUri()))
+                            } catch (_: Exception) {}
+                        },
+                        modifier = Modifier.size(32.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+            }
+        }
 
-    "BSD-2-Clause" -> """
-        Redistribution and use in source and binary forms, with or without
-        modification, are permitted provided that the following conditions
-        are met:
+        Spacer(modifier = Modifier.height(16.dp))
 
-        1. Redistributions of source code must retain the above copyright
-           notice, this list of conditions and the following disclaimer.
-        2. Redistributions in binary form must reproduce the above
-           copyright notice, this list of conditions and the following
-           disclaimer in the documentation and/or other materials provided
-           with the distribution.
+        // Full license text
+        Text(
+            text = licenseText,
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
 
-        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-        "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-        LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-        FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-    """.trimIndent()
-
-    else -> "See project repository for license details."
+        Spacer(modifier = Modifier.height(16.dp))
+    }
 }
