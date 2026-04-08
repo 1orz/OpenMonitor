@@ -199,4 +199,8 @@
     <string name="mode_shizuku_description">通过 Shizuku 获取 Shell 权限（推荐）</string>
     <string name="mode_basic_description">无特权，帧率监控等功能不可用</string>
 
+    <!-- 开源许可 -->
+    <string name="settings_open_source_licenses">开源软件许可</string>
+    <string name="licenses_summary">本应用使用了 %1$d 个开源软件库</string>
+
 </resources>

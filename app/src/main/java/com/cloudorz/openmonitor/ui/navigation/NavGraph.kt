@@ -10,7 +10,7 @@ import com.cloudorz.openmonitor.R
 
 sealed class Route(
     val route: String,
-    @StringRes val labelResId: Int,
+    @param:StringRes val labelResId: Int,
     val icon: ImageVector,
 ) {
     data object Features : Route("features", R.string.nav_features, Icons.Outlined.Dashboard)
@@ -39,6 +39,7 @@ object FeatureRoute {
     const val PARTITIONS = "features/hardware/partitions"
     const val FPS_SESSION_DETAIL = "features/fps/session/{sessionId}"
     const val PROCESS_DETAIL = "features/process/{pid}"
+    const val LICENSES = "settings/licenses"
 
     fun fpsSessionDetail(sessionId: String) = "features/fps/session/$sessionId"
     fun processDetail(pid: Int) = "features/process/$pid"

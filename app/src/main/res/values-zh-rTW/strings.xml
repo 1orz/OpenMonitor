@@ -199,4 +199,8 @@
     <string name="mode_shizuku_description">透過 Shizuku 取得 Shell 權限（推薦）</string>
     <string name="mode_basic_description">無特權，幀率監控等功能不可用</string>
 
+    <!-- 開源授權 -->
+    <string name="settings_open_source_licenses">開源軟體授權</string>
+    <string name="licenses_summary">本應用使用了 %1$d 個開源軟體庫</string>
+
 </resources>

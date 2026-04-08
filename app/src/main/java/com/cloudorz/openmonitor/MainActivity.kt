@@ -84,6 +84,7 @@ import com.cloudorz.openmonitor.ui.navigation.FeatureRoute
 import com.cloudorz.openmonitor.ui.navigation.Route
 import com.cloudorz.openmonitor.ui.splash.PermissionGuideScreen
 import com.cloudorz.openmonitor.ui.splash.PermissionSetupScreen
+import com.cloudorz.openmonitor.ui.user.OpenSourceLicensesScreen
 import com.cloudorz.openmonitor.ui.user.UserScreen
 import androidx.compose.ui.platform.LocalContext
 import dagger.hilt.android.AndroidEntryPoint
@@ -277,6 +278,7 @@ private fun MainScreen(permissionManager: PermissionManager) {
         FeatureRoute.VULKAN_INFO -> "Vulkan"
         FeatureRoute.OPENGL_INFO -> "OpenGL ES"
         FeatureRoute.PARTITIONS -> stringResource(com.cloudorz.openmonitor.R.string.partitions)
+        FeatureRoute.LICENSES -> stringResource(R.string.settings_open_source_licenses)
         else -> null
     }
 
@@ -348,7 +350,10 @@ private fun MainScreen(permissionManager: PermissionManager) {
                             onFeatureClick = { route -> navController.navigate(route) },
                         )
                         1 -> OverviewScreen()
-                        2 -> UserScreen(permissionManager = permissionManager)
+                        2 -> UserScreen(
+                            permissionManager = permissionManager,
+                            onNavigateToLicenses = { navController.navigate(FeatureRoute.LICENSES) },
+                        )
                     }
                 }
             }
@@ -365,7 +370,7 @@ private fun MainScreen(permissionManager: PermissionManager) {
             composable(FeatureRoute.VULKAN_INFO) {
                 val entry = navController.previousBackStackEntry
                 val vm: com.cloudorz.openmonitor.feature.hardware.HardwareInfoViewModel =
-                    if (entry != null) androidx.hilt.navigation.compose.hiltViewModel(entry) else androidx.hilt.navigation.compose.hiltViewModel()
+                    if (entry != null) androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel(entry) else androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel()
                 val gpuInfo = vm.uiState.collectAsState().value.gpuInfo
                 VulkanInfoScreen(vulkanInfoJson = gpuInfo.vulkanInfoJson)
             }
@@ -398,6 +403,9 @@ private fun MainScreen(permissionManager: PermissionManager) {
             composable(FeatureRoute.NETWORK) { NetworkScreen() }
             composable(FeatureRoute.LOG) {
                 LogScreen(onProvideTopBarActions = { topBarActions = it })
+            }
+            composable(FeatureRoute.LICENSES) {
+                OpenSourceLicensesScreen()
             }
         }
     }

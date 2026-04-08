@@ -199,4 +199,8 @@
     <string name="mode_shizuku_description">Shizuku経由でShell権限を取得（推奨）</string>
     <string name="mode_basic_description">特権なし、フレームレート監視不可</string>
 
+    <!-- オープンソースライセンス -->
+    <string name="settings_open_source_licenses">オープンソースライセンス</string>
+    <string name="licenses_summary">このアプリは %1$d 個のオープンソースライブラリを使用しています</string>
+
 </resources>

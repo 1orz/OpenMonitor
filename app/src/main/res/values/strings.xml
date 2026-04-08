@@ -206,4 +206,8 @@
     <string name="mode_shizuku_description">Obtain Shell permission via Shizuku (recommended)</string>
     <string name="mode_basic_description">No privileges, frame rate monitoring unavailable</string>
 
+    <!-- Open Source Licenses -->
+    <string name="settings_open_source_licenses">Open Source Licenses</string>
+    <string name="licenses_summary">This app uses %1$d open source libraries</string>
+
 </resources>
