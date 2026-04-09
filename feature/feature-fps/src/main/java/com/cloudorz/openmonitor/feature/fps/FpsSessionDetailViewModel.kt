@@ -33,12 +33,27 @@ class FpsSessionDetailViewModel @Inject constructor(
     private val csvExporter: CsvExporter,
 ) : ViewModel() {
 
-    private val sessionId: Long = savedStateHandle.get<String>("sessionId")?.toLongOrNull() ?: 0L
+    private var sessionId: Long = savedStateHandle.get<String>("sessionId")?.toLongOrNull() ?: 0L
 
     private val _state = MutableStateFlow(FpsSessionDetailState())
     val state: StateFlow<FpsSessionDetailState> = _state.asStateFlow()
 
+    private var initialized = false
+
     init {
+        if (sessionId > 0L) loadSession()
+    }
+
+    /** Called from composable when sessionId comes from Navigation3 NavKey. */
+    fun initSessionId(id: String) {
+        val parsed = id.toLongOrNull() ?: return
+        if (parsed == sessionId && initialized) return
+        sessionId = parsed
+        loadSession()
+    }
+
+    private fun loadSession() {
+        initialized = true
         viewModelScope.launch {
             fpsRepository.getSessionById(sessionId)
                 .catch { e -> android.util.Log.w("FpsDetailVM", "session flow error", e) }

@@ -33,28 +33,28 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cloudorz.openmonitor.R
-import com.cloudorz.openmonitor.ui.navigation.FeatureRoute
+import com.cloudorz.openmonitor.ui.navigation.Route
 
 data class FeatureItem(
     val title: String,
     val icon: ImageVector,
-    val route: String,
+    val route: Route,
 )
 
 @Composable
 fun FeaturesScreen(
-    onFeatureClick: (String) -> Unit,
+    onFeatureClick: (Route) -> Unit,
 ) {
     val features = listOf(
-        FeatureItem(stringResource(R.string.feature_hardware_info), Icons.Outlined.PhoneAndroid, FeatureRoute.HARDWARE),
-        FeatureItem(stringResource(R.string.feature_battery), Icons.Outlined.BatteryStd, FeatureRoute.BATTERY),
-        FeatureItem(stringResource(R.string.feature_fps_recording), Icons.Outlined.Speed, FeatureRoute.FPS),
-        FeatureItem(stringResource(R.string.feature_process_monitor), Icons.Outlined.Memory, FeatureRoute.PROCESS),
-        FeatureItem(stringResource(R.string.feature_float_monitor), Icons.Outlined.Layers, FeatureRoute.FLOAT),
-        FeatureItem(stringResource(R.string.feature_sensor), Icons.Outlined.Sensors, FeatureRoute.SENSOR),
-        FeatureItem(stringResource(R.string.feature_network_monitor), Icons.Outlined.SwapVert, FeatureRoute.NETWORK),
-        FeatureItem(stringResource(R.string.feature_key_attestation), Icons.Outlined.VpnKey, FeatureRoute.KEY_ATTESTATION),
-        FeatureItem(stringResource(R.string.feature_debug_log), Icons.Outlined.BugReport, FeatureRoute.LOG),
+        FeatureItem(stringResource(R.string.feature_hardware_info), Icons.Outlined.PhoneAndroid, Route.Hardware),
+        FeatureItem(stringResource(R.string.feature_battery), Icons.Outlined.BatteryStd, Route.Battery),
+        FeatureItem(stringResource(R.string.feature_fps_recording), Icons.Outlined.Speed, Route.Fps),
+        FeatureItem(stringResource(R.string.feature_process_monitor), Icons.Outlined.Memory, Route.Process),
+        FeatureItem(stringResource(R.string.feature_float_monitor), Icons.Outlined.Layers, Route.FloatMonitor),
+        FeatureItem(stringResource(R.string.feature_sensor), Icons.Outlined.Sensors, Route.Sensor),
+        FeatureItem(stringResource(R.string.feature_network_monitor), Icons.Outlined.SwapVert, Route.Network),
+        FeatureItem(stringResource(R.string.feature_key_attestation), Icons.Outlined.VpnKey, Route.KeyAttestation),
+        FeatureItem(stringResource(R.string.feature_debug_log), Icons.Outlined.BugReport, Route.Log),
     )
 
     LazyColumn(

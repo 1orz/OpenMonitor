@@ -134,9 +134,13 @@ private enum class ChartSection(val label: String) {
 
 @Composable
 fun FpsSessionDetailScreen(
+    sessionId: String? = null,
     viewModel: FpsSessionDetailViewModel = hiltViewModel(),
     onProvideTopBarActions: (@Composable () -> Unit) -> Unit = {},
 ) {
+    if (sessionId != null) {
+        androidx.compose.runtime.LaunchedEffect(sessionId) { viewModel.initSessionId(sessionId) }
+    }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val view = LocalView.current

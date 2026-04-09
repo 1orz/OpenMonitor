@@ -3,6 +3,8 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+    alias(libs.plugins.kotlin.serialization)
+    id("kotlin-parcelize")
     alias(libs.plugins.google.services)
 }
 
@@ -189,7 +191,11 @@ dependencies {
     implementation(libs.material.kolor)
     implementation(libs.haze)
 
-    implementation(libs.navigation.compose)
+    implementation(libs.navigation3.runtime)
+    implementation(libs.lifecycle.viewmodel.navigation3)
+    implementation(libs.navigationevent.compose)
+    implementation(libs.miuix.navigation3.ui)
+
     implementation(libs.lifecycle.runtime.ktx)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.lifecycle.viewmodel.compose)

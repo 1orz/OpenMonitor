@@ -20,7 +20,7 @@ class ProcessDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
-    private val pid: Int = savedStateHandle.get<String>("pid")?.toIntOrNull() ?: 0
+    private var pid: Int = savedStateHandle.get<String>("pid")?.toIntOrNull() ?: 0
 
     private val _process = MutableStateFlow<ProcessInfo?>(null)
     val process: StateFlow<ProcessInfo?> = _process.asStateFlow()
@@ -34,6 +34,8 @@ class ProcessDetailViewModel @Inject constructor(
     private val _killed = MutableStateFlow(false)
     val killed: StateFlow<Boolean> = _killed.asStateFlow()
 
+    private var initialized = false
+
     fun killProcess() {
         viewModelScope.launch {
             val success = processRepository.killProcess(pid)
@@ -41,7 +43,16 @@ class ProcessDetailViewModel @Inject constructor(
         }
     }
 
-    init {
+    /** Called from composable when pid comes from Navigation3 NavKey. */
+    fun initPid(pidStr: String) {
+        val parsed = pidStr.toIntOrNull() ?: return
+        if (parsed == pid && initialized) return
+        pid = parsed
+        loadProcess()
+    }
+
+    private fun loadProcess() {
+        initialized = true
         viewModelScope.launch {
             val detail = processRepository.getProcessDetail(pid)
             _process.value = detail
@@ -50,5 +61,9 @@ class ProcessDetailViewModel @Inject constructor(
             }
             _loading.value = false
         }
+    }
+
+    init {
+        if (pid > 0) loadProcess()
     }
 }

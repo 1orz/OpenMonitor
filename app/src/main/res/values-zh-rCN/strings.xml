@@ -132,10 +132,6 @@
     <string name="settings_not_running">未运行</string>
     <string name="settings_not_detected">未检测</string>
     <string name="settings_sampling">数据刷新频率</string>
-    <string name="settings_display_mode">显示模式</string>
-    <string name="settings_follow_system">跟随系统</string>
-    <string name="settings_light">日间</string>
-    <string name="settings_dark">深色</string>
     <string name="settings_theme">主题</string>
     <string name="settings_theme_mode_system">跟随系统</string>
     <string name="settings_theme_mode_light">日间</string>

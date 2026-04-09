@@ -62,8 +62,12 @@ import com.cloudorz.openmonitor.core.ui.theme.ChartYellow
 @Composable
 fun ProcessDetailScreen(
     onBack: () -> Unit,
+    pid: String? = null,
     viewModel: ProcessDetailViewModel = hiltViewModel(),
 ) {
+    if (pid != null) {
+        androidx.compose.runtime.LaunchedEffect(pid) { viewModel.initPid(pid) }
+    }
     val process by viewModel.process.collectAsStateWithLifecycle()
     val threads by viewModel.threads.collectAsStateWithLifecycle()
     val loading by viewModel.loading.collectAsStateWithLifecycle()

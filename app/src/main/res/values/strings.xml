@@ -139,11 +139,6 @@
     <string name="settings_not_running">Not Running</string>
     <string name="settings_not_detected">Not Detected</string>
     <string name="settings_sampling">Data Refresh Rate</string>
-    <string name="settings_display_mode">Display Mode</string>
-    <string name="settings_follow_system">Follow System</string>
-    <string name="settings_light">Light</string>
-    <string name="settings_dark">Dark</string>
-
     <!-- Theme settings -->
     <string name="settings_theme">Theme</string>
     <string name="settings_theme_mode_system">Follow System</string>
