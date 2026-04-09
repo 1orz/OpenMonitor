@@ -28,6 +28,8 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import com.cloudorz.openmonitor.core.ui.hapticClick
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -48,6 +50,7 @@ fun BatteryScreen(
     val selectedRange by viewModel.timeRange.collectAsStateWithLifecycle()
     val hasPermission by viewModel.hasUsageStatsPermission.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val view = LocalView.current
 
     // Resolve app icons
     val appIcons = remember { mutableStateMapOf<String, Bitmap>() }
@@ -102,6 +105,7 @@ fun BatteryScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(onClick = {
+                            view.hapticClick()
                             context.startActivity(
                                 Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
                                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -122,6 +126,7 @@ fun BatteryScreen(
                 horizontalArrangement = Arrangement.End,
             ) {
                 IconButton(onClick = {
+                    view.hapticClick()
                     viewModel.getExportIntent { intent ->
                         context.startActivity(intent)
                     }

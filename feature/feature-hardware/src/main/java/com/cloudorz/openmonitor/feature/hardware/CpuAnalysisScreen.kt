@@ -2,7 +2,6 @@ package com.cloudorz.openmonitor.feature.hardware
 
 import android.os.Build
 import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,6 +42,7 @@ import com.cloudorz.openmonitor.core.model.cpu.CpuClusterStatus
 import com.cloudorz.openmonitor.core.ui.R
 import com.cloudorz.openmonitor.core.model.cpu.CpuCoreInfo
 import com.cloudorz.openmonitor.core.model.cpu.CpuGlobalStatus
+import com.cloudorz.openmonitor.core.ui.hapticClickable
 
 @Composable
 fun CpuAnalysisScreen(
@@ -206,7 +206,7 @@ private fun ExpandableSection(label: String, content: String) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { expanded = !expanded }
+                .hapticClickable { expanded = !expanded }
                 .padding(vertical = 6.dp),
         ) {
             Text(

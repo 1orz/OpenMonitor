@@ -65,6 +65,15 @@
     <string name="ka_manufacturer">Manufacturer</string>
     <string name="ka_model">Model</string>
 
+    <!-- Loading steps -->
+    <string name="ka_loading_init">Initializing…</string>
+    <string name="ka_loading_root_keys">Loading root public keys…</string>
+    <string name="ka_loading_revocation">Fetching revocation list…</string>
+    <string name="ka_loading_keygen">Generating attestation key…</string>
+    <string name="ka_loading_shizuku">Connecting to Shizuku…</string>
+    <string name="ka_loading_parsing">Parsing certificates…</string>
+    <string name="ka_loading_timeout">Timeout: %ds</string>
+
     <!-- Top-bar menu -->
     <string name="ka_menu_more">More options</string>
     <string name="ka_menu_use_attest_key">Use Attest Key</string>

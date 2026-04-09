@@ -73,6 +73,8 @@
     <string name="link_speed">接続速度</string>
     <string name="frequency">周波数</string>
     <string name="ip_address">IPアドレス</string>
+    <string name="network_location_hint">SSIDとBSSIDの表示には位置情報の許可が必要です</string>
+    <string name="network_unknown">不明</string>
 
     <!-- 権限設定 -->
     <string name="perm_setup_title">必要な権限を許可</string>
@@ -146,6 +148,9 @@
     <string name="settings_copy_command">コマンドをコピー</string>
     <string name="settings_check_connection">接続確認</string>
     <string name="settings_auto_detect_hint">起動後に自動で接続を検出します</string>
+    <string name="settings_haptic_feedback">触覚フィードバック</string>
+    <string name="settings_haptic_on">オン</string>
+    <string name="settings_haptic_off">オフ</string>
 
     <!-- モード名 -->
     <string name="mode_root">Root モード</string>
@@ -181,6 +186,13 @@
     <string name="splash_retry">再試行</string>
     <string name="splash_use_basic">基本モードを使用</string>
     <string name="splash_go_back">戻る</string>
+
+    <!-- 起動ステップ -->
+    <string name="startup_initializing">初期化中…</string>
+    <string name="startup_checking_shizuku">Shizukuサービスを確認中…</string>
+    <string name="startup_deploying_daemon">モニターデーモンを展開中…</string>
+    <string name="startup_connecting_daemon">デーモンに接続中…</string>
+    <string name="startup_almost_ready">まもなく準備完了…</string>
 
     <!-- ボトムナビゲーション -->
     <string name="nav_features">機能</string>

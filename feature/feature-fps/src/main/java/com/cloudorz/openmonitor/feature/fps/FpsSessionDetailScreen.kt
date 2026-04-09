@@ -7,7 +7,6 @@ import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,6 +56,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -67,6 +67,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cloudorz.openmonitor.core.model.fps.FpsFrameRecord
 import com.cloudorz.openmonitor.core.model.fps.FpsWatchSession
 import com.cloudorz.openmonitor.core.ui.R
+import com.cloudorz.openmonitor.core.ui.hapticClick
+import com.cloudorz.openmonitor.core.ui.hapticClickable
 import com.cloudorz.openmonitor.core.ui.theme.ChartGreen
 import com.cloudorz.openmonitor.core.ui.theme.ChartRed
 import com.cloudorz.openmonitor.core.ui.theme.ChartYellow
@@ -137,13 +139,15 @@ fun FpsSessionDetailScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val view = LocalView.current
     var showSectionOptions by remember { mutableStateOf(false) }
 
     val actions: @Composable () -> Unit = {
-        IconButton(onClick = { showSectionOptions = true }) {
+        IconButton(onClick = { view.hapticClick(); showSectionOptions = true }) {
             Icon(Icons.Default.Tune, contentDescription = "Chart Options")
         }
         IconButton(onClick = {
+            view.hapticClick()
             viewModel.getExportIntent { intent ->
                 context.startActivity(intent)
             }
@@ -441,6 +445,7 @@ private fun ChartCard(
     seriesVisibility: SnapshotStateMap<String, Boolean>? = null,
     content: @Composable () -> Unit,
 ) {
+    val view = LocalView.current
     @Suppress("AssignedValueIsNeverRead")
     var showSeriesDialog by remember { mutableStateOf(false) }
 
@@ -467,7 +472,7 @@ private fun ChartCard(
                 )
                 if (allLabels != null && allLabels.size > 1 && seriesVisibility != null) {
                     IconButton(
-                        onClick = { showSeriesDialog = true },
+                        onClick = { view.hapticClick(); showSeriesDialog = true },
                         modifier = Modifier.size(28.dp),
                     ) {
                         Icon(
@@ -492,6 +497,7 @@ private fun SeriesSelectDialog(
     visibility: SnapshotStateMap<String, Boolean>,
     onDismiss: () -> Unit,
 ) {
+    val view = LocalView.current
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.fps_chart_series_options)) },
@@ -502,7 +508,7 @@ private fun SeriesSelectDialog(
                     Row(
                         Modifier
                             .fillMaxWidth()
-                            .clickable { visibility[label] = !checked },
+                            .hapticClickable { visibility[label] = !checked },
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Checkbox(checked = checked, onCheckedChange = { visibility[label] = it })
@@ -519,7 +525,7 @@ private fun SeriesSelectDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.fps_confirm)) } },
+        confirmButton = { TextButton(onClick = { view.hapticClick(); onDismiss() }) { Text(stringResource(R.string.fps_confirm)) } },
     )
 }
 
@@ -835,13 +841,14 @@ private fun SectionOptionsDialog(
     visibility: MutableMap<ChartSection, Boolean>,
     onDismiss: () -> Unit,
 ) {
+    val view = LocalView.current
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Chart Options") },
         text = {
             Column {
                 ChartSection.entries.forEach { section ->
-                    Row(Modifier.fillMaxWidth().clickable { visibility[section] = visibility[section] == false }, verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().hapticClickable { visibility[section] = visibility[section] == false }, verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = visibility[section] != false, onCheckedChange = { visibility[section] = it })
                         Spacer(Modifier.width(8.dp))
                         Text(section.label, style = MaterialTheme.typography.bodyMedium)
@@ -849,7 +856,7 @@ private fun SectionOptionsDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.fps_confirm)) } },
+        confirmButton = { TextButton(onClick = { view.hapticClick(); onDismiss() }) { Text(stringResource(R.string.fps_confirm)) } },
     )
 }
 

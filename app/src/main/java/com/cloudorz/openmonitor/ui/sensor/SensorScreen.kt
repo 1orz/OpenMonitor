@@ -1,7 +1,6 @@
 package com.cloudorz.openmonitor.ui.sensor
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -39,6 +38,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cloudorz.openmonitor.R
 import com.cloudorz.openmonitor.core.model.sensor.SensorInfo
+import com.cloudorz.openmonitor.core.ui.hapticClickable
 
 @Composable
 fun SensorScreen(
@@ -65,7 +65,7 @@ private fun SensorItem(sensor: SensorInfo) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { expanded = !expanded },
+            .hapticClickable { expanded = !expanded },
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
         Column(

@@ -36,7 +36,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import com.cloudorz.openmonitor.core.ui.hapticClick
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -71,6 +73,7 @@ private fun CpuMonitorContent(
     uiState: CpuMonitorUiState,
     onRefresh: () -> Unit,
 ) {
+    val view = LocalView.current
     Scaffold(
         topBar = {
             TopAppBar(
@@ -81,7 +84,7 @@ private fun CpuMonitorContent(
                     )
                 },
                 actions = {
-                    IconButton(onClick = onRefresh) {
+                    IconButton(onClick = { view.hapticClick(); onRefresh() }) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = stringResource(R.string.refresh),

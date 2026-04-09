@@ -89,6 +89,8 @@ import com.cloudorz.openmonitor.ui.user.OpenSourceLicensesScreen
 import com.cloudorz.openmonitor.ui.user.UserScreen
 import com.cloudorz.openmonitor.ui.user.allLibraries
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import com.cloudorz.openmonitor.core.ui.hapticClick
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -139,14 +141,18 @@ private fun MonitorAppContent(permissionManager: PermissionManager, daemonManage
     var startupPhase by rememberSaveable { mutableStateOf(
         if (selectedMode != null) StartupPhase.CHECKING else StartupPhase.NEEDS_GUIDE
     ) }
+    var startupStepResId by remember { mutableStateOf(R.string.startup_initializing) }
 
     // Cold start: verify Shizuku + daemon for persisted ROOT/SHIZUKU; 5s hard timeout
     LaunchedEffect(Unit) {
         if (selectedMode == null) return@LaunchedEffect
 
+        startupStepResId = R.string.startup_initializing
+
         withTimeoutOrNull(5_000L) {
             // Shizuku binder check
             if (selectedMode == PrivilegeMode.SHIZUKU) {
+                startupStepResId = R.string.startup_checking_shizuku
                 var available = false
                 repeat(5) {
                     available = permissionManager.isShizukuAvailableSync()
@@ -161,19 +167,23 @@ private fun MonitorAppContent(permissionManager: PermissionManager, daemonManage
 
             // Daemon check for ROOT/SHIZUKU
             if (selectedMode == PrivilegeMode.ROOT || selectedMode == PrivilegeMode.SHIZUKU) {
+                startupStepResId = R.string.startup_deploying_daemon
                 val result = daemonManager.ensureRunning()
                 if (result == DaemonState.FAILED) {
                     selectedMode = null
                     startupPhase = StartupPhase.NEEDS_GUIDE
                     return@withTimeoutOrNull
                 }
+                startupStepResId = R.string.startup_connecting_daemon
             }
 
             // ADB mode: try to connect to manually started daemon, but don't block
             if (selectedMode == PrivilegeMode.ADB) {
+                startupStepResId = R.string.startup_connecting_daemon
                 daemonManager.ensureRunning()
             }
 
+            startupStepResId = R.string.startup_almost_ready
             startupPhase = StartupPhase.READY
         }
 
@@ -210,7 +220,17 @@ private fun MonitorAppContent(permissionManager: PermissionManager, daemonManage
                     .background(MaterialTheme.colorScheme.background),
                 contentAlignment = Alignment.Center,
             ) {
-                CircularProgressIndicator()
+                androidx.compose.foundation.layout.Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp),
+                ) {
+                    CircularProgressIndicator()
+                    Text(
+                        text = stringResource(startupStepResId),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
         StartupPhase.NEEDS_GUIDE -> {
@@ -256,6 +276,7 @@ private fun MainScreen(permissionManager: PermissionManager) {
 
     val pagerState = rememberPagerState(initialPage = 1) { Route.all.size }
     val coroutineScope = rememberCoroutineScope()
+    val view = LocalView.current
 
     val isTopLevel = currentRoute == null || currentRoute == "tabs"
 
@@ -308,7 +329,7 @@ private fun MainScreen(permissionManager: PermissionManager) {
                 },
                 navigationIcon = {
                     if (!isTopLevel) {
-                        IconButton(onClick = { navController.popBackStack() }) {
+                        IconButton(onClick = { view.hapticClick(); navController.popBackStack() }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.nav_back))
                         }
                     }
@@ -326,6 +347,7 @@ private fun MainScreen(permissionManager: PermissionManager) {
                         NavigationBarItem(
                             selected = pagerState.currentPage == index,
                             onClick = {
+                                view.hapticClick()
                                 coroutineScope.launch { pagerState.animateScrollToPage(index) }
                             },
                             icon = { Icon(route.icon, stringResource(route.labelResId)) },

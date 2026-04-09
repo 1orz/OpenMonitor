@@ -34,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -41,12 +42,14 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cloudorz.openmonitor.core.model.storage.MountInfo
 import com.cloudorz.openmonitor.core.ui.R
+import com.cloudorz.openmonitor.core.ui.hapticClick
 
 @Composable
 fun PartitionScreen(
     viewModel: PartitionViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val view = LocalView.current
 
     var searchQuery by remember { mutableStateOf("") }
 
@@ -85,7 +88,7 @@ fun PartitionScreen(
                     leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }) {
+                            IconButton(onClick = { view.hapticClick(); searchQuery = "" }) {
                                 Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.partition_clear), modifier = Modifier.size(20.dp))
                             }
                         }

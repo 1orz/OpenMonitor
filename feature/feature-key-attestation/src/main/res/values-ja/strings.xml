@@ -65,6 +65,15 @@
     <string name="ka_manufacturer">メーカー</string>
     <string name="ka_model">モデル</string>
 
+    <!-- 読み込みステップ -->
+    <string name="ka_loading_init">初期化中…</string>
+    <string name="ka_loading_root_keys">ルート公開鍵を読み込み中…</string>
+    <string name="ka_loading_revocation">失効リストを取得中…</string>
+    <string name="ka_loading_keygen">認証鍵を生成中…</string>
+    <string name="ka_loading_shizuku">Shizukuに接続中…</string>
+    <string name="ka_loading_parsing">証明書を解析中…</string>
+    <string name="ka_loading_timeout">タイムアウト: %d秒</string>
+
     <!-- トップバーメニュー -->
     <string name="ka_menu_more">その他のオプション</string>
     <string name="ka_menu_use_attest_key">Attest Key を使用</string>

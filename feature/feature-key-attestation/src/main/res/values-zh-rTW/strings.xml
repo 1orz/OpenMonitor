@@ -65,6 +65,15 @@
     <string name="ka_manufacturer">製造商</string>
     <string name="ka_model">型號</string>
 
+    <!-- 載入步驟 -->
+    <string name="ka_loading_init">正在初始化…</string>
+    <string name="ka_loading_root_keys">正在載入根公鑰…</string>
+    <string name="ka_loading_revocation">正在取得吊銷清單…</string>
+    <string name="ka_loading_keygen">正在產生認證金鑰…</string>
+    <string name="ka_loading_shizuku">正在連接 Shizuku…</string>
+    <string name="ka_loading_parsing">正在解析憑證…</string>
+    <string name="ka_loading_timeout">逾時: %d秒</string>
+
     <!-- 頂列選單 -->
     <string name="ka_menu_more">更多選項</string>
     <string name="ka_menu_use_attest_key">使用 Attest Key</string>

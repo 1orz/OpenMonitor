@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cloudorz.openmonitor.core.common.PrivilegeMode
 import com.cloudorz.openmonitor.core.data.datasource.DaemonClient
+import com.cloudorz.openmonitor.core.ui.HapticFeedbackManager
 import com.cloudorz.openmonitor.core.data.datasource.DaemonLauncher
 import com.cloudorz.openmonitor.core.data.datasource.DaemonManager
 import com.cloudorz.openmonitor.core.data.datasource.DaemonState
@@ -69,6 +70,9 @@ class UserViewModel @Inject constructor(
 
     private val _darkMode = MutableStateFlow(prefs.getInt(KEY_DARK_MODE, 0))
     val darkMode: StateFlow<Int> = _darkMode.asStateFlow()
+
+    private val _hapticEnabled = MutableStateFlow(prefs.getBoolean("haptic_enabled", true))
+    val hapticEnabled: StateFlow<Boolean> = _hapticEnabled.asStateFlow()
 
     /** Daemon binary path for ADB instructions. */
     val daemonBinaryPath: String get() = daemonLauncher.binaryPath
@@ -172,6 +176,11 @@ class UserViewModel @Inject constructor(
     fun setDarkMode(mode: Int) {
         prefs.edit { putInt(KEY_DARK_MODE, mode) }
         _darkMode.value = mode
+    }
+
+    fun setHapticEnabled(enabled: Boolean) {
+        HapticFeedbackManager.setEnabled(context, enabled)
+        _hapticEnabled.value = enabled
     }
 
     fun setPollInterval(intervalMs: Long) {

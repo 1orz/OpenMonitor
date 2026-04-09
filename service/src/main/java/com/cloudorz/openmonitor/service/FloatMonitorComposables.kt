@@ -52,8 +52,6 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -66,17 +64,20 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountTree
+import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DeviceThermostat
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material.icons.filled.UnfoldLess
 import androidx.compose.material.icons.filled.UnfoldMore
-import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.filled.SlowMotionVideo
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.filled.CompareArrows
@@ -391,11 +392,11 @@ fun FloatMiniMonitorContent(service: FloatMonitorService) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // CPU: icon + inline core bar chart + percentage
-            Image(
-                painter = painterResource(R.drawable.ic_cpu),
+            Icon(
+                imageVector = Icons.Filled.Memory,
                 contentDescription = null,
-                modifier = Modifier.size(8.dp),
-                colorFilter = ColorFilter.tint(Color.White),
+                modifier = Modifier.size(9.dp),
+                tint = Color.White,
             )
             val cores = coreLoads
             if (!cores.isNullOrEmpty()) {
@@ -421,18 +422,18 @@ fun FloatMiniMonitorContent(service: FloatMonitorService) {
                 } else {
                     "%3d%%".format(gpuVal.toInt())
                 }
-                MiniIconLabel(R.drawable.ic_gpu, gpuText, Color.White)
+                MiniIconLabel(Icons.Filled.Speed, gpuText, Color.White)
             }
             val tempVal = temp
             val tempText = if (tempVal != null) "%3.0f\u00B0".format(tempVal) else " --\u00B0"
-            MiniIconLabel(R.drawable.ic_temperature, tempText, Color.White)
+            MiniIconLabel(Icons.Filled.DeviceThermostat, tempText, Color.White)
             val fpsVal = fps
             val fpsText = when {
                 fpsVal == null -> " --.-"
                 fpsVal > 0.0 -> "%5.1f".format(fpsVal)
                 else -> "  0.0"
             }
-            MiniIconLabel(R.drawable.ic_frame, fpsText, Color.White)
+            MiniIconLabel(Icons.Filled.SlowMotionVideo, fpsText, Color.White)
 
             // Cycle: battery current → temp → power
             val batTempVal = batTemp
@@ -441,16 +442,16 @@ fun FloatMiniMonitorContent(service: FloatMonitorService) {
             when (batCycleIndex) {
                 0 -> {
                     val text = if (mAVal != null) "%dmA".format(mAVal) else "--mA"
-                    MiniIconLabel(R.drawable.ic_current, text, Color.White)
+                    MiniIconLabel(Icons.Filled.Bolt, text, Color.White)
                 }
                 1 -> {
                     val text = if (batTempVal != null && batTempVal > 0.0) "%.1f\u00B0".format(batTempVal) else "--\u00B0"
-                    MiniIconLabel(R.drawable.ic_current, text, Color.White)
+                    MiniIconLabel(Icons.Filled.Bolt, text, Color.White)
                 }
                 2 -> {
                     val powerW = if (mAVal != null && voltage > 0) mAVal * voltage / 1000.0 else null
                     val text = if (powerW != null) "%.1fW".format(powerW) else "--W"
-                    MiniIconLabel(R.drawable.ic_current, text, Color.White)
+                    MiniIconLabel(Icons.Filled.Bolt, text, Color.White)
                 }
             }
 
@@ -470,16 +471,16 @@ fun FloatMiniMonitorContent(service: FloatMonitorService) {
 }
 
 @Composable
-private fun MiniIconLabel(iconRes: Int, value: String, color: Color) {
+private fun MiniIconLabel(icon: ImageVector, value: String, color: Color) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(1.dp),
     ) {
-        Image(
-            painter = painterResource(iconRes),
+        Icon(
+            imageVector = icon,
             contentDescription = null,
-            modifier = Modifier.size(8.dp),
-            colorFilter = ColorFilter.tint(color),
+            modifier = Modifier.size(9.dp),
+            tint = color,
         )
         Text(
             text = value,
@@ -928,7 +929,7 @@ fun FloatProcessContent(service: FloatMonitorService) {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.PushPin,
+                        imageVector = if (locked) Icons.Filled.PushPin else Icons.Outlined.PushPin,
                         contentDescription = null,
                         tint = if (locked) ProcessTextPrimary else ProcessTextSecondary,
                         modifier = Modifier
@@ -966,7 +967,7 @@ fun FloatProcessContent(service: FloatMonitorService) {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.PushPin,
+                        imageVector = if (locked) Icons.Filled.PushPin else Icons.Outlined.PushPin,
                         contentDescription = null,
                         tint = if (locked) ProcessTextPrimary else ProcessTextSecondary,
                         modifier = Modifier
@@ -1082,18 +1083,18 @@ private fun ProcessRow(
                 modifier = Modifier.size(20.dp),
             )
         } else if (!isAndroidApp) {
-            Image(
-                painter = painterResource(R.drawable.ic_system_process),
+            Icon(
+                imageVector = Icons.Filled.Android,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
-                colorFilter = ColorFilter.tint(Color(0xFF78909C)),
+                tint = Color(0xFF78909C),
             )
         } else {
-            Image(
-                painter = painterResource(R.drawable.ic_cpu),
+            Icon(
+                imageVector = Icons.Filled.Memory,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
-                colorFilter = ColorFilter.tint(Color(0xFF999999)),
+                tint = Color(0xFF999999),
             )
         }
         Spacer(modifier = Modifier.width(6.dp))
@@ -1225,9 +1226,9 @@ fun FloatControlPanelContent(service: FloatMonitorService) {
         Btn(Icons.Filled.SportsEsports,"FPS",  FloatMonitorService.TYPE_FPS         in activeIds) { service.toggleMonitorFromPanel(FloatMonitorService.TYPE_FPS) },
         Btn(Icons.Filled.Thermostat,  stringResource(R.string.float_btn_temp),   FloatMonitorService.TYPE_TEMPERATURE in activeIds) { service.toggleMonitorFromPanel(FloatMonitorService.TYPE_TEMPERATURE) },
         Btn(Icons.Filled.Apps,        stringResource(R.string.float_btn_process),   FloatMonitorService.TYPE_PROCESS     in activeIds) { service.toggleMonitorFromPanel(FloatMonitorService.TYPE_PROCESS) },
-        Btn(Icons.Filled.AccountTree, stringResource(R.string.float_btn_thread),   FloatMonitorService.TYPE_THREAD      in activeIds) { service.toggleMonitorFromPanel(FloatMonitorService.TYPE_THREAD) },
+        Btn(Icons.Filled.Android, stringResource(R.string.float_btn_thread),   FloatMonitorService.TYPE_THREAD      in activeIds) { service.toggleMonitorFromPanel(FloatMonitorService.TYPE_THREAD) },
         Btn(Icons.Filled.Memory,      stringResource(R.string.float_btn_cpu_freq), miniShowCpuFreq) { service.onMiniCpuFreqToggle() },
-        Btn(Icons.Filled.Videocam,    stringResource(R.string.float_btn_gpu_freq), miniShowGpuFreq) { service.onMiniGpuFreqToggle() },
+        Btn(Icons.Filled.Speed,       stringResource(R.string.float_btn_gpu_freq), miniShowGpuFreq) { service.onMiniGpuFreqToggle() },
         Btn(Icons.Filled.UnfoldMore, stringResource(R.string.float_btn_ext_temp), tempExtended) { service.onTempExtendedToggle() },
         Btn(Icons.Filled.SwapVert,   stringResource(R.string.float_btn_net_speed), miniShowNetSpeed) { service.onMiniNetSpeedToggle() },
         Btn(Icons.Filled.CompareArrows, stringResource(R.string.float_btn_net_split), miniNetSpeedMode == 1) { service.onMiniNetSpeedModeToggle() },

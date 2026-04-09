@@ -53,6 +53,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -60,6 +61,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.cloudorz.openmonitor.core.ui.hapticClick
 import com.cloudorz.openmonitor.feature.keyattestation.attestation.CertificateInfo
 import com.cloudorz.openmonitor.feature.keyattestation.attestation.RootOfTrust
 import java.text.DateFormat
@@ -72,6 +74,7 @@ fun KeyAttestationScreen(
 ) {
     val state = viewModel.uiState.collectAsStateWithLifecycle().value
     val cfg = viewModel.settings.collectAsStateWithLifecycle().value
+    val view = LocalView.current
 
     val saveLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/x-pkcs7-certificates")
@@ -96,7 +99,23 @@ fun KeyAttestationScreen(
 
     if (state.isLoading) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                CircularProgressIndicator()
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text = stringResource(state.loadingStepResId),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (state.loadingCountdownSec > 0) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.ka_loading_timeout, state.loadingCountdownSec),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline,
+                    )
+                }
+            }
         }
         return
     }
@@ -129,7 +148,7 @@ fun KeyAttestationScreen(
                             fontFamily = FontFamily.Monospace,
                         )
                         Spacer(Modifier.height(8.dp))
-                        TextButton(onClick = { viewModel.retry() }) {
+                        TextButton(onClick = { view.hapticClick(); viewModel.retry() }) {
                             Text(stringResource(R.string.ka_retry))
                         }
                     }
@@ -294,6 +313,7 @@ private fun AttestationInfoCard(state: AttestationUiState) {
 
 @Composable
 private fun RevocationListRow(state: AttestationUiState, onRefresh: () -> Unit) {
+    val view = LocalView.current
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -356,7 +376,7 @@ private fun RevocationListRow(state: AttestationUiState, onRefresh: () -> Unit) 
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            IconButton(onClick = onRefresh, modifier = Modifier.size(32.dp)) {
+            IconButton(onClick = { view.hapticClick(); onRefresh() }, modifier = Modifier.size(32.dp)) {
                 Icon(
                     Icons.Outlined.Refresh,
                     contentDescription = stringResource(R.string.ka_revocation_refresh),
@@ -573,9 +593,10 @@ private fun AttestationMenuButton(
     onSave: () -> Unit,
     onLoad: () -> Unit,
 ) {
+    val view = LocalView.current
     var expanded by remember { mutableStateOf(false) }
 
-    IconButton(onClick = { expanded = true }) {
+    IconButton(onClick = { view.hapticClick(); expanded = true }) {
         Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.ka_menu_more))
     }
 
@@ -590,6 +611,7 @@ private fun AttestationMenuButton(
                     )
                 },
                 onClick = {
+                    view.hapticClick()
                     expanded = false
                     viewModel.setUseAttestKey(!cfg.useAttestKey)
                 },
@@ -605,6 +627,7 @@ private fun AttestationMenuButton(
                     )
                 },
                 onClick = {
+                    view.hapticClick()
                     expanded = false
                     viewModel.setUseStrongBox(!cfg.useStrongBox)
                 },
@@ -620,6 +643,7 @@ private fun AttestationMenuButton(
                     )
                 },
                 onClick = {
+                    view.hapticClick()
                     expanded = false
                     viewModel.setUseShizuku(!cfg.useShizuku)
                 },
@@ -632,6 +656,7 @@ private fun AttestationMenuButton(
         DropdownMenuItem(
             text = { Text(stringResource(R.string.ka_menu_reset)) },
             onClick = {
+                view.hapticClick()
                 expanded = false
                 viewModel.reset()
             },
@@ -643,6 +668,7 @@ private fun AttestationMenuButton(
         DropdownMenuItem(
             text = { Text(stringResource(R.string.ka_menu_save)) },
             onClick = {
+                view.hapticClick()
                 expanded = false
                 onSave()
             },
@@ -652,6 +678,7 @@ private fun AttestationMenuButton(
         DropdownMenuItem(
             text = { Text(stringResource(R.string.ka_menu_load)) },
             onClick = {
+                view.hapticClick()
                 expanded = false
                 onLoad()
             },

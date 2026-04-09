@@ -56,10 +56,13 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.cloudorz.openmonitor.R
+import com.cloudorz.openmonitor.core.ui.hapticClick
+import androidx.compose.ui.platform.LocalView
 
 @Composable
 fun PermissionSetupScreen(onAllGranted: () -> Unit) {
     val context = LocalContext.current
+    val view = LocalView.current
     val packageUri = "package:${context.packageName}".toUri()
 
     // Bump this counter to force recomposition when returning from settings
@@ -196,7 +199,7 @@ fun PermissionSetupScreen(onAllGranted: () -> Unit) {
 
             // ── Start button ──
             Button(
-                onClick = onAllGranted,
+                onClick = { view.hapticClick(); onAllGranted() },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = allGranted,
             ) {
@@ -230,6 +233,7 @@ private fun PermissionCard(
     granted: Boolean,
     onGrant: () -> Unit,
 ) {
+    val view = LocalView.current
     val borderColor by animateColorAsState(
         targetValue = if (granted) Color(0xFF4CAF50) else Color.Transparent,
         animationSpec = tween(300),
@@ -286,7 +290,7 @@ private fun PermissionCard(
                     tint = Color(0xFF4CAF50),
                 )
             } else {
-                FilledTonalButton(onClick = onGrant) {
+                FilledTonalButton(onClick = { view.hapticClick(); onGrant() }) {
                     Text(
                         text = stringResource(R.string.perm_go_grant),
                         style = MaterialTheme.typography.labelMedium,

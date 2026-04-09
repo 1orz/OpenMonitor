@@ -4,6 +4,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.core.net.toUri
 import androidx.compose.foundation.clickable
+import com.cloudorz.openmonitor.core.ui.hapticClickable
+import com.cloudorz.openmonitor.core.ui.hapticClick
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Brightness4
+import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.Info
@@ -43,6 +46,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Switch
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -58,6 +62,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -79,6 +84,7 @@ fun UserScreen(
     onNavigateToLicenses: () -> Unit = {},
     viewModel: UserViewModel = hiltViewModel(),
 ) {
+    val view = LocalView.current
     val currentMode by permissionManager.currentMode.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     var isDetecting by remember { mutableStateOf(false) }
@@ -144,7 +150,7 @@ fun UserScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable(enabled = !isDetecting) { showModeDropdown = true }
+                        .hapticClickable(enabled = !isDetecting) { showModeDropdown = true }
                         .padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
@@ -218,6 +224,7 @@ fun UserScreen(
                                 }
                             },
                             onClick = {
+                                view.hapticClick()
                                 showModeDropdown = false
                                 if (currentMode == mode || isDetecting) return@DropdownMenuItem
                                 val oldMode = currentMode
@@ -311,12 +318,19 @@ fun UserScreen(
             onDarkModeSelected = viewModel::setDarkMode,
         )
 
+        // Haptic feedback toggle card
+        val hapticEnabled by viewModel.hapticEnabled.collectAsState()
+        HapticToggleCard(
+            enabled = hapticEnabled,
+            onToggle = viewModel::setHapticEnabled,
+        )
+
         // Language settings card
         LanguageCard()
 
         // Open source licenses card
         Card(
-            onClick = onNavigateToLicenses,
+            onClick = { view.hapticClick(); onNavigateToLicenses() },
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -361,7 +375,7 @@ fun UserScreen(
         }
 
         Card(
-            onClick = { showAboutDialog = true },
+            onClick = { view.hapticClick(); showAboutDialog = true },
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -413,6 +427,7 @@ private fun DaemonStatusCard(
     onCheck: () -> Unit,
     onRestart: () -> Unit,
 ) {
+    val view = LocalView.current
     var showVersionDialog by remember { mutableStateOf(false) }
 
     if (showVersionDialog) {
@@ -492,7 +507,7 @@ private fun DaemonStatusCard(
                             status.currentCommit != null &&
                             status.currentCommit.contains(status.expectedCommit)
                         IconButton(
-                            onClick = { showVersionDialog = true },
+                            onClick = { view.hapticClick(); showVersionDialog = true },
                             modifier = Modifier.size(32.dp),
                         ) {
                             Icon(
@@ -529,7 +544,7 @@ private fun DaemonStatusCard(
             }
 
             IconButton(
-                onClick = if (status.connected) onRestart else onCheck,
+                onClick = { view.hapticClick(); if (status.connected) onRestart() else onCheck() },
                 modifier = Modifier.size(32.dp),
                 enabled = !status.checking,
             ) {
@@ -551,10 +566,11 @@ private fun VersionInfoDialog(
     isMatch: Boolean,
     onDismiss: () -> Unit,
 ) {
+    val view = LocalView.current
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.settings_confirm)) }
+            TextButton(onClick = { view.hapticClick(); onDismiss() }) { Text(stringResource(R.string.settings_confirm)) }
         },
         icon = {
             Icon(
@@ -645,10 +661,12 @@ private fun modeDescription(mode: PrivilegeMode): String = when (mode) {
 @Composable
 private fun AboutDialog(onDismiss: () -> Unit) {
     val context = LocalContext.current
+    val view = LocalView.current
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(onClick = {
+                view.hapticClick()
                 try {
                     context.startActivity(
                         Intent(Intent.ACTION_VIEW, "https://github.com/1orz/OpenMonitor".toUri()),
@@ -665,7 +683,7 @@ private fun AboutDialog(onDismiss: () -> Unit) {
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.settings_close)) }
+            TextButton(onClick = { view.hapticClick(); onDismiss() }) { Text(stringResource(R.string.settings_close)) }
         },
         title = {
             Text("OpenMonitor")
@@ -703,6 +721,7 @@ private fun PollSettingsCard(
     pollSettings: UserViewModel.PollSettings,
     onIntervalSelected: (Long) -> Unit,
 ) {
+    val view = LocalView.current
     var expanded by remember { mutableStateOf(false) }
     val intervals = listOf(200L, 500L, 1000L, 2000L)
     val currentLabel = if (pollSettings.intervalMs < 1000) "${pollSettings.intervalMs}ms" else "${pollSettings.intervalMs / 1000}s"
@@ -717,7 +736,7 @@ private fun PollSettingsCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { expanded = true }
+                    .hapticClickable { expanded = true }
                     .padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
@@ -778,6 +797,7 @@ private fun PollSettingsCard(
                             }
                         },
                         onClick = {
+                            view.hapticClick()
                             expanded = false
                             onIntervalSelected(interval)
                         },
@@ -794,6 +814,7 @@ private fun AdbSetupCard(
     onCheck: () -> Unit,
 ) {
     val context = LocalContext.current
+    val view = LocalView.current
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -844,12 +865,13 @@ private fun AdbSetupCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 OutlinedButton(onClick = {
+                    view.hapticClick()
                     val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
                     clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("adb command", adbCommand))
                 }) {
                     Text(stringResource(R.string.settings_copy_command))
                 }
-                OutlinedButton(onClick = onCheck) {
+                OutlinedButton(onClick = { view.hapticClick(); onCheck() }) {
                     Text(stringResource(R.string.settings_check_connection))
                 }
             }
@@ -869,6 +891,7 @@ private fun DarkModeCard(
     darkMode: Int,
     onDarkModeSelected: (Int) -> Unit,
 ) {
+    val view = LocalView.current
     var expanded by remember { mutableStateOf(false) }
     val options = listOf(
         0 to stringResource(R.string.settings_follow_system),
@@ -887,7 +910,7 @@ private fun DarkModeCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { expanded = true }
+                    .hapticClickable { expanded = true }
                     .padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
@@ -947,6 +970,7 @@ private fun DarkModeCard(
                             }
                         },
                         onClick = {
+                            view.hapticClick()
                             expanded = false
                             onDarkModeSelected(value)
                         },
@@ -958,7 +982,61 @@ private fun DarkModeCard(
 }
 
 @Composable
+private fun HapticToggleCard(
+    enabled: Boolean,
+    onToggle: (Boolean) -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        ),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .hapticClickable { onToggle(!enabled) }
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Vibration,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp),
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = stringResource(R.string.settings_haptic_feedback),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = if (enabled) stringResource(R.string.settings_haptic_on) else stringResource(R.string.settings_haptic_off),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+            Icon(
+                imageVector = if (enabled) Icons.Filled.CheckCircle else Icons.Filled.Info,
+                contentDescription = null,
+                tint = if (enabled) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+    }
+}
+
+@Composable
 private fun LanguageCard() {
+    val view = LocalView.current
     val currentLocale = AppCompatDelegate.getApplicationLocales()
     val currentTag = currentLocale.toLanguageTags().ifEmpty { "" }
     var expanded by remember { mutableStateOf(false) }
@@ -990,7 +1068,7 @@ private fun LanguageCard() {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { expanded = true }
+                    .hapticClickable { expanded = true }
                     .padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
@@ -1059,6 +1137,7 @@ private fun LanguageCard() {
                             }
                         },
                         onClick = {
+                            view.hapticClick()
                             expanded = false
                             val locales = if (option.tag.isEmpty()) {
                                 LocaleListCompat.getEmptyLocaleList()

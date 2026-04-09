@@ -11,10 +11,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material.icons.outlined.ArrowUpward
+import androidx.compose.material.icons.outlined.CellTower
+import androidx.compose.material.icons.outlined.Lan
 import androidx.compose.material.icons.outlined.SignalCellularAlt
+import androidx.compose.material.icons.outlined.VpnKey
 import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material3.Card
@@ -27,12 +31,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cloudorz.openmonitor.R
+import com.cloudorz.openmonitor.core.model.network.ConnectionInfo
 import com.cloudorz.openmonitor.core.model.network.NetworkInfo
 import com.cloudorz.openmonitor.core.model.network.WifiDetail
 
@@ -60,6 +66,14 @@ fun NetworkScreen(
             TrafficCard(networkInfo = networkInfo)
         }
 
+        // Active connections (WiFi + Cellular + VPN etc.)
+        if (networkInfo.activeConnections.isNotEmpty()) {
+            items(networkInfo.activeConnections, key = { it.type + it.interfaceName }) { conn ->
+                ConnectionInfoCard(conn = conn)
+            }
+        }
+
+        // WiFi detail card
         networkInfo.wifiInfo?.let { wifi ->
             item {
                 WifiDetailCard(wifi = wifi)
@@ -109,8 +123,9 @@ private fun ConnectionStatusCard(networkInfo: NetworkInfo) {
                     else
                         MaterialTheme.colorScheme.onErrorContainer,
                 )
+                val types = networkInfo.activeConnections.joinToString(" + ") { it.type }
                 Text(
-                    text = networkInfo.networkType,
+                    text = types.ifEmpty { networkInfo.networkType },
                     style = MaterialTheme.typography.bodyMedium,
                     color = if (networkInfo.isConnected)
                         MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
@@ -167,7 +182,7 @@ private fun SpeedItem(
     label: String,
     speed: Long,
     color: Color,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(
@@ -244,6 +259,76 @@ private fun TrafficItem(label: String, bytes: Long) {
 }
 
 @Composable
+private fun ConnectionInfoCard(conn: ConnectionInfo) {
+    val icon = when {
+        conn.isVpn -> Icons.Outlined.VpnKey
+        conn.type == "WiFi" -> Icons.Outlined.Wifi
+        conn.type == "Cellular" -> Icons.Outlined.CellTower
+        else -> Icons.Outlined.Lan
+    }
+    val color = when {
+        conn.isVpn -> MaterialTheme.colorScheme.tertiary
+        conn.type == "WiFi" -> MaterialTheme.colorScheme.primary
+        conn.type == "Cellular" -> Color(0xFFFFA726)
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                    tint = color,
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = conn.type,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = color,
+                )
+                if (conn.interfaceName.isNotEmpty()) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = conn.interfaceName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // IPv4
+            if (conn.ipv4Addresses.isNotEmpty()) {
+                conn.ipv4Addresses.forEach { ip ->
+                    DetailRow(label = "IPv4", value = ip)
+                }
+            }
+            // IPv6
+            if (conn.ipv6Addresses.isNotEmpty()) {
+                conn.ipv6Addresses.forEach { ip ->
+                    DetailRow(label = "IPv6", value = ip)
+                }
+            }
+
+            if (conn.ipv4Addresses.isEmpty() && conn.ipv6Addresses.isEmpty()) {
+                DetailRow(label = stringResource(R.string.ip_address), value = "--")
+            }
+        }
+    }
+}
+
+@Composable
 private fun WifiDetailCard(wifi: WifiDetail) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -271,18 +356,44 @@ private fun WifiDetailCard(wifi: WifiDetail) {
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            WifiDetailRow(label = "SSID", value = wifi.ssid)
-            WifiDetailRow(label = "BSSID", value = wifi.bssid)
-            WifiDetailRow(label = stringResource(R.string.signal_strength), value = "${wifi.rssi} dBm (${wifi.signalLevel}/4)")
-            WifiDetailRow(label = stringResource(R.string.link_speed), value = "${wifi.linkSpeedMbps} Mbps")
-            WifiDetailRow(label = stringResource(R.string.frequency), value = "${wifi.frequencyMHz} MHz")
-            WifiDetailRow(label = stringResource(R.string.ip_address), value = wifi.ipAddress)
+            if (wifi.needsLocationPermission) {
+                Text(
+                    text = stringResource(R.string.network_location_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            DetailRow(
+                label = "SSID",
+                value = wifi.ssid.ifEmpty { stringResource(R.string.network_unknown) },
+            )
+            DetailRow(
+                label = "BSSID",
+                value = wifi.bssid.ifEmpty { stringResource(R.string.network_unknown) },
+            )
+            DetailRow(
+                label = stringResource(R.string.signal_strength),
+                value = "${wifi.rssi} dBm (${wifi.signalLevel}/4)",
+            )
+            DetailRow(
+                label = stringResource(R.string.link_speed),
+                value = "${wifi.linkSpeedMbps} Mbps",
+            )
+            DetailRow(
+                label = stringResource(R.string.frequency),
+                value = "${wifi.frequencyMHz} MHz",
+            )
+            if (wifi.ipAddress.isNotEmpty()) {
+                DetailRow(label = stringResource(R.string.ip_address), value = wifi.ipAddress)
+            }
         }
     }
 }
 
 @Composable
-private fun WifiDetailRow(label: String, value: String) {
+private fun DetailRow(label: String, value: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()

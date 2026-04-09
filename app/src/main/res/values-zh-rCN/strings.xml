@@ -73,6 +73,8 @@
     <string name="link_speed">连接速度</string>
     <string name="frequency">频率</string>
     <string name="ip_address">IP 地址</string>
+    <string name="network_location_hint">查看 SSID 和 BSSID 需要位置权限</string>
+    <string name="network_unknown">未知</string>
 
     <!-- 权限设置页 -->
     <string name="perm_setup_title">授予必要权限</string>
@@ -146,6 +148,9 @@
     <string name="settings_copy_command">复制命令</string>
     <string name="settings_check_connection">检测连接</string>
     <string name="settings_auto_detect_hint">启动后将自动检测连接</string>
+    <string name="settings_haptic_feedback">触感反馈</string>
+    <string name="settings_haptic_on">已开启</string>
+    <string name="settings_haptic_off">已关闭</string>
 
     <!-- 模式名称 -->
     <string name="mode_root">Root 模式</string>
@@ -181,6 +186,13 @@
     <string name="splash_retry">重试</string>
     <string name="splash_use_basic">使用基础模式</string>
     <string name="splash_go_back">返回</string>
+
+    <!-- 启动加载步骤 -->
+    <string name="startup_initializing">正在初始化…</string>
+    <string name="startup_checking_shizuku">正在检查 Shizuku 服务…</string>
+    <string name="startup_deploying_daemon">正在部署监控守护进程…</string>
+    <string name="startup_connecting_daemon">正在连接守护进程…</string>
+    <string name="startup_almost_ready">即将就绪…</string>
 
     <!-- 底部导航 -->
     <string name="nav_features">功能</string>

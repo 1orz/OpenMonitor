@@ -45,6 +45,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.cloudorz.openmonitor.R
+import com.cloudorz.openmonitor.core.ui.hapticClick
+import androidx.compose.ui.platform.LocalView
 import com.cloudorz.openmonitor.core.common.PermissionManager
 import com.cloudorz.openmonitor.core.common.PrivilegeMode
 import com.cloudorz.openmonitor.core.common.RootFrameworkDetector
@@ -60,6 +62,7 @@ fun PermissionGuideScreen(
     daemonManager: DaemonManager,
     onModeSelected: (PrivilegeMode) -> Unit,
 ) {
+    val view = LocalView.current
     var guideState by remember { mutableStateOf(GuideState.PROBING) }
     var selectedMode by remember { mutableStateOf<PrivilegeMode?>(null) }
     var rootResult by remember { mutableStateOf(RootFrameworkDetector.Result()) }
@@ -254,6 +257,7 @@ fun PermissionGuideScreen(
                     if (mode != null) {
                         Button(
                             onClick = {
+                                view.hapticClick()
                                 when (mode) {
                                     PrivilegeMode.SHIZUKU -> {
                                         if (permissionManager.isShizukuAvailableSync()) {
@@ -378,6 +382,7 @@ private fun DetectionCard(
     isSelected: Boolean,
     onClick: () -> Unit,
 ) {
+    val view = LocalView.current
     val borderColor by animateColorAsState(
         targetValue = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
         animationSpec = tween(durationMillis = 200),
@@ -385,7 +390,7 @@ private fun DetectionCard(
     )
 
     Card(
-        onClick = onClick,
+        onClick = { view.hapticClick(); onClick() },
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -469,11 +474,12 @@ private fun DetectionCard(
 
 @Composable
 private fun ShizukuWaitingDialog(onCancel: () -> Unit) {
+    val view = LocalView.current
     AlertDialog(
         onDismissRequest = onCancel,
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onCancel) { Text(stringResource(android.R.string.cancel)) }
+            TextButton(onClick = { view.hapticClick(); onCancel() }) { Text(stringResource(android.R.string.cancel)) }
         },
         icon = {
             CircularProgressIndicator(modifier = Modifier.size(48.dp))
@@ -510,13 +516,14 @@ private fun DaemonFailedDialog(
     onRetry: () -> Unit,
     onFallbackBasic: () -> Unit,
 ) {
+    val view = LocalView.current
     AlertDialog(
         onDismissRequest = {},
         confirmButton = {
-            Button(onClick = onRetry) { Text(stringResource(R.string.daemon_retry)) }
+            Button(onClick = { view.hapticClick(); onRetry() }) { Text(stringResource(R.string.daemon_retry)) }
         },
         dismissButton = {
-            TextButton(onClick = onFallbackBasic) {
+            TextButton(onClick = { view.hapticClick(); onFallbackBasic() }) {
                 Text(stringResource(R.string.daemon_fallback_basic))
             }
         },

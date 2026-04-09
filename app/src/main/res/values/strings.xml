@@ -75,6 +75,8 @@
     <string name="link_speed">Link Speed</string>
     <string name="frequency">Frequency</string>
     <string name="ip_address">IP Address</string>
+    <string name="network_location_hint">Location permission required to view SSID and BSSID</string>
+    <string name="network_unknown">Unknown</string>
 
     <!-- Widget -->
     <string name="widget_cpu_label" translatable="false">CPU</string>
@@ -153,6 +155,9 @@
     <string name="settings_copy_command">Copy Command</string>
     <string name="settings_check_connection">Check Connection</string>
     <string name="settings_auto_detect_hint">Will auto-detect connection after start</string>
+    <string name="settings_haptic_feedback">Haptic Feedback</string>
+    <string name="settings_haptic_on">On</string>
+    <string name="settings_haptic_off">Off</string>
 
     <!-- Mode names -->
     <string name="mode_root">Root Mode</string>
@@ -188,6 +193,13 @@
     <string name="splash_retry">Retry</string>
     <string name="splash_use_basic">Use Basic Mode</string>
     <string name="splash_go_back">Back</string>
+
+    <!-- Startup Loading Steps -->
+    <string name="startup_initializing">Initializing…</string>
+    <string name="startup_checking_shizuku">Checking Shizuku service…</string>
+    <string name="startup_deploying_daemon">Deploying monitor daemon…</string>
+    <string name="startup_connecting_daemon">Connecting to daemon…</string>
+    <string name="startup_almost_ready">Almost ready…</string>
 
     <!-- Bottom Navigation -->
     <string name="nav_features">Features</string>

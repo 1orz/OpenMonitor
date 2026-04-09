@@ -62,6 +62,8 @@ data class CertChainItem(
 
 data class AttestationUiState(
     val isLoading: Boolean = true,
+    val loadingStepResId: Int = R.string.ka_loading_init,
+    val loadingCountdownSec: Int = -1,  // -1 = no countdown
     val error: String? = null,
 
     // Trust chain validity
@@ -266,22 +268,38 @@ class KeyAttestationViewModel @Inject constructor(
 
     private fun performAttestation() {
         viewModelScope.launch(Dispatchers.IO) {
-            _uiState.value = AttestationUiState(isLoading = true)
+            _uiState.value = AttestationUiState(isLoading = true, loadingStepResId = R.string.ka_loading_init)
             _settings.value = _settings.value.copy(
                 isShizukuAvailable = permissionManager.isShizukuAvailableSync()
             )
             val cfg = _settings.value
 
             try {
+                // Step 1: Initialize root public keys
+                _uiState.value = _uiState.value.copy(loadingStepResId = R.string.ka_loading_root_keys)
                 RootPublicKey.init(appContext)
-                RevocationList.init(appContext)
 
+                // Step 2: Fetch/load revocation list (network timeout = 8s)
+                _uiState.value = _uiState.value.copy(loadingStepResId = R.string.ka_loading_revocation)
+                val countdownJob = launch {
+                    for (sec in 8 downTo 1) {
+                        _uiState.value = _uiState.value.copy(loadingCountdownSec = sec)
+                        kotlinx.coroutines.delay(1000)
+                    }
+                }
+                RevocationList.init(appContext)
+                countdownJob.cancel()
+                _uiState.value = _uiState.value.copy(loadingCountdownSec = -1)
+
+                // Step 3: Generate attestation key
+                _uiState.value = _uiState.value.copy(loadingStepResId = R.string.ka_loading_keygen)
                 val alias = "openmonitor_attestation_tmp"
                 val attestKeyAlias = "openmonitor_attestation_persistent"
                 val doAttestKey = cfg.hasAttestKey && cfg.useAttestKey
                 val useShizukuService = cfg.useShizuku && cfg.isShizukuAvailable
 
                 val remoteService: IKeyAttestKeyStore? = if (useShizukuService) {
+                    _uiState.value = _uiState.value.copy(loadingStepResId = R.string.ka_loading_shizuku)
                     withTimeoutOrNull(5_000L) {
                         ShizukuKeyStoreManager.remoteKeyStore.first { it != null }
                     }
@@ -293,6 +311,8 @@ class KeyAttestationViewModel @Inject constructor(
                     performLocalAttestation(alias, attestKeyAlias, doAttestKey, cfg)
                 }
 
+                // Step 4: Parse certificates
+                _uiState.value = _uiState.value.copy(loadingStepResId = R.string.ka_loading_parsing)
                 currentCerts = certs
                 _uiState.value = parseCertsToUiState(certs, cfg)
             } catch (e: Exception) {

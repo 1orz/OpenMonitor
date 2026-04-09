@@ -10,6 +10,9 @@ import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.platform.LocalView
+import com.cloudorz.openmonitor.core.ui.hapticClick
+import com.cloudorz.openmonitor.core.ui.hapticClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -89,6 +92,7 @@ private fun ProcessScreenContent(
     onProcessSelected: (ProcessInfo) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val view = LocalView.current
     Column(modifier = modifier.fillMaxSize()) {
         // Search bar
         ProcessSearchBar(
@@ -165,6 +169,7 @@ private fun ProcessSearchBar(
     onQueryChanged: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val view = LocalView.current
     OutlinedTextField(
         value = query,
         onValueChange = onQueryChanged,
@@ -184,7 +189,7 @@ private fun ProcessSearchBar(
         },
         trailingIcon = {
             if (query.isNotEmpty()) {
-                IconButton(onClick = { onQueryChanged("") }) {
+                IconButton(onClick = { view.hapticClick(); onQueryChanged("") }) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Clear search",
@@ -211,6 +216,7 @@ private fun FilterAndSortChipsRow(
     onFilterSelected: (ProcessFilterMode) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val view = LocalView.current
     FlowRow(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -219,7 +225,7 @@ private fun FilterAndSortChipsRow(
         ProcessFilterMode.entries.forEach { mode ->
             FilterChip(
                 selected = selectedFilter == mode,
-                onClick = { onFilterSelected(mode) },
+                onClick = { view.hapticClick(); onFilterSelected(mode) },
                 label = {
                     Text(
                         text = when (mode) {
@@ -240,7 +246,7 @@ private fun FilterAndSortChipsRow(
         SortBy.entries.forEach { sort ->
             FilterChip(
                 selected = selectedSort == sort,
-                onClick = { onSortSelected(sort) },
+                onClick = { view.hapticClick(); onSortSelected(sort) },
                 label = {
                     Text(
                         text = when (sort) {
@@ -313,7 +319,7 @@ private fun ProcessListItem(
     Row(
         modifier = modifier
             .clip(MaterialTheme.shapes.small)
-            .clickable(onClick = onClick)
+            .hapticClickable(onClick = onClick)
             .background(
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
                 shape = MaterialTheme.shapes.small,

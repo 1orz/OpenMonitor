@@ -39,6 +39,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import com.cloudorz.openmonitor.core.ui.hapticClick
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -113,6 +115,7 @@ private fun FloatMonitorScreenContent(
     onRequestOverlayPermission: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val view = LocalView.current
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
@@ -134,7 +137,7 @@ private fun FloatMonitorScreenContent(
                 )
                 Switch(
                     checked = monitorType in enabledMonitors,
-                    onCheckedChange = { enabled -> onToggleMonitor(monitorType, enabled) },
+                    onCheckedChange = { enabled -> view.hapticClick(); onToggleMonitor(monitorType, enabled) },
                     enabled = canShowOverlay,
                 )
             }
@@ -161,6 +164,7 @@ private fun PermissionSection(
     onRequestOverlayPermission: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val view = LocalView.current
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -223,7 +227,7 @@ private fun PermissionSection(
                     modifier = Modifier.weight(1f),
                 )
                 if (!hasOverlayPermission) {
-                    Button(onClick = onRequestOverlayPermission) {
+                    Button(onClick = { view.hapticClick(); onRequestOverlayPermission() }) {
                         Text(text = stringResource(R.string.go_authorize))
                     }
                 }

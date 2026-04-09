@@ -37,6 +37,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalView
+import com.cloudorz.openmonitor.core.ui.hapticClick
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
@@ -243,6 +245,7 @@ private fun ProcessDetailHeader(
     process: ProcessInfo,
     onKill: (() -> Unit)? = null,
 ) {
+    val view = LocalView.current
     val context = LocalContext.current
     val appIcon = remember(process.packageName) {
         if (process.isAndroidApp) {
@@ -323,7 +326,7 @@ private fun ProcessDetailHeader(
         if (onKill != null) {
             Spacer(modifier = Modifier.width(8.dp))
             FilledTonalButton(
-                onClick = onKill,
+                onClick = { view.hapticClick(); onKill() },
                 colors = ButtonDefaults.filledTonalButtonColors(
                     containerColor = MaterialTheme.colorScheme.errorContainer,
                     contentColor = MaterialTheme.colorScheme.onErrorContainer,

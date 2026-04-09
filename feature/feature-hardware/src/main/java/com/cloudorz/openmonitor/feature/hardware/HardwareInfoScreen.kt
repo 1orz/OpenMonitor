@@ -1,6 +1,12 @@
 package com.cloudorz.openmonitor.feature.hardware
 
 import android.os.Build
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,7 +32,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -37,10 +42,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -53,6 +61,8 @@ import com.cloudorz.openmonitor.core.model.memory.SwapInfo
 import com.cloudorz.openmonitor.core.model.storage.StorageInfo
 import com.cloudorz.openmonitor.core.ui.component.DeviceBrandLogo
 import com.cloudorz.openmonitor.core.ui.component.VendorLogo
+import com.cloudorz.openmonitor.core.ui.hapticClick
+import androidx.compose.ui.platform.LocalView
 
 @Composable
 fun HardwareInfoScreen(
@@ -65,9 +75,7 @@ fun HardwareInfoScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     if (uiState.isLoading && uiState.cpuStatus.clusters.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
-        }
+        SkeletonLoadingContent()
     } else {
         LazyColumn(
             modifier = Modifier
@@ -91,6 +99,7 @@ fun HardwareInfoScreen(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ProcessorCard(cpuStatus: CpuGlobalStatus, onCpuAnalysisClick: () -> Unit) {
+    val view = LocalView.current
     val socInfo = cpuStatus.socInfo
 
     SectionCard(title = stringResource(R.string.hw_processor), icon = Icons.Outlined.Memory, titleColor = MaterialTheme.colorScheme.primary) {
@@ -101,12 +110,16 @@ private fun ProcessorCard(cpuStatus: CpuGlobalStatus, onCpuAnalysisClick: () -> 
                 Spacer(modifier = Modifier.width(12.dp))
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = cpuStatus.cpuName.ifEmpty { "Unknown" },
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                )
+                if (cpuStatus.cpuName.isNotEmpty()) {
+                    Text(
+                        text = cpuStatus.cpuName,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                } else {
+                    ShimmerBox(widthFraction = 0.7f, height = 22.dp)
+                }
             }
         }
 
@@ -188,7 +201,7 @@ private fun ProcessorCard(cpuStatus: CpuGlobalStatus, onCpuAnalysisClick: () -> 
 
         // CPU Analysis button
         Button(
-            onClick = onCpuAnalysisClick,
+            onClick = { view.hapticClick(); onCpuAnalysisClick() },
             modifier = Modifier.fillMaxWidth(0.55f),
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
@@ -209,9 +222,15 @@ private fun ProcessorCard(cpuStatus: CpuGlobalStatus, onCpuAnalysisClick: () -> 
 
 @Composable
 private fun GpuCard(gpuInfo: GpuInfo, onVulkanInfoClick: () -> Unit = {}, onOpenGLInfoClick: () -> Unit = {}) {
+    val view = LocalView.current
     SectionCard(title = "GPU", icon = Icons.Outlined.DeveloperBoard, titleColor = MaterialTheme.colorScheme.error) {
         // GPU header — model name as title (like DevCheck's "Adreno 830")
-        val displayModel = gpuInfo.glRenderer.ifBlank { gpuInfo.model.ifEmpty { gpuInfo.vendor.displayName } }
+        val rawModel = gpuInfo.glRenderer.ifBlank { gpuInfo.model.ifEmpty { gpuInfo.vendor.displayName } }
+        val displayModel = rawModel
+            .replace("(TM)", "™")
+            .replace("(R)", "®")
+            .replace("(tm)", "™")
+            .replace("(r)", "®")
         Text(
             text = displayModel,
             style = MaterialTheme.typography.titleLarge,
@@ -267,7 +286,7 @@ private fun GpuCard(gpuInfo: GpuInfo, onVulkanInfoClick: () -> Unit = {}, onOpen
 
             Spacer(modifier = Modifier.height(4.dp))
             Button(
-                onClick = onVulkanInfoClick,
+                onClick = { view.hapticClick(); onVulkanInfoClick() },
                 modifier = Modifier.fillMaxWidth(0.55f),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
@@ -304,7 +323,7 @@ private fun GpuCard(gpuInfo: GpuInfo, onVulkanInfoClick: () -> Unit = {}, onOpen
 
         Spacer(modifier = Modifier.height(4.dp))
         Button(
-            onClick = onOpenGLInfoClick,
+            onClick = { view.hapticClick(); onOpenGLInfoClick() },
             modifier = Modifier.fillMaxWidth(0.55f),
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f),
@@ -497,6 +516,7 @@ private fun UsageBarSection(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StorageCard(storageInfo: StorageInfo, onPartitionsClick: () -> Unit = {}) {
+    val view = LocalView.current
     val internal = storageInfo.internalStorage
     val totalGB = internal.totalBytes / 1024.0 / 1024.0 / 1024.0
     // Round to marketing size
@@ -580,7 +600,7 @@ private fun StorageCard(storageInfo: StorageInfo, onPartitionsClick: () -> Unit 
 
         // Partition detail button
         Button(
-            onClick = onPartitionsClick,
+            onClick = { view.hapticClick(); onPartitionsClick() },
             modifier = Modifier.fillMaxWidth(0.55f),
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
@@ -662,5 +682,232 @@ private fun InfoRow(label: String, value: String) {
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(0.6f),
         )
+    }
+}
+
+// ── Skeleton Loading ───────────────────────────────────────────────────────
+
+@Composable
+private fun shimmerBrush(): Brush {
+    val transition = rememberInfiniteTransition(label = "shimmer")
+    val translateAnim by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1000f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "shimmer_translate",
+    )
+    val shimmerColors = listOf(
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f),
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f),
+    )
+    return Brush.linearGradient(
+        colors = shimmerColors,
+        start = Offset(translateAnim - 200f, 0f),
+        end = Offset(translateAnim, 0f),
+    )
+}
+
+@Composable
+private fun ShimmerBox(
+    modifier: Modifier = Modifier,
+    widthFraction: Float = 1f,
+    height: Dp = 14.dp,
+) {
+    val brush = shimmerBrush()
+    Box(
+        modifier = modifier
+            .fillMaxWidth(widthFraction)
+            .height(height)
+            .clip(MaterialTheme.shapes.small)
+            .background(brush),
+    )
+}
+
+@Composable
+private fun SkeletonLoadingContent() {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        item { Spacer(modifier = Modifier.height(4.dp)) }
+        // Processor skeleton
+        item { SkeletonProcessorCard() }
+        // GPU skeleton
+        item { SkeletonGpuCard() }
+        // Display skeleton
+        item { SkeletonSimpleCard(lineCount = 5) }
+        // Memory skeleton
+        item { SkeletonMemoryCard() }
+        // Storage skeleton
+        item { SkeletonSimpleCard(lineCount = 4) }
+        item { Spacer(modifier = Modifier.height(16.dp)) }
+    }
+}
+
+@Composable
+private fun SkeletonProcessorCard() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = MaterialTheme.shapes.medium,
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Title
+            ShimmerBox(widthFraction = 0.3f, height = 14.dp)
+            Spacer(modifier = Modifier.height(12.dp))
+            // SoC name
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(MaterialTheme.shapes.small)
+                        .background(shimmerBrush()),
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                ShimmerBox(widthFraction = 0.5f, height = 22.dp)
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            // Badges
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ShimmerBox(modifier = Modifier.width(60.dp), widthFraction = 1f, height = 24.dp)
+                ShimmerBox(modifier = Modifier.width(80.dp), widthFraction = 1f, height = 24.dp)
+                ShimmerBox(modifier = Modifier.width(50.dp), widthFraction = 1f, height = 24.dp)
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            // CPU config block
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = MaterialTheme.shapes.small,
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    ShimmerBox(widthFraction = 0.35f, height = 12.dp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    repeat(3) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(MaterialTheme.shapes.extraSmall)
+                                    .background(shimmerBrush()),
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            ShimmerBox(widthFraction = 0.7f, height = 14.dp)
+                        }
+                        if (it < 2) Spacer(modifier = Modifier.height(4.dp))
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            // Info rows
+            repeat(4) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    ShimmerBox(modifier = Modifier.weight(0.4f), widthFraction = 0.6f, height = 12.dp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    ShimmerBox(modifier = Modifier.weight(0.6f), widthFraction = 0.8f, height = 12.dp)
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            // Button
+            ShimmerBox(widthFraction = 0.55f, height = 40.dp)
+        }
+    }
+}
+
+@Composable
+private fun SkeletonGpuCard() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = MaterialTheme.shapes.medium,
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            ShimmerBox(widthFraction = 0.15f, height = 14.dp)
+            Spacer(modifier = Modifier.height(12.dp))
+            ShimmerBox(widthFraction = 0.45f, height = 22.dp)
+            Spacer(modifier = Modifier.height(4.dp))
+            ShimmerBox(widthFraction = 0.3f, height = 14.dp)
+            Spacer(modifier = Modifier.height(12.dp))
+            repeat(3) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    ShimmerBox(modifier = Modifier.weight(0.4f), widthFraction = 0.5f, height = 12.dp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    ShimmerBox(modifier = Modifier.weight(0.6f), widthFraction = 0.6f, height = 12.dp)
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            Spacer(modifier = Modifier.height(8.dp))
+            ShimmerBox(widthFraction = 0.25f, height = 14.dp)
+            Spacer(modifier = Modifier.height(8.dp))
+            ShimmerBox(widthFraction = 0.55f, height = 40.dp)
+        }
+    }
+}
+
+@Composable
+private fun SkeletonMemoryCard() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = MaterialTheme.shapes.medium,
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            ShimmerBox(widthFraction = 0.25f, height = 14.dp)
+            Spacer(modifier = Modifier.height(12.dp))
+            ShimmerBox(widthFraction = 0.2f, height = 12.dp)
+            Spacer(modifier = Modifier.height(4.dp))
+            ShimmerBox(widthFraction = 0.15f, height = 22.dp)
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                ShimmerBox(modifier = Modifier.weight(0.5f), widthFraction = 0.6f, height = 12.dp)
+                ShimmerBox(modifier = Modifier.weight(0.5f), widthFraction = 0.5f, height = 12.dp)
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            ShimmerBox(widthFraction = 1f, height = 10.dp)
+        }
+    }
+}
+
+@Composable
+private fun SkeletonSimpleCard(lineCount: Int) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = MaterialTheme.shapes.medium,
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            ShimmerBox(widthFraction = 0.3f, height = 14.dp)
+            Spacer(modifier = Modifier.height(12.dp))
+            ShimmerBox(widthFraction = 0.5f, height = 22.dp)
+            Spacer(modifier = Modifier.height(12.dp))
+            repeat(lineCount) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    ShimmerBox(modifier = Modifier.weight(0.4f), widthFraction = 0.5f, height = 12.dp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    ShimmerBox(modifier = Modifier.weight(0.6f), widthFraction = 0.7f, height = 12.dp)
+                }
+            }
+        }
     }
 }

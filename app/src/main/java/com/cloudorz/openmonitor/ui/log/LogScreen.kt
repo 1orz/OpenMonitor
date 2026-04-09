@@ -1,16 +1,20 @@
 package com.cloudorz.openmonitor.ui.log
 
 import android.content.ClipData
+import android.view.View
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import com.cloudorz.openmonitor.core.ui.hapticClick
+import com.cloudorz.openmonitor.core.ui.hapticClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -47,6 +51,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -78,6 +83,7 @@ fun LogScreen(
     var autoScroll by remember { mutableStateOf(true) }
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
+    val view = LocalView.current
 
     val appListState = rememberLazyListState()
     val daemonListState = rememberLazyListState()
@@ -123,6 +129,7 @@ fun LogScreen(
     // Provide action buttons to shared TopAppBar
     val actions: @Composable () -> Unit = {
         IconButton(onClick = {
+            view.hapticClick()
             autoScroll = !autoScroll
             if (autoScroll) {
                 scope.launch {
@@ -140,11 +147,12 @@ fun LogScreen(
             )
         }
         if (selectedTab == 1) {
-            IconButton(onClick = { viewModel.refreshDaemonLogs() }) {
+            IconButton(onClick = { view.hapticClick(); viewModel.refreshDaemonLogs() }) {
                 Icon(Icons.Outlined.Refresh, contentDescription = stringResource(R.string.log_refresh))
             }
         }
         IconButton(onClick = {
+            view.hapticClick()
             val text = if (selectedTab == 0) {
                 appLogs.joinToString("\n") { "${it.time} ${levelName(it.level)}/${it.tag}: ${it.message}" }
             } else {
@@ -155,6 +163,7 @@ fun LogScreen(
             Icon(Icons.Outlined.ContentCopy, contentDescription = stringResource(R.string.log_copy_all))
         }
         IconButton(onClick = {
+            view.hapticClick()
             if (selectedTab == 0) viewModel.clearAppLogs() else viewModel.clearDaemonLogs()
         }) {
             Icon(Icons.Outlined.ClearAll, contentDescription = stringResource(R.string.log_clear))
@@ -167,12 +176,12 @@ fun LogScreen(
         PrimaryTabRow(selectedTabIndex = selectedTab) {
             Tab(
                 selected = selectedTab == 0,
-                onClick = { selectedTab = 0 },
+                onClick = { view.hapticClick(); selectedTab = 0 },
                 text = { Text(stringResource(R.string.log_tab_app)) },
             )
             Tab(
                 selected = selectedTab == 1,
-                onClick = { selectedTab = 1 },
+                onClick = { view.hapticClick(); selectedTab = 1 },
                 text = { Text(stringResource(R.string.log_tab_daemon)) },
             )
         }
@@ -185,6 +194,10 @@ fun LogScreen(
             onFilterLevel = { viewModel.setFilterLevel(it) },
             showDateSelector = true,
             realtimeLabel = if (selectedTab == 0) stringResource(R.string.log_realtime_logcat) else stringResource(R.string.log_realtime),
+            onClear = {
+                view.hapticClick()
+                if (selectedTab == 0) viewModel.clearAppLogs() else viewModel.clearDaemonLogs()
+            },
         )
 
         when (selectedTab) {
@@ -203,7 +216,9 @@ private fun FilterBar(
     onFilterLevel: (LogLevelFilter) -> Unit,
     showDateSelector: Boolean,
     realtimeLabel: String,
+    onClear: () -> Unit = {},
 ) {
+    val view = LocalView.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -227,7 +242,7 @@ private fun FilterBar(
                     modifier = Modifier
                         .clip(RoundedCornerShape(4.dp))
                         .background(MaterialTheme.colorScheme.primaryContainer)
-                        .clickable { expanded = true }
+                        .hapticClickable { expanded = true }
                         .padding(horizontal = 8.dp, vertical = 3.dp),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
@@ -236,12 +251,12 @@ private fun FilterBar(
                 DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                     DropdownMenuItem(
                         text = { Text(realtimeLabel, fontWeight = if (selectedDate == null) FontWeight.Bold else FontWeight.Normal) },
-                        onClick = { onSelectDate(null); expanded = false },
+                        onClick = { view.hapticClick(); onSelectDate(null); expanded = false },
                     )
                     dates.forEach { date ->
                         DropdownMenuItem(
                             text = { Text(date, fontWeight = if (date == selectedDate) FontWeight.Bold else FontWeight.Normal) },
-                            onClick = { onSelectDate(date); expanded = false },
+                            onClick = { view.hapticClick(); onSelectDate(date); expanded = false },
                         )
                     }
                 }
@@ -261,7 +276,7 @@ private fun FilterBar(
                 modifier = Modifier
                     .clip(RoundedCornerShape(4.dp))
                     .background(levelColor(filterLevel).copy(alpha = 0.2f))
-                    .clickable { levelExpanded = true }
+                    .hapticClickable { levelExpanded = true }
                     .padding(horizontal = 8.dp, vertical = 3.dp),
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
@@ -277,10 +292,25 @@ private fun FilterBar(
                                 fontWeight = if (level == filterLevel) FontWeight.Bold else FontWeight.Normal,
                             )
                         },
-                        onClick = { onFilterLevel(level); levelExpanded = false },
+                        onClick = { view.hapticClick(); onFilterLevel(level); levelExpanded = false },
                     )
                 }
             }
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        // Clear button — visible in the filter bar for discoverability
+        IconButton(
+            onClick = { view.hapticClick(); onClear() },
+            modifier = Modifier.size(28.dp),
+        ) {
+            Icon(
+                Icons.Outlined.ClearAll,
+                contentDescription = stringResource(R.string.log_clear),
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+            )
         }
     }
 }

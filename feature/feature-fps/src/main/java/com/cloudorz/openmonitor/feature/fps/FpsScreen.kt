@@ -56,6 +56,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.foundation.Image
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -67,6 +68,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cloudorz.openmonitor.core.data.datasource.FpsRecordingState
 import com.cloudorz.openmonitor.core.model.fps.FpsWatchSession
 import com.cloudorz.openmonitor.core.ui.R
+import com.cloudorz.openmonitor.core.ui.hapticClick
 import com.cloudorz.openmonitor.core.ui.theme.ChartGreen
 import com.cloudorz.openmonitor.core.ui.theme.ChartRed
 import com.cloudorz.openmonitor.core.ui.theme.ChartYellow
@@ -117,6 +119,7 @@ private fun FpsContent(
     onDeleteSelected: () -> Unit,
     onSessionClick: (String) -> Unit = {},
 ) {
+    val view = LocalView.current
     Column(modifier = Modifier.fillMaxSize()) {
         if (uiState.isSelectionMode) {
             SelectionModeBar(
@@ -155,6 +158,7 @@ private fun FpsContent(
                         onExport = { onExportSession(session.sessionId.toLongOrNull() ?: 0L) },
                         onRename = { newDesc -> onRenameSession(session.sessionId.toLongOrNull() ?: 0L, newDesc) },
                         onClick = {
+                            view.hapticClick()
                             val id = session.sessionId.toLongOrNull() ?: 0L
                             if (uiState.isSelectionMode) {
                                 onToggleSelection(id)
@@ -163,6 +167,7 @@ private fun FpsContent(
                             }
                         },
                         onLongClick = {
+                            view.hapticClick()
                             if (!uiState.isSelectionMode) onToggleSelectionMode()
                             val id = session.sessionId.toLongOrNull() ?: 0L
                             onToggleSelection(id)
@@ -181,6 +186,7 @@ private fun SelectionModeBar(
     onDeleteSelected: () -> Unit,
     onExitSelectionMode: () -> Unit,
 ) {
+    val view = LocalView.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -195,11 +201,11 @@ private fun SelectionModeBar(
                 .padding(start = 8.dp),
             style = MaterialTheme.typography.titleMedium,
         )
-        IconButton(onClick = onSelectAll) {
+        IconButton(onClick = { view.hapticClick(); onSelectAll() }) {
             Icon(Icons.Default.SelectAll, contentDescription = stringResource(R.string.fps_select_all))
         }
         IconButton(
-            onClick = onDeleteSelected,
+            onClick = { view.hapticClick(); onDeleteSelected() },
             enabled = selectedCount > 0,
         ) {
             Icon(
@@ -212,7 +218,7 @@ private fun SelectionModeBar(
                 },
             )
         }
-        IconButton(onClick = onExitSelectionMode) {
+        IconButton(onClick = { view.hapticClick(); onExitSelectionMode() }) {
             Icon(Icons.Default.Close, contentDescription = stringResource(R.string.fps_cancel))
         }
     }
@@ -339,6 +345,7 @@ private fun SessionCard(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
+    val view = LocalView.current
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()) }
     @Suppress("AssignedValueIsNeverRead")
     var showRenameDialog by remember { mutableStateOf(false) }
@@ -427,7 +434,7 @@ private fun SessionCard(
 
             // Action buttons (only in normal mode)
             if (!isSelectionMode) {
-                IconButton(onClick = { showRenameDialog = true }) {
+                IconButton(onClick = { view.hapticClick(); showRenameDialog = true }) {
                     Icon(
                         imageVector = Icons.Default.Edit,
                         contentDescription = stringResource(R.string.fps_rename),
@@ -435,7 +442,7 @@ private fun SessionCard(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                     )
                 }
-                IconButton(onClick = onExport) {
+                IconButton(onClick = { view.hapticClick(); onExport() }) {
                     Icon(
                         imageVector = Icons.Default.Share,
                         contentDescription = "CSV",
@@ -443,7 +450,7 @@ private fun SessionCard(
                         tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
                     )
                 }
-                IconButton(onClick = { showDeleteConfirm = true }) {
+                IconButton(onClick = { view.hapticClick(); showDeleteConfirm = true }) {
                     Icon(
                         imageVector = Icons.Default.Delete,
                         contentDescription = stringResource(R.string.delete),
@@ -477,6 +484,7 @@ private fun SessionCard(
             text = { Text(stringResource(R.string.fps_delete_confirm_msg)) },
             confirmButton = {
                 TextButton(onClick = {
+                    view.hapticClick()
                     onDelete()
                     showDeleteConfirm = false
                 }) {
@@ -484,7 +492,7 @@ private fun SessionCard(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) {
+                TextButton(onClick = { view.hapticClick(); showDeleteConfirm = false }) {
                     Text(stringResource(R.string.fps_cancel))
                 }
             },
@@ -498,6 +506,7 @@ private fun RenameDialog(
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val view = LocalView.current
     var text by remember { mutableStateOf(currentName) }
 
     AlertDialog(
@@ -513,14 +522,14 @@ private fun RenameDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { onConfirm(text.trim()) },
+                onClick = { view.hapticClick(); onConfirm(text.trim()) },
                 enabled = text.trim().isNotEmpty(),
             ) {
                 Text(stringResource(R.string.fps_confirm))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = { view.hapticClick(); onDismiss() }) {
                 Text(stringResource(R.string.fps_cancel))
             }
         },

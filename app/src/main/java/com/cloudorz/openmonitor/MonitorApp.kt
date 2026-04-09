@@ -7,6 +7,7 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.cloudorz.openmonitor.core.common.AppLogger
+import com.cloudorz.openmonitor.core.ui.HapticFeedbackManager
 import com.cloudorz.openmonitor.worker.DatabaseCleanupWorker
 import com.topjohnwu.superuser.Shell
 import dagger.hilt.android.HiltAndroidApp
@@ -27,6 +28,7 @@ class MonitorApp : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         AppLogger.init(this)
+        HapticFeedbackManager.init(this)
         scheduleDatabaseCleanup()
     }
 

@@ -18,6 +18,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
+import com.cloudorz.openmonitor.core.ui.hapticClick
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -64,6 +66,7 @@ fun BatteryHistoryChart(
     onRangeSelected: (TimeRange) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val view = LocalView.current
     val textMeasurer = rememberTextMeasurer()
     val lineColor = MaterialTheme.colorScheme.primary
     val chargingColor = Color(0xFF4CAF50)
@@ -251,7 +254,7 @@ fun BatteryHistoryChart(
                 TimeRange.entries.forEach { range ->
                     FilterChip(
                         selected = selectedRange == range,
-                        onClick = { onRangeSelected(range) },
+                        onClick = { view.hapticClick(); onRangeSelected(range) },
                         label = { Text(range.label) },
                     )
                 }

@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.net.toUri
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -38,12 +37,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.cloudorz.openmonitor.R
+import com.cloudorz.openmonitor.core.ui.hapticClick
+import com.cloudorz.openmonitor.core.ui.hapticClickable
 
 data class LibraryInfo(
     val name: String,
@@ -201,6 +203,7 @@ fun OpenSourceLicensesScreen(
     onLicenseClick: (index: Int) -> Unit = {},
 ) {
     val context = LocalContext.current
+    val view = LocalView.current
     val licenseCounts = allLibraries.groupBy { it.license }.mapValues { it.value.size }
 
     LazyColumn(
@@ -220,7 +223,7 @@ fun OpenSourceLicensesScreen(
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 licenseCounts.forEach { (license, count) ->
                     SuggestionChip(
-                        onClick = {},
+                        onClick = { view.hapticClick() },
                         label = { Text("$license ($count)") },
                         colors = SuggestionChipDefaults.suggestionChipColors(
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -255,10 +258,11 @@ private fun LibraryRow(
     onLinkClick: () -> Unit,
     onDetailClick: () -> Unit,
 ) {
+    val view = LocalView.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onDetailClick)
+            .hapticClickable(onClick = onDetailClick)
             .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -312,7 +316,7 @@ private fun LibraryRow(
 
         // Right: Link icon + >
         IconButton(
-            onClick = onLinkClick,
+            onClick = { view.hapticClick(); onLinkClick() },
             modifier = Modifier.size(36.dp),
         ) {
             Icon(
@@ -344,6 +348,7 @@ fun readLicenseAsset(context: Context, fileName: String): String =
 fun LicenseDetailScreen(libraryIndex: Int) {
     val lib = allLibraries.getOrNull(libraryIndex) ?: return
     val context = LocalContext.current
+    val view = LocalView.current
     val licenseText = remember(lib.licenseFile) { readLicenseAsset(context, lib.licenseFile) }
 
     Column(
@@ -385,7 +390,7 @@ fun LicenseDetailScreen(libraryIndex: Int) {
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     SuggestionChip(
-                        onClick = {},
+                        onClick = { view.hapticClick() },
                         label = { Text(lib.license) },
                         colors = SuggestionChipDefaults.suggestionChipColors(
                             containerColor = when (lib.license) {
@@ -397,6 +402,7 @@ fun LicenseDetailScreen(libraryIndex: Int) {
                     )
                     IconButton(
                         onClick = {
+                            view.hapticClick()
                             try {
                                 context.startActivity(Intent(Intent.ACTION_VIEW, lib.url.toUri()))
                             } catch (_: Exception) {}

@@ -1,6 +1,6 @@
 package com.cloudorz.openmonitor.ui.features
 
-import androidx.compose.foundation.clickable
+import com.cloudorz.openmonitor.core.ui.hapticClickable
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,10 +16,10 @@ import androidx.compose.material.icons.outlined.BatteryStd
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Memory
-import androidx.compose.material.icons.outlined.NetworkCheck
+import androidx.compose.material.icons.outlined.VpnKey
 import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.Sensors
-import androidx.compose.material.icons.outlined.Security
+import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -52,8 +52,8 @@ fun FeaturesScreen(
         FeatureItem(stringResource(R.string.feature_process_monitor), Icons.Outlined.Memory, FeatureRoute.PROCESS),
         FeatureItem(stringResource(R.string.feature_float_monitor), Icons.Outlined.Layers, FeatureRoute.FLOAT),
         FeatureItem(stringResource(R.string.feature_sensor), Icons.Outlined.Sensors, FeatureRoute.SENSOR),
-        FeatureItem(stringResource(R.string.feature_network_monitor), Icons.Outlined.NetworkCheck, FeatureRoute.NETWORK),
-        FeatureItem(stringResource(R.string.feature_key_attestation), Icons.Outlined.Security, FeatureRoute.KEY_ATTESTATION),
+        FeatureItem(stringResource(R.string.feature_network_monitor), Icons.Outlined.SwapVert, FeatureRoute.NETWORK),
+        FeatureItem(stringResource(R.string.feature_key_attestation), Icons.Outlined.VpnKey, FeatureRoute.KEY_ATTESTATION),
         FeatureItem(stringResource(R.string.feature_debug_log), Icons.Outlined.BugReport, FeatureRoute.LOG),
     )
 
@@ -79,7 +79,7 @@ private fun FeatureRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .hapticClickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
