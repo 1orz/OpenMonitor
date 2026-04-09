@@ -18,6 +18,9 @@ appcompat = "1.7.1"
 junit = "4.13.2"
 mockk = "1.14.9"
 vico = "3.1.0"
+miuix = "0.8.8"
+materialKolor = "4.1.1"
+haze = "1.7.2"
 xlog = "1.11.1"
 googleServices = "4.4.4"
 firebaseBom = "34.11.0"
@@ -85,6 +88,16 @@ firebase-analytics = { module = "com.google.firebase:firebase-analytics" }
 # Vico Charts
 vico-compose = { module = "com.patrykandpatrick.vico:compose", version.ref = "vico" }
 vico-compose-m3 = { module = "com.patrykandpatrick.vico:compose-m3", version.ref = "vico" }
+
+# MIUIX
+miuix = { module = "top.yukonga.miuix.kmp:miuix-android", version.ref = "miuix" }
+miuix-icons = { module = "top.yukonga.miuix.kmp:miuix-icons-android", version.ref = "miuix" }
+
+# Material Kolor (dynamic color generation)
+material-kolor = { group = "com.materialkolor", name = "material-kolor", version.ref = "materialKolor" }
+
+# Haze (blur effects)
+haze = { module = "dev.chrisbanes.haze:haze-android", version.ref = "haze" }
 
 # Test
 junit = { module = "junit:junit", version.ref = "junit" }

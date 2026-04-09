@@ -39,6 +39,7 @@ object FeatureRoute {
     const val FPS_SESSION_DETAIL = "features/fps/session/{sessionId}"
     const val PROCESS_DETAIL = "features/process/{pid}"
     const val KEY_ATTESTATION = "features/key-attestation"
+    const val COLOR_PALETTE = "settings/color-palette"
     const val LICENSES = "settings/licenses"
     const val LICENSE_DETAIL = "settings/licenses/{index}"
 

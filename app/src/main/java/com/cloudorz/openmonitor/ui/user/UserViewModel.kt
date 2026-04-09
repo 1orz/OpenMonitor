@@ -9,6 +9,9 @@ import com.cloudorz.openmonitor.core.ui.HapticFeedbackManager
 import com.cloudorz.openmonitor.core.data.datasource.DaemonLauncher
 import com.cloudorz.openmonitor.core.data.datasource.DaemonManager
 import com.cloudorz.openmonitor.core.data.datasource.DaemonState
+import com.cloudorz.openmonitor.core.ui.theme.ColorMode
+import com.cloudorz.openmonitor.core.ui.theme.UiMode
+import com.cloudorz.openmonitor.data.repository.ThemeSettingsRepository
 import com.cloudorz.openmonitor.service.FloatMonitorService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -33,6 +36,7 @@ class UserViewModel @Inject constructor(
     private val daemonClient: DaemonClient,
     private val daemonManager: DaemonManager,
     private val daemonLauncher: DaemonLauncher,
+    private val themeRepo: ThemeSettingsRepository,
     @param:ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -173,9 +177,109 @@ class UserViewModel @Inject constructor(
         )
     }
 
+    @Deprecated("Use setColorMode() instead")
     fun setDarkMode(mode: Int) {
         prefs.edit { putInt(KEY_DARK_MODE, mode) }
         _darkMode.value = mode
+    }
+
+    // --- Theme settings ---
+
+    private val _colorMode = MutableStateFlow(themeRepo.colorMode)
+    val colorMode: StateFlow<Int> = _colorMode.asStateFlow()
+
+    private val _keyColor = MutableStateFlow(themeRepo.keyColor)
+    val keyColor: StateFlow<Int> = _keyColor.asStateFlow()
+
+    private val _colorStyle = MutableStateFlow(themeRepo.colorStyle)
+    val colorStyle: StateFlow<String> = _colorStyle.asStateFlow()
+
+    private val _colorSpec = MutableStateFlow(themeRepo.colorSpec)
+    val colorSpec: StateFlow<String> = _colorSpec.asStateFlow()
+
+    private val _uiMode = MutableStateFlow(themeRepo.uiMode)
+    val uiMode: StateFlow<String> = _uiMode.asStateFlow()
+
+    private val _miuixMonet = MutableStateFlow(themeRepo.miuixMonet)
+    val miuixMonet: StateFlow<Boolean> = _miuixMonet.asStateFlow()
+
+    private val _enableBlur = MutableStateFlow(themeRepo.enableBlur)
+    val enableBlur: StateFlow<Boolean> = _enableBlur.asStateFlow()
+
+    private val _enableFloatingBottomBar = MutableStateFlow(themeRepo.enableFloatingBottomBar)
+    val enableFloatingBottomBar: StateFlow<Boolean> = _enableFloatingBottomBar.asStateFlow()
+
+    private val _pageScale = MutableStateFlow(themeRepo.pageScale)
+    val pageScale: StateFlow<Float> = _pageScale.asStateFlow()
+
+    fun setColorMode(mode: ColorMode) {
+        themeRepo.colorMode = mode.value
+        _colorMode.value = mode.value
+    }
+
+    fun setKeyColor(color: Int) {
+        themeRepo.keyColor = color
+        _keyColor.value = color
+    }
+
+    fun setColorStyle(style: String) {
+        themeRepo.colorStyle = style
+        _colorStyle.value = style
+    }
+
+    fun setColorSpec(spec: String) {
+        themeRepo.colorSpec = spec
+        _colorSpec.value = spec
+    }
+
+    fun setUiMode(mode: String) {
+        val oldUiMode = themeRepo.uiMode
+        themeRepo.uiMode = mode
+        _uiMode.value = mode
+
+        // Handle Monet mode conversion when switching UI frameworks
+        val currentColorMode = ColorMode.fromValue(themeRepo.colorMode)
+        if (oldUiMode == UiMode.Miuix.value && mode == UiMode.Material.value) {
+            // Miuix → Material: keep current monet state as-is
+        } else if (oldUiMode == UiMode.Material.value && mode == UiMode.Miuix.value) {
+            // Material → Miuix: if currently in monet mode, enable miuixMonet flag
+            if (currentColorMode.isMonet) {
+                themeRepo.miuixMonet = true
+                _miuixMonet.value = true
+            }
+        }
+    }
+
+    fun setMiuixMonet(enabled: Boolean) {
+        themeRepo.miuixMonet = enabled
+        _miuixMonet.value = enabled
+
+        // Convert color mode when toggling monet in MIUIX
+        val currentColorMode = ColorMode.fromValue(themeRepo.colorMode)
+        val newValue = if (enabled && !currentColorMode.isMonet) {
+            currentColorMode.toMonetMode()
+        } else if (!enabled && currentColorMode.isMonet) {
+            currentColorMode.toNonMonetMode()
+        } else {
+            return
+        }
+        themeRepo.colorMode = newValue
+        _colorMode.value = newValue
+    }
+
+    fun setEnableBlur(enabled: Boolean) {
+        themeRepo.enableBlur = enabled
+        _enableBlur.value = enabled
+    }
+
+    fun setEnableFloatingBottomBar(enabled: Boolean) {
+        themeRepo.enableFloatingBottomBar = enabled
+        _enableFloatingBottomBar.value = enabled
+    }
+
+    fun setPageScale(scale: Float) {
+        themeRepo.pageScale = scale
+        _pageScale.value = scale
     }
 
     fun setHapticEnabled(enabled: Boolean) {

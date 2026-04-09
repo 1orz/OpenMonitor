@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Speed
@@ -82,6 +83,7 @@ import rikka.shizuku.Shizuku
 fun UserScreen(
     permissionManager: PermissionManager,
     onNavigateToLicenses: () -> Unit = {},
+    onNavigateToTheme: () -> Unit = {},
     viewModel: UserViewModel = hiltViewModel(),
 ) {
     val view = LocalView.current
@@ -311,11 +313,14 @@ fun UserScreen(
             onIntervalSelected = viewModel::setPollInterval,
         )
 
-        // Dark mode settings card
-        val darkMode by viewModel.darkMode.collectAsState()
-        DarkModeCard(
-            darkMode = darkMode,
-            onDarkModeSelected = viewModel::setDarkMode,
+        // Theme settings navigation card
+        ThemeNavigationCard(onClick = { view.hapticClick(); onNavigateToTheme() })
+
+        // UI style toggle (Material / MIUIX)
+        val uiModeVal by viewModel.uiMode.collectAsState()
+        UiStyleCard(
+            currentMode = uiModeVal,
+            onModeSelected = viewModel::setUiMode,
         )
 
         // Haptic feedback toggle card
@@ -887,95 +892,84 @@ private fun AdbSetupCard(
 }
 
 @Composable
-private fun DarkModeCard(
-    darkMode: Int,
-    onDarkModeSelected: (Int) -> Unit,
-) {
-    val view = LocalView.current
-    var expanded by remember { mutableStateOf(false) }
-    val options = listOf(
-        0 to stringResource(R.string.settings_follow_system),
-        1 to stringResource(R.string.settings_light),
-        2 to stringResource(R.string.settings_dark),
-    )
-    val currentLabel = options.firstOrNull { it.first == darkMode }?.second ?: options[0].second
-
+private fun ThemeNavigationCard(onClick: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         ),
     ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .hapticClickable { expanded = true }
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Brightness4,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp),
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = stringResource(R.string.settings_display_mode),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            text = currentLabel,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
-                }
-                Icon(
-                    imageVector = Icons.Filled.ArrowDropDown,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .hapticClickable { onClick() }
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Palette,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp),
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = stringResource(R.string.settings_theme),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f),
+            )
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.NavigateNext,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
 
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
-            ) {
-                options.forEach { (value, label) ->
-                    val isSelected = darkMode == value
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                text = label,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            )
-                        },
-                        trailingIcon = {
-                            if (isSelected) {
-                                Icon(
-                                    imageVector = Icons.Filled.CheckCircle,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(16.dp),
-                                )
-                            }
-                        },
-                        onClick = {
-                            view.hapticClick()
-                            expanded = false
-                            onDarkModeSelected(value)
-                        },
-                    )
-                }
+@Composable
+private fun UiStyleCard(
+    currentMode: String,
+    onModeSelected: (String) -> Unit,
+) {
+    val view = LocalView.current
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        ),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Brightness4,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp),
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = stringResource(R.string.settings_ui_mode),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = currentMode == "material",
+                    onClick = { view.hapticClick(); onModeSelected("material") },
+                    label = { Text("Material") },
+                )
+                FilterChip(
+                    selected = currentMode == "miuix",
+                    onClick = { view.hapticClick(); onModeSelected("miuix") },
+                    label = { Text("MIUIX") },
+                )
             }
         }
     }

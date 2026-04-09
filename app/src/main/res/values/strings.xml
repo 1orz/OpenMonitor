@@ -143,6 +143,38 @@
     <string name="settings_follow_system">Follow System</string>
     <string name="settings_light">Light</string>
     <string name="settings_dark">Dark</string>
+
+    <!-- Theme settings -->
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_mode_system">Follow System</string>
+    <string name="settings_theme_mode_light">Light</string>
+    <string name="settings_theme_mode_dark">Dark</string>
+    <string name="settings_theme_mode_amoled">AMOLED Dark</string>
+    <string name="settings_key_color">Theme Color</string>
+    <string name="settings_key_color_default">Auto (Wallpaper)</string>
+    <string name="settings_color_style">Color Style</string>
+    <string name="settings_color_spec">Color Spec</string>
+    <string name="settings_ui_mode">UI Style</string>
+    <string name="settings_monet">Dynamic Colors</string>
+    <string name="settings_enable_blur">Blur Effect</string>
+    <string name="settings_floating_bottom_bar">Floating Bottom Bar</string>
+    <string name="settings_page_scale">Page Scale</string>
+    <string name="color_red">Red</string>
+    <string name="color_pink">Pink</string>
+    <string name="color_purple">Purple</string>
+    <string name="color_deep_purple">Deep Purple</string>
+    <string name="color_indigo">Indigo</string>
+    <string name="color_blue">Blue</string>
+    <string name="color_cyan">Cyan</string>
+    <string name="color_teal">Teal</string>
+    <string name="color_green">Green</string>
+    <string name="color_yellow">Yellow</string>
+    <string name="color_amber">Amber</string>
+    <string name="color_orange">Orange</string>
+    <string name="color_brown">Brown</string>
+    <string name="color_blue_grey">Blue Grey</string>
+    <string name="color_sakura">Sakura</string>
+
     <string name="settings_language">Language</string>
     <string name="settings_language_system">Follow System</string>
     <string name="settings_close">Close</string>

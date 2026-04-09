@@ -14,9 +14,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import android.content.SharedPreferences
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -26,7 +24,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import android.content.Context
-import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -35,7 +32,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
@@ -49,7 +45,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -61,8 +59,14 @@ import com.cloudorz.openmonitor.core.common.PermissionManager
 import com.cloudorz.openmonitor.core.common.PrivilegeMode
 import com.cloudorz.openmonitor.core.data.datasource.DaemonManager
 import com.cloudorz.openmonitor.core.data.datasource.DaemonState
-import com.cloudorz.openmonitor.service.FloatMonitorService
+import com.cloudorz.openmonitor.core.ui.theme.LocalColorMode
+import com.cloudorz.openmonitor.core.ui.theme.LocalEnableBlur
+import com.cloudorz.openmonitor.core.ui.theme.LocalEnableFloatingBottomBar
+import com.cloudorz.openmonitor.core.ui.theme.LocalUiMode
 import com.cloudorz.openmonitor.core.ui.theme.MonitorTheme
+import com.cloudorz.openmonitor.service.FloatMonitorService
+import com.cloudorz.openmonitor.ui.theme.ColorPaletteScreen
+import com.cloudorz.openmonitor.ui.theme.ThemeViewModel
 import com.cloudorz.openmonitor.feature.battery.BatteryScreen
 import com.cloudorz.openmonitor.feature.floatmonitor.FloatMonitorScreen
 import com.cloudorz.openmonitor.feature.fps.FpsScreen
@@ -106,24 +110,25 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        val prefs = getSharedPreferences("monitor_settings", Context.MODE_PRIVATE)
         setContent {
-            var darkModePref by remember { mutableIntStateOf(prefs.getInt("dark_mode", 0)) }
-            DisposableEffect(Unit) {
-                val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-                    if (key == "dark_mode") darkModePref = prefs.getInt("dark_mode", 0)
+            val themeViewModel: ThemeViewModel = androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel()
+            val themeState by themeViewModel.uiState.collectAsStateWithLifecycle()
+
+            val systemDensity = LocalDensity.current
+            val density = remember(systemDensity, themeState.pageScale) {
+                Density(systemDensity.density * themeState.pageScale, systemDensity.fontScale)
+            }
+
+            CompositionLocalProvider(
+                LocalDensity provides density,
+                LocalColorMode provides themeState.appSettings.colorMode.value,
+                LocalEnableBlur provides themeState.enableBlur,
+                LocalEnableFloatingBottomBar provides themeState.enableFloatingBottomBar,
+                LocalUiMode provides themeState.uiMode,
+            ) {
+                MonitorTheme(appSettings = themeState.appSettings, uiMode = themeState.uiMode) {
+                    MonitorAppContent(permissionManager, daemonManager)
                 }
-                prefs.registerOnSharedPreferenceChangeListener(listener)
-                onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
-            }
-            val systemDark = isSystemInDarkTheme()
-            val darkTheme = when (darkModePref) {
-                1 -> false
-                2 -> true
-                else -> systemDark
-            }
-            MonitorTheme(darkTheme = darkTheme) {
-                MonitorAppContent(permissionManager, daemonManager)
             }
         }
     }
@@ -279,6 +284,8 @@ private fun MainScreen(permissionManager: PermissionManager) {
     val view = LocalView.current
 
     val isTopLevel = currentRoute == null || currentRoute == "tabs"
+    // Routes that manage their own Scaffold (TopAppBar + back button)
+    val isFullScreenRoute = currentRoute == FeatureRoute.COLOR_PALETTE
 
     // Per-page TopAppBar actions (set by child screens like LogScreen)
     var topBarActions by remember { mutableStateOf<@Composable () -> Unit>({}) }
@@ -301,6 +308,7 @@ private fun MainScreen(permissionManager: PermissionManager) {
         FeatureRoute.VULKAN_INFO -> "Vulkan"
         FeatureRoute.OPENGL_INFO -> "OpenGL ES"
         FeatureRoute.PARTITIONS -> stringResource(com.cloudorz.openmonitor.R.string.partitions)
+        FeatureRoute.COLOR_PALETTE -> stringResource(R.string.settings_theme)
         FeatureRoute.LICENSES -> stringResource(R.string.settings_open_source_licenses)
         FeatureRoute.LICENSE_DETAIL -> {
             val index = navBackStackEntry?.arguments?.getString("index")?.toIntOrNull() ?: 0
@@ -311,34 +319,36 @@ private fun MainScreen(permissionManager: PermissionManager) {
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    if (isTopLevel) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("OpenMonitor", style = MaterialTheme.typography.titleLarge)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = BuildConfig.VERSION_NAME,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+            if (!isFullScreenRoute) {
+                TopAppBar(
+                    title = {
+                        if (isTopLevel) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("OpenMonitor", style = MaterialTheme.typography.titleLarge)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = BuildConfig.VERSION_NAME,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        } else {
+                            Text(subPageTitle ?: "", style = MaterialTheme.typography.titleLarge)
                         }
-                    } else {
-                        Text(subPageTitle ?: "", style = MaterialTheme.typography.titleLarge)
-                    }
-                },
-                navigationIcon = {
-                    if (!isTopLevel) {
-                        IconButton(onClick = { view.hapticClick(); navController.popBackStack() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.nav_back))
+                    },
+                    navigationIcon = {
+                        if (!isTopLevel) {
+                            IconButton(onClick = { view.hapticClick(); navController.popBackStack() }) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.nav_back))
+                            }
                         }
-                    }
-                },
-                actions = { topBarActions() },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                ),
-            )
+                    },
+                    actions = { topBarActions() },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    ),
+                )
+            }
         },
         bottomBar = {
             if (isTopLevel) {
@@ -362,7 +372,7 @@ private fun MainScreen(permissionManager: PermissionManager) {
         NavHost(
             navController = navController,
             startDestination = "tabs",
-            modifier = Modifier.padding(innerPadding),
+            modifier = if (isFullScreenRoute) Modifier else Modifier.padding(innerPadding),
             enterTransition = { slideInHorizontally { it } },
             exitTransition = { slideOutHorizontally { -it } },
             popEnterTransition = { slideInHorizontally { -it } },
@@ -381,6 +391,7 @@ private fun MainScreen(permissionManager: PermissionManager) {
                         2 -> UserScreen(
                             permissionManager = permissionManager,
                             onNavigateToLicenses = { navController.navigate(FeatureRoute.LICENSES) },
+                            onNavigateToTheme = { navController.navigate(FeatureRoute.COLOR_PALETTE) },
                         )
                     }
                 }
@@ -399,7 +410,7 @@ private fun MainScreen(permissionManager: PermissionManager) {
                 val entry = navController.previousBackStackEntry
                 val vm: com.cloudorz.openmonitor.feature.hardware.HardwareInfoViewModel =
                     if (entry != null) androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel(entry) else androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel()
-                val gpuInfo = vm.uiState.collectAsState().value.gpuInfo
+                val gpuInfo = vm.uiState.collectAsStateWithLifecycle().value.gpuInfo
                 VulkanInfoScreen(vulkanInfoJson = gpuInfo.vulkanInfoJson)
             }
             composable(FeatureRoute.OPENGL_INFO) { OpenGLInfoScreen() }
@@ -433,6 +444,9 @@ private fun MainScreen(permissionManager: PermissionManager) {
             }
             composable(FeatureRoute.LOG) {
                 LogScreen(onProvideTopBarActions = { topBarActions = it })
+            }
+            composable(FeatureRoute.COLOR_PALETTE) {
+                ColorPaletteScreen(onBack = { navController.popBackStack() })
             }
             composable(FeatureRoute.LICENSES) {
                 OpenSourceLicensesScreen(
