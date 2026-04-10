@@ -59,6 +59,17 @@
     <string name="fps_stat_avg_power">平均電力</string>
     <string name="fps_stat_max_temp">最高温度</string>
     <string name="fps_stat_smoothness_unit">スムーズ率</string>
+    <string name="fps_stat_total">合計</string>
+    <!-- FPS Series Labels -->
+    <string name="fps_series_frame_time">フレーム時間(ms)</string>
+    <string name="fps_series_power">電力(W)</string>
+    <string name="fps_series_capacity">容量(%)</string>
+    <string name="fps_series_current">電流(mA)</string>
+    <string name="fps_series_bat_temp">バッテリー(\u00B0C)</string>
+    <string name="fps_series_freq">周波数(MHz)</string>
+    <string name="fps_series_usage">使用率(%)</string>
+    <string name="fps_series_jank">ジャンク</string>
+    <string name="fps_series_big_jank">重度ジャンク</string>
 
     <!-- Float Monitor Screen -->
     <string name="float_monitor_title">フロートモニター</string>

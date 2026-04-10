@@ -381,8 +381,8 @@ private fun StatsGridCard(records: List<FpsFrameRecord>) {
             StatCell(stringResource(R.string.fps_stat_min), "%.1f".format(minFps), "FPS", fpsStatColor(minFps))
             StatCell(stringResource(R.string.fps_stat_avg), "%.1f".format(avgFps), "FPS", fpsStatColor(avgFps))
             StatCell(stringResource(R.string.fps_stat_variance), "%.1f".format(variance), "FPS", MaterialTheme.colorScheme.onSurfaceVariant)
-            StatCell(stringResource(R.string.fps_stat_low), "%.1f".format(fivePercentLow), "FPS", fpsStatColor(fivePercentLow))
             StatCell(stringResource(R.string.fps_stat_smoothness), "%.1f%%".format(smoothness), stringResource(R.string.fps_stat_smoothness_unit), smoothnessColor(smoothness))
+            StatCell(stringResource(R.string.fps_stat_low), "%.1f".format(fivePercentLow), "FPS", fpsStatColor(fivePercentLow))
             if (maxTemp > 0) StatCell(stringResource(R.string.fps_stat_max_temp), "%.1f".format(maxTemp), "°C", tempStatColor(maxTemp))
             if (avgPower > 0) StatCell(stringResource(R.string.fps_stat_avg_power), "%.2f".format(avgPower), "W", PowerColor)
         }
@@ -747,12 +747,15 @@ private fun FrameTimeChart(records: List<FpsFrameRecord>) {
     if (records.none { it.maxFrameTimeMs > 0 }) return
     val maxFt = records.maxOfOrNull { it.maxFrameTimeMs } ?: 0
     val avgFt = records.filter { it.maxFrameTimeMs > 0 }.map { it.maxFrameTimeMs }.average()
-    val subtitle = "MAX: ${maxFt}ms  AVG: %.1fms".format(avgFt)
+    val maxLabel = stringResource(R.string.fps_stat_max)
+    val avgLabel = stringResource(R.string.fps_stat_avg)
+    val frameTimeLabel = stringResource(R.string.fps_series_frame_time)
+    val subtitle = "$maxLabel: ${maxFt}ms  $avgLabel: %.1fms".format(avgFt)
 
     ChartCard(stringResource(R.string.fps_chart_frame_time) + "\n$subtitle") {
         VicoLineChart(
             records, listOf(records.map { it.maxFrameTimeMs }),
-            listOf(ChartRed), listOf("FrameTime(ms)"),
+            listOf(ChartRed), listOf(frameTimeLabel),
             yAxisSuffix = "ms",
         )
     }
@@ -789,17 +792,20 @@ private fun GpuFreqChart(records: List<FpsFrameRecord>) {
     if (records.none { it.gpuFreqMhz > 0 }) return
     val hasUsage = records.any { it.gpuLoad > 0.0 }
 
-    val allLabels = mutableListOf("Freq(MHz)")
+    val freqLabel = stringResource(R.string.fps_series_freq)
+    val usageLabel = stringResource(R.string.fps_series_usage)
+
+    val allLabels = mutableListOf(freqLabel)
     val allColors = mutableListOf(GpuColor)
-    if (hasUsage) { allLabels.add("Usage(%)"); allColors.add(Color(0xFF5C6BC0)) }
+    if (hasUsage) { allLabels.add(usageLabel); allColors.add(Color(0xFF5C6BC0)) }
 
     val seriesVis = remember { mutableStateMapOf<String, Boolean>() }
 
     val visLabels = mutableListOf<String>()
     val visColors = mutableListOf<Color>()
     val visData = mutableListOf<List<Number>>()
-    if (seriesVis["Freq(MHz)"] != false) { visLabels.add("Freq(MHz)"); visColors.add(GpuColor); visData.add(records.map { it.gpuFreqMhz }) }
-    if (hasUsage && seriesVis["Usage(%)"] != false) { visLabels.add("Usage(%)"); visColors.add(Color(0xFF5C6BC0)); visData.add(records.map { it.gpuLoad }) }
+    if (seriesVis[freqLabel] != false) { visLabels.add(freqLabel); visColors.add(GpuColor); visData.add(records.map { it.gpuFreqMhz }) }
+    if (hasUsage && seriesVis[usageLabel] != false) { visLabels.add(usageLabel); visColors.add(Color(0xFF5C6BC0)); visData.add(records.map { it.gpuLoad }) }
 
     if (visData.isEmpty()) return
 
@@ -845,23 +851,27 @@ private fun JankChart(records: List<FpsFrameRecord>) {
     if (records.none { it.jankCount > 0 || it.bigJankCount > 0 }) return
     val hasBig = records.any { it.bigJankCount > 0 }
 
-    val allLabels = mutableListOf("Jank")
+    val jankLabel = stringResource(R.string.fps_series_jank)
+    val bigJankLabel = stringResource(R.string.fps_series_big_jank)
+    val totalLabel = stringResource(R.string.fps_stat_total)
+
+    val allLabels = mutableListOf(jankLabel)
     val allColors = mutableListOf(ChartRed)
-    if (hasBig) { allLabels.add("BigJank"); allColors.add(Color(0xFFD32F2F)) }
+    if (hasBig) { allLabels.add(bigJankLabel); allColors.add(Color(0xFFD32F2F)) }
 
     val seriesVis = remember { mutableStateMapOf<String, Boolean>() }
 
     val visLabels = mutableListOf<String>()
     val visColors = mutableListOf<Color>()
     val visData = mutableListOf<List<Number>>()
-    if (seriesVis["Jank"] != false) { visLabels.add("Jank"); visColors.add(ChartRed); visData.add(records.map { it.jankCount }) }
-    if (hasBig && seriesVis["BigJank"] != false) { visLabels.add("BigJank"); visColors.add(Color(0xFFD32F2F)); visData.add(records.map { it.bigJankCount }) }
+    if (seriesVis[jankLabel] != false) { visLabels.add(jankLabel); visColors.add(ChartRed); visData.add(records.map { it.jankCount }) }
+    if (hasBig && seriesVis[bigJankLabel] != false) { visLabels.add(bigJankLabel); visColors.add(Color(0xFFD32F2F)); visData.add(records.map { it.bigJankCount }) }
 
     if (visData.isEmpty()) return
 
     val totalJank = records.sumOf { it.jankCount }
     val totalBig = records.sumOf { it.bigJankCount }
-    val subtitle = if (hasBig) "Total: Jank=$totalJank  BigJank=$totalBig" else "Total: $totalJank"
+    val subtitle = if (hasBig) "$totalLabel: $jankLabel=$totalJank  $bigJankLabel=$totalBig" else "$totalLabel: $totalJank"
 
     ChartCard(
         stringResource(R.string.fps_chart_jank) + "\n$subtitle",
@@ -879,27 +889,33 @@ private fun PowerBatteryChart(records: List<FpsFrameRecord>) {
     val hasBattery = records.any { it.batteryCapacity > 0 }
     if (!hasPower && !hasBattery) return
 
+    val powerLabel = stringResource(R.string.fps_series_power)
+    val capacityLabel = stringResource(R.string.fps_series_capacity)
+    val maxLabel = stringResource(R.string.fps_stat_max)
+    val minLabel = stringResource(R.string.fps_stat_min)
+    val avgLabel = stringResource(R.string.fps_stat_avg)
+
     val allLabels = mutableListOf<String>()
     val allColors = mutableListOf<Color>()
-    if (hasPower) { allLabels.add("Power(W)"); allColors.add(PowerColor) }
-    if (hasBattery) { allLabels.add("Capacity(%)"); allColors.add(BatteryColor) }
+    if (hasPower) { allLabels.add(powerLabel); allColors.add(PowerColor) }
+    if (hasBattery) { allLabels.add(capacityLabel); allColors.add(BatteryColor) }
 
     val seriesVis = remember { mutableStateMapOf<String, Boolean>() }
 
     val visLabels = mutableListOf<String>()
     val visColors = mutableListOf<Color>()
     val visData = mutableListOf<List<Number>>()
-    if (hasPower && seriesVis["Power(W)"] != false) {
-        visLabels.add("Power(W)"); visColors.add(PowerColor)
+    if (hasPower && seriesVis[powerLabel] != false) {
+        visLabels.add(powerLabel); visColors.add(PowerColor)
         visData.add(records.map { kotlin.math.abs(it.powerW) })
     }
-    if (hasBattery && seriesVis["Capacity(%)"] != false) { visLabels.add("Capacity(%)"); visColors.add(BatteryColor); visData.add(records.map { it.batteryCapacity }) }
+    if (hasBattery && seriesVis[capacityLabel] != false) { visLabels.add(capacityLabel); visColors.add(BatteryColor); visData.add(records.map { it.batteryCapacity }) }
 
     if (visData.isEmpty()) return
 
     val subtitle = if (hasPower) {
         val pws = records.map { kotlin.math.abs(it.powerW) }.filter { it > 0 }
-        if (pws.isNotEmpty()) "MAX: %.2fW  MIN: %.2fW  AVG: %.2fW".format(pws.max(), pws.min(), pws.average()) else ""
+        if (pws.isNotEmpty()) "$maxLabel: %.2fW  $minLabel: %.2fW  $avgLabel: %.2fW".format(pws.max(), pws.min(), pws.average()) else ""
     } else ""
 
     ChartCard(stringResource(R.string.fps_chart_power) + if (subtitle.isNotEmpty()) "\n$subtitle" else "", allLabels, allColors, seriesVis) {
@@ -913,10 +929,14 @@ private fun PowerBatteryChart(records: List<FpsFrameRecord>) {
 private fun BatteryCurrentChart(records: List<FpsFrameRecord>) {
     if (records.none { it.batteryCurrentMa != 0 }) return
     val curData = records.map { it.batteryCurrentMa }
-    val subtitle = "MAX: ${curData.max()}mA  MIN: ${curData.min()}mA  AVG: ${curData.average().toInt()}mA"
+    val maxLabel = stringResource(R.string.fps_stat_max)
+    val minLabel = stringResource(R.string.fps_stat_min)
+    val avgLabel = stringResource(R.string.fps_stat_avg)
+    val currentLabel = stringResource(R.string.fps_series_current)
+    val subtitle = "$maxLabel: ${curData.max()}mA  $minLabel: ${curData.min()}mA  $avgLabel: ${curData.average().toInt()}mA"
 
     ChartCard(stringResource(R.string.fps_chart_battery_current) + "\n$subtitle") {
-        VicoLineChart(records, listOf(curData), listOf(CurrentColor), listOf("Current(mA)"), yAxisSuffix = "mA")
+        VicoLineChart(records, listOf(curData), listOf(CurrentColor), listOf(currentLabel), yAxisSuffix = "mA")
     }
 }
 
@@ -926,10 +946,15 @@ private fun TemperatureChart(records: List<FpsFrameRecord>) {
     val hasBat = records.any { it.batteryTemp > 0.0 }
     if (!hasCpu && !hasBat) return
 
+    val batTempLabel = stringResource(R.string.fps_series_bat_temp)
+    val maxLabel = stringResource(R.string.fps_stat_max)
+    val minLabel = stringResource(R.string.fps_stat_min)
+    val avgLabel = stringResource(R.string.fps_stat_avg)
+
     val allLabels = mutableListOf<String>()
     val allColors = mutableListOf<Color>()
     if (hasCpu) { allLabels.add("CPU(\u00B0C)"); allColors.add(TempColor) }
-    if (hasBat) { allLabels.add("Battery(\u00B0C)"); allColors.add(BatTempColor) }
+    if (hasBat) { allLabels.add(batTempLabel); allColors.add(BatTempColor) }
 
     val seriesVis = remember { mutableStateMapOf<String, Boolean>() }
 
@@ -937,13 +962,13 @@ private fun TemperatureChart(records: List<FpsFrameRecord>) {
     val visColors = mutableListOf<Color>()
     val visData = mutableListOf<List<Number>>()
     if (hasCpu && seriesVis["CPU(\u00B0C)"] != false) { visLabels.add("CPU(\u00B0C)"); visColors.add(TempColor); visData.add(records.map { it.cpuTemp }) }
-    if (hasBat && seriesVis["Battery(\u00B0C)"] != false) { visLabels.add("Battery(\u00B0C)"); visColors.add(BatTempColor); visData.add(records.map { it.batteryTemp }) }
+    if (hasBat && seriesVis[batTempLabel] != false) { visLabels.add(batTempLabel); visColors.add(BatTempColor); visData.add(records.map { it.batteryTemp }) }
 
     if (visData.isEmpty()) return
 
     val cpuTemps = records.map { it.cpuTemp }.filter { it > 0 }
     val subtitle = if (cpuTemps.isNotEmpty()) {
-        "MAX: %.1f\u00B0C  MIN: %.1f\u00B0C  AVG: %.1f\u00B0C".format(cpuTemps.max(), cpuTemps.min(), cpuTemps.average())
+        "$maxLabel: %.1f\u00B0C  $minLabel: %.1f\u00B0C  $avgLabel: %.1f\u00B0C".format(cpuTemps.max(), cpuTemps.min(), cpuTemps.average())
     } else ""
 
     ChartCard(
