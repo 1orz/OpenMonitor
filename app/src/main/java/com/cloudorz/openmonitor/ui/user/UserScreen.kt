@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -37,8 +38,6 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Cable
 import androidx.compose.material.icons.automirrored.filled.NavigateNext
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -47,9 +46,15 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Switch
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.surfaceColorAtElevation
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -137,156 +142,81 @@ fun UserScreen(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+            .padding(horizontal = 16.dp),
     ) {
-        Text(
-            text = stringResource(R.string.settings_title),
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
+        // ── System ──
+        val modeNames = PrivilegeMode.entries.map { @Composable { modeDisplayName(it) } }
+        val modeLabels = modeNames.map { @Composable { it() } }
+
+        SettingsGroup(
+            title = stringResource(R.string.settings_group_system),
+            items = buildList {
+                // Mode selector
+                add {
+                    ModeDropdownItem(
+                        currentMode = currentMode,
+                        isDetecting = isDetecting,
+                        onModeSelected = { mode ->
+                            if (currentMode == mode || isDetecting) return@ModeDropdownItem
+                            val oldMode = currentMode
+                            when (mode) {
+                                PrivilegeMode.ROOT -> {
+                                    isDetecting = true
+                                    coroutineScope.launch {
+                                        val detected = permissionManager.detectBestMode()
+                                        if (detected == PrivilegeMode.ROOT) {
+                                            viewModel.switchMode(
+                                                oldMode, PrivilegeMode.ROOT,
+                                                applyNewMode = { permissionManager.setMode(PrivilegeMode.ROOT) },
+                                            ) { isDetecting = false }
+                                        } else {
+                                            isDetecting = false
+                                        }
+                                    }
+                                }
+                                PrivilegeMode.SHIZUKU -> {
+                                    when (shizukuStatus) {
+                                        ShizukuStatus.GRANTED -> {
+                                            isDetecting = true
+                                            viewModel.switchMode(
+                                                oldMode, PrivilegeMode.SHIZUKU,
+                                                applyNewMode = { permissionManager.setMode(PrivilegeMode.SHIZUKU) },
+                                            ) { isDetecting = false }
+                                        }
+                                        ShizukuStatus.NOT_GRANTED -> {
+                                            try { Shizuku.requestPermission(1001) } catch (_: Exception) {}
+                                        }
+                                        ShizukuStatus.NOT_RUNNING -> { }
+                                    }
+                                }
+                                PrivilegeMode.ADB -> {
+                                    isDetecting = true
+                                    viewModel.switchMode(
+                                        oldMode, PrivilegeMode.ADB,
+                                        applyNewMode = { permissionManager.setMode(PrivilegeMode.ADB) },
+                                    ) { isDetecting = false }
+                                }
+                                PrivilegeMode.BASIC -> {
+                                    isDetecting = true
+                                    viewModel.switchMode(
+                                        oldMode, PrivilegeMode.BASIC,
+                                        applyNewMode = { permissionManager.setMode(PrivilegeMode.BASIC) },
+                                    ) { isDetecting = false }
+                                }
+                            }
+                        },
+                    )
+                }
+                // Daemon status
+                add {
+                    DaemonStatusItem(
+                        status = daemonStatus,
+                        onCheck = { viewModel.checkDaemon() },
+                        onRestart = { viewModel.restartDaemon() },
+                    )
+                }
+            },
         )
-
-        // Mode switch card — Dropdown Menu with icons
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-            ),
-        ) {
-            Box(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .hapticClickable(enabled = !isDetecting) { showModeDropdown = true }
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Icon(
-                            imageVector = modeIcon(currentMode),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp),
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                text = stringResource(R.string.settings_switch_mode),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(
-                                text = modeDisplayName(currentMode),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                        }
-                    }
-                    if (isDetecting) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                    } else {
-                        Icon(
-                            imageVector = Icons.Filled.ArrowDropDown,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-
-                DropdownMenu(
-                    expanded = showModeDropdown,
-                    onDismissRequest = { showModeDropdown = false },
-                ) {
-                    PrivilegeMode.entries.forEach { mode ->
-                        DropdownMenuItem(
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = modeIcon(mode),
-                                    contentDescription = null,
-                                    tint = if (currentMode == mode)
-                                        MaterialTheme.colorScheme.primary
-                                    else
-                                        MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.size(20.dp),
-                                )
-                            },
-                            text = {
-                                Text(
-                                    text = modeDisplayName(mode),
-                                    fontWeight = if (currentMode == mode) FontWeight.Bold else FontWeight.Normal,
-                                )
-                            },
-                            trailingIcon = {
-                                if (currentMode == mode) {
-                                    Icon(
-                                        imageVector = Icons.Filled.CheckCircle,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(16.dp),
-                                    )
-                                }
-                            },
-                            onClick = {
-                                view.hapticClick()
-                                showModeDropdown = false
-                                if (currentMode == mode || isDetecting) return@DropdownMenuItem
-                                val oldMode = currentMode
-                                when (mode) {
-                                    PrivilegeMode.ROOT -> {
-                                        isDetecting = true
-                                        coroutineScope.launch {
-                                            val detected = permissionManager.detectBestMode()
-                                            if (detected == PrivilegeMode.ROOT) {
-                                                viewModel.switchMode(
-                                                    oldMode, PrivilegeMode.ROOT,
-                                                    applyNewMode = { permissionManager.setMode(PrivilegeMode.ROOT) },
-                                                ) { isDetecting = false }
-                                            } else {
-                                                isDetecting = false
-                                            }
-                                        }
-                                    }
-                                    PrivilegeMode.SHIZUKU -> {
-                                        when (shizukuStatus) {
-                                            ShizukuStatus.GRANTED -> {
-                                                isDetecting = true
-                                                viewModel.switchMode(
-                                                    oldMode, PrivilegeMode.SHIZUKU,
-                                                    applyNewMode = { permissionManager.setMode(PrivilegeMode.SHIZUKU) },
-                                                ) { isDetecting = false }
-                                            }
-                                            ShizukuStatus.NOT_GRANTED -> {
-                                                try { Shizuku.requestPermission(1001) } catch (_: Exception) {}
-                                            }
-                                            ShizukuStatus.NOT_RUNNING -> { }
-                                        }
-                                    }
-                                    PrivilegeMode.ADB -> {
-                                        isDetecting = true
-                                        viewModel.switchMode(
-                                            oldMode, PrivilegeMode.ADB,
-                                            applyNewMode = { permissionManager.setMode(PrivilegeMode.ADB) },
-                                        ) { isDetecting = false }
-                                    }
-                                    PrivilegeMode.BASIC -> {
-                                        isDetecting = true
-                                        viewModel.switchMode(
-                                            oldMode, PrivilegeMode.BASIC,
-                                            applyNewMode = { permissionManager.setMode(PrivilegeMode.BASIC) },
-                                        ) { isDetecting = false }
-                                    }
-                                }
-                            },
-                            enabled = !isDetecting,
-                        )
-                    }
-                }
-            }
-        }
 
         // ADB mode: silent background polling until daemon connects
         DisposableEffect(currentMode) {
@@ -303,13 +233,6 @@ fun UserScreen(
                 onCheck = { viewModel.checkDaemon() },
             )
         }
-
-        // Daemon status card
-        DaemonStatusCard(
-            status = daemonStatus,
-            onCheck = { viewModel.checkDaemon() },
-            onRestart = { viewModel.restartDaemon() },
-        )
 
         // ── Appearance ──
         val hapticEnabled by viewModel.hapticEnabled.collectAsState()
@@ -386,7 +309,62 @@ fun UserScreen(
 }
 
 @Composable
-private fun DaemonStatusCard(
+private fun ModeDropdownItem(
+    currentMode: PrivilegeMode,
+    isDetecting: Boolean,
+    onModeSelected: (PrivilegeMode) -> Unit,
+) {
+    val haptic = LocalHapticFeedback.current
+    var expanded by remember { mutableStateOf(false) }
+
+    ListItem(
+        modifier = Modifier.clickable(enabled = !isDetecting) {
+            haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+            expanded = true
+        },
+        colors = ListItemDefaults.colors(
+            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+            supportingColor = MaterialTheme.colorScheme.outline,
+        ),
+        headlineContent = { Text(stringResource(R.string.settings_switch_mode)) },
+        supportingContent = { Text(modeDescription(currentMode)) },
+        leadingContent = { Icon(modeIcon(currentMode), contentDescription = null) },
+        trailingContent = {
+            Box(modifier = Modifier.wrapContentSize(Alignment.TopStart)) {
+                if (isDetecting) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                } else {
+                    Text(
+                        text = modeDisplayName(currentMode),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    PrivilegeMode.entries.forEach { mode ->
+                        DropdownMenuItem(
+                            leadingIcon = { Icon(modeIcon(mode), null, modifier = Modifier.size(20.dp)) },
+                            text = {
+                                Text(
+                                    modeDisplayName(mode),
+                                    fontWeight = if (currentMode == mode) FontWeight.Bold else FontWeight.Normal,
+                                )
+                            },
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                                expanded = false
+                                onModeSelected(mode)
+                            },
+                            enabled = !isDetecting,
+                        )
+                    }
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun DaemonStatusItem(
     status: UserViewModel.DaemonStatus,
     onCheck: () -> Unit,
     onRestart: () -> Unit,
@@ -405,122 +383,63 @@ private fun DaemonStatusCard(
         )
     }
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        ),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Cable,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "Daemon",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Spacer(modifier = Modifier.width(10.dp))
+    val summary = when {
+        status.checking -> stringResource(R.string.settings_detecting)
+        status.checkedOnce && status.connected -> listOfNotNull(
+            stringResource(R.string.settings_running),
+            status.runner?.uppercase()?.ifEmpty { null },
+            status.uptimeSeconds?.let { formatUptime(it) }?.ifEmpty { null },
+        ).joinToString(" · ")
+        status.checkedOnce -> stringResource(R.string.settings_not_running)
+        else -> stringResource(R.string.settings_not_detected)
+    }
 
-            when {
-                status.checking -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(14.dp),
-                        strokeWidth = 2.dp,
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = stringResource(R.string.settings_detecting),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                status.checkedOnce && status.connected -> {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .background(Color(0xFF4CAF50), CircleShape),
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    val info = listOfNotNull(
-                        stringResource(R.string.settings_running),
-                        status.runner?.uppercase()?.ifEmpty { null },
-                        status.uptimeSeconds?.let { formatUptime(it) }?.ifEmpty { null },
-                    ).joinToString(" · ")
-                    Text(
-                        text = info,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
-                    // Version indicator
-                    if (status.expectedCommit != null || status.currentCommit != null) {
-                        val isMatch = status.expectedCommit != null &&
-                            status.currentCommit != null &&
-                            status.currentCommit.contains(status.expectedCommit)
-                        IconButton(
-                            onClick = { view.hapticClick(); showVersionDialog = true },
-                            modifier = Modifier.size(32.dp),
-                        ) {
-                            Icon(
-                                imageVector = if (isMatch) Icons.Filled.CheckCircle else Icons.Filled.Warning,
-                                contentDescription = null,
-                                tint = if (isMatch) Color(0xFF4CAF50) else Color(0xFFFFA726),
-                                modifier = Modifier.size(18.dp),
-                            )
-                        }
+    val summaryColor = when {
+        status.checking -> MaterialTheme.colorScheme.outline
+        status.checkedOnce && status.connected -> Color(0xFF4CAF50)
+        status.checkedOnce -> MaterialTheme.colorScheme.error
+        else -> MaterialTheme.colorScheme.outline
+    }
+
+    ListItem(
+        colors = ListItemDefaults.colors(
+            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+        ),
+        headlineContent = { Text("Daemon") },
+        supportingContent = { Text(summary, color = summaryColor) },
+        leadingContent = { Icon(Icons.Outlined.Cable, contentDescription = null) },
+        trailingContent = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (status.checkedOnce && status.connected && (status.expectedCommit != null || status.currentCommit != null)) {
+                    val isMatch = status.expectedCommit != null &&
+                        status.currentCommit != null &&
+                        status.currentCommit.contains(status.expectedCommit)
+                    IconButton(
+                        onClick = { view.hapticClick(); showVersionDialog = true },
+                        modifier = Modifier.size(32.dp),
+                    ) {
+                        Icon(
+                            imageVector = if (isMatch) Icons.Filled.CheckCircle else Icons.Filled.Warning,
+                            contentDescription = null,
+                            tint = if (isMatch) Color(0xFF4CAF50) else Color(0xFFFFA726),
+                            modifier = Modifier.size(18.dp),
+                        )
                     }
                 }
-                status.checkedOnce -> {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .background(MaterialTheme.colorScheme.error, CircleShape),
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = stringResource(R.string.settings_not_running),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                else -> {
-                    Text(
-                        text = stringResource(R.string.settings_not_detected),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.weight(1f),
+                IconButton(
+                    onClick = { view.hapticClick(); if (status.connected) onRestart() else onCheck() },
+                    modifier = Modifier.size(32.dp),
+                    enabled = !status.checking,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Refresh,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
                     )
                 }
             }
-
-            IconButton(
-                onClick = { view.hapticClick(); if (status.connected) onRestart() else onCheck() },
-                modifier = Modifier.size(32.dp),
-                enabled = !status.checking,
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Refresh,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
+        },
+    )
 }
 
 @Composable

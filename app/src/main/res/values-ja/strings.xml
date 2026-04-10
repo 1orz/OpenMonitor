@@ -118,6 +118,7 @@
     <string name="settings_not_running">停止中</string>
     <string name="settings_not_detected">未検出</string>
     <string name="settings_sampling">データ更新頻度</string>
+    <string name="settings_group_system">システム</string>
     <string name="settings_group_appearance">外観</string>
     <string name="settings_group_monitor">モニター</string>
     <string name="settings_group_about">バージョン情報</string>

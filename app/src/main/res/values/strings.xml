@@ -125,6 +125,7 @@
     <string name="settings_not_detected">Not Detected</string>
     <string name="settings_sampling">Data Refresh Rate</string>
     <!-- Settings groups -->
+    <string name="settings_group_system">System</string>
     <string name="settings_group_appearance">Appearance</string>
     <string name="settings_group_monitor">Monitor</string>
     <string name="settings_group_about">About</string>

@@ -118,6 +118,7 @@
     <string name="settings_not_running">未运行</string>
     <string name="settings_not_detected">未检测</string>
     <string name="settings_sampling">数据刷新频率</string>
+    <string name="settings_group_system">系统</string>
     <string name="settings_group_appearance">外观</string>
     <string name="settings_group_monitor">监控</string>
     <string name="settings_group_about">关于</string>
