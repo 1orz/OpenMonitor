@@ -37,7 +37,8 @@
     <string name="fps_recording_progress">経過 %1$s、残り %2$s</string>
     <string name="fps_chart_fps_temp">FPS / 温度</string>
     <string name="fps_chart_frame_time">フレームタイム (ms)</string>
-    <string name="fps_chart_cpu_usage">CPU / GPU 使用率 (%%)</string>
+    <string name="fps_chart_cpu_usage">CPU / GPU 使用率 (%)</string>
+    <string name="fps_chart_cpu_core_load">CPUコア使用率 (%)</string>
     <string name="fps_chart_gpu_freq">GPU 周波数 (MHz)</string>
     <string name="fps_chart_cpu_freq">CPUコア周波数 (MHz)</string>
     <string name="fps_chart_power">電力 / バッテリー</string>
@@ -87,10 +88,10 @@
     <string name="overlay_mode_desc_auto">最適な方式を自動選択（アクセシビリティ優先）</string>
     <string name="overlay_mode_desc_overlay">標準オーバーレイ権限のみ使用。決済アプリのアクセシビリティ検出回避に有効。</string>
     <string name="session_chart_power">電力(W)</string>
-    <string name="session_chart_battery">バッテリー(%%)</string>
+    <string name="session_chart_battery">バッテリー(%)</string>
     <string name="session_chart_temp">温度(\u00B0C)</string>
     <string name="session_chart_current">電流(mA)</string>
-    <string name="session_chart_capacity">バッテリー(%%)</string>
+    <string name="session_chart_capacity">バッテリー(%)</string>
     <string name="tap_to_view_chart">タップしてチャートを展開</string>
 
     <!-- FloatMonitorType display names -->
@@ -105,7 +106,7 @@
     <string name="monitor_load_desc">CPU/GPU/RAM/バッテリー ダッシュボード</string>
     <string name="monitor_process_desc">CPU使用率上位プロセス</string>
     <string name="monitor_thread_desc">フォアグラウンドアプリのCPU負荷スレッド</string>
-    <string name="monitor_mini_desc">1行: CPU%%/GPU%%/温度/FPS/電流</string>
+    <string name="monitor_mini_desc">1行: CPU%/GPU%/温度/FPS/電流</string>
     <string name="monitor_fps_desc">リアルタイムFPSカウンター</string>
     <string name="monitor_temperature_desc">マルチセンサー温度表示</string>
 
@@ -113,7 +114,7 @@
     <string name="monitor_load_info">CPU、GPU、メモリ、バッテリーのリアルタイム負荷ダッシュボード。2x2グリッドの4つのアークゲージで直感的にリソース状況を表示します。</string>
     <string name="monitor_process_info">CPU使用率上位5プロセスを表示。プロセス名とCPU使用率で高負荷プロセスを素早く特定。</string>
     <string name="monitor_thread_info">フォアグラウンドアプリのCPU使用率上位スレッドを表示。パフォーマンスボトルネックの詳細分析に。</string>
-    <string name="monitor_mini_info">超ミニマル1行モード。CPU%%/GPU%%/温度/FPS/リアルタイム電流を表示。画面占有最小。</string>
+    <string name="monitor_mini_info">超ミニマル1行モード。CPU%/GPU%/温度/FPS/リアルタイム電流を表示。画面占有最小。</string>
     <string name="monitor_fps_info">リアルタイムFPSカウンター。現在のFPS値を大きく表示し、ジャンク回数を集計。ゲームやアニメーションのパフォーマンステストに最適。</string>
     <string name="monitor_temperature_info">CPU、GPU、バッテリーなど複数温度センサーのリアルタイム値を表示。デバイスの発熱状況を監視。</string>
 

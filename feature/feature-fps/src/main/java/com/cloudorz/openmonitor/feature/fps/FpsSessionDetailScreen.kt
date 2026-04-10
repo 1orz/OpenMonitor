@@ -128,6 +128,7 @@ private enum class ChartSection(val label: String) {
     FPS_TEMP("FPS"),
     FRAME_TIME("Frame Time"),
     CPU_GPU("CPU / GPU"),
+    CPU_CORE_LOAD("CPU Core Load"),
     GPU_FREQ("GPU Freq"),
     CPU_FREQ("CPU Freq"),
     JANK("Jank"),
@@ -222,6 +223,7 @@ private fun FpsSessionDetailContent(
             if (sectionVisibility[ChartSection.FPS_TEMP] != false) FpsTempChart(records)
             if (sectionVisibility[ChartSection.FRAME_TIME] != false) FrameTimeChart(records)
             if (sectionVisibility[ChartSection.CPU_GPU] != false) CpuGpuUsageChart(records)
+            if (sectionVisibility[ChartSection.CPU_CORE_LOAD] != false) CpuCoreLoadChart(records)
             if (sectionVisibility[ChartSection.GPU_FREQ] != false) GpuFreqChart(records)
             if (sectionVisibility[ChartSection.CPU_FREQ] != false) CpuCoreFreqChart(records)
             if (sectionVisibility[ChartSection.JANK] != false) JankChart(records)
@@ -365,7 +367,6 @@ private fun StatsGridCard(records: List<FpsFrameRecord>) {
     val fivePercentLow = if (fpsList.size >= 20) {
         fpsList.sorted().take((fpsList.size * 0.05).toInt().coerceAtLeast(1)).average()
     } else fpsList.minOrNull() ?: 0.0
-    val totalJank = records.sumOf { it.jankCount }
     val maxTemp = records.maxOfOrNull { it.cpuTemp } ?: 0.0
     val powers = records.map { kotlin.math.abs(it.powerW) }.filter { it > 0 }
     val avgPower = if (powers.isNotEmpty()) powers.average() else 0.0
@@ -817,6 +818,44 @@ private fun GpuFreqChart(records: List<FpsFrameRecord>) {
 }
 
 @Composable
+private fun CpuCoreLoadChart(records: List<FpsFrameRecord>) {
+    if (records.none { it.cpuCoreLoads.isNotEmpty() }) return
+    val maxCores = records.maxOf { it.cpuCoreLoads.size }
+    if (maxCores == 0) return
+    val hasTotal = records.any { it.cpuLoad > 0.0 }
+
+    // Total first, then per-core
+    val allLabels = mutableListOf<String>()
+    val allColors = mutableListOf<Color>()
+    if (hasTotal) { allLabels.add("CPU(%)"); allColors.add(CpuColor) }
+    for (i in 0 until maxCores) { allLabels.add("Core $i"); allColors.add(CoreColors[i % CoreColors.size]) }
+
+    val seriesVis = remember { mutableStateMapOf<String, Boolean>() }
+
+    val visLabels = mutableListOf<String>()
+    val visColors = mutableListOf<Color>()
+    val visData = mutableListOf<List<Number>>()
+    if (hasTotal && seriesVis["CPU(%)"] != false) {
+        visLabels.add("CPU(%)"); visColors.add(CpuColor); visData.add(records.map { it.cpuLoad })
+    }
+    for (i in 0 until maxCores) {
+        val label = "Core $i"
+        if (seriesVis[label] != false) {
+            visLabels.add(label); visColors.add(CoreColors[i % CoreColors.size])
+            visData.add(records.map { it.cpuCoreLoads.getOrElse(i) { 0.0 } })
+        }
+    }
+
+    if (visData.isEmpty()) return
+
+    ChartCard(stringResource(R.string.fps_chart_cpu_core_load), allLabels, allColors, seriesVis) {
+        key(visLabels.joinToString()) {
+            VicoLineChart(records, visData, visColors, visLabels, yAxisSuffix = "%", fixedMaxY = 100.0)
+        }
+    }
+}
+
+@Composable
 private fun CpuCoreFreqChart(records: List<FpsFrameRecord>) {
     if (records.none { it.cpuCoreFreqsMhz.isNotEmpty() }) return
     val maxCores = records.maxOf { it.cpuCoreFreqsMhz.size }
@@ -849,7 +888,18 @@ private fun CpuCoreFreqChart(records: List<FpsFrameRecord>) {
 @Composable
 private fun JankChart(records: List<FpsFrameRecord>) {
     if (records.none { it.jankCount > 0 || it.bigJankCount > 0 }) return
-    val hasBig = records.any { it.bigJankCount > 0 }
+
+    // Daemon stores cumulative jank counts since last app switch.
+    // Convert to per-window increments so spikes appear at the moment jank occurred.
+    fun toDelta(selector: (FpsFrameRecord) -> Int): List<Int> =
+        records.indices.map { i ->
+            if (i == 0) records[i].let(selector)
+            else maxOf(0, records[i].let(selector) - records[i - 1].let(selector))
+        }
+
+    val jankDeltas = remember(records) { toDelta { it.jankCount } }
+    val bigJankDeltas = remember(records) { toDelta { it.bigJankCount } }
+    val hasBig = bigJankDeltas.any { it > 0 }
 
     val jankLabel = stringResource(R.string.fps_series_jank)
     val bigJankLabel = stringResource(R.string.fps_series_big_jank)
@@ -864,13 +914,13 @@ private fun JankChart(records: List<FpsFrameRecord>) {
     val visLabels = mutableListOf<String>()
     val visColors = mutableListOf<Color>()
     val visData = mutableListOf<List<Number>>()
-    if (seriesVis[jankLabel] != false) { visLabels.add(jankLabel); visColors.add(ChartRed); visData.add(records.map { it.jankCount }) }
-    if (hasBig && seriesVis[bigJankLabel] != false) { visLabels.add(bigJankLabel); visColors.add(Color(0xFFD32F2F)); visData.add(records.map { it.bigJankCount }) }
+    if (seriesVis[jankLabel] != false) { visLabels.add(jankLabel); visColors.add(ChartRed); visData.add(jankDeltas) }
+    if (hasBig && seriesVis[bigJankLabel] != false) { visLabels.add(bigJankLabel); visColors.add(Color(0xFFD32F2F)); visData.add(bigJankDeltas) }
 
     if (visData.isEmpty()) return
 
-    val totalJank = records.sumOf { it.jankCount }
-    val totalBig = records.sumOf { it.bigJankCount }
+    val totalJank = jankDeltas.sum()
+    val totalBig = bigJankDeltas.sum()
     val subtitle = if (hasBig) "$totalLabel: $jankLabel=$totalJank  $bigJankLabel=$totalBig" else "$totalLabel: $totalJank"
 
     ChartCard(

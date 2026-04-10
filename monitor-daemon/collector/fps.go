@@ -25,6 +25,14 @@ type FpsResult struct {
 	Source  string   `json:"source"`
 }
 
+// jankState holds per-layer PerfDog jank detection state.
+// Reset on every app switch so counters always reflect the current app session.
+type jankState struct {
+	prevTs           int64   // last processed actualPresentTime (ns since boot)
+	prevFrameTimeMs  float64 // interval of previous frame (ms)
+	prev2FrameTimeMs float64 // interval of the frame before that (ms)
+}
+
 // fpsCollector samples SurfaceFlinger frame counts in the background.
 // No smoothing — raw FPS values are output directly for instant transitions.
 type fpsCollector struct {
@@ -37,10 +45,8 @@ type fpsCollector struct {
 
 	trackedLayer string
 
-	// Jank detection: rolling 3-sample window.
-	frameTimeHistory [3]float64
-	frameTimeIdx     int
-	frameTimeFilled  bool
+	// PerfDog-style per-frame jank detection via --latency timestamps.
+	jank jankState
 
 	zeroStreak  int
 	lastFrameNs int64 // latest actualPresentTime from --latency (ns since boot)
@@ -201,8 +207,7 @@ func (fc *fpsCollector) sample() {
 		fc.result.BigJank = intPtr(0)
 		fc.zeroStreak = 0
 		fc.lastFrameNs = 0
-		fc.frameTimeFilled = false
-		fc.frameTimeIdx = 0
+		fc.jank = jankState{}
 		for k, v := range counts {
 			fc.prevCounts[k] = v
 		}
@@ -265,9 +270,8 @@ func (fc *fpsCollector) sample() {
 	fc.result.Layer = bestLayer
 	fc.result.Source = "timestats"
 
-	// ── Jank detection ──
-	avgFrameTimeMs := 1000.0 / rawFps
-	fc.detectJank(avgFrameTimeMs)
+	// ── PerfDog jank detection from per-frame --latency timestamps ──
+	fc.detectJankPerfdog()
 }
 
 // ─── Sticky layer selection ──────────────────────────────────────────
@@ -389,28 +393,66 @@ func parseLatency(layer string) []int64 {
 	return timestamps
 }
 
-// ─── Jank detection (PerfDog-inspired) ──────────────────────────────
+// ─── PerfDog jank detection ─────────────────────────────────────────
+//
+// Reads actualPresentTime stamps from `dumpsys SurfaceFlinger --latency`
+// and applies the PerfDog algorithm per frame:
+//
+//   Jank    : frameTime > 2 × avg(prev2) AND frameTime > 2 × baseline
+//   BigJank : frameTime > 3 × avg(prev2) AND frameTime > 3 × baseline
+//
+// baseline = 1000ms / 60fps = 16.67ms  (conservative; works on any refresh rate)
+//
+// Only frames with actualPresentTime newer than the last processed timestamp
+// are evaluated, so each frame is counted exactly once across calls.
 
-func (fc *fpsCollector) detectJank(curFrameTimeMs float64) {
-	if fc.frameTimeFilled {
-		avg := (fc.frameTimeHistory[0] + fc.frameTimeHistory[1] + fc.frameTimeHistory[2]) / 3.0
-		if curFrameTimeMs > 2*avg {
-			if curFrameTimeMs > 125.0 {
+const jankBaselineMs = 1000.0 / 60.0 // 16.67 ms — one frame at 60 Hz
+
+func (fc *fpsCollector) detectJankPerfdog() {
+	if fc.trackedLayer == "" {
+		return
+	}
+	layerName := strings.TrimPrefix(fc.trackedLayer, "layerName = ")
+	timestamps := parseLatency(layerName)
+	if len(timestamps) < 2 {
+		return
+	}
+
+	for i := 1; i < len(timestamps); i++ {
+		ts := timestamps[i]
+		if ts <= fc.jank.prevTs {
+			continue // already processed in a previous call
+		}
+
+		prev := timestamps[i-1]
+		if prev <= 0 {
+			fc.jank.prevTs = ts
+			continue
+		}
+
+		frameTimeMs := float64(ts-prev) / 1e6
+		if frameTimeMs <= 0 || frameTimeMs > 500 { // sanity: ignore gaps > 500ms (pause/idle)
+			fc.jank.prevTs = ts
+			continue
+		}
+
+		// Need two previous frames to compute the rolling average.
+		if fc.jank.prevFrameTimeMs > 0 && fc.jank.prev2FrameTimeMs > 0 {
+			avg := (fc.jank.prevFrameTimeMs + fc.jank.prev2FrameTimeMs) / 2.0
+			if frameTimeMs > 3*avg && frameTimeMs > 3*jankBaselineMs {
 				if fc.result.BigJank != nil {
 					fc.result.BigJank = intPtr(*fc.result.BigJank + 1)
 				}
-			} else if curFrameTimeMs > 83.3 {
+			} else if frameTimeMs > 2*avg && frameTimeMs > 2*jankBaselineMs {
 				if fc.result.Jank != nil {
 					fc.result.Jank = intPtr(*fc.result.Jank + 1)
 				}
 			}
 		}
-	}
 
-	fc.frameTimeHistory[fc.frameTimeIdx] = curFrameTimeMs
-	fc.frameTimeIdx = (fc.frameTimeIdx + 1) % 3
-	if fc.frameTimeIdx == 0 && !fc.frameTimeFilled {
-		fc.frameTimeFilled = true
+		fc.jank.prev2FrameTimeMs = fc.jank.prevFrameTimeMs
+		fc.jank.prevFrameTimeMs = frameTimeMs
+		fc.jank.prevTs = ts
 	}
 }
 

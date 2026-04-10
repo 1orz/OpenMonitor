@@ -37,7 +37,8 @@
     <string name="fps_recording_progress">已录 %1$s，剩余 %2$s</string>
     <string name="fps_chart_fps_temp">FPS / 温度</string>
     <string name="fps_chart_frame_time">帧时间 (ms)</string>
-    <string name="fps_chart_cpu_usage">CPU / GPU 占用率 (%%)</string>
+    <string name="fps_chart_cpu_usage">CPU / GPU 占用率 (%)</string>
+    <string name="fps_chart_cpu_core_load">CPU 各核心占用率 (%)</string>
     <string name="fps_chart_gpu_freq">GPU 频率 (MHz)</string>
     <string name="fps_chart_cpu_freq">CPU 各核心频率 (MHz)</string>
     <string name="fps_chart_power">功率 / 电量</string>
@@ -87,10 +88,10 @@
     <string name="overlay_mode_desc_auto">自动选择最佳方式（优先无障碍）</string>
     <string name="overlay_mode_desc_overlay">仅使用标准悬浮窗权限。避免触发支付类应用对无障碍服务的风控检测。</string>
     <string name="session_chart_power">功率(W)</string>
-    <string name="session_chart_battery">电量(%%)</string>
+    <string name="session_chart_battery">电量(%)</string>
     <string name="session_chart_temp">温度(\u00B0C)</string>
     <string name="session_chart_current">电流(mA)</string>
-    <string name="session_chart_capacity">电量(%%)</string>
+    <string name="session_chart_capacity">电量(%)</string>
     <string name="tap_to_view_chart">点击展开图表</string>
 
     <!-- FloatMonitorType display names -->
@@ -105,7 +106,7 @@
     <string name="monitor_load_desc">CPU/GPU/RAM/电池仪表盘</string>
     <string name="monitor_process_desc">Top CPU 进程列表</string>
     <string name="monitor_thread_desc">当前应用最耗CPU线程</string>
-    <string name="monitor_mini_desc">单行: CPU%%/GPU%%/温度/FPS/电流</string>
+    <string name="monitor_mini_desc">单行: CPU%/GPU%/温度/FPS/电流</string>
     <string name="monitor_fps_desc">实时 FPS 计数器</string>
     <string name="monitor_temperature_desc">多传感器温度值</string>
 
@@ -113,7 +114,7 @@
     <string name="monitor_load_info">显示 CPU、GPU、内存、电池的实时负载仪表盘。以 2x2 网格形式呈现四个圆弧仪表，直观展示系统资源使用情况。</string>
     <string name="monitor_process_info">显示当前 CPU 占用率最高的 5 个进程列表，包含进程名称和 CPU 使用百分比。帮助快速定位高负载进程。</string>
     <string name="monitor_thread_info">显示当前前台应用中 CPU 占用率最高的线程列表。用于深入分析应用性能瓶颈。</string>
-    <string name="monitor_mini_info">极简单行模式，显示 CPU%%/GPU%%/温度/FPS/实时电流。占用屏幕空间最小，适合日常监控。</string>
+    <string name="monitor_mini_info">极简单行模式，显示 CPU%/GPU%/温度/FPS/实时电流。占用屏幕空间最小，适合日常监控。</string>
     <string name="monitor_fps_info">实时帧率计数器，大字体显示当前 FPS 值，并统计卡顿 (Jank) 次数。适合游戏和动画性能测试。</string>
     <string name="monitor_temperature_info">显示设备多个温度传感器的实时读数，包括 CPU、GPU、电池等区域温度。用于监控设备散热状况。</string>
 
