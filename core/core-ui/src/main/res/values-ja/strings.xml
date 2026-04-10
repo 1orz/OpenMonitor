@@ -55,9 +55,10 @@
     <string name="fps_stat_avg">平均</string>
     <string name="fps_stat_variance">分散</string>
     <string name="fps_stat_smoothness">\u226545FPS</string>
-    <string name="fps_stat_low">5%% Low</string>
+    <string name="fps_stat_low">5% Low</string>
     <string name="fps_stat_avg_power">平均電力</string>
     <string name="fps_stat_max_temp">最高温度</string>
+    <string name="fps_stat_smoothness_unit">スムーズ率</string>
 
     <!-- Float Monitor Screen -->
     <string name="float_monitor_title">フロートモニター</string>

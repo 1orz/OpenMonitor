@@ -55,9 +55,10 @@
     <string name="fps_stat_avg">平均</string>
     <string name="fps_stat_variance">方差</string>
     <string name="fps_stat_smoothness">\u226545FPS</string>
-    <string name="fps_stat_low">5%% 低幀</string>
+    <string name="fps_stat_low">5% 低幀</string>
     <string name="fps_stat_avg_power">平均功率</string>
     <string name="fps_stat_max_temp">最高溫度</string>
+    <string name="fps_stat_smoothness_unit">流暢度</string>
 
     <!-- Float Monitor Screen -->
     <string name="float_monitor_title">懸浮監視器</string>

@@ -367,7 +367,7 @@ private fun StatsGridCard(records: List<FpsFrameRecord>) {
     } else fpsList.minOrNull() ?: 0.0
     val totalJank = records.sumOf { it.jankCount }
     val maxTemp = records.maxOfOrNull { it.cpuTemp } ?: 0.0
-    val powers = records.map { it.powerW }.filter { it > 0 }
+    val powers = records.map { kotlin.math.abs(it.powerW) }.filter { it > 0 }
     val avgPower = if (powers.isNotEmpty()) powers.average() else 0.0
 
     Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
@@ -381,8 +381,8 @@ private fun StatsGridCard(records: List<FpsFrameRecord>) {
             StatCell(stringResource(R.string.fps_stat_min), "%.1f".format(minFps), "FPS", fpsStatColor(minFps))
             StatCell(stringResource(R.string.fps_stat_avg), "%.1f".format(avgFps), "FPS", fpsStatColor(avgFps))
             StatCell(stringResource(R.string.fps_stat_variance), "%.1f".format(variance), "FPS", MaterialTheme.colorScheme.onSurfaceVariant)
-            StatCell(stringResource(R.string.fps_stat_smoothness), "%.1f%%".format(smoothness), "Smoothness", smoothnessColor(smoothness))
             StatCell(stringResource(R.string.fps_stat_low), "%.1f".format(fivePercentLow), "FPS", fpsStatColor(fivePercentLow))
+            StatCell(stringResource(R.string.fps_stat_smoothness), "%.1f%%".format(smoothness), stringResource(R.string.fps_stat_smoothness_unit), smoothnessColor(smoothness))
             if (maxTemp > 0) StatCell(stringResource(R.string.fps_stat_max_temp), "%.1f".format(maxTemp), "°C", tempStatColor(maxTemp))
             if (avgPower > 0) StatCell(stringResource(R.string.fps_stat_avg_power), "%.2f".format(avgPower), "W", PowerColor)
         }
