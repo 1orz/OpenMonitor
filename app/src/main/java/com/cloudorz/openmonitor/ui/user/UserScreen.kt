@@ -310,7 +310,7 @@ fun UserScreen(
                     val isError = info?.isError == true
 
                     val onItemClick: () -> Unit = if (hasUpdate) {
-                        { UpdateChecker.openDownload(updateContext, info?.downloadUrl ?: "") }
+                        { UpdateChecker.openDownload(updateContext, info.downloadUrl) }
                     } else {
                         { showAboutDialog = true }
                     }
@@ -337,7 +337,7 @@ fun UserScreen(
                                     text = when {
                                         isChecking -> stringResource(R.string.settings_detecting)
                                         isError -> stringResource(R.string.settings_check_failed)
-                                        else -> stringResource(R.string.settings_version_latest, info?.versionName ?: "")
+                                        else -> stringResource(R.string.settings_version_latest, info.versionName)
                                     },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = when {
@@ -444,7 +444,8 @@ private fun DaemonStatusItem(
 
     // Version match = daemon version equals app version (primary check)
     // Commit match = build-time expected commit matches daemon's actual commit (secondary)
-    val versionMatch = status.version != null && status.version == BuildConfig.VERSION_NAME
+    val appBaseVersion = BuildConfig.VERSION_NAME.substringBefore("-")
+    val versionMatch = status.version != null && status.version == appBaseVersion
     val commitMatch = status.expectedCommit != null &&
         status.currentCommit != null &&
         status.currentCommit.contains(status.expectedCommit)

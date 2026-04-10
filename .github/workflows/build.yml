@@ -1,9 +1,6 @@
 name: Build
 
 on:
-  push:
-    branches: [ main ]
-    tags-ignore: [ 'v*' ]       # tags handled by release.yml
   pull_request:
     branches: [ main ]
   workflow_dispatch:
