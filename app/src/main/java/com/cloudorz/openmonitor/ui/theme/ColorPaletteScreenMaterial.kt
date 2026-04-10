@@ -170,36 +170,25 @@ fun ColorPaletteScreenMaterial(
                 }
             }
 
-            // Color mode chips — icon only, no text
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                data class ModeOption(val mode: ColorMode, val icon: ImageVector)
-                val options = listOf(
-                    ModeOption(ColorMode.SYSTEM, Icons.Filled.Brightness4),
-                    ModeOption(ColorMode.LIGHT, Icons.Filled.Brightness7),
-                    ModeOption(ColorMode.DARK, Icons.Filled.Brightness3),
-                    ModeOption(ColorMode.DARK_AMOLED, Icons.Filled.Brightness1),
-                )
-                options.forEach { option ->
-                    FilterChip(
-                        selected = currentColorMode == option.mode,
-                        onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
-                            actions.onSetColorMode(option.mode)
-                        },
-                        label = { Icon(option.icon, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
-
             // Style settings
+            val colorModes = listOf(ColorMode.SYSTEM, ColorMode.LIGHT, ColorMode.DARK, ColorMode.DARK_AMOLED)
+            val colorModeLabels = listOf(
+                stringResource(R.string.settings_theme_mode_system),
+                stringResource(R.string.settings_theme_mode_light),
+                stringResource(R.string.settings_theme_mode_dark),
+                stringResource(R.string.settings_theme_mode_amoled),
+            )
             SettingsGroup(
                 items = listOf(
+                    {
+                        SettingsDropdownItem(
+                            title = stringResource(R.string.settings_color_mode),
+                            icon = Icons.Filled.Brightness4,
+                            items = colorModeLabels,
+                            selectedIndex = colorModes.indexOf(currentColorMode).coerceAtLeast(0),
+                            onItemSelected = { actions.onSetColorMode(colorModes[it]) },
+                        )
+                    },
                     {
                         SettingsDropdownItem(
                             title = stringResource(R.string.settings_color_style),

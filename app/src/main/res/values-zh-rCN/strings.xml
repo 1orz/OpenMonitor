@@ -123,6 +123,11 @@
     <string name="settings_group_about">关于</string>
     <string name="settings_theme">主题</string>
     <string name="settings_theme_summary">颜色、深色模式、页面缩放</string>
+    <string name="settings_color_mode">颜色模式</string>
+    <string name="settings_theme_mode_system">跟随系统</string>
+    <string name="settings_theme_mode_light">浅色</string>
+    <string name="settings_theme_mode_dark">深色</string>
+    <string name="settings_theme_mode_amoled">AMOLED</string>
     <string name="settings_color_style">配色风格</string>
     <string name="settings_color_spec">颜色规格</string>
     <string name="settings_page_scale">页面缩放</string>

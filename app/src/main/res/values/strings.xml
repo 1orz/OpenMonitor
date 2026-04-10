@@ -131,6 +131,11 @@
     <!-- Theme settings -->
     <string name="settings_theme">Theme</string>
     <string name="settings_theme_summary">Colors, dark mode, page scale</string>
+    <string name="settings_color_mode">Color Mode</string>
+    <string name="settings_theme_mode_system">Auto</string>
+    <string name="settings_theme_mode_light">Light</string>
+    <string name="settings_theme_mode_dark">Dark</string>
+    <string name="settings_theme_mode_amoled">AMOLED</string>
     <string name="settings_color_style">Color Style</string>
     <string name="settings_color_spec">Color Spec</string>
     <string name="settings_page_scale">Page Scale</string>
