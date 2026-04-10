@@ -111,7 +111,6 @@
     <string name="feature_debug_log">调试日志</string>
 
     <!-- 设置 -->
-    <string name="settings_title">设置</string>
     <string name="settings_switch_mode">切换运行模式</string>
     <string name="settings_detecting">检测中…</string>
     <string name="settings_running">运行中</string>
@@ -124,10 +123,6 @@
     <string name="settings_group_about">关于</string>
     <string name="settings_theme">主题</string>
     <string name="settings_theme_summary">颜色、深色模式、页面缩放</string>
-    <string name="settings_theme_mode_system">跟随系统</string>
-    <string name="settings_theme_mode_light">日间</string>
-    <string name="settings_theme_mode_dark">深色</string>
-    <string name="settings_theme_mode_amoled">AMOLED 深色</string>
     <string name="settings_color_style">配色风格</string>
     <string name="settings_color_spec">颜色规格</string>
     <string name="settings_page_scale">页面缩放</string>
@@ -144,8 +139,6 @@
     <string name="settings_check_connection">检测连接</string>
     <string name="settings_auto_detect_hint">启动后将自动检测连接</string>
     <string name="settings_haptic_feedback">触感反馈</string>
-    <string name="settings_haptic_on">已开启</string>
-    <string name="settings_haptic_off">已关闭</string>
 
     <!-- 模式名称 -->
     <string name="mode_root">Root 模式</string>

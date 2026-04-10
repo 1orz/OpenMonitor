@@ -199,6 +199,7 @@ class UserViewModel @Inject constructor(
     private val _pageScale = MutableStateFlow(themeRepo.pageScale)
     val pageScale: StateFlow<Float> = _pageScale.asStateFlow()
 
+
     fun setColorMode(mode: ColorMode) {
         themeRepo.colorMode = mode.value
         _colorMode.value = mode.value
@@ -223,6 +224,7 @@ class UserViewModel @Inject constructor(
         themeRepo.pageScale = scale
         _pageScale.value = scale
     }
+
 
     fun setHapticEnabled(enabled: Boolean) {
         HapticFeedbackManager.setEnabled(context, enabled)

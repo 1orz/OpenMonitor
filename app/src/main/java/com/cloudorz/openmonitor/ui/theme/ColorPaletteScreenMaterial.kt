@@ -32,7 +32,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Brightness1
 import androidx.compose.material.icons.filled.Brightness3
 import androidx.compose.material.icons.filled.Brightness4
@@ -83,8 +85,10 @@ import androidx.compose.material3.surfaceColorAtElevation
 import com.cloudorz.openmonitor.R
 import com.cloudorz.openmonitor.core.ui.theme.ColorMode
 import com.cloudorz.openmonitor.core.ui.theme.keyColorOptions
+import androidx.compose.ui.graphics.vector.ImageVector
 import com.cloudorz.openmonitor.ui.component.SettingsDropdownItem
 import com.cloudorz.openmonitor.ui.component.SettingsGroup
+import com.cloudorz.openmonitor.ui.component.SettingsSwitchItem
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
 import com.materialkolor.rememberDynamicColorScheme
@@ -166,19 +170,19 @@ fun ColorPaletteScreenMaterial(
                 }
             }
 
-            // Color mode chips
+            // Color mode chips — icon only, no text
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                data class ModeOption(val mode: ColorMode, val label: String, val icon: @Composable () -> Unit)
+                data class ModeOption(val mode: ColorMode, val icon: ImageVector)
                 val options = listOf(
-                    ModeOption(ColorMode.SYSTEM, stringResource(R.string.settings_theme_mode_system)) { Icon(Icons.Filled.Brightness4, null, modifier = Modifier.size(18.dp)) },
-                    ModeOption(ColorMode.LIGHT, stringResource(R.string.settings_theme_mode_light)) { Icon(Icons.Filled.Brightness7, null, modifier = Modifier.size(18.dp)) },
-                    ModeOption(ColorMode.DARK, stringResource(R.string.settings_theme_mode_dark)) { Icon(Icons.Filled.Brightness3, null, modifier = Modifier.size(18.dp)) },
-                    ModeOption(ColorMode.DARK_AMOLED, stringResource(R.string.settings_theme_mode_amoled)) { Icon(Icons.Filled.Brightness1, null, modifier = Modifier.size(18.dp)) },
+                    ModeOption(ColorMode.SYSTEM, Icons.Filled.Brightness4),
+                    ModeOption(ColorMode.LIGHT, Icons.Filled.Brightness7),
+                    ModeOption(ColorMode.DARK, Icons.Filled.Brightness3),
+                    ModeOption(ColorMode.DARK_AMOLED, Icons.Filled.Brightness1),
                 )
                 options.forEach { option ->
                     FilterChip(
@@ -187,14 +191,13 @@ fun ColorPaletteScreenMaterial(
                             haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
                             actions.onSetColorMode(option.mode)
                         },
-                        label = { Text(option.label, style = MaterialTheme.typography.labelSmall) },
-                        leadingIcon = option.icon,
+                        label = { Icon(option.icon, contentDescription = null, modifier = Modifier.size(18.dp)) },
                         modifier = Modifier.weight(1f),
                     )
                 }
             }
 
-            // Style & scale settings
+            // Style settings
             SettingsGroup(
                 items = listOf(
                     {
@@ -215,6 +218,12 @@ fun ColorPaletteScreenMaterial(
                             onItemSelected = { index -> actions.onSetColorSpec(ColorSpec.SpecVersion.entries[index].name) },
                         )
                     },
+                ),
+            )
+
+            // Display settings
+            SettingsGroup(
+                items = listOf(
                     {
                         var sliderValue by remember(state.pageScale) { mutableFloatStateOf(state.pageScale) }
                         ListItem(
@@ -224,10 +233,28 @@ fun ColorPaletteScreenMaterial(
                             headlineContent = { Text(stringResource(R.string.settings_page_scale)) },
                             leadingContent = { Icon(Icons.Rounded.AspectRatio, contentDescription = null) },
                             trailingContent = {
-                                Text(
-                                    "${(sliderValue * 100).toInt()}%",
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        "${(sliderValue * 100).toInt()}%",
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                    if (sliderValue != 1.0f) {
+                                        IconButton(
+                                            onClick = {
+                                                haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                                                sliderValue = 1.0f
+                                                actions.onSetPageScale(1.0f)
+                                            },
+                                            modifier = Modifier.size(32.dp),
+                                        ) {
+                                            Icon(
+                                                Icons.Filled.RestartAlt,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp),
+                                            )
+                                        }
+                                    }
+                                }
                             },
                             supportingContent = {
                                 Slider(

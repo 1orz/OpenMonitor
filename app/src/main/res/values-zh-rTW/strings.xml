@@ -111,7 +111,6 @@
     <string name="feature_debug_log">偵錯日誌</string>
 
     <!-- 設定 -->
-    <string name="settings_title">設定</string>
     <string name="settings_switch_mode">切換執行模式</string>
     <string name="settings_detecting">偵測中…</string>
     <string name="settings_running">執行中</string>
@@ -124,10 +123,6 @@
     <string name="settings_group_about">關於</string>
     <string name="settings_theme">主題</string>
     <string name="settings_theme_summary">顏色、深色模式、頁面縮放</string>
-    <string name="settings_theme_mode_system">跟隨系統</string>
-    <string name="settings_theme_mode_light">日間</string>
-    <string name="settings_theme_mode_dark">深色</string>
-    <string name="settings_theme_mode_amoled">AMOLED 深色</string>
     <string name="settings_color_style">配色風格</string>
     <string name="settings_color_spec">顏色規格</string>
     <string name="settings_page_scale">頁面縮放</string>
@@ -144,8 +139,6 @@
     <string name="settings_check_connection">偵測連線</string>
     <string name="settings_auto_detect_hint">啟動後將自動偵測連線</string>
     <string name="settings_haptic_feedback">觸感回饋</string>
-    <string name="settings_haptic_on">已開啟</string>
-    <string name="settings_haptic_off">已關閉</string>
 
     <!-- 模式名稱 -->
     <string name="mode_root">Root 模式</string>

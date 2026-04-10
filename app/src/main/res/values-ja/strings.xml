@@ -111,7 +111,6 @@
     <string name="feature_debug_log">デバッグログ</string>
 
     <!-- 設定 -->
-    <string name="settings_title">設定</string>
     <string name="settings_switch_mode">実行モード切替</string>
     <string name="settings_detecting">検出中…</string>
     <string name="settings_running">実行中</string>
@@ -124,10 +123,6 @@
     <string name="settings_group_about">バージョン情報</string>
     <string name="settings_theme">テーマ</string>
     <string name="settings_theme_summary">カラー、ダークモード、ページスケール</string>
-    <string name="settings_theme_mode_system">システムに従う</string>
-    <string name="settings_theme_mode_light">ライト</string>
-    <string name="settings_theme_mode_dark">ダーク</string>
-    <string name="settings_theme_mode_amoled">AMOLED ダーク</string>
     <string name="settings_color_style">カラースタイル</string>
     <string name="settings_color_spec">カラー仕様</string>
     <string name="settings_page_scale">ページスケール</string>
@@ -144,8 +139,6 @@
     <string name="settings_check_connection">接続確認</string>
     <string name="settings_auto_detect_hint">起動後に自動で接続を検出します</string>
     <string name="settings_haptic_feedback">触覚フィードバック</string>
-    <string name="settings_haptic_on">オン</string>
-    <string name="settings_haptic_off">オフ</string>
 
     <!-- モード名 -->
     <string name="mode_root">Root モード</string>

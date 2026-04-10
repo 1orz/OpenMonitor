@@ -433,7 +433,7 @@ private fun TabsScreen(permissionManager: PermissionManager) {
                         selected = pagerState.currentPage == index,
                         onClick = {
                             view.hapticClick()
-                            coroutineScope.launch { pagerState.animateScrollToPage(index) }
+                            coroutineScope.launch { pagerState.scrollToPage(index) }
                         },
                         icon = { Icon(tab.icon, stringResource(tab.labelResId)) },
                         label = { Text(stringResource(tab.labelResId)) },
@@ -445,6 +445,7 @@ private fun TabsScreen(permissionManager: PermissionManager) {
     ) { innerPadding ->
         HorizontalPager(
             state = pagerState,
+            beyondViewportPageCount = Route.tabs.size - 1,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
