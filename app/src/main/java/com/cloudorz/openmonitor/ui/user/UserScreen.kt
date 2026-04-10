@@ -30,6 +30,8 @@ import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
@@ -72,6 +74,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -79,7 +82,10 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import androidx.compose.material.icons.filled.Language
+import com.cloudorz.openmonitor.BuildConfig
 import com.cloudorz.openmonitor.R
+import com.cloudorz.openmonitor.ui.util.UpdateChecker
+import com.cloudorz.openmonitor.ui.util.UpdateInfo
 import com.cloudorz.openmonitor.core.common.PermissionManager
 import com.cloudorz.openmonitor.core.common.PrivilegeMode
 import com.cloudorz.openmonitor.ui.component.SettingsDropdownItem
@@ -285,25 +291,89 @@ fun UserScreen(
         if (showAboutDialog) {
             AboutDialog(onDismiss = { showAboutDialog = false })
         }
+
+        // null = still checking, non-null = result
+        val updateContext = LocalContext.current
+        var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
+        LaunchedEffect(Unit) {
+            updateInfo = UpdateChecker.check(updateContext)
+        }
+
         SettingsGroup(
             title = stringResource(R.string.settings_group_about),
-            items = listOf(
-                {
+            items = buildList {
+                // Version + update status merged into one item
+                add {
+                    val info = updateInfo
+                    val isChecking = info == null
+                    val hasUpdate = info?.hasUpdate == true
+                    val isError = info?.isError == true
+
+                    val onItemClick: () -> Unit = if (hasUpdate) {
+                        { UpdateChecker.openDownload(updateContext, info?.downloadUrl ?: "") }
+                    } else {
+                        { showAboutDialog = true }
+                    }
+
+                    ListItem(
+                        modifier = Modifier.hapticClickable(onClick = onItemClick),
+                        colors = ListItemDefaults.colors(
+                            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+                        ),
+                        headlineContent = { Text("OpenMonitor") },
+                        supportingContent = {
+                            Row {
+                                Text(
+                                    text = stringResource(R.string.settings_version_current, BuildConfig.VERSION_NAME),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.outline,
+                                )
+                                Text(
+                                    text = "  ·  ",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.outline,
+                                )
+                                Text(
+                                    text = when {
+                                        isChecking -> stringResource(R.string.settings_detecting)
+                                        isError -> stringResource(R.string.settings_check_failed)
+                                        else -> stringResource(R.string.settings_version_latest, info?.versionName ?: "")
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = when {
+                                        isChecking -> MaterialTheme.colorScheme.outline
+                                        isError -> MaterialTheme.colorScheme.error
+                                        hasUpdate -> MaterialTheme.colorScheme.primary
+                                        else -> Color(0xFF4CAF50)
+                                    },
+                                )
+                            }
+                        },
+                        leadingContent = {
+                            Icon(Icons.Filled.Info, contentDescription = null)
+                        },
+                        trailingContent = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_github),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Icon(Icons.AutoMirrored.Filled.NavigateNext, contentDescription = null)
+                            }
+                        },
+                    )
+                }
+                add {
                     SettingsNavigateItem(
                         title = stringResource(R.string.settings_open_source_licenses),
                         icon = Icons.Filled.Gavel,
                         onClick = { onNavigateToLicenses() },
                     )
-                },
-                {
-                    SettingsNavigateItem(
-                        title = "OpenMonitor",
-                        summary = stringResource(R.string.settings_version_format, com.cloudorz.openmonitor.BuildConfig.VERSION_NAME),
-                        icon = Icons.Filled.Info,
-                        onClick = { showAboutDialog = true },
-                    )
-                },
-            ),
+                }
+            },
         )
     }
 }
@@ -557,7 +627,7 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                 } catch (_: Exception) {}
             }) {
                 Icon(
-                    painter = androidx.compose.ui.res.painterResource(id = com.cloudorz.openmonitor.R.drawable.ic_github),
+                    painter = painterResource(R.drawable.ic_github),
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
                 )
@@ -573,8 +643,14 @@ private fun AboutDialog(onDismiss: () -> Unit) {
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                AboutRow("Version", com.cloudorz.openmonitor.BuildConfig.VERSION_NAME)
-                AboutRow("Commit", com.cloudorz.openmonitor.BuildConfig.GIT_COMMIT)
+                Text(
+                    text = stringResource(R.string.app_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                AboutRow("Version", BuildConfig.VERSION_NAME)
+                AboutRow("Commit", BuildConfig.GIT_COMMIT)
                 AboutRow("Author", "1orz")
                 AboutRow("License", "GPLv3")
             }

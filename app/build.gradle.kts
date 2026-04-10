@@ -16,8 +16,11 @@ android {
         applicationId = "com.cloudorz.openmonitor"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+
+        // versionName from CI env (tag) or fallback
+        versionName = System.getenv("VERSION_NAME") ?: "1.0.0"
+        // versionCode from CI env or fallback; tag v1.2.3 → 10203
+        versionCode = (System.getenv("VERSION_CODE") ?: "1").toInt()
 
         ndk {
             abiFilters += listOf("armeabi-v7a", "arm64-v8a")
@@ -27,6 +30,15 @@ android {
             cmake {
                 arguments += listOf("-DANDROID_STL=c++_static")
             }
+        }
+    }
+
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a")
+            isUniversalApk = true
         }
     }
 
@@ -106,7 +118,6 @@ android {
 // (File, String, FileCollection) and stays configuration-cache compatible.
 
 val daemonSrcDir = file("${rootProject.projectDir}/monitor-daemon")
-val daemonBinary = file("src/main/jniLibs/arm64-v8a/libmonitor-daemon.so")
 val daemonCommitFile = file("src/main/assets/daemon/daemon-commit.txt")
 val daemonGoModExists = daemonSrcDir.resolve("go.mod").exists()
 
@@ -126,32 +137,39 @@ val daemonHash: String = providers.exec {
 
 val daemonSourceFiles = fileTree(daemonSrcDir) { include("**/*.go", "go.mod", "go.sum") }
 
-// Write daemon commit hash at configuration time — it's a tiny text file and
-// the hash is already resolved, so no need for a task action lambda.
 daemonCommitFile.parentFile.mkdirs()
 daemonCommitFile.writeText(daemonHash)
 
-val buildMonitorDaemon by tasks.registering(Exec::class) {
-    group = "build"
-    description = "Compile monitor-daemon (Go → Android arm64)"
-    enabled = daemonGoModExists
+// Build daemon for both architectures
+data class DaemonTarget(val goArch: String, val abiDir: String, val extraEnv: Map<String, String> = emptyMap())
+val daemonTargets = listOf(
+    DaemonTarget("arm64", "arm64-v8a"),
+    DaemonTarget("arm", "armeabi-v7a", mapOf("GOARM" to "7", "GOOS" to "linux")),
+)
 
-    workingDir = daemonSrcDir
+val daemonTasks = daemonTargets.map { target ->
+    val outputFile = file("src/main/jniLibs/${target.abiDir}/libmonitor-daemon.so")
+    tasks.register<Exec>("buildDaemon_${target.abiDir}") {
+        group = "build"
+        description = "Compile monitor-daemon (Go → Android ${target.abiDir})"
+        enabled = daemonGoModExists
 
-    val ldflags = "-s -w -X monitor-daemon/collector.GitCommit=$daemonHash"
-    commandLine = listOf(goExecutable, "build", "-ldflags", ldflags, "-o", daemonBinary.absolutePath, "./cmd/daemon")
-    environment("GOOS", "android")
-    environment("GOARCH", "arm64")
-    environment("CGO_ENABLED", "0")
+        workingDir = daemonSrcDir
+        val ldflags = "-s -w -X monitor-daemon/collector.GitCommit=$daemonHash"
+        commandLine = listOf(goExecutable, "build", "-ldflags", ldflags, "-o", outputFile.absolutePath, "./cmd/daemon")
+        environment("GOOS", target.extraEnv["GOOS"] ?: "android")
+        environment("GOARCH", target.goArch)
+        environment("CGO_ENABLED", "0")
+        target.extraEnv.filterKeys { it != "GOOS" }.forEach { (k, v) -> environment(k, v) }
 
-    inputs.files(daemonSourceFiles)
-        .withPathSensitivity(PathSensitivity.RELATIVE)
-    inputs.property("daemonHash", daemonHash)
-    outputs.file(daemonBinary)
+        inputs.files(daemonSourceFiles).withPathSensitivity(PathSensitivity.RELATIVE)
+        inputs.property("daemonHash", daemonHash)
+        outputs.file(outputFile)
+    }
 }
 
 tasks.named("preBuild") {
-    dependsOn(buildMonitorDaemon)
+    dependsOn(daemonTasks)
 }
 // ─────────────────────────────────────────────────────────────────────────────
 

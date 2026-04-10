@@ -131,6 +131,12 @@
     <string name="settings_color_style">配色風格</string>
     <string name="settings_color_spec">顏色規格</string>
     <string name="settings_page_scale">頁面縮放</string>
+    <string name="settings_update_available">發現新版本</string>
+    <string name="settings_up_to_date">已是最新版本</string>
+    <string name="app_description">輕量、現代的 Android 系統監控工具。即時硬體狀態 · FPS 幀率錄製 · 進程管理 · 懸浮窗 · 桌面小組件，全面適配 Root / Shizuku / ADB。</string>
+    <string name="settings_version_current">已安裝：%s</string>
+    <string name="settings_version_latest">最新版本：%s</string>
+    <string name="settings_check_failed">檢查失敗</string>
     <string name="settings_language">語言</string>
     <string name="settings_language_system">跟隨系統</string>
     <string name="settings_close">關閉</string>

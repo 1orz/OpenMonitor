@@ -19,7 +19,7 @@
 /app/release
 
 # Daemon build artifacts (built by Gradle task)
-/app/src/main/jniLibs/arm64-v8a/libmonitor-daemon.so
+/app/src/main/jniLibs/
 /app/src/main/assets/daemon/daemon-commit.txt
 release.jks
 

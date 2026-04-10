@@ -140,6 +140,12 @@
     <string name="settings_color_spec">Color Spec</string>
     <string name="settings_page_scale">Page Scale</string>
 
+    <string name="settings_update_available">Update Available</string>
+    <string name="settings_up_to_date">Already up to date</string>
+    <string name="app_description">Lightweight, modern Android system monitor. Real-time hardware status · FPS recording · Process management · Float window · Widget, fully supports Root / Shizuku / ADB.</string>
+    <string name="settings_version_current">Installed: %s</string>
+    <string name="settings_version_latest">Latest: %s</string>
+    <string name="settings_check_failed">Check failed</string>
     <string name="settings_language">Language</string>
     <string name="settings_language_system">Follow System</string>
     <string name="settings_close">Close</string>
