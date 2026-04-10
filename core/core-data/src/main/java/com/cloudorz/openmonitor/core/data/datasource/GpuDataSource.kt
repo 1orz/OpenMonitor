@@ -164,7 +164,7 @@ class GpuDataSource @Inject constructor(
     }
 
     private fun maliProductIdToName(productId: Int): String {
-        // Mali product ID mapping (from DevCheck's libdevcheck.so strings)
+        // Mali product ID mapping
         return when (productId and 0xFFFF) {
             in 0x7500..0x75FF -> "Mali-T760"
             in 0x8600..0x86FF -> "Mali-T860"

@@ -157,7 +157,7 @@ private fun CpuOverviewHeader(cpuStatus: CpuGlobalStatus) {
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Left: OEM brand logo (56dp), like DevCheck device card
+            // Left: OEM brand logo (56dp)
             if (socInfo.deviceBrand.isNotBlank()) {
                 DeviceBrandLogo(brand = socInfo.deviceBrand, size = 56.dp)
                 Spacer(modifier = Modifier.width(16.dp))

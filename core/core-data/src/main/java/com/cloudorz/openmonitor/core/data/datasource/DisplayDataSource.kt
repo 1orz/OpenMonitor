@@ -47,7 +47,7 @@ class DisplayDataSource @Inject constructor(
         // Max refresh rate from all modes
         val maxRefreshRate = modes.maxOfOrNull { it.refreshRate } ?: refreshRate
 
-        // Physical size and PPI — following DevCheck's exact formula
+        // Physical size and PPI
         val widthInch = widthPixels / metrics.xdpi.toDouble()
         val heightInch = heightPixels / metrics.ydpi.toDouble()
         val diagonalInch = sqrt(widthInch * widthInch + heightInch * heightInch).toFloat()
@@ -66,7 +66,7 @@ class DisplayDataSource @Inject constructor(
             else -> "xxxhdpi"
         }
 
-        // Aspect ratio — DevCheck style lookup table
+        // Aspect ratio
         val aspectRatio = computeAspectRatio(widthPixels, heightPixels)
 
         // HDR capabilities
@@ -89,7 +89,7 @@ class DisplayDataSource @Inject constructor(
         // Wide color gamut
         val wideColorGamut = display.isWideColorGamut
 
-        // Panel name — DevCheck reads from sysfs or getprop
+        // Panel name
         val panelName = readPanelName()
 
         // Display name
@@ -115,7 +115,7 @@ class DisplayDataSource @Inject constructor(
         )
     }
 
-    /** Read display panel name from sysfs or system property (DevCheck approach). */
+    /** Read display panel name from sysfs or system property. */
     private suspend fun readPanelName(): String {
         // Method 1: sysfs panel_info (Qualcomm devices)
         val panelInfoPaths = listOf(
@@ -163,7 +163,7 @@ class DisplayDataSource @Inject constructor(
         }
     }
 
-    /** Compute aspect ratio using DevCheck's lookup-table approach. */
+    /** Compute aspect ratio */
     private fun computeAspectRatio(w: Int, h: Int): String {
         if (w == 0 || h == 0) return ""
         val maxDim = maxOf(w, h)
@@ -172,7 +172,7 @@ class DisplayDataSource @Inject constructor(
         val ratio = maxDim.toDouble() / minDim
         val ratioStr = "%.3f".format(ratio)
 
-        // DevCheck-style lookup table
+        // lookup table
         val known = when (ratioStr) {
             "1.000" -> "1:1"
             "1.333" -> "4:3"

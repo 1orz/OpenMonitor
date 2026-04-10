@@ -10,7 +10,6 @@ import android.util.Log
 
 /**
  * Creates a temporary EGL context to query OpenGL ES strings.
- * Same approach as DevCheck's EglUtils.cpp and Athena's EglInformation.
  */
 object EglHelper {
 

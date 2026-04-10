@@ -224,7 +224,7 @@ private fun ProcessorCard(cpuStatus: CpuGlobalStatus, onCpuAnalysisClick: () -> 
 private fun GpuCard(gpuInfo: GpuInfo, onVulkanInfoClick: () -> Unit = {}, onOpenGLInfoClick: () -> Unit = {}) {
     val view = LocalView.current
     SectionCard(title = "GPU", icon = Icons.Outlined.DeveloperBoard, titleColor = MaterialTheme.colorScheme.error) {
-        // GPU header — model name as title (like DevCheck's "Adreno 830")
+        // GPU header — model name as title
         val rawModel = gpuInfo.glRenderer.ifBlank { gpuInfo.model.ifEmpty { gpuInfo.vendor.displayName } }
         val displayModel = rawModel
             .replace("(TM)", "™")
@@ -419,7 +419,7 @@ private fun DisplayCard(displayInfo: DisplayInfo) {
             InfoRow(stringResource(R.string.hw_hdr_support), displayInfo.hdrCapabilities.joinToString("\n"))
         }
 
-        // Panel name (DevCheck reads this from sysfs)
+        // Panel name
         if (displayInfo.panelName.isNotBlank()) {
             Spacer(modifier = Modifier.height(4.dp))
             InfoRow(stringResource(R.string.hw_panel), displayInfo.panelName)

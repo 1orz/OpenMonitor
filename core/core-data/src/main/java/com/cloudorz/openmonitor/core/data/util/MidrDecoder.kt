@@ -10,7 +10,6 @@ package com.cloudorz.openmonitor.core.data.util
  *   [15:4]  primary part number
  *   [3:0]   revision
  *
- * References: DevCheck rz1.java MIDR decode table, ARM Architecture Reference Manual.
  */
 object MidrDecoder {
 
