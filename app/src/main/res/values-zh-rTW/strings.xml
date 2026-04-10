@@ -73,6 +73,9 @@
     <string name="perm_battery_desc">防止系統在背景終止監控服務</string>
     <string name="perm_notification_title">通知權限</string>
     <string name="perm_notification_desc">顯示前台服務通知以保持監控執行</string>
+    <string name="perm_location_title">位置權限（可選）</string>
+    <string name="perm_location_desc">在網路監控中顯示 WiFi SSID 和 BSSID 所需</string>
+    <string name="perm_optional_section">可選</string>
     <string name="perm_go_grant">去授權</string>
     <string name="perm_start">開始使用</string>
     <string name="perm_grant_all_hint">請先授予以上全部權限後繼續</string>

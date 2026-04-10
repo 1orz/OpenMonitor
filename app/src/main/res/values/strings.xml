@@ -80,6 +80,9 @@
     <string name="perm_battery_desc">Prevent the system from killing the monitoring service in background</string>
     <string name="perm_notification_title">Notifications</string>
     <string name="perm_notification_desc">Show foreground service notifications for monitoring</string>
+    <string name="perm_location_title">Location (Optional)</string>
+    <string name="perm_location_desc">Required to display WiFi SSID and BSSID in network monitor</string>
+    <string name="perm_optional_section">Optional</string>
     <string name="perm_go_grant">Go to Grant</string>
     <string name="perm_start">Start Using</string>
     <string name="perm_grant_all_hint">Please grant all permissions above to continue</string>

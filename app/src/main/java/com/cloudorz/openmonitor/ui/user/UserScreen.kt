@@ -442,13 +442,21 @@ private fun DaemonStatusItem(
     val view = LocalView.current
     var showVersionDialog by remember { mutableStateOf(false) }
 
+    // Version match = daemon version equals app version (primary check)
+    // Commit match = build-time expected commit matches daemon's actual commit (secondary)
+    val versionMatch = status.version != null && status.version == BuildConfig.VERSION_NAME
+    val commitMatch = status.expectedCommit != null &&
+        status.currentCommit != null &&
+        status.currentCommit.contains(status.expectedCommit)
+
     if (showVersionDialog) {
         VersionInfoDialog(
-            expected = status.expectedCommit ?: "N/A",
-            current = status.currentCommit ?: "N/A",
-            isMatch = status.expectedCommit != null &&
-                status.currentCommit != null &&
-                status.currentCommit.contains(status.expectedCommit),
+            appVersion = BuildConfig.VERSION_NAME,
+            daemonVersion = status.version ?: "N/A",
+            expectedCommit = status.expectedCommit ?: "N/A",
+            currentCommit = status.currentCommit ?: "N/A",
+            versionMatch = versionMatch,
+            commitMatch = commitMatch,
             onDismiss = { showVersionDialog = false },
         )
     }
@@ -480,18 +488,15 @@ private fun DaemonStatusItem(
         leadingContent = { Icon(Icons.Outlined.Cable, contentDescription = null) },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (status.checkedOnce && status.connected && (status.expectedCommit != null || status.currentCommit != null)) {
-                    val isMatch = status.expectedCommit != null &&
-                        status.currentCommit != null &&
-                        status.currentCommit.contains(status.expectedCommit)
+                if (status.checkedOnce && status.connected) {
                     IconButton(
                         onClick = { view.hapticClick(); showVersionDialog = true },
                         modifier = Modifier.size(32.dp),
                     ) {
                         Icon(
-                            imageVector = if (isMatch) Icons.Filled.CheckCircle else Icons.Filled.Warning,
+                            imageVector = if (versionMatch) Icons.Filled.CheckCircle else Icons.Filled.Warning,
                             contentDescription = null,
-                            tint = if (isMatch) Color(0xFF4CAF50) else Color(0xFFFFA726),
+                            tint = if (versionMatch) Color(0xFF4CAF50) else Color(0xFFFFA726),
                             modifier = Modifier.size(18.dp),
                         )
                     }
@@ -514,9 +519,12 @@ private fun DaemonStatusItem(
 
 @Composable
 private fun VersionInfoDialog(
-    expected: String,
-    current: String,
-    isMatch: Boolean,
+    appVersion: String,
+    daemonVersion: String,
+    expectedCommit: String,
+    currentCommit: String,
+    versionMatch: Boolean,
+    commitMatch: Boolean,
     onDismiss: () -> Unit,
 ) {
     val view = LocalView.current
@@ -527,47 +535,46 @@ private fun VersionInfoDialog(
         },
         icon = {
             Icon(
-                imageVector = if (isMatch) Icons.Filled.CheckCircle else Icons.Filled.Warning,
+                imageVector = if (versionMatch) Icons.Filled.CheckCircle else Icons.Filled.Warning,
                 contentDescription = null,
-                tint = if (isMatch) Color(0xFF4CAF50) else Color(0xFFFFA726),
+                tint = if (versionMatch) Color(0xFF4CAF50) else Color(0xFFFFA726),
                 modifier = Modifier.size(32.dp),
             )
         },
         title = {
-            Text(if (isMatch) stringResource(R.string.settings_version_match) else stringResource(R.string.settings_version_mismatch))
+            Text(if (versionMatch) stringResource(R.string.settings_version_match) else stringResource(R.string.settings_version_mismatch))
         },
         text = {
-            Column {
-                Row {
-                    Text(
-                        text = "Expected: ",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = expected,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontFamily = FontFamily.Monospace,
-                        ),
-                    )
-                }
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                // Primary: version comparison
+                VersionRow(label = "App:    ", value = appVersion)
+                VersionRow(label = "Daemon: ", value = daemonVersion,
+                    color = if (versionMatch) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error)
                 Spacer(modifier = Modifier.height(4.dp))
-                Row {
-                    Text(
-                        text = "Current:   ",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = current,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontFamily = FontFamily.Monospace,
-                        ),
-                    )
-                }
+                // Secondary: commit hash (developer detail)
+                VersionRow(label = "Expected: ", value = expectedCommit)
+                VersionRow(label = "Current:  ", value = currentCommit,
+                    color = if (commitMatch) MaterialTheme.colorScheme.onSurface else Color(0xFFFFA726))
             }
         },
     )
+}
+
+@Composable
+private fun VersionRow(label: String, value: String, color: Color = MaterialTheme.colorScheme.onSurface) {
+    Row {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+            color = color,
+        )
+    }
 }
 
 private enum class ShizukuStatus {

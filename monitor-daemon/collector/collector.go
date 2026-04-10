@@ -165,17 +165,20 @@ func (c *Collector) GetSnapshot() Snapshot {
 // GitCommit is set at build time via -ldflags "-X collector.GitCommit=xxx".
 var GitCommit = "dev"
 
+// Version is set at build time via -ldflags "-X collector.Version=x.y.z".
+var Version = "0.0.1"
+
 var startedAt = time.Now()
 
 // PingInfo returns rich JSON for the ping command, including version, uptime, etc.
 func PingInfo() string {
 	uptime := int64(time.Since(startedAt).Seconds())
 	return fmt.Sprintf(
-		`{"status":"pong","version":"1.0.0","commit":%q,"runner":%q,"pid":%d,"started_at":%q,"uptime_s":%d}`,
-		GitCommit, daemonRunner, os.Getpid(), startedAt.Format(time.RFC3339), uptime)
+		`{"status":"pong","version":%q,"commit":%q,"runner":%q,"pid":%d,"started_at":%q,"uptime_s":%d}`,
+		Version, GitCommit, daemonRunner, os.Getpid(), startedAt.Format(time.RFC3339), uptime)
 }
 
-// Version returns daemon version/identity as JSON (alias for backward compat).
-func Version() string {
+// VersionJSON returns daemon version/identity as JSON (alias for PingInfo).
+func VersionJSON() string {
 	return PingInfo()
 }

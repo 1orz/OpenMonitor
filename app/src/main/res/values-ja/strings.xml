@@ -73,6 +73,9 @@
     <string name="perm_battery_desc">バックグラウンドでのモニタリングサービス終了を防止</string>
     <string name="perm_notification_title">通知</string>
     <string name="perm_notification_desc">モニタリング用フォアグラウンドサービス通知を表示</string>
+    <string name="perm_location_title">位置情報（任意）</string>
+    <string name="perm_location_desc">ネットワークモニターで WiFi SSID と BSSID を表示するために必要</string>
+    <string name="perm_optional_section">任意</string>
     <string name="perm_go_grant">許可する</string>
     <string name="perm_start">使用開始</string>
     <string name="perm_grant_all_hint">続行するにはすべての権限を許可してください</string>

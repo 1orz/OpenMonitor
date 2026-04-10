@@ -18,7 +18,7 @@ android {
         targetSdk = 36
 
         // versionName from CI env (tag) or fallback
-        versionName = System.getenv("VERSION_NAME") ?: "1.0.0"
+        versionName = System.getenv("VERSION_NAME") ?: "0.0.1"
         // versionCode from CI env or fallback; tag v1.2.3 → 10203
         versionCode = (System.getenv("VERSION_CODE") ?: "1").toInt()
 
@@ -155,7 +155,8 @@ val daemonTasks = daemonTargets.map { target ->
         enabled = daemonGoModExists
 
         workingDir = daemonSrcDir
-        val ldflags = "-s -w -X monitor-daemon/collector.GitCommit=$daemonHash"
+        val appVersion = System.getenv("VERSION_NAME") ?: "0.0.1"
+        val ldflags = "-s -w -X monitor-daemon/collector.GitCommit=$daemonHash -X monitor-daemon/collector.Version=$appVersion"
         commandLine = listOf(goExecutable, "build", "-ldflags", ldflags, "-o", outputFile.absolutePath, "./cmd/daemon")
         environment("GOOS", target.extraEnv["GOOS"] ?: "android")
         environment("GOARCH", target.goArch)

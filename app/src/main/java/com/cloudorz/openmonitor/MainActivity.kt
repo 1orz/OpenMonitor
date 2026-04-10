@@ -50,6 +50,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.entryProvider
@@ -89,6 +90,7 @@ import com.cloudorz.openmonitor.ui.network.NetworkScreen
 import com.cloudorz.openmonitor.ui.sensor.SensorScreen
 import com.cloudorz.openmonitor.ui.splash.PermissionGuideScreen
 import com.cloudorz.openmonitor.ui.splash.PermissionSetupScreen
+import com.cloudorz.openmonitor.ui.splash.hasRequiredPermissions
 import com.cloudorz.openmonitor.ui.theme.ColorPaletteScreen
 import com.cloudorz.openmonitor.ui.theme.ThemeViewModel
 import com.cloudorz.openmonitor.ui.user.LicenseDetailScreen
@@ -202,6 +204,15 @@ private fun MonitorAppContent(permissionManager: PermissionManager, daemonManage
         if (startupPhase == StartupPhase.READY) {
             selectedMode = currentModeFromManager
         }
+    }
+
+    // Re-check required permissions on every resume — redirect if any was revoked
+    val appContext = LocalContext.current
+    LifecycleResumeEffect(Unit) {
+        if (startupPhase == StartupPhase.READY && !hasRequiredPermissions(appContext)) {
+            startupPhase = StartupPhase.NEEDS_PERMISSIONS
+        }
+        onPauseOrDispose {}
     }
 
     when (startupPhase) {

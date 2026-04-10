@@ -2,6 +2,7 @@ package com.cloudorz.openmonitor.ui.splash
 
 import android.Manifest
 import android.app.AppOpsManager
+import androidx.compose.material.icons.filled.LocationOn
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -87,7 +88,13 @@ fun PermissionSetupScreen(onAllGranted: () -> Unit) {
             true
         }
     }
+    val locationGranted = remember(refreshTick) {
+        ContextCompat.checkSelfPermission(
+            context, Manifest.permission.ACCESS_FINE_LOCATION,
+        ) == PackageManager.PERMISSION_GRANTED
+    }
 
+    // Location is optional — not included in allGranted
     val allGranted = overlayGranted && usageGranted && batteryGranted && notificationGranted
 
     // ── Launchers ──
@@ -97,6 +104,10 @@ fun PermissionSetupScreen(onAllGranted: () -> Unit) {
 
     val notificationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
+    ) { refreshTick++ }
+
+    val locationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
     ) { refreshTick++ }
 
     Surface(
@@ -192,6 +203,43 @@ fun PermissionSetupScreen(onAllGranted: () -> Unit) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                     }
+                },
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // ── Optional section label ──
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                androidx.compose.material3.HorizontalDivider(modifier = Modifier.weight(1f))
+                Text(
+                    text = stringResource(R.string.perm_optional_section),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                )
+                androidx.compose.material3.HorizontalDivider(modifier = Modifier.weight(1f))
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // ── 5. Location (optional) — for WiFi SSID/BSSID ──
+            PermissionCard(
+                icon = Icons.Filled.LocationOn,
+                iconTint = Color(0xFF9C27B0),
+                title = stringResource(R.string.perm_location_title),
+                description = stringResource(R.string.perm_location_desc),
+                granted = locationGranted,
+                onGrant = {
+                    val perms = buildList {
+                        add(Manifest.permission.ACCESS_FINE_LOCATION)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            add(Manifest.permission.NEARBY_WIFI_DEVICES)
+                        }
+                    }.toTypedArray()
+                    locationLauncher.launch(perms)
                 },
             )
 
@@ -300,6 +348,15 @@ private fun PermissionCard(
         }
     }
 }
+
+/** Returns true only when all four required permissions are granted. */
+internal fun hasRequiredPermissions(context: Context): Boolean =
+    Settings.canDrawOverlays(context) &&
+        hasUsageStatsPermission(context) &&
+        isIgnoringBatteryOptimizations(context) &&
+        (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+                == PackageManager.PERMISSION_GRANTED)
 
 private fun hasUsageStatsPermission(context: Context): Boolean {
     val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager

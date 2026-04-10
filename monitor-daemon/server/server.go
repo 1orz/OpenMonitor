@@ -227,7 +227,7 @@ func (s *Server) dispatch(cmd string) []byte {
 		log.Printf("[heartbeat] timeout set to %ds (0=disabled)", secs)
 		return []byte(fmt.Sprintf(`{"status":"ok","timeout_s":%d}`, secs))
 	case "daemon-version":
-		return []byte(collector.Version())
+		return []byte(collector.VersionJSON())
 	case "monitor":
 		return jsonBytes(s.collector.GetSnapshot())
 	case "sample-interval":
