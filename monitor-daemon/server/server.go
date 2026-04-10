@@ -7,12 +7,14 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
 
 	"monitor-daemon/collector"
+	"monitor-daemon/daemon"
 	"monitor-daemon/proto"
 )
 
@@ -260,6 +262,16 @@ func (s *Server) dispatch(cmd string) []byte {
 		return []byte(fmt.Sprintf(`{"status":"ok","watchdog":false,"changed":%v}`, stopped))
 	case "watchdog-status":
 		return []byte(fmt.Sprintf(`{"watchdog":%v}`, s.watchdog.IsRunning()))
+	case "clear-log":
+		p := daemon.LogPath
+		if p == "" {
+			return []byte(`{"error":"log path not set"}`)
+		}
+		if err := os.Truncate(p, 0); err != nil {
+			return []byte(fmt.Sprintf(`{"error":"%s"}`, err.Error()))
+		}
+		log.Printf("[server] log cleared by client")
+		return []byte(`{"status":"ok"}`)
 	case "daemon-exit":
 		log.Printf("[server] daemon-exit received, scheduling shutdown")
 		s.watchdog.Stop()

@@ -5,10 +5,8 @@ import android.graphics.Bitmap
 import android.provider.Settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,6 +20,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -41,6 +40,7 @@ import kotlinx.coroutines.withContext
 @Composable
 fun BatteryScreen(
     viewModel: BatteryViewModel = hiltViewModel(),
+    onProvideTopBarActions: (@Composable () -> Unit) -> Unit = {},
 ) {
     val battery by viewModel.batteryStatus.collectAsStateWithLifecycle()
     val chartData by viewModel.chartData.collectAsStateWithLifecycle()
@@ -51,6 +51,23 @@ fun BatteryScreen(
     val hasPermission by viewModel.hasUsageStatsPermission.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val view = LocalView.current
+
+    // Top bar actions: share/export
+    val actions: @Composable () -> Unit = {
+        IconButton(onClick = {
+            view.hapticClick()
+            viewModel.getExportIntent { intent ->
+                context.startActivity(intent)
+            }
+        }) {
+            Icon(
+                imageVector = Icons.Filled.Share,
+                contentDescription = stringResource(R.string.battery_export_csv),
+            )
+        }
+    }
+    LaunchedEffect(Unit) { onProvideTopBarActions(actions) }
+    DisposableEffect(Unit) { onDispose { onProvideTopBarActions {} } }
 
     // Resolve app icons
     val appIcons = remember { mutableStateMapOf<String, Bitmap>() }
@@ -120,25 +137,6 @@ fun BatteryScreen(
         }
 
         // Section 2: Battery History Chart
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                IconButton(onClick = {
-                    view.hapticClick()
-                    viewModel.getExportIntent { intent ->
-                        context.startActivity(intent)
-                    }
-                }) {
-                    Icon(
-                        imageVector = Icons.Filled.Share,
-                        contentDescription = stringResource(R.string.battery_export_csv),
-                    )
-                }
-            }
-        }
-
         item {
             BatteryHistoryChart(
                 points = chartData,

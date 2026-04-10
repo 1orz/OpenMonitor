@@ -55,11 +55,13 @@ func isMonitorDaemon(pid int) bool {
 }
 
 // openLogFile opens the log file in dataDir.
-// Uses 0666 permissions so both root and shell users can write.
+// Explicitly chmod 0666 after creation to override root's umask (typically 022),
+// so the app process can also read/write the file.
 func openLogFile(dataDir string) (*os.File, error) {
 	p := filepath.Join(dataDir, "daemon.log")
 	f, err := os.OpenFile(p, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err == nil {
+		os.Chmod(p, 0666) // override umask
 		LogPath = p
 		return f, nil
 	}
@@ -68,6 +70,7 @@ func openLogFile(dataDir string) (*os.File, error) {
 		os.Remove(p)
 		f, err = os.OpenFile(p, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 		if err == nil {
+			os.Chmod(p, 0666)
 			LogPath = p
 			return f, nil
 		}

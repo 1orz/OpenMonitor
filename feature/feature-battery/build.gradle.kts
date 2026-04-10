@@ -50,6 +50,5 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
 
-
     debugImplementation(libs.compose.ui.tooling)
 }

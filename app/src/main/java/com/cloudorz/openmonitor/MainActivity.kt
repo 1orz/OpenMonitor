@@ -333,7 +333,11 @@ private fun MainScreen(permissionManager: PermissionManager) {
 
                 // Battery
                 entry<Route.Battery> {
-                    ScreenWithTopBar(R.string.nav_battery) { p -> Box(Modifier.padding(p)) { BatteryScreen() } }
+                    ScreenWithTopBarActions(R.string.nav_battery) { p, setActions ->
+                        Box(Modifier.padding(p)) {
+                            BatteryScreen(onProvideTopBarActions = setActions)
+                        }
+                    }
                 }
 
                 // FPS

@@ -14,8 +14,8 @@ const (
 	LevelError   int32 = 3
 )
 
-// currentLevel is the global log level (default: warning).
-var currentLevel int32 = LevelWarning
+// currentLevel is the global log level (default: info).
+var currentLevel int32 = LevelInfo
 
 // SetLogLevel sets the global log level.
 func SetLogLevel(level int32) {

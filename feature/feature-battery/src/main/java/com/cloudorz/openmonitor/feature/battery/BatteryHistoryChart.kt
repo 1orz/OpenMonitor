@@ -2,7 +2,10 @@ package com.cloudorz.openmonitor.feature.battery
 
 import android.graphics.Bitmap
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,21 +18,27 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalView
-import com.cloudorz.openmonitor.core.ui.hapticClick
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -43,6 +52,7 @@ import com.cloudorz.openmonitor.core.model.battery.BatteryChartPoint
 import com.cloudorz.openmonitor.core.model.battery.BatteryEstimation
 import com.cloudorz.openmonitor.core.model.battery.BatteryStatus
 import com.cloudorz.openmonitor.core.ui.R
+import com.cloudorz.openmonitor.core.ui.hapticClick
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -72,12 +82,27 @@ fun BatteryHistoryChart(
     val chargingColor = Color(0xFF4CAF50)
     val gridColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val markerLineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+    val tooltipBg = MaterialTheme.colorScheme.inverseSurface
+    val tooltipText = MaterialTheme.colorScheme.inverseOnSurface
     val timeFormat = remember(selectedRange) {
         if (selectedRange == TimeRange.LAST_7D) {
             SimpleDateFormat("MM/dd", Locale.getDefault())
         } else {
             SimpleDateFormat("HH:mm", Locale.getDefault())
         }
+    }
+
+    // Gesture state
+    var scale by remember { mutableFloatStateOf(1f) }
+    var offsetX by remember { mutableFloatStateOf(0f) }
+    var selectedIdx by remember { mutableIntStateOf(-1) }
+
+    // Reset gesture state when range changes
+    androidx.compose.runtime.LaunchedEffect(selectedRange) {
+        scale = 1f
+        offsetX = 0f
+        selectedIdx = -1
     }
 
     Card(
@@ -108,80 +133,229 @@ fun BatteryHistoryChart(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Chart canvas
-            Canvas(
+            // Chart canvas with gestures
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(220.dp),
+                    .height(220.dp)
+                    .clipToBounds(),
             ) {
-                if (points.isEmpty()) return@Canvas
+                Canvas(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .pointerInput(points) {
+                            detectTransformGestures { _, pan, zoom, _ ->
+                                val newScale = (scale * zoom).coerceIn(1f, 5f)
+                                // Adjust offset to zoom toward center
+                                val chartLeft = CHART_PADDING_LEFT
+                                val chartWidth =
+                                    size.width - chartLeft - CHART_PADDING_RIGHT
+                                val scaledWidth = chartWidth * newScale
+                                val maxOffset = 0f
+                                val minOffset = -(scaledWidth - chartWidth)
+                                // Adjust offset for zoom center
+                                val centerX = size.width / 2f
+                                val newOffset =
+                                    offsetX + (centerX - chartLeft) * (1 - zoom) * scale + pan.x
+                                scale = newScale
+                                offsetX = newOffset.coerceIn(minOffset, maxOffset)
+                            }
+                        }
+                        .pointerInput(points) {
+                            detectTapGestures { tapOffset ->
+                                if (points.size < 2) return@detectTapGestures
+                                val chartLeft = CHART_PADDING_LEFT
+                                val chartRight = size.width - CHART_PADDING_RIGHT
+                                val chartWidth = chartRight - chartLeft
 
-                val chartLeft = CHART_PADDING_LEFT
-                val chartRight = size.width - CHART_PADDING_RIGHT
-                val chartTop = CHART_PADDING_TOP
-                val chartBottom = size.height - ICON_ROW_HEIGHT - TIME_AXIS_HEIGHT - CHART_BOTTOM_MARGIN
-                val chartWidth = chartRight - chartLeft
-                val chartHeight = chartBottom - chartTop
+                                val timeStart = points.first().timestamp
+                                val timeEnd = points.last().timestamp
+                                val timeSpan = (timeEnd - timeStart).coerceAtLeast(1L)
 
-                val timeStart = points.first().timestamp
-                val timeEnd = points.last().timestamp
-                val timeSpan = (timeEnd - timeStart).coerceAtLeast(1L)
+                                // Convert tap X to data space
+                                val dataX =
+                                    (tapOffset.x - chartLeft - offsetX) / scale
+                                val tapTime =
+                                    timeStart + (dataX / chartWidth * timeSpan).toLong()
 
-                fun timeToX(ts: Long): Float =
-                    chartLeft + ((ts - timeStart).toFloat() / timeSpan) * chartWidth
+                                // Find nearest point
+                                var bestIdx = 0
+                                var bestDist = Long.MAX_VALUE
+                                for (i in points.indices) {
+                                    val dist = abs(points[i].timestamp - tapTime)
+                                    if (dist < bestDist) {
+                                        bestDist = dist
+                                        bestIdx = i
+                                    }
+                                }
+                                selectedIdx =
+                                    if (selectedIdx == bestIdx) -1 else bestIdx
+                            }
+                        },
+                ) {
+                    if (points.isEmpty()) return@Canvas
 
-                fun capacityToY(cap: Int): Float =
-                    chartTop + (1f - cap / 100f) * chartHeight
+                    val chartLeft = CHART_PADDING_LEFT
+                    val chartRight = size.width - CHART_PADDING_RIGHT
+                    val chartTop = CHART_PADDING_TOP
+                    val chartBottom =
+                        size.height - ICON_ROW_HEIGHT - TIME_AXIS_HEIGHT - CHART_BOTTOM_MARGIN
+                    val chartWidth = chartRight - chartLeft
+                    val chartHeight = chartBottom - chartTop
 
-                // Grid lines
-                for (pct in listOf(0, 20, 40, 60, 80, 100)) {
-                    val y = capacityToY(pct)
-                    drawLine(gridColor, Offset(chartLeft, y), Offset(chartRight, y), strokeWidth = 1f)
-                    drawText(
-                        textMeasurer = textMeasurer,
-                        text = "$pct%",
-                        topLeft = Offset(0f, y - 6f),
-                        style = TextStyle(fontSize = 8.sp, color = labelColor),
+                    val timeStart = points.first().timestamp
+                    val timeEnd = points.last().timestamp
+                    val timeSpan = (timeEnd - timeStart).coerceAtLeast(1L)
+
+                    fun timeToX(ts: Long): Float {
+                        val baseX =
+                            ((ts - timeStart).toFloat() / timeSpan) * chartWidth
+                        return chartLeft + baseX * scale + offsetX
+                    }
+
+                    fun capacityToY(cap: Int): Float =
+                        chartTop + (1f - cap / 100f) * chartHeight
+
+                    // Grid lines (not affected by horizontal transform)
+                    for (pct in listOf(0, 20, 40, 60, 80, 100)) {
+                        val y = capacityToY(pct)
+                        drawLine(
+                            gridColor,
+                            Offset(chartLeft, y),
+                            Offset(chartRight, y),
+                            strokeWidth = 1f,
+                        )
+                        drawText(
+                            textMeasurer = textMeasurer,
+                            text = "$pct%",
+                            topLeft = Offset(0f, y - 6f),
+                            style = TextStyle(fontSize = 8.sp, color = labelColor),
+                        )
+                    }
+
+                    // Draw capacity line with charge/discharge coloring
+                    drawCapacityLine(
+                        points = points,
+                        timeToX = ::timeToX,
+                        capacityToY = ::capacityToY,
+                        lineColor = lineColor,
+                        chargingColor = chargingColor,
+                        chartTop = chartTop,
+                        chartBottom = chartBottom,
+                        clipLeft = chartLeft,
+                        clipRight = chartRight,
                     )
-                }
 
-                // Draw capacity line with charge/discharge coloring
-                drawCapacityLine(
-                    points = points,
-                    timeToX = ::timeToX,
-                    capacityToY = ::capacityToY,
-                    lineColor = lineColor,
-                    chargingColor = chargingColor,
-                    chartTop = chartTop,
-                    chartBottom = chartBottom,
-                )
-
-                // App icons row
-                drawAppIcons(
-                    points = points,
-                    appIcons = appIcons,
-                    timeToX = ::timeToX,
-                    iconY = chartBottom + CHART_BOTTOM_MARGIN,
-                    iconSize = ICON_ROW_HEIGHT - 4f,
-                    chartLeft = chartLeft,
-                    chartRight = chartRight,
-                )
-
-                // Time axis labels — measure actual text height to avoid clipping on high-density screens
-                val timeStyle = TextStyle(fontSize = 8.sp, color = labelColor)
-                val sampleMeasured = textMeasurer.measure("00:00", timeStyle)
-                val timeAxisY = size.height - sampleMeasured.size.height - 2f
-                val labelCount = if (selectedRange == TimeRange.LAST_1H) 4 else 5
-                for (i in 0..labelCount) {
-                    val ts = timeStart + (timeSpan * i / labelCount)
-                    val x = timeToX(ts)
-                    val label = timeFormat.format(Date(ts))
-                    drawText(
-                        textMeasurer = textMeasurer,
-                        text = label,
-                        topLeft = Offset(x - 14f, timeAxisY),
-                        style = timeStyle,
+                    // App icons row
+                    drawAppIcons(
+                        points = points,
+                        appIcons = appIcons,
+                        timeToX = ::timeToX,
+                        iconY = chartBottom + CHART_BOTTOM_MARGIN,
+                        iconSize = ICON_ROW_HEIGHT - 4f,
+                        chartLeft = chartLeft,
+                        chartRight = chartRight,
                     )
+
+                    // Time axis labels
+                    val timeStyle = TextStyle(fontSize = 8.sp, color = labelColor)
+                    val sampleMeasured = textMeasurer.measure("00:00", timeStyle)
+                    val timeAxisY =
+                        size.height - sampleMeasured.size.height - 2f
+                    val labelCount =
+                        if (selectedRange == TimeRange.LAST_1H) 4 else 5
+                    for (i in 0..labelCount) {
+                        val ts = timeStart + (timeSpan * i / labelCount)
+                        val x = timeToX(ts)
+                        if (x < chartLeft - 20f || x > chartRight + 20f) continue
+                        val label = timeFormat.format(Date(ts))
+                        drawText(
+                            textMeasurer = textMeasurer,
+                            text = label,
+                            topLeft = Offset(x - 14f, timeAxisY),
+                            style = timeStyle,
+                        )
+                    }
+
+                    // Selected point marker / tooltip
+                    if (selectedIdx in points.indices) {
+                        val pt = points[selectedIdx]
+                        val px = timeToX(pt.timestamp)
+                        val py = capacityToY(pt.capacity)
+
+                        if (px in chartLeft..chartRight) {
+                            // Vertical dashed line
+                            drawLine(
+                                color = markerLineColor,
+                                start = Offset(px, chartTop),
+                                end = Offset(px, chartBottom),
+                                strokeWidth = 1.5f,
+                                pathEffect = PathEffect.dashPathEffect(
+                                    floatArrayOf(8f, 6f),
+                                ),
+                            )
+                            // Highlight dot
+                            drawCircle(
+                                color = if (pt.isCharging) chargingColor else lineColor,
+                                radius = 5f,
+                                center = Offset(px, py),
+                            )
+                            drawCircle(
+                                color = Color.White,
+                                radius = 2.5f,
+                                center = Offset(px, py),
+                            )
+
+                            // Tooltip
+                            val tooltipTime =
+                                SimpleDateFormat(
+                                    "HH:mm:ss",
+                                    Locale.getDefault(),
+                                ).format(Date(pt.timestamp))
+                            val tempStr = "%.1f".format(pt.temperatureCelsius)
+                            val tooltipStr =
+                                "${pt.capacity}%  $tooltipTime\n${pt.currentMa}mA  ${tempStr}°C"
+                            val tooltipStyle = TextStyle(
+                                fontSize = 9.sp,
+                                color = tooltipText,
+                            )
+                            val measured =
+                                textMeasurer.measure(tooltipStr, tooltipStyle)
+                            val tooltipW =
+                                measured.size.width + 16f
+                            val tooltipH =
+                                measured.size.height + 12f
+                            val tooltipX =
+                                (px - tooltipW / 2).coerceIn(
+                                    chartLeft,
+                                    chartRight - tooltipW,
+                                )
+                            val tooltipY =
+                                (py - tooltipH - 10f).coerceAtLeast(0f)
+
+                            drawRoundRect(
+                                color = tooltipBg,
+                                topLeft = Offset(tooltipX, tooltipY),
+                                size = androidx.compose.ui.geometry.Size(
+                                    tooltipW,
+                                    tooltipH,
+                                ),
+                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(
+                                    6f,
+                                    6f,
+                                ),
+                            )
+                            drawText(
+                                textMeasurer = textMeasurer,
+                                text = tooltipStr,
+                                topLeft = Offset(
+                                    tooltipX + 8f,
+                                    tooltipY + 6f,
+                                ),
+                                style = tooltipStyle,
+                            )
+                        }
+                    }
                 }
             }
 
@@ -271,6 +445,8 @@ private fun DrawScope.drawCapacityLine(
     chargingColor: Color,
     chartTop: Float,
     chartBottom: Float,
+    clipLeft: Float,
+    clipRight: Float,
 ) {
     if (points.size < 2) return
 
@@ -282,9 +458,11 @@ private fun DrawScope.drawCapacityLine(
         val segFill = Path()
         val color = if (charging) chargingColor else lineColor
 
-        segPath.moveTo(timeToX(points[startIdx].timestamp), capacityToY(points[startIdx].capacity))
-        segFill.moveTo(timeToX(points[startIdx].timestamp), chartBottom)
-        segFill.lineTo(timeToX(points[startIdx].timestamp), capacityToY(points[startIdx].capacity))
+        val x0 = timeToX(points[startIdx].timestamp)
+        val y0 = capacityToY(points[startIdx].capacity)
+        segPath.moveTo(x0, y0)
+        segFill.moveTo(x0, chartBottom)
+        segFill.lineTo(x0, y0)
 
         for (i in startIdx + 1..endIdx.coerceAtMost(points.lastIndex)) {
             val x = timeToX(points[i].timestamp)
@@ -338,7 +516,7 @@ private fun DrawScope.drawAppIcons(
     if (points.isEmpty() || appIcons.isEmpty()) return
 
     // Detect app transitions and place icons
-    val transitions = mutableListOf<Pair<Long, String>>() // timestamp, packageName
+    val transitions = mutableListOf<Pair<Long, String>>()
     var lastPkg = ""
     for (p in points) {
         if (p.packageName.isNotEmpty() && p.packageName != lastPkg) {

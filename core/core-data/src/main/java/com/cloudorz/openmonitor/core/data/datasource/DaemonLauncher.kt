@@ -176,6 +176,12 @@ class DaemonLauncher @Inject constructor(
         }
     }
 
+    /** Ask daemon to truncate its own log file via TCP command. Returns true on success. */
+    fun clearDaemonLog(): Boolean {
+        val result = daemonClient.sendCommand("clear-log") ?: return false
+        return result.contains("ok")
+    }
+
     /** List daemon log files (current + archives), newest first. */
     fun listDaemonLogFiles(): List<File> {
         val files = mutableListOf<File>()

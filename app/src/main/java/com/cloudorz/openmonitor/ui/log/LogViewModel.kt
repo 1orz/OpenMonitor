@@ -41,11 +41,19 @@ class LogViewModel @Inject constructor(
     companion object {
         private const val APP_LOG_POLL_INTERVAL_MS = 2_000L
         private const val DAEMON_POLL_INTERVAL_MS = 3_000L
+        private const val DATE_REFRESH_INTERVAL_MS = 60_000L
         private const val DAEMON_TAIL_LINES = 300
         private const val APP_LOG_MAX_LINES = 800
+
+        // Pre-compiled regex — avoid recompiling on every line
+        private val XLOG_LINE_REGEX = Regex("""^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s+([VDIWEF])/(.+?):\s*(.*)$""")
+        private val LOGCAT_LINE_REGEX = Regex("""^(\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s+\d+\s+\d+\s+([VDIWEF])\s+(.+?)\s*:\s*(.*)$""")
     }
 
     // ---- Raw (unfiltered) data ----
+
+    /** Accumulated logcat entries across polls — never shrinks while in real-time mode. */
+    private val logcatBuffer = mutableListOf<AppLogEntry>()
 
     private val _rawAppLogs = MutableStateFlow<List<AppLogEntry>>(emptyList())
     private val _rawDaemonLogs = MutableStateFlow<List<String>>(emptyList())
@@ -88,8 +96,14 @@ class LogViewModel @Inject constructor(
         get() = "${daemonLauncher.dataDir.absolutePath}/daemon.log"
 
     init {
+        // Date list refresh: file rotation only happens at midnight / 5MB backup
         viewModelScope.launch {
-            refreshLogDates()
+            while (isActive) {
+                refreshLogDates()
+                delay(DATE_REFRESH_INTERVAL_MS)
+            }
+        }
+        viewModelScope.launch {
             while (isActive) {
                 fetchAppLogs()
                 delay(APP_LOG_POLL_INTERVAL_MS)
@@ -109,6 +123,8 @@ class LogViewModel @Inject constructor(
 
     fun selectDate(date: String?) {
         _selectedDate.value = date
+        // Returning to real-time: reset incremental buffer so next poll starts fresh
+        if (date == null) logcatBuffer.clear()
         viewModelScope.launch { fetchAppLogs() }
     }
 
@@ -143,7 +159,6 @@ class LogViewModel @Inject constructor(
     private suspend fun fetchAppLogs() = withContext(Dispatchers.IO) {
         val date = _selectedDate.value
         if (date != null) loadFromFile(date) else loadFromLogcat()
-        refreshLogDates()
     }
 
     private fun loadFromFile(date: String) {
@@ -162,17 +177,37 @@ class LogViewModel @Inject constructor(
                 arrayOf("logcat", "-d", "-v", "threadtime", "--pid=$pid", "-t", "$APP_LOG_MAX_LINES")
             )
             val reader = BufferedReader(InputStreamReader(process.inputStream))
-            val entries = mutableListOf<AppLogEntry>()
-            reader.useLines { lines -> lines.forEach { line -> parseLogcatLine(line)?.let { entries.add(it) } } }
+            val dumped = mutableListOf<AppLogEntry>()
+            reader.useLines { lines -> lines.forEach { parseLogcatLine(it)?.let(dumped::add) } }
             process.waitFor()
-            if (entries.isNotEmpty()) _rawAppLogs.value = entries
+            if (dumped.isEmpty()) return
+
+            val lastCached = logcatBuffer.lastOrNull()
+            if (lastCached == null) {
+                // First load: take the full dump as-is
+                logcatBuffer.addAll(dumped)
+            } else {
+                val pivot = dumped.indexOfLast { it == lastCached }
+                if (pivot >= 0) {
+                    // Append only entries after the last known one
+                    val newEntries = dumped.drop(pivot + 1)
+                    if (newEntries.isNotEmpty()) {
+                        logcatBuffer.addAll(newEntries)
+                        val excess = logcatBuffer.size - APP_LOG_MAX_LINES
+                        if (excess > 0) logcatBuffer.subList(0, excess).clear()
+                    }
+                } else {
+                    // Ring buffer fully rotated since last poll — reset with current dump
+                    logcatBuffer.clear()
+                    logcatBuffer.addAll(dumped)
+                }
+            }
+            if (logcatBuffer.isNotEmpty()) _rawAppLogs.value = logcatBuffer.toList()
         } catch (_: Exception) { }
     }
 
     private fun parseXLogLine(line: String): AppLogEntry? {
-        // Standard xlog format: "2026-04-04 12:34:56.789 E/TAG: message"
-        val regex = Regex("""^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s+([VDIWEF])/(.+?):\s*(.*)$""")
-        val match = regex.matchEntire(line) ?: return null
+        val match = XLOG_LINE_REGEX.matchEntire(line) ?: return null
         val (time, level, tag, message) = match.destructured
         return AppLogEntry(time.substringAfter(' '), level[0], tag.trim(), message)
     }
@@ -194,8 +229,7 @@ class LogViewModel @Inject constructor(
 
     private fun parseLogcatLine(line: String): AppLogEntry? {
         if (line.startsWith("-")) return null
-        val regex = Regex("""^(\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s+\d+\s+\d+\s+([VDIWEF])\s+(.+?)\s*:\s*(.*)$""")
-        val match = regex.matchEntire(line) ?: return null
+        val match = LOGCAT_LINE_REGEX.matchEntire(line) ?: return null
         val (time, level, tag, message) = match.destructured
         return AppLogEntry(time.substringAfter(' '), level[0], tag.trim(), message)
     }
@@ -287,6 +321,7 @@ class LogViewModel @Inject constructor(
                 refreshLogDates()
             } else {
                 try { Runtime.getRuntime().exec(arrayOf("logcat", "-c")).waitFor() } catch (_: Exception) { }
+                logcatBuffer.clear()
             }
             _rawAppLogs.value = emptyList()
         }
@@ -298,7 +333,12 @@ class LogViewModel @Inject constructor(
 
     fun clearDaemonLogs() {
         viewModelScope.launch(Dispatchers.IO) {
-            try { File(daemonLogPath).also { if (it.exists()) it.writeText("") } } catch (_: Exception) { }
+            // Prefer TCP command (daemon truncates its own file, no permission issues)
+            val cleared = daemonLauncher.clearDaemonLog()
+            if (!cleared) {
+                // Fallback: direct truncation (works if file has 0666 perms)
+                try { File(daemonLogPath).also { if (it.exists()) it.writeText("") } } catch (_: Exception) { }
+            }
             _rawDaemonLogs.value = emptyList()
             _daemonLogStatus.value = null
         }
