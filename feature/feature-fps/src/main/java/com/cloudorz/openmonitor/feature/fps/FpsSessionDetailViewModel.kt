@@ -2,11 +2,14 @@ package com.cloudorz.openmonitor.feature.fps
 
 import android.app.Application
 import android.content.Intent
+import android.os.Build
 import androidx.core.content.FileProvider
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cloudorz.openmonitor.core.data.CsvExporter
+import com.cloudorz.openmonitor.core.data.datasource.DeviceNameSource
+import com.cloudorz.openmonitor.core.data.datasource.SocDatabase
 import com.cloudorz.openmonitor.core.data.repository.FpsRepository
 import com.cloudorz.openmonitor.core.model.fps.FpsFrameRecord
 import com.cloudorz.openmonitor.core.model.fps.FpsWatchSession
@@ -19,10 +22,17 @@ import kotlinx.coroutines.launch
 import java.io.File
 import javax.inject.Inject
 
+data class SessionDeviceInfo(
+    val cpuName: String,
+    val deviceName: String,
+    val osVersion: String,
+)
+
 data class FpsSessionDetailState(
     val session: FpsWatchSession? = null,
     val records: List<FpsFrameRecord> = emptyList(),
     val loading: Boolean = true,
+    val deviceInfo: SessionDeviceInfo? = null,
 )
 
 @HiltViewModel
@@ -31,6 +41,8 @@ class FpsSessionDetailViewModel @Inject constructor(
     private val application: Application,
     private val fpsRepository: FpsRepository,
     private val csvExporter: CsvExporter,
+    private val socDatabase: SocDatabase,
+    private val deviceNameSource: DeviceNameSource,
 ) : ViewModel() {
 
     private var sessionId: Long = savedStateHandle.get<String>("sessionId")?.toLongOrNull() ?: 0L
@@ -41,7 +53,17 @@ class FpsSessionDetailViewModel @Inject constructor(
     private var initialized = false
 
     init {
+        _state.value = _state.value.copy(deviceInfo = buildDeviceInfo())
         if (sessionId > 0L) loadSession()
+    }
+
+    private fun buildDeviceInfo(): SessionDeviceInfo {
+        val soc = socDatabase.getSocInfo()
+        val cpuName = soc.name.ifBlank { Build.HARDWARE }
+        val deviceName = deviceNameSource.getDeviceName()
+            ?: "${Build.BRAND} ${Build.MODEL}".trim()
+        val osVersion = "Android ${Build.VERSION.RELEASE}"
+        return SessionDeviceInfo(cpuName = cpuName, deviceName = deviceName, osVersion = osVersion)
     }
 
     /** Called from composable when sessionId comes from Navigation3 NavKey. */

@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -99,6 +101,7 @@ import com.patrykandpatrick.vico.compose.common.data.ExtraStore
 import com.patrykandpatrick.vico.compose.common.rememberHorizontalLegend
 import com.patrykandpatrick.vico.compose.common.vicoTheme
 import com.patrykandpatrick.vico.compose.m3.common.rememberM3VicoTheme
+import com.patrykandpatrick.vico.compose.cartesian.data.CartesianLayerRangeProvider
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -127,6 +130,7 @@ private enum class ChartSection(val label: String) {
     CPU_GPU("CPU / GPU"),
     GPU_FREQ("GPU Freq"),
     CPU_FREQ("CPU Freq"),
+    JANK("Jank"),
     POWER("Power"),
     CURRENT("Current"),
     TEMPERATURE("Temperature"),
@@ -211,6 +215,7 @@ private fun FpsSessionDetailContent(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            state.deviceInfo?.let { DeviceInfoCard(it) }
             if (session != null) SessionHeaderCard(session, dateFormat)
             StatsGridCard(records)
             AppSwitchTimeline(records)
@@ -219,11 +224,58 @@ private fun FpsSessionDetailContent(
             if (sectionVisibility[ChartSection.CPU_GPU] != false) CpuGpuUsageChart(records)
             if (sectionVisibility[ChartSection.GPU_FREQ] != false) GpuFreqChart(records)
             if (sectionVisibility[ChartSection.CPU_FREQ] != false) CpuCoreFreqChart(records)
+            if (sectionVisibility[ChartSection.JANK] != false) JankChart(records)
             if (sectionVisibility[ChartSection.POWER] != false) PowerBatteryChart(records)
             if (sectionVisibility[ChartSection.CURRENT] != false) BatteryCurrentChart(records)
             if (sectionVisibility[ChartSection.TEMPERATURE] != false) TemperatureChart(records)
             Spacer(modifier = Modifier.height(16.dp))
         }
+    }
+}
+
+// ---- Device Info Card ----
+
+@Composable
+private fun DeviceInfoCard(info: SessionDeviceInfo) {
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            DeviceInfoCell(stringResource(R.string.fps_detail_platform), info.cpuName)
+            DeviceInfoCell(stringResource(R.string.fps_detail_model), info.deviceName)
+            DeviceInfoCell(stringResource(R.string.fps_detail_os), info.osVersion)
+        }
+    }
+}
+
+@Composable
+private fun DeviceInfoCell(label: String, value: String) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.widthIn(max = 120.dp),
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.outline,
+            fontSize = 10.sp,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            value,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 11.sp,
+            textAlign = TextAlign.Center,
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -238,7 +290,7 @@ private fun SessionHeaderCard(session: FpsWatchSession, dateFormat: SimpleDateFo
     }
 
     Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.Top) {
             if (appIcon != null) {
                 val bitmap = remember(appIcon) { appIcon.toBitmap(192, 192) }
                 Image(
@@ -248,28 +300,54 @@ private fun SessionHeaderCard(session: FpsWatchSession, dateFormat: SimpleDateFo
                 )
                 Spacer(Modifier.width(12.dp))
             }
-            Column(Modifier.weight(1f)) {
-                Text(dateFormat.format(Date(session.beginTime)), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                // App name
+                Text(
+                    session.appName.ifEmpty { session.packageName.ifEmpty { stringResource(R.string.fps_unknown_app) } },
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                // Package name
                 if (session.packageName.isNotEmpty()) {
                     Text(
-                        session.appName.ifEmpty { session.packageName },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    )
-                    if (session.appName.isNotEmpty()) {
-                        Text(session.packageName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-                    }
-                }
-                Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text(
-                        stringResource(R.string.duration) + ": " + formatDuration(session.durationSeconds),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        session.packageName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
+                Spacer(Modifier.height(4.dp))
+                // App version
+                if (session.packageVersion.isNotEmpty()) {
+                    InfoRow(stringResource(R.string.fps_detail_app_version), session.packageVersion)
+                }
+                // Duration
+                InfoRow(stringResource(R.string.duration), formatDuration(session.durationSeconds))
+                // Created time
+                InfoRow(stringResource(R.string.fps_detail_created), dateFormat.format(Date(session.beginTime)))
             }
         }
+    }
+}
+
+@Composable
+private fun InfoRow(label: String, value: String) {
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            "$label:",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.outline,
+            fontSize = 10.sp,
+        )
+        Text(
+            value,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 10.sp,
+        )
     }
 }
 
@@ -299,15 +377,14 @@ private fun StatsGridCard(records: List<FpsFrameRecord>) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
             maxItemsInEachRow = 4,
         ) {
-            StatCell("MAX", "%.1f".format(maxFps), "FPS", fpsStatColor(maxFps))
-            StatCell("MIN", "%.1f".format(minFps), "FPS", fpsStatColor(minFps))
-            StatCell("AVG", "%.1f".format(avgFps), "FPS", fpsStatColor(avgFps))
-            StatCell("VARIANCE", "%.1f".format(variance), "FPS", MaterialTheme.colorScheme.onSurfaceVariant)
-            StatCell("\u226545FPS", "%.1f%%".format(smoothness), "Smoothness", smoothnessColor(smoothness))
-            StatCell("5% Low", "%.1f".format(fivePercentLow), "FPS", fpsStatColor(fivePercentLow))
-            StatCell("Jank", "$totalJank", "", ChartRed)
-            if (maxTemp > 0) StatCell("MAX", "%.1f".format(maxTemp), "Temp", tempStatColor(maxTemp))
-            if (avgPower > 0) StatCell("AVG", "%.2f".format(avgPower), "Power(W)", PowerColor)
+            StatCell(stringResource(R.string.fps_stat_max), "%.1f".format(maxFps), "FPS", fpsStatColor(maxFps))
+            StatCell(stringResource(R.string.fps_stat_min), "%.1f".format(minFps), "FPS", fpsStatColor(minFps))
+            StatCell(stringResource(R.string.fps_stat_avg), "%.1f".format(avgFps), "FPS", fpsStatColor(avgFps))
+            StatCell(stringResource(R.string.fps_stat_variance), "%.1f".format(variance), "FPS", MaterialTheme.colorScheme.onSurfaceVariant)
+            StatCell(stringResource(R.string.fps_stat_smoothness), "%.1f%%".format(smoothness), "Smoothness", smoothnessColor(smoothness))
+            StatCell(stringResource(R.string.fps_stat_low), "%.1f".format(fivePercentLow), "FPS", fpsStatColor(fivePercentLow))
+            if (maxTemp > 0) StatCell(stringResource(R.string.fps_stat_max_temp), "%.1f".format(maxTemp), "°C", tempStatColor(maxTemp))
+            if (avgPower > 0) StatCell(stringResource(R.string.fps_stat_avg_power), "%.2f".format(avgPower), "W", PowerColor)
         }
     }
 }
@@ -540,6 +617,7 @@ private fun VicoLineChart(
     seriesColors: List<Color>,
     seriesLabels: List<String>,
     yAxisSuffix: String = "",
+    fixedMaxY: Double? = null,
 ) {
     val modelProducer = remember { CartesianChartModelProducer() }
     val bottomFormatter = remember(records) { timeFormatter(records) }
@@ -588,6 +666,10 @@ private fun VicoLineChart(
                         )
                     }
                 ),
+                rangeProvider = if (fixedMaxY != null)
+                    CartesianLayerRangeProvider.fixed(maxY = fixedMaxY)
+                else
+                    CartesianLayerRangeProvider.auto(),
             ),
             startAxis = VerticalAxis.rememberStart(
                 label = axisLabel,
@@ -697,7 +779,7 @@ private fun CpuGpuUsageChart(records: List<FpsFrameRecord>) {
 
     ChartCard(stringResource(R.string.fps_chart_cpu_usage), allLabels, allColors, seriesVis) {
         key(visLabels.joinToString()) {
-            VicoLineChart(records, visData, visColors, visLabels, yAxisSuffix = "%")
+            VicoLineChart(records, visData, visColors, visLabels, yAxisSuffix = "%", fixedMaxY = 100.0)
         }
     }
 }
@@ -759,8 +841,41 @@ private fun CpuCoreFreqChart(records: List<FpsFrameRecord>) {
 }
 
 @Composable
+private fun JankChart(records: List<FpsFrameRecord>) {
+    if (records.none { it.jankCount > 0 || it.bigJankCount > 0 }) return
+    val hasBig = records.any { it.bigJankCount > 0 }
+
+    val allLabels = mutableListOf("Jank")
+    val allColors = mutableListOf(ChartRed)
+    if (hasBig) { allLabels.add("BigJank"); allColors.add(Color(0xFFD32F2F)) }
+
+    val seriesVis = remember { mutableStateMapOf<String, Boolean>() }
+
+    val visLabels = mutableListOf<String>()
+    val visColors = mutableListOf<Color>()
+    val visData = mutableListOf<List<Number>>()
+    if (seriesVis["Jank"] != false) { visLabels.add("Jank"); visColors.add(ChartRed); visData.add(records.map { it.jankCount }) }
+    if (hasBig && seriesVis["BigJank"] != false) { visLabels.add("BigJank"); visColors.add(Color(0xFFD32F2F)); visData.add(records.map { it.bigJankCount }) }
+
+    if (visData.isEmpty()) return
+
+    val totalJank = records.sumOf { it.jankCount }
+    val totalBig = records.sumOf { it.bigJankCount }
+    val subtitle = if (hasBig) "Total: Jank=$totalJank  BigJank=$totalBig" else "Total: $totalJank"
+
+    ChartCard(
+        stringResource(R.string.fps_chart_jank) + "\n$subtitle",
+        allLabels, allColors, seriesVis,
+    ) {
+        key(visLabels.joinToString()) {
+            VicoLineChart(records, visData, visColors, visLabels)
+        }
+    }
+}
+
+@Composable
 private fun PowerBatteryChart(records: List<FpsFrameRecord>) {
-    val hasPower = records.any { it.powerW > 0.0 }
+    val hasPower = records.any { it.powerW != 0.0 }
     val hasBattery = records.any { it.batteryCapacity > 0 }
     if (!hasPower && !hasBattery) return
 
@@ -774,13 +889,16 @@ private fun PowerBatteryChart(records: List<FpsFrameRecord>) {
     val visLabels = mutableListOf<String>()
     val visColors = mutableListOf<Color>()
     val visData = mutableListOf<List<Number>>()
-    if (hasPower && seriesVis["Power(W)"] != false) { visLabels.add("Power(W)"); visColors.add(PowerColor); visData.add(records.map { it.powerW }) }
+    if (hasPower && seriesVis["Power(W)"] != false) {
+        visLabels.add("Power(W)"); visColors.add(PowerColor)
+        visData.add(records.map { kotlin.math.abs(it.powerW) })
+    }
     if (hasBattery && seriesVis["Capacity(%)"] != false) { visLabels.add("Capacity(%)"); visColors.add(BatteryColor); visData.add(records.map { it.batteryCapacity }) }
 
     if (visData.isEmpty()) return
 
     val subtitle = if (hasPower) {
-        val pws = records.map { it.powerW }.filter { it > 0 }
+        val pws = records.map { kotlin.math.abs(it.powerW) }.filter { it > 0 }
         if (pws.isNotEmpty()) "MAX: %.2fW  MIN: %.2fW  AVG: %.2fW".format(pws.max(), pws.min(), pws.average()) else ""
     } else ""
 

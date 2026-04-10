@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.abs
 
 enum class FpsRecordingState {
     IDLE,
@@ -147,7 +148,7 @@ class FpsRecordingManager @Inject constructor(
                     if (fpsData != null) {
                         fpsAccumulator.add(fpsData.fps)
 
-                        val pw = battery?.powerW ?: 0.0
+                        val pw = battery?.powerW?.let { abs(it) } ?: 0.0
                         if (pw > 0) powerAccumulator.add(pw)
 
                         // Extract package from fps layer and resolve app name

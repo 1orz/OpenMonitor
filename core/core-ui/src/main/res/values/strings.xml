@@ -44,6 +44,21 @@
     <string name="fps_chart_power">Power / Battery</string>
     <string name="fps_chart_battery_current">Battery Current (mA)</string>
     <string name="fps_chart_temperature">Temperature</string>
+    <string name="fps_chart_jank">Jank Count</string>
+    <!-- FPS Session Detail -->
+    <string name="fps_detail_platform">Platform</string>
+    <string name="fps_detail_model">Model</string>
+    <string name="fps_detail_os">OS</string>
+    <string name="fps_detail_app_version">Version</string>
+    <string name="fps_detail_created">Created</string>
+    <string name="fps_stat_max">MAX</string>
+    <string name="fps_stat_min">MIN</string>
+    <string name="fps_stat_avg">AVG</string>
+    <string name="fps_stat_variance">VARIANCE</string>
+    <string name="fps_stat_smoothness">\u226545FPS</string>
+    <string name="fps_stat_low">5%% Low</string>
+    <string name="fps_stat_avg_power">AVG Power</string>
+    <string name="fps_stat_max_temp">MAX Temp</string>
 
     <!-- Float Monitor Screen -->
     <string name="float_monitor_title">Float Monitor</string>
