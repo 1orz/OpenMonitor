@@ -53,7 +53,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -455,15 +458,13 @@ fun FloatMiniMonitorContent(service: FloatMonitorService) {
                 }
             }
 
-            // Network speed
+            // Network speed — arrow colored, value white
             if (showNetSpeed) {
                 if (netSpeedMode == 0) {
-                    // Combined mode
-                    MiniText("\u2195${formatMiniSpeed(rxSpeed + txSpeed)}", Color(0xFF80DEEA))
+                    MiniColoredArrowText("\u2195", Color(0xFF80DEEA), formatMiniSpeed(rxSpeed + txSpeed))
                 } else {
-                    // Split mode
-                    MiniText("\u2193${formatMiniSpeed(rxSpeed)}", Color(0xFF66BB6A))
-                    MiniText("\u2191${formatMiniSpeed(txSpeed)}", Color(0xFFFF7043))
+                    MiniColoredArrowText("\u2193", Color(0xFF66BB6A), formatMiniSpeed(rxSpeed))
+                    MiniColoredArrowText("\u2191", Color(0xFFFF7043), formatMiniSpeed(txSpeed))
                 }
             }
         }
@@ -506,6 +507,19 @@ private fun MiniText(value: String, color: Color = Color.White) {
     Text(
         text = value,
         style = MonoStyle.copy(fontSize = 8.sp, color = color, letterSpacing = 0.sp),
+        maxLines = 1,
+        softWrap = false,
+    )
+}
+
+@Composable
+private fun MiniColoredArrowText(arrow: String, arrowColor: Color, value: String) {
+    Text(
+        text = buildAnnotatedString {
+            withStyle(SpanStyle(color = arrowColor)) { append(arrow) }
+            withStyle(SpanStyle(color = Color.White)) { append(value) }
+        },
+        style = MonoStyle.copy(fontSize = 8.sp, letterSpacing = 0.sp),
         maxLines = 1,
         softWrap = false,
     )
