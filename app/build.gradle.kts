@@ -186,15 +186,12 @@ dependencies {
     implementation(libs.compose.material.icons)
     implementation(libs.compose.foundation)
 
-    implementation(libs.miuix)
-    implementation(libs.miuix.icons)
     implementation(libs.material.kolor)
-    implementation(libs.haze)
 
     implementation(libs.navigation3.runtime)
     implementation(libs.lifecycle.viewmodel.navigation3)
     implementation(libs.navigationevent.compose)
-    implementation(libs.miuix.navigation3.ui)
+    implementation(libs.navigation3.ui)
 
     implementation(libs.lifecycle.runtime.ktx)
     implementation(libs.lifecycle.runtime.compose)

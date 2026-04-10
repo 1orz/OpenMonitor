@@ -316,13 +316,6 @@ fun UserScreen(
         // Theme settings navigation card
         ThemeNavigationCard(onClick = { view.hapticClick(); onNavigateToTheme() })
 
-        // UI style toggle (Material / MIUIX)
-        val uiModeVal by viewModel.uiMode.collectAsState()
-        UiStyleCard(
-            currentMode = uiModeVal,
-            onModeSelected = viewModel::setUiMode,
-        )
-
         // Haptic feedback toggle card
         val hapticEnabled by viewModel.hapticEnabled.collectAsState()
         HapticToggleCard(
@@ -924,53 +917,6 @@ private fun ThemeNavigationCard(onClick: () -> Unit) {
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        }
-    }
-}
-
-@Composable
-private fun UiStyleCard(
-    currentMode: String,
-    onModeSelected: (String) -> Unit,
-) {
-    val view = LocalView.current
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        ),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Brightness4,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp),
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = stringResource(R.string.settings_ui_mode),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f),
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    selected = currentMode == "material",
-                    onClick = { view.hapticClick(); onModeSelected("material") },
-                    label = { Text("Material") },
-                )
-                FilterChip(
-                    selected = currentMode == "miuix",
-                    onClick = { view.hapticClick(); onModeSelected("miuix") },
-                    label = { Text("MIUIX") },
-                )
-            }
         }
     }
 }

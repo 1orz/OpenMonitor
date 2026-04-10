@@ -36,10 +36,7 @@ dependencies {
     implementation(libs.compose.foundation)
     implementation(libs.compose.runtime)
 
-    implementation(libs.miuix)
-    implementation(libs.miuix.icons)
     implementation(libs.material.kolor)
-    implementation(libs.haze)
 
     debugImplementation(libs.compose.ui.tooling)
 }

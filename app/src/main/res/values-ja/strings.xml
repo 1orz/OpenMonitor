@@ -1,23 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- 権限ガイド画面 -->
-    <string name="guide_subtitle">実行モードを選択</string>
-    <string name="guide_auto_detect">最適なモードを自動検出</string>
-    <string name="guide_manual_hint">または上からモードを手動選択</string>
-    <string name="guide_confirm">%1$s モードで開始</string>
-    <string name="guide_detecting_title">権限を検出中</string>
-    <string name="guide_detecting_desc">利用可能な権限レベルを確認中\u2026</string>
 
     <string name="mode_root_title">ROOT モード</string>
-    <string name="mode_root_desc">全機能利用可。KernelSU / Magisk / APatch 必要</string>
     <string name="mode_root_tag">全機能利用可能</string>
 
     <string name="mode_shizuku_title">Shizuku モード</string>
-    <string name="mode_shizuku_desc">ほとんどの機能。Root 不要</string>
     <string name="mode_shizuku_tag">FPS / プロセス等利用可能</string>
 
     <string name="mode_basic_title">基本モード</string>
-    <string name="mode_basic_desc">基本的な監視。特別な権限不要</string>
     <string name="mode_basic_tag">基本監視のみ</string>
 
     <!-- 権限ガイド画面 - 検出結果 -->
@@ -47,10 +38,6 @@
     <string name="partitions">パーティション</string>
 
     <!-- センサー -->
-    <string name="sensor_title">センサー</string>
-    <plurals name="sensor_count_format">
-        <item quantity="other">%d 個のセンサーを検出</item>
-    </plurals>
     <string name="sensor_vendor">ベンダー</string>
     <string name="sensor_resolution">解像度</string>
     <string name="sensor_max_range">最大範囲</string>
@@ -59,7 +46,6 @@
     <string name="sensor_version">バージョン</string>
 
     <!-- ネットワーク -->
-    <string name="network_title">ネットワークモニター</string>
     <string name="network_connected">接続中</string>
     <string name="network_disconnected">未接続</string>
     <string name="realtime_speed">リアルタイム速度</string>
@@ -137,30 +123,9 @@
     <string name="settings_theme_mode_light">ライト</string>
     <string name="settings_theme_mode_dark">ダーク</string>
     <string name="settings_theme_mode_amoled">AMOLED ダーク</string>
-    <string name="settings_key_color">テーマカラー</string>
-    <string name="settings_key_color_default">自動（壁紙）</string>
     <string name="settings_color_style">カラースタイル</string>
     <string name="settings_color_spec">カラー仕様</string>
-    <string name="settings_ui_mode">UIスタイル</string>
-    <string name="settings_monet">ダイナミックカラー</string>
-    <string name="settings_enable_blur">ブラー効果</string>
-    <string name="settings_floating_bottom_bar">フローティングボトムバー</string>
     <string name="settings_page_scale">ページスケール</string>
-    <string name="color_red">レッド</string>
-    <string name="color_pink">ピンク</string>
-    <string name="color_purple">パープル</string>
-    <string name="color_deep_purple">ディープパープル</string>
-    <string name="color_indigo">インディゴ</string>
-    <string name="color_blue">ブルー</string>
-    <string name="color_cyan">シアン</string>
-    <string name="color_teal">ティール</string>
-    <string name="color_green">グリーン</string>
-    <string name="color_yellow">イエロー</string>
-    <string name="color_amber">アンバー</string>
-    <string name="color_orange">オレンジ</string>
-    <string name="color_brown">ブラウン</string>
-    <string name="color_blue_grey">ブルーグレー</string>
-    <string name="color_sakura">桜</string>
     <string name="settings_language">言語</string>
     <string name="settings_language_system">システムに従う</string>
     <string name="settings_close">閉じる</string>

@@ -162,12 +162,6 @@ fun LogScreen(
         }) {
             Icon(Icons.Outlined.ContentCopy, contentDescription = stringResource(R.string.log_copy_all))
         }
-        IconButton(onClick = {
-            view.hapticClick()
-            if (selectedTab == 0) viewModel.clearAppLogs() else viewModel.clearDaemonLogs()
-        }) {
-            Icon(Icons.Outlined.ClearAll, contentDescription = stringResource(R.string.log_clear))
-        }
     }
     LaunchedEffect(Unit) { onProvideTopBarActions(actions) }
     DisposableEffect(Unit) { onDispose { onProvideTopBarActions {} } }

@@ -61,9 +61,7 @@ import com.cloudorz.openmonitor.core.data.datasource.DaemonManager
 import com.cloudorz.openmonitor.core.data.datasource.DaemonState
 import com.cloudorz.openmonitor.core.ui.hapticClick
 import com.cloudorz.openmonitor.core.ui.theme.LocalColorMode
-import com.cloudorz.openmonitor.core.ui.theme.LocalEnableBlur
-import com.cloudorz.openmonitor.core.ui.theme.LocalEnableFloatingBottomBar
-import com.cloudorz.openmonitor.core.ui.theme.LocalUiMode
+import com.cloudorz.openmonitor.core.ui.theme.LocalPageScale
 import com.cloudorz.openmonitor.core.ui.theme.MonitorTheme
 import com.cloudorz.openmonitor.feature.battery.BatteryScreen
 import com.cloudorz.openmonitor.feature.floatmonitor.FloatMonitorScreen
@@ -90,14 +88,6 @@ import com.cloudorz.openmonitor.ui.splash.PermissionGuideScreen
 import com.cloudorz.openmonitor.ui.splash.PermissionSetupScreen
 import com.cloudorz.openmonitor.ui.theme.ColorPaletteScreen
 import com.cloudorz.openmonitor.ui.theme.ThemeViewModel
-import dev.chrisbanes.haze.ExperimentalHazeApi
-import dev.chrisbanes.haze.HazeInputScale
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
-import top.yukonga.miuix.kmp.basic.NavigationBarItem
 import com.cloudorz.openmonitor.ui.user.LicenseDetailScreen
 import com.cloudorz.openmonitor.ui.user.OpenSourceLicensesScreen
 import com.cloudorz.openmonitor.ui.user.UserScreen
@@ -132,11 +122,9 @@ class MainActivity : AppCompatActivity() {
             CompositionLocalProvider(
                 LocalDensity provides density,
                 LocalColorMode provides themeState.appSettings.colorMode.value,
-                LocalEnableBlur provides themeState.enableBlur,
-                LocalEnableFloatingBottomBar provides themeState.enableFloatingBottomBar,
-                LocalUiMode provides themeState.uiMode,
+                LocalPageScale provides themeState.pageScale,
             ) {
-                MonitorTheme(appSettings = themeState.appSettings, uiMode = themeState.uiMode) {
+                MonitorTheme(appSettings = themeState.appSettings) {
                     MonitorAppContent(permissionManager, daemonManager)
                 }
             }
@@ -415,12 +403,46 @@ private fun MainScreen(permissionManager: PermissionManager) {
 @Composable
 private fun TabsScreen(permissionManager: PermissionManager) {
     val navigator = LocalNavigator.current
-    val uiMode = LocalUiMode.current
     val pagerState = rememberPagerState(initialPage = 1) { Route.tabs.size }
     val coroutineScope = rememberCoroutineScope()
     val view = LocalView.current
 
-    val pagerContent: @Composable (PaddingValues) -> Unit = { innerPadding ->
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("OpenMonitor", style = MaterialTheme.typography.titleLarge)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = BuildConfig.VERSION_NAME,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                ),
+            )
+        },
+        bottomBar = {
+            NavigationBar {
+                Route.tabs.forEachIndexed { index, tab ->
+                    NavigationBarItem(
+                        selected = pagerState.currentPage == index,
+                        onClick = {
+                            view.hapticClick()
+                            coroutineScope.launch { pagerState.animateScrollToPage(index) }
+                        },
+                        icon = { Icon(tab.icon, stringResource(tab.labelResId)) },
+                        label = { Text(stringResource(tab.labelResId)) },
+                        alwaysShowLabel = true,
+                    )
+                }
+            }
+        },
+    ) { innerPadding ->
         HorizontalPager(
             state = pagerState,
             modifier = Modifier
@@ -437,125 +459,6 @@ private fun TabsScreen(permissionManager: PermissionManager) {
                     onNavigateToLicenses = { navigator.push(Route.Licenses) },
                     onNavigateToTheme = { navigator.push(Route.ColorPalette) },
                 )
-            }
-        }
-    }
-
-    val m3TopBar: @Composable () -> Unit = {
-        TopAppBar(
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("OpenMonitor", style = MaterialTheme.typography.titleLarge)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = BuildConfig.VERSION_NAME,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            ),
-        )
-    }
-
-    val m3BottomBar: @Composable () -> Unit = {
-        NavigationBar {
-            Route.tabs.forEachIndexed { index, tab ->
-                NavigationBarItem(
-                    selected = pagerState.currentPage == index,
-                    onClick = {
-                        view.hapticClick()
-                        coroutineScope.launch { pagerState.animateScrollToPage(index) }
-                    },
-                    icon = { Icon(tab.icon, stringResource(tab.labelResId)) },
-                    label = { Text(stringResource(tab.labelResId)) },
-                    alwaysShowLabel = true,
-                )
-            }
-        }
-    }
-
-    when (uiMode) {
-        com.cloudorz.openmonitor.core.ui.theme.UiMode.Material -> {
-            Scaffold(topBar = m3TopBar, bottomBar = m3BottomBar) { pagerContent(it) }
-        }
-        com.cloudorz.openmonitor.core.ui.theme.UiMode.Miuix -> {
-            val enableBlur = LocalEnableBlur.current
-            val enableFloatingBottomBar = LocalEnableFloatingBottomBar.current
-            val hazeState = remember { HazeState() }
-            val miuixSurface = top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.surface
-            val hazeStyle = if (enableBlur) {
-                HazeStyle(
-                    backgroundColor = miuixSurface,
-                    tint = HazeTint(miuixSurface.copy(0.8f)),
-                )
-            } else {
-                HazeStyle.Unspecified
-            }
-
-            @OptIn(ExperimentalHazeApi::class)
-            val blurModifier: Modifier = if (enableBlur) {
-                Modifier.hazeEffect(hazeState, hazeStyle) {
-                    blurRadius = 20.dp
-                    inputScale = HazeInputScale.Fixed(0.35f)
-                    noiseFactor = 0f
-                }
-            } else Modifier
-
-            val miuixTopBar: @Composable () -> Unit = {
-                top.yukonga.miuix.kmp.basic.TopAppBar(
-                    modifier = blurModifier,
-                    color = if (enableBlur) androidx.compose.ui.graphics.Color.Transparent else miuixSurface,
-                    title = "OpenMonitor",
-                )
-            }
-
-            val miuixBottomBar: @Composable () -> Unit = {
-                if (enableFloatingBottomBar) {
-                    top.yukonga.miuix.kmp.basic.FloatingNavigationBar {
-                        Route.tabs.forEachIndexed { index, tab ->
-                            top.yukonga.miuix.kmp.basic.FloatingNavigationBarItem(
-                                selected = pagerState.currentPage == index,
-                                onClick = {
-                                    view.hapticClick()
-                                    coroutineScope.launch { pagerState.animateScrollToPage(index) }
-                                },
-                                icon = tab.icon,
-                                label = stringResource(tab.labelResId),
-                            )
-                        }
-                    }
-                } else {
-                    top.yukonga.miuix.kmp.basic.NavigationBar(
-                        modifier = blurModifier,
-                        color = if (enableBlur) androidx.compose.ui.graphics.Color.Transparent else miuixSurface,
-                    ) {
-                        Route.tabs.forEachIndexed { index, tab ->
-                            NavigationBarItem(
-                                selected = pagerState.currentPage == index,
-                                onClick = {
-                                    view.hapticClick()
-                                    coroutineScope.launch { pagerState.animateScrollToPage(index) }
-                                },
-                                icon = tab.icon,
-                                label = stringResource(tab.labelResId),
-                            )
-                        }
-                    }
-                }
-            }
-
-            top.yukonga.miuix.kmp.basic.Scaffold(
-                topBar = miuixTopBar,
-                bottomBar = miuixBottomBar,
-            ) { innerPadding ->
-                Box(
-                    modifier = if (enableBlur) Modifier.hazeSource(state = hazeState) else Modifier,
-                ) {
-                    pagerContent(innerPadding)
-                }
             }
         }
     }

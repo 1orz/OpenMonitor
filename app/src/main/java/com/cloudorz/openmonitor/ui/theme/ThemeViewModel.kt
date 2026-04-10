@@ -5,7 +5,6 @@ import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
 import com.cloudorz.openmonitor.core.ui.theme.AppSettings
 import com.cloudorz.openmonitor.core.ui.theme.ThemeSettingsReader
-import com.cloudorz.openmonitor.core.ui.theme.UiMode
 import com.cloudorz.openmonitor.data.repository.ThemeSettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -17,9 +16,6 @@ import javax.inject.Inject
 data class ThemeUiState(
     val appSettings: AppSettings,
     val pageScale: Float,
-    val enableBlur: Boolean,
-    val enableFloatingBottomBar: Boolean,
-    val uiMode: UiMode,
 )
 
 @HiltViewModel
@@ -52,17 +48,12 @@ class ThemeViewModel @Inject constructor(
         return ThemeUiState(
             appSettings = ThemeSettingsReader.getAppSettings(prefs),
             pageScale = repo.pageScale,
-            enableBlur = repo.enableBlur,
-            enableFloatingBottomBar = repo.enableFloatingBottomBar,
-            uiMode = UiMode.fromValue(repo.uiMode),
         )
     }
 
     companion object {
         private val OBSERVED_KEYS = setOf(
-            "color_mode", "key_color", "color_style", "color_spec",
-            "page_scale", "enable_blur", "enable_floating_bottom_bar",
-            "ui_mode", "miuix_monet",
+            "color_mode", "key_color", "color_style", "color_spec", "page_scale",
         )
     }
 }

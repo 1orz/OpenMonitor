@@ -1,23 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- 权限引导页 -->
-    <string name="guide_subtitle">选择运行模式</string>
-    <string name="guide_auto_detect">自动检测最佳模式</string>
-    <string name="guide_manual_hint">或手动选择上方模式</string>
-    <string name="guide_confirm">进入 %1$s 模式</string>
-    <string name="guide_detecting_title">正在检测权限</string>
-    <string name="guide_detecting_desc">正在检查可用的权限级别\u2026</string>
 
     <string name="mode_root_title">ROOT 模式</string>
-    <string name="mode_root_desc">完整功能，需要 KernelSU / Magisk / APatch</string>
     <string name="mode_root_tag">全部功能可用</string>
 
     <string name="mode_shizuku_title">Shizuku 模式</string>
-    <string name="mode_shizuku_desc">大部分功能，无需 Root 权限</string>
     <string name="mode_shizuku_tag">FPS/进程等可用</string>
 
     <string name="mode_basic_title">基础模式</string>
-    <string name="mode_basic_desc">基本监控，无需特殊权限</string>
     <string name="mode_basic_tag">基本监控可用</string>
 
     <!-- 权限引导页 - 检测结果 -->
@@ -47,10 +38,6 @@
     <string name="partitions">分区</string>
 
     <!-- 传感器 -->
-    <string name="sensor_title">传感器</string>
-    <plurals name="sensor_count_format">
-        <item quantity="other">检测到 %d 个传感器</item>
-    </plurals>
     <string name="sensor_vendor">厂商</string>
     <string name="sensor_resolution">分辨率</string>
     <string name="sensor_max_range">最大范围</string>
@@ -59,7 +46,6 @@
     <string name="sensor_version">版本</string>
 
     <!-- 网络监控 -->
-    <string name="network_title">网络监控</string>
     <string name="network_connected">已连接</string>
     <string name="network_disconnected">未连接</string>
     <string name="realtime_speed">实时速率</string>
@@ -137,30 +123,9 @@
     <string name="settings_theme_mode_light">日间</string>
     <string name="settings_theme_mode_dark">深色</string>
     <string name="settings_theme_mode_amoled">AMOLED 深色</string>
-    <string name="settings_key_color">主题色</string>
-    <string name="settings_key_color_default">自动（壁纸）</string>
     <string name="settings_color_style">配色风格</string>
     <string name="settings_color_spec">颜色规格</string>
-    <string name="settings_ui_mode">界面风格</string>
-    <string name="settings_monet">动态颜色</string>
-    <string name="settings_enable_blur">模糊效果</string>
-    <string name="settings_floating_bottom_bar">悬浮底部栏</string>
     <string name="settings_page_scale">页面缩放</string>
-    <string name="color_red">红色</string>
-    <string name="color_pink">粉色</string>
-    <string name="color_purple">紫色</string>
-    <string name="color_deep_purple">深紫</string>
-    <string name="color_indigo">靛蓝</string>
-    <string name="color_blue">蓝色</string>
-    <string name="color_cyan">青色</string>
-    <string name="color_teal">蓝绿</string>
-    <string name="color_green">绿色</string>
-    <string name="color_yellow">黄色</string>
-    <string name="color_amber">琥珀</string>
-    <string name="color_orange">橙色</string>
-    <string name="color_brown">棕色</string>
-    <string name="color_blue_grey">蓝灰</string>
-    <string name="color_sakura">樱花</string>
     <string name="settings_language">语言</string>
     <string name="settings_language_system">跟随系统</string>
     <string name="settings_close">关闭</string>

@@ -1,23 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- 權限引導頁 -->
-    <string name="guide_subtitle">選擇執行模式</string>
-    <string name="guide_auto_detect">自動偵測最佳模式</string>
-    <string name="guide_manual_hint">或手動選擇上方模式</string>
-    <string name="guide_confirm">進入 %1$s 模式</string>
-    <string name="guide_detecting_title">正在偵測權限</string>
-    <string name="guide_detecting_desc">正在檢查可用的權限級別\u2026</string>
 
     <string name="mode_root_title">ROOT 模式</string>
-    <string name="mode_root_desc">完整功能，需要 KernelSU / Magisk / APatch</string>
     <string name="mode_root_tag">全部功能可用</string>
 
     <string name="mode_shizuku_title">Shizuku 模式</string>
-    <string name="mode_shizuku_desc">大部分功能，無需 Root 權限</string>
     <string name="mode_shizuku_tag">FPS/進程等可用</string>
 
     <string name="mode_basic_title">基礎模式</string>
-    <string name="mode_basic_desc">基本監控，無需特殊權限</string>
     <string name="mode_basic_tag">基本監控可用</string>
 
     <!-- 權限引導頁 - 偵測結果 -->
@@ -47,10 +38,6 @@
     <string name="partitions">分區</string>
 
     <!-- 感測器 -->
-    <string name="sensor_title">感測器</string>
-    <plurals name="sensor_count_format">
-        <item quantity="other">偵測到 %d 個感測器</item>
-    </plurals>
     <string name="sensor_vendor">廠商</string>
     <string name="sensor_resolution">解析度</string>
     <string name="sensor_max_range">最大範圍</string>
@@ -59,7 +46,6 @@
     <string name="sensor_version">版本</string>
 
     <!-- 網路監控 -->
-    <string name="network_title">網路監控</string>
     <string name="network_connected">已連線</string>
     <string name="network_disconnected">未連線</string>
     <string name="realtime_speed">即時速率</string>
@@ -137,30 +123,9 @@
     <string name="settings_theme_mode_light">日間</string>
     <string name="settings_theme_mode_dark">深色</string>
     <string name="settings_theme_mode_amoled">AMOLED 深色</string>
-    <string name="settings_key_color">主題色</string>
-    <string name="settings_key_color_default">自動（桌布）</string>
     <string name="settings_color_style">配色風格</string>
     <string name="settings_color_spec">顏色規格</string>
-    <string name="settings_ui_mode">介面風格</string>
-    <string name="settings_monet">動態顏色</string>
-    <string name="settings_enable_blur">模糊效果</string>
-    <string name="settings_floating_bottom_bar">懸浮底部欄</string>
     <string name="settings_page_scale">頁面縮放</string>
-    <string name="color_red">紅色</string>
-    <string name="color_pink">粉色</string>
-    <string name="color_purple">紫色</string>
-    <string name="color_deep_purple">深紫</string>
-    <string name="color_indigo">靛藍</string>
-    <string name="color_blue">藍色</string>
-    <string name="color_cyan">青色</string>
-    <string name="color_teal">藍綠</string>
-    <string name="color_green">綠色</string>
-    <string name="color_yellow">黃色</string>
-    <string name="color_amber">琥珀</string>
-    <string name="color_orange">橙色</string>
-    <string name="color_brown">棕色</string>
-    <string name="color_blue_grey">藍灰</string>
-    <string name="color_sakura">櫻花</string>
     <string name="settings_language">語言</string>
     <string name="settings_language_system">跟隨系統</string>
     <string name="settings_close">關閉</string>

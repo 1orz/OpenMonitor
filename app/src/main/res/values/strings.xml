@@ -2,23 +2,14 @@
 <resources>
     <string name="app_name">OpenMonitor</string>
     <!-- Permission Guide Screen -->
-    <string name="guide_subtitle">Select Running Mode</string>
-    <string name="guide_auto_detect">Auto-Detect Best Mode</string>
-    <string name="guide_manual_hint">Or manually select a mode above</string>
-    <string name="guide_confirm">Enter %1$s Mode</string>
-    <string name="guide_detecting_title">Detecting Permissions</string>
-    <string name="guide_detecting_desc">Checking available privilege levels\u2026</string>
 
     <string name="mode_root_title">ROOT Mode</string>
-    <string name="mode_root_desc">Full access. Requires KernelSU / Magisk / APatch</string>
     <string name="mode_root_tag">All features available</string>
 
     <string name="mode_shizuku_title">Shizuku Mode</string>
-    <string name="mode_shizuku_desc">Most features. No root required</string>
     <string name="mode_shizuku_tag">FPS / Process etc. available</string>
 
     <string name="mode_basic_title">Basic Mode</string>
-    <string name="mode_basic_desc">Basic monitoring. No special permissions needed</string>
     <string name="mode_basic_tag">Basic monitoring available</string>
 
     <!-- Permission Guide Screen - detection results -->
@@ -48,11 +39,6 @@
     <string name="partitions">Partitions</string>
 
     <!-- Sensor Screen -->
-    <string name="sensor_title">Sensors</string>
-    <plurals name="sensor_count_format">
-        <item quantity="one">%d sensor detected</item>
-        <item quantity="other">%d sensors detected</item>
-    </plurals>
     <string name="sensor_vendor">Vendor</string>
     <string name="sensor_resolution">Resolution</string>
     <string name="sensor_max_range">Max Range</string>
@@ -61,7 +47,6 @@
     <string name="sensor_version">Version</string>
 
     <!-- Network Screen -->
-    <string name="network_title">Network Monitor</string>
     <string name="network_connected">Connected</string>
     <string name="network_disconnected">Disconnected</string>
     <string name="realtime_speed">Real-time Speed</string>
@@ -145,30 +130,9 @@
     <string name="settings_theme_mode_light">Light</string>
     <string name="settings_theme_mode_dark">Dark</string>
     <string name="settings_theme_mode_amoled">AMOLED Dark</string>
-    <string name="settings_key_color">Theme Color</string>
-    <string name="settings_key_color_default">Auto (Wallpaper)</string>
     <string name="settings_color_style">Color Style</string>
     <string name="settings_color_spec">Color Spec</string>
-    <string name="settings_ui_mode">UI Style</string>
-    <string name="settings_monet">Dynamic Colors</string>
-    <string name="settings_enable_blur">Blur Effect</string>
-    <string name="settings_floating_bottom_bar">Floating Bottom Bar</string>
     <string name="settings_page_scale">Page Scale</string>
-    <string name="color_red">Red</string>
-    <string name="color_pink">Pink</string>
-    <string name="color_purple">Purple</string>
-    <string name="color_deep_purple">Deep Purple</string>
-    <string name="color_indigo">Indigo</string>
-    <string name="color_blue">Blue</string>
-    <string name="color_cyan">Cyan</string>
-    <string name="color_teal">Teal</string>
-    <string name="color_green">Green</string>
-    <string name="color_yellow">Yellow</string>
-    <string name="color_amber">Amber</string>
-    <string name="color_orange">Orange</string>
-    <string name="color_brown">Brown</string>
-    <string name="color_blue_grey">Blue Grey</string>
-    <string name="color_sakura">Sakura</string>
 
     <string name="settings_language">Language</string>
     <string name="settings_language_system">Follow System</string>

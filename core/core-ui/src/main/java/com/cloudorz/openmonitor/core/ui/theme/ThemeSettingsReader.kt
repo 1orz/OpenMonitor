@@ -15,27 +15,12 @@ object ThemeSettingsReader {
     }
 
     fun getAppSettings(prefs: SharedPreferences): AppSettings {
-        val uiMode = prefs.getString("ui_mode", UiMode.DEFAULT_VALUE) ?: UiMode.DEFAULT_VALUE
-
         // Read color_mode, with fallback to legacy dark_mode key
-        var colorModeValue = if (prefs.contains("color_mode")) {
+        val colorModeValue = if (prefs.contains("color_mode")) {
             prefs.getInt("color_mode", ColorMode.SYSTEM.value)
         } else {
             // Migrate from old dark_mode: 0=System, 1=Light, 2=Dark
             prefs.getInt("dark_mode", 0)
-        }
-
-        // MIUIX monet adjustment
-        if (uiMode == "miuix") {
-            val miuixMonet = prefs.getBoolean("miuix_monet", false)
-            val colorMode = ColorMode.fromValue(colorModeValue)
-            colorModeValue = if (!miuixMonet && colorMode.isMonet) {
-                colorMode.toNonMonetMode()
-            } else if (miuixMonet && !colorMode.isMonet) {
-                colorMode.toMonetMode()
-            } else {
-                colorModeValue
-            }
         }
 
         val colorMode = ColorMode.fromValue(colorModeValue)
