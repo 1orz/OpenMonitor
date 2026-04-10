@@ -3,10 +3,35 @@
 ## 项目概述
 
 Android 系统监控工具，Kotlin/Compose，多模块 Gradle 项目。
-- 模块：app, core/*, feature/*, service
+- 模块：app, core/*(common, model, data, database, ui), feature/*(overview, battery, fps, process, cpu, float, hardware, key-attestation), service
 - Go daemon（monitor-daemon，交叉编译 Android arm64）
-- C++ JNI（cpuinfo-bridge，CMake 构建）
+- C++ JNI（cpuinfo-bridge + vulkan-info，CMake 构建）
 - Shizuku AIDL IPC
+
+## 技术栈
+
+| 类别 | 技术 | 版本 |
+|------|------|------|
+| UI | Jetpack Compose + Material 3 | BOM 2026.03.01 |
+| 导航 | Navigation3 (runtime + ui) | 1.1.0 |
+| DI | Dagger Hilt | 2.59.2 |
+| 数据库 | Room | 2.8.4 |
+| 异步 | Kotlin Coroutines | 1.10.2 |
+| Root | libsu | 6.0.0 |
+| 权限 | Shizuku API | 13.1.5 |
+| 后台 | WorkManager | 2.11.2 |
+| 图表 | Vico | 3.1.0 |
+| 动态配色 | Material Kolor | 4.1.1 |
+| 日志 | xLog | 1.11.1 |
+| 分析 | Firebase Analytics | BOM 34.12.0 |
+| Native | cpuinfo (BSD-2) + Vulkan Info | prebuilt arm64-v8a |
+
+## UI 架构
+
+- **主题**：Material 3 + Material Kolor 动态配色，支持 System/Light/Dark/AMOLED 四种模式
+- **导航**：Navigation3 NavDisplay，左右滑动转场（transitionSpec slideInHorizontally/slideOutHorizontally）
+- **设置组件**：`app/.../ui/component/SettingsComponents.kt` 提供 SettingsGroup / SettingsSwitchItem / SettingsDropdownItem / SettingsNavigateItem / ExpressiveSwitch，基于 M3 ListItem + Surface segmented 圆角
+- **开源协议**：`assets/licenses/libraries.json` 维护库列表，license 文本从 GitHub 在线获取
 
 ## UI 字符串规范（强制）
 
