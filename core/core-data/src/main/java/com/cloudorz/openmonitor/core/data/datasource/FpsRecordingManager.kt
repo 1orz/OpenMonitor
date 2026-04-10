@@ -95,6 +95,7 @@ class FpsRecordingManager @Inject constructor(
                 packageName = "",
                 appName = "",
                 mode = "FLOAT",
+                viewSize = getScreenResolution(),
             )
 
             _state.value = FpsRecordingState.RECORDING
@@ -155,10 +156,11 @@ class FpsRecordingManager @Inject constructor(
                         val pkg = extractPackageFromLayer(fpsData.window)
                         if (pkg.isNotEmpty() && pkg != _info.value.packageName) {
                             val name = resolveAppName(pkg)
+                            val version = resolveAppVersion(pkg)
                             _info.value = _info.value.copy(packageName = pkg, appName = name)
                             // Persist to DB session (keeps latest app as session-level label)
                             try {
-                                fpsRepository.updateSessionAppInfo(sessionId, pkg, name)
+                                fpsRepository.updateSessionAppInfo(sessionId, pkg, name, version)
                             } catch (e: Exception) {
                                 Log.w(TAG, "Failed to update session app info", e)
                             }
@@ -256,6 +258,35 @@ class FpsRecordingManager @Inject constructor(
             pm.getApplicationLabel(appInfo).toString()
         } catch (_: PackageManager.NameNotFoundException) {
             packageName
+        }
+    }
+
+    private fun getScreenResolution(): String {
+        val wm = context.getSystemService(android.view.WindowManager::class.java)
+        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            val bounds = wm.currentWindowMetrics.bounds
+            "${bounds.width()}x${bounds.height()}"
+        } else {
+            val dm = android.util.DisplayMetrics()
+            @Suppress("DEPRECATION")
+            wm.defaultDisplay.getRealMetrics(dm)
+            "${dm.widthPixels}x${dm.heightPixels}"
+        }
+    }
+
+    private fun resolveAppVersion(packageName: String): String {
+        return try {
+            val pi = context.packageManager.getPackageInfo(packageName, 0)
+            val versionName = pi.versionName ?: ""
+            @Suppress("DEPRECATION")
+            val versionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                pi.longVersionCode
+            } else {
+                pi.versionCode.toLong()
+            }
+            if (versionName.isNotEmpty()) "$versionName ($versionCode)" else versionCode.toString()
+        } catch (_: PackageManager.NameNotFoundException) {
+            ""
         }
     }
 }

@@ -45,16 +45,29 @@
     <string name="fps_chart_battery_current">バッテリー電流 (mA)</string>
     <string name="fps_chart_temperature">温度</string>
     <string name="fps_chart_jank">ジャンク回数</string>
+    <string name="fps_chart_options_title">グラフオプション</string>
+    <!-- FPS Chart Section Labels -->
+    <string name="fps_section_fps_temp">FPS</string>
+    <string name="fps_section_frame_time">フレームタイム</string>
+    <string name="fps_section_cpu_gpu">CPU / GPU</string>
+    <string name="fps_section_cpu_core_load">CPUコア</string>
+    <string name="fps_section_gpu_freq">GPU 周波数</string>
+    <string name="fps_section_cpu_freq">CPU 周波数</string>
+    <string name="fps_section_jank">ジャンク</string>
+    <string name="fps_section_power">電力</string>
+    <string name="fps_section_current">電流</string>
+    <string name="fps_section_temperature">温度</string>
     <!-- FPS Session Detail -->
     <string name="fps_detail_platform">プラットフォーム</string>
     <string name="fps_detail_model">モデル</string>
     <string name="fps_detail_os">OS</string>
     <string name="fps_detail_app_version">バージョン</string>
+    <string name="fps_detail_resolution">解像度</string>
     <string name="fps_detail_created">作成日時</string>
     <string name="fps_stat_max">最大</string>
     <string name="fps_stat_min">最小</string>
     <string name="fps_stat_avg">平均</string>
-    <string name="fps_stat_variance">分散</string>
+    <string name="fps_stat_variance">標準偏差</string>
     <string name="fps_stat_smoothness">\u226545FPS</string>
     <string name="fps_stat_low">5% Low</string>
     <string name="fps_stat_avg_power">平均電力</string>

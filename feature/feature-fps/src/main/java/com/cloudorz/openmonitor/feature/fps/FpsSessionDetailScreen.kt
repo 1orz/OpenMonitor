@@ -124,17 +124,17 @@ private val CoreColors = listOf(
 
 private val LegendLabelKey = ExtraStore.Key<List<String>>()
 
-private enum class ChartSection(val label: String) {
-    FPS_TEMP("FPS"),
-    FRAME_TIME("Frame Time"),
-    CPU_GPU("CPU / GPU"),
-    CPU_CORE_LOAD("CPU Core Load"),
-    GPU_FREQ("GPU Freq"),
-    CPU_FREQ("CPU Freq"),
-    JANK("Jank"),
-    POWER("Power"),
-    CURRENT("Current"),
-    TEMPERATURE("Temperature"),
+private enum class ChartSection(val labelRes: Int) {
+    FPS_TEMP(R.string.fps_section_fps_temp),
+    FRAME_TIME(R.string.fps_section_frame_time),
+    CPU_GPU(R.string.fps_section_cpu_gpu),
+    CPU_CORE_LOAD(R.string.fps_section_cpu_core_load),
+    GPU_FREQ(R.string.fps_section_gpu_freq),
+    CPU_FREQ(R.string.fps_section_cpu_freq),
+    JANK(R.string.fps_section_jank),
+    POWER(R.string.fps_section_power),
+    CURRENT(R.string.fps_section_current),
+    TEMPERATURE(R.string.fps_section_temperature),
 }
 
 @Composable
@@ -303,9 +303,11 @@ private fun SessionHeaderCard(session: FpsWatchSession, dateFormat: SimpleDateFo
                 Spacer(Modifier.width(12.dp))
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                // App name
+                // App name + version on same line
+                val appDisplayName = session.appName.ifEmpty { session.packageName.ifEmpty { stringResource(R.string.fps_unknown_app) } }
+                val nameWithVersion = if (session.packageVersion.isNotEmpty()) "$appDisplayName  ${session.packageVersion}" else appDisplayName
                 Text(
-                    session.appName.ifEmpty { session.packageName.ifEmpty { stringResource(R.string.fps_unknown_app) } },
+                    nameWithVersion,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
@@ -322,14 +324,14 @@ private fun SessionHeaderCard(session: FpsWatchSession, dateFormat: SimpleDateFo
                     )
                 }
                 Spacer(Modifier.height(4.dp))
-                // App version
-                if (session.packageVersion.isNotEmpty()) {
-                    InfoRow(stringResource(R.string.fps_detail_app_version), session.packageVersion)
+                // Screen resolution
+                if (session.viewSize.isNotEmpty()) {
+                    InfoRow(stringResource(R.string.fps_detail_resolution), session.viewSize)
                 }
-                // Duration
-                InfoRow(stringResource(R.string.duration), formatDuration(session.durationSeconds))
                 // Created time
                 InfoRow(stringResource(R.string.fps_detail_created), dateFormat.format(Date(session.beginTime)))
+                // Duration
+                InfoRow(stringResource(R.string.duration), formatDuration(session.durationSeconds))
             }
         }
     }
@@ -362,7 +364,7 @@ private fun StatsGridCard(records: List<FpsFrameRecord>) {
     val maxFps = fpsList.maxOrNull() ?: 0.0
     val minFps = fpsList.minOrNull() ?: 0.0
     val avgFps = fpsList.average()
-    val variance = if (fpsList.size > 1) sqrt(fpsList.sumOf { (it - avgFps) * (it - avgFps) } / fpsList.size) else 0.0
+    val stdDev = if (fpsList.size > 1) sqrt(fpsList.sumOf { (it - avgFps) * (it - avgFps) } / fpsList.size) else 0.0
     val smoothness = if (fpsList.isNotEmpty()) fpsList.count { it >= 45.0 } * 100.0 / fpsList.size else 0.0
     val fivePercentLow = if (fpsList.size >= 20) {
         fpsList.sorted().take((fpsList.size * 0.05).toInt().coerceAtLeast(1)).average()
@@ -381,7 +383,7 @@ private fun StatsGridCard(records: List<FpsFrameRecord>) {
             StatCell(stringResource(R.string.fps_stat_max), "%.1f".format(maxFps), "FPS", fpsStatColor(maxFps))
             StatCell(stringResource(R.string.fps_stat_min), "%.1f".format(minFps), "FPS", fpsStatColor(minFps))
             StatCell(stringResource(R.string.fps_stat_avg), "%.1f".format(avgFps), "FPS", fpsStatColor(avgFps))
-            StatCell(stringResource(R.string.fps_stat_variance), "%.1f".format(variance), "FPS", MaterialTheme.colorScheme.onSurfaceVariant)
+            StatCell(stringResource(R.string.fps_stat_variance), "%.1f".format(stdDev), "FPS", MaterialTheme.colorScheme.onSurfaceVariant)
             StatCell(stringResource(R.string.fps_stat_smoothness), "%.1f%%".format(smoothness), stringResource(R.string.fps_stat_smoothness_unit), smoothnessColor(smoothness))
             StatCell(stringResource(R.string.fps_stat_low), "%.1f".format(fivePercentLow), "FPS", fpsStatColor(fivePercentLow))
             if (maxTemp > 0) StatCell(stringResource(R.string.fps_stat_max_temp), "%.1f".format(maxTemp), "°C", tempStatColor(maxTemp))
@@ -585,15 +587,20 @@ private fun SeriesSelectDialog(
         title = { Text(stringResource(R.string.fps_chart_series_options)) },
         text = {
             Column {
+                val checkedCount = labels.count { visibility[it] != false }
                 labels.forEachIndexed { idx, label ->
                     val checked = visibility[label] != false
+                    val isLast = checked && checkedCount == 1
                     Row(
                         Modifier
                             .fillMaxWidth()
-                            .hapticClickable { visibility[label] = !checked },
+                            .hapticClickable { if (!isLast) visibility[label] = !checked },
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Checkbox(checked = checked, onCheckedChange = { visibility[label] = it })
+                        Checkbox(
+                            checked = checked,
+                            onCheckedChange = { if (!isLast || it) visibility[label] = it },
+                        )
                         Spacer(Modifier.width(4.dp))
                         Box(
                             Modifier
@@ -978,7 +985,7 @@ private fun PowerBatteryChart(records: List<FpsFrameRecord>) {
 @Composable
 private fun BatteryCurrentChart(records: List<FpsFrameRecord>) {
     if (records.none { it.batteryCurrentMa != 0 }) return
-    val curData = records.map { it.batteryCurrentMa }
+    val curData = records.map { kotlin.math.abs(it.batteryCurrentMa) }
     val maxLabel = stringResource(R.string.fps_stat_max)
     val minLabel = stringResource(R.string.fps_stat_min)
     val avgLabel = stringResource(R.string.fps_stat_avg)
@@ -1041,14 +1048,23 @@ private fun SectionOptionsDialog(
     val view = LocalView.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Chart Options") },
+        title = { Text(stringResource(R.string.fps_chart_options_title)) },
         text = {
             Column {
+                val checkedCount = ChartSection.entries.count { visibility[it] != false }
                 ChartSection.entries.forEach { section ->
-                    Row(Modifier.fillMaxWidth().hapticClickable { visibility[section] = visibility[section] == false }, verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked = visibility[section] != false, onCheckedChange = { visibility[section] = it })
+                    val checked = visibility[section] != false
+                    val isLast = checked && checkedCount == 1
+                    Row(
+                        Modifier.fillMaxWidth().hapticClickable { if (!isLast) visibility[section] = !checked },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(
+                            checked = checked,
+                            onCheckedChange = { if (!isLast || it) visibility[section] = it },
+                        )
                         Spacer(Modifier.width(8.dp))
-                        Text(section.label, style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(section.labelRes), style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }

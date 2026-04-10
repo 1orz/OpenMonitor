@@ -24,7 +24,7 @@ class FpsRepository @Inject constructor(
         fpsDataSource.getDaemonFps()
     }
 
-    suspend fun startSession(packageName: String, appName: String, mode: String = ""): Long {
+    suspend fun startSession(packageName: String, appName: String, mode: String = "", viewSize: String = ""): Long {
         return fpsSessionDao.insertSession(
             FpsSessionEntity(
                 packageName = packageName,
@@ -36,7 +36,7 @@ class FpsRepository @Inject constructor(
                 mode = mode,
                 packageVersion = "",
                 sessionDesc = "",
-                viewSize = ""
+                viewSize = viewSize
             )
         )
     }
@@ -114,8 +114,8 @@ class FpsRepository @Inject constructor(
     suspend fun getSessionFramesOnce(sessionId: Long): List<FpsFrameRecord> =
         fpsSessionDao.getFrameDataBySessionOnce(sessionId).map { it.toRecord() }
 
-    suspend fun updateSessionAppInfo(sessionId: Long, packageName: String, appName: String) =
-        fpsSessionDao.updateSessionAppInfo(sessionId, packageName, appName)
+    suspend fun updateSessionAppInfo(sessionId: Long, packageName: String, appName: String, packageVersion: String = "") =
+        fpsSessionDao.updateSessionAppInfo(sessionId, packageName, appName, packageVersion)
 
     suspend fun deleteSession(sessionId: Long) = fpsSessionDao.deleteSession(sessionId)
 
