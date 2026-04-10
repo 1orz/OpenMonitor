@@ -118,7 +118,11 @@
     <string name="settings_not_running">未執行</string>
     <string name="settings_not_detected">未偵測</string>
     <string name="settings_sampling">資料刷新頻率</string>
+    <string name="settings_group_appearance">外觀</string>
+    <string name="settings_group_monitor">監控</string>
+    <string name="settings_group_about">關於</string>
     <string name="settings_theme">主題</string>
+    <string name="settings_theme_summary">顏色、深色模式、頁面縮放</string>
     <string name="settings_theme_mode_system">跟隨系統</string>
     <string name="settings_theme_mode_light">日間</string>
     <string name="settings_theme_mode_dark">深色</string>

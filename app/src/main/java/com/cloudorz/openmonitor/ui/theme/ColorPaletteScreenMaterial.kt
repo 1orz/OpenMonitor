@@ -77,9 +77,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.surfaceColorAtElevation
 import com.cloudorz.openmonitor.R
 import com.cloudorz.openmonitor.core.ui.theme.ColorMode
 import com.cloudorz.openmonitor.core.ui.theme.keyColorOptions
+import com.cloudorz.openmonitor.ui.component.SettingsDropdownItem
+import com.cloudorz.openmonitor.ui.component.SettingsGroup
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
 import com.materialkolor.rememberDynamicColorScheme
@@ -161,148 +166,84 @@ fun ColorPaletteScreenMaterial(
                 }
             }
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                // Color mode chips
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    data class ModeOption(val mode: ColorMode, val label: String, val icon: @Composable () -> Unit)
-                    val options = listOf(
-                        ModeOption(ColorMode.SYSTEM, stringResource(R.string.settings_theme_mode_system)) { Icon(Icons.Filled.Brightness4, null, modifier = Modifier.size(18.dp)) },
-                        ModeOption(ColorMode.LIGHT, stringResource(R.string.settings_theme_mode_light)) { Icon(Icons.Filled.Brightness7, null, modifier = Modifier.size(18.dp)) },
-                        ModeOption(ColorMode.DARK, stringResource(R.string.settings_theme_mode_dark)) { Icon(Icons.Filled.Brightness3, null, modifier = Modifier.size(18.dp)) },
-                        ModeOption(ColorMode.DARK_AMOLED, stringResource(R.string.settings_theme_mode_amoled)) { Icon(Icons.Filled.Brightness1, null, modifier = Modifier.size(18.dp)) },
-                    )
-                    options.forEach { option ->
-                        FilterChip(
-                            selected = currentColorMode == option.mode,
-                            onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
-                                actions.onSetColorMode(option.mode)
-                            },
-                            label = { Text(option.label, style = MaterialTheme.typography.labelSmall) },
-                            leadingIcon = option.icon,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                }
-
-                // Palette style dropdown
-                StyleDropdown(
-                    icon = { Icon(Icons.Rounded.Style, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-                    title = stringResource(R.string.settings_color_style),
-                    items = PaletteStyle.entries.map { it.name },
-                    selectedIndex = PaletteStyle.entries.indexOf(colorStyle),
-                    onItemSelected = { index -> actions.onSetColorStyle(PaletteStyle.entries[index].name) },
-                )
-
-                // Color spec dropdown
-                StyleDropdown(
-                    icon = { Icon(Icons.Rounded.DesignServices, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-                    title = stringResource(R.string.settings_color_spec),
-                    items = ColorSpec.SpecVersion.entries.map { it.name },
-                    selectedIndex = ColorSpec.SpecVersion.entries.indexOf(colorSpec).coerceAtLeast(0),
-                    onItemSelected = { index -> actions.onSetColorSpec(ColorSpec.SpecVersion.entries[index].name) },
-                )
-
-                // Page scale slider
-                Card(
-                    modifier = Modifier.padding(top = 4.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                ) {
-                    var sliderValue by remember(state.pageScale) { mutableFloatStateOf(state.pageScale) }
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(Icons.Rounded.AspectRatio, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = stringResource(R.string.settings_page_scale),
-                                style = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier.weight(1f),
-                            )
-                            Text(
-                                text = "${(sliderValue * 100).toInt()}%",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Slider(
-                            value = sliderValue,
-                            onValueChange = { sliderValue = it },
-                            onValueChangeFinished = { actions.onSetPageScale(sliderValue) },
-                            valueRange = 0.85f..1.1f,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun StyleDropdown(
-    icon: @Composable () -> Unit,
-    title: String,
-    items: List<String>,
-    selectedIndex: Int,
-    onItemSelected: (Int) -> Unit,
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-    ) {
-        ExposedDropdownMenuBox(
-            expanded = expanded,
-            onExpandedChange = { expanded = it },
-        ) {
+            // Color mode chips
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                icon()
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f),
+                data class ModeOption(val mode: ColorMode, val label: String, val icon: @Composable () -> Unit)
+                val options = listOf(
+                    ModeOption(ColorMode.SYSTEM, stringResource(R.string.settings_theme_mode_system)) { Icon(Icons.Filled.Brightness4, null, modifier = Modifier.size(18.dp)) },
+                    ModeOption(ColorMode.LIGHT, stringResource(R.string.settings_theme_mode_light)) { Icon(Icons.Filled.Brightness7, null, modifier = Modifier.size(18.dp)) },
+                    ModeOption(ColorMode.DARK, stringResource(R.string.settings_theme_mode_dark)) { Icon(Icons.Filled.Brightness3, null, modifier = Modifier.size(18.dp)) },
+                    ModeOption(ColorMode.DARK_AMOLED, stringResource(R.string.settings_theme_mode_amoled)) { Icon(Icons.Filled.Brightness1, null, modifier = Modifier.size(18.dp)) },
                 )
-                Text(
-                    text = items.getOrElse(selectedIndex) { "" },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                items.forEachIndexed { index, item ->
-                    DropdownMenuItem(
-                        text = { Text(item) },
+                options.forEach { option ->
+                    FilterChip(
+                        selected = currentColorMode == option.mode,
                         onClick = {
-                            onItemSelected(index)
-                            expanded = false
+                            haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                            actions.onSetColorMode(option.mode)
                         },
+                        label = { Text(option.label, style = MaterialTheme.typography.labelSmall) },
+                        leadingIcon = option.icon,
+                        modifier = Modifier.weight(1f),
                     )
                 }
             }
+
+            // Style & scale settings
+            SettingsGroup(
+                items = listOf(
+                    {
+                        SettingsDropdownItem(
+                            title = stringResource(R.string.settings_color_style),
+                            icon = Icons.Rounded.Style,
+                            items = PaletteStyle.entries.map { it.name },
+                            selectedIndex = PaletteStyle.entries.indexOf(colorStyle),
+                            onItemSelected = { index -> actions.onSetColorStyle(PaletteStyle.entries[index].name) },
+                        )
+                    },
+                    {
+                        SettingsDropdownItem(
+                            title = stringResource(R.string.settings_color_spec),
+                            icon = Icons.Rounded.DesignServices,
+                            items = ColorSpec.SpecVersion.entries.map { it.name },
+                            selectedIndex = ColorSpec.SpecVersion.entries.indexOf(colorSpec).coerceAtLeast(0),
+                            onItemSelected = { index -> actions.onSetColorSpec(ColorSpec.SpecVersion.entries[index].name) },
+                        )
+                    },
+                    {
+                        var sliderValue by remember(state.pageScale) { mutableFloatStateOf(state.pageScale) }
+                        ListItem(
+                            colors = ListItemDefaults.colors(
+                                containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+                            ),
+                            headlineContent = { Text(stringResource(R.string.settings_page_scale)) },
+                            leadingContent = { Icon(Icons.Rounded.AspectRatio, contentDescription = null) },
+                            trailingContent = {
+                                Text(
+                                    "${(sliderValue * 100).toInt()}%",
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            },
+                            supportingContent = {
+                                Slider(
+                                    value = sliderValue,
+                                    onValueChange = { sliderValue = it },
+                                    onValueChangeFinished = { actions.onSetPageScale(sliderValue) },
+                                    valueRange = 0.85f..1.1f,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            },
+                        )
+                    },
+                ),
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

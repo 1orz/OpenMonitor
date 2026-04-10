@@ -73,9 +73,14 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
+import androidx.compose.material.icons.filled.Language
 import com.cloudorz.openmonitor.R
 import com.cloudorz.openmonitor.core.common.PermissionManager
 import com.cloudorz.openmonitor.core.common.PrivilegeMode
+import com.cloudorz.openmonitor.ui.component.SettingsDropdownItem
+import com.cloudorz.openmonitor.ui.component.SettingsGroup
+import com.cloudorz.openmonitor.ui.component.SettingsNavigateItem
+import com.cloudorz.openmonitor.ui.component.SettingsSwitchItem
 import kotlinx.coroutines.launch
 import rikka.shizuku.Shizuku
 
@@ -306,116 +311,77 @@ fun UserScreen(
             onRestart = { viewModel.restartDaemon() },
         )
 
-        // Poll interval settings card
-        val pollSettings by viewModel.pollSettings.collectAsState()
-        PollSettingsCard(
-            pollSettings = pollSettings,
-            onIntervalSelected = viewModel::setPollInterval,
-        )
-
-        // Theme settings navigation card
-        ThemeNavigationCard(onClick = { view.hapticClick(); onNavigateToTheme() })
-
-        // Haptic feedback toggle card
+        // ── Appearance ──
         val hapticEnabled by viewModel.hapticEnabled.collectAsState()
-        HapticToggleCard(
-            enabled = hapticEnabled,
-            onToggle = viewModel::setHapticEnabled,
+        val pollSettings by viewModel.pollSettings.collectAsState()
+        val pollIntervals = listOf(200L, 500L, 1000L, 2000L)
+        val pollLabels = pollIntervals.map { if (it < 1000) "${it}ms" else "${it / 1000}s" }
+        val pollSelectedIndex = pollIntervals.indexOf(pollSettings.intervalMs).coerceAtLeast(0)
+
+        SettingsGroup(
+            title = stringResource(R.string.settings_group_appearance),
+            items = listOf(
+                {
+                    SettingsNavigateItem(
+                        title = stringResource(R.string.settings_theme),
+                        summary = stringResource(R.string.settings_theme_summary),
+                        icon = Icons.Filled.Palette,
+                        onClick = { onNavigateToTheme() },
+                    )
+                },
+                { LanguageItem() },
+            ),
         )
 
-        // Language settings card
-        LanguageCard()
-
-        // Open source licenses card
-        Card(
-            onClick = { view.hapticClick(); onNavigateToLicenses() },
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        // ── Monitor ──
+        SettingsGroup(
+            title = stringResource(R.string.settings_group_monitor),
+            items = listOf(
+                {
+                    SettingsDropdownItem(
+                        title = stringResource(R.string.settings_sampling),
+                        icon = Icons.Filled.Speed,
+                        items = pollLabels,
+                        selectedIndex = pollSelectedIndex,
+                        onItemSelected = { viewModel.setPollInterval(pollIntervals[it]) },
+                    )
+                },
+                {
+                    SettingsSwitchItem(
+                        title = stringResource(R.string.settings_haptic_feedback),
+                        icon = Icons.Filled.Vibration,
+                        checked = hapticEnabled,
+                        onCheckedChange = viewModel::setHapticEnabled,
+                    )
+                },
             ),
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Gavel,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp),
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = stringResource(R.string.settings_open_source_licenses),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.NavigateNext,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
+        )
 
-        // App info card
+        // ── About ──
         var showAboutDialog by remember { mutableStateOf(false) }
         if (showAboutDialog) {
             AboutDialog(onDismiss = { showAboutDialog = false })
         }
-
-        Card(
-            onClick = { view.hapticClick(); showAboutDialog = true },
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        SettingsGroup(
+            title = stringResource(R.string.settings_group_about),
+            items = listOf(
+                {
+                    SettingsNavigateItem(
+                        title = stringResource(R.string.settings_open_source_licenses),
+                        icon = Icons.Filled.Gavel,
+                        onClick = { onNavigateToLicenses() },
+                    )
+                },
+                {
+                    SettingsNavigateItem(
+                        title = "OpenMonitor",
+                        summary = stringResource(R.string.settings_version_format, com.cloudorz.openmonitor.BuildConfig.VERSION_NAME),
+                        icon = Icons.Filled.Info,
+                        onClick = { showAboutDialog = true },
+                    )
+                },
             ),
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Info,
-                    contentDescription = null,
-                    modifier = Modifier.size(40.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Column(
-                    modifier = Modifier
-                        .padding(start = 16.dp)
-                        .weight(1f),
-                ) {
-                    Text(
-                        text = "OpenMonitor",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = stringResource(R.string.settings_version_format, com.cloudorz.openmonitor.BuildConfig.VERSION_NAME) + " · Author: 1orz · License: GPLv3",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Icon(
-                    painter = androidx.compose.ui.res.painterResource(id = com.cloudorz.openmonitor.R.drawable.ic_github),
-                    contentDescription = "GitHub",
-                    modifier = Modifier.size(24.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
+        )
     }
 }
 
@@ -714,97 +680,6 @@ private fun AboutRow(label: String, value: String) {
     }
 }
 
-@Composable
-private fun PollSettingsCard(
-    pollSettings: UserViewModel.PollSettings,
-    onIntervalSelected: (Long) -> Unit,
-) {
-    val view = LocalView.current
-    var expanded by remember { mutableStateOf(false) }
-    val intervals = listOf(200L, 500L, 1000L, 2000L)
-    val currentLabel = if (pollSettings.intervalMs < 1000) "${pollSettings.intervalMs}ms" else "${pollSettings.intervalMs / 1000}s"
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        ),
-    ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .hapticClickable { expanded = true }
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Speed,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp),
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = stringResource(R.string.settings_sampling),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            text = currentLabel,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
-                }
-                Icon(
-                    imageVector = Icons.Filled.ArrowDropDown,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
-            ) {
-                intervals.forEach { interval ->
-                    val label = if (interval < 1000) "${interval}ms" else "${interval / 1000}s"
-                    val isSelected = pollSettings.intervalMs == interval
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                text = label,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            )
-                        },
-                        trailingIcon = {
-                            if (isSelected) {
-                                Icon(
-                                    imageVector = Icons.Filled.CheckCircle,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(16.dp),
-                                )
-                            }
-                        },
-                        onClick = {
-                            view.hapticClick()
-                            expanded = false
-                            onIntervalSelected(interval)
-                        },
-                    )
-                }
-            }
-        }
-    }
-}
 
 @Composable
 private fun AdbSetupCard(
@@ -884,213 +759,35 @@ private fun AdbSetupCard(
     }
 }
 
-@Composable
-private fun ThemeNavigationCard(onClick: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        ),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .hapticClickable { onClick() }
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Palette,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp),
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = stringResource(R.string.settings_theme),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f),
-            )
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.NavigateNext,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
 
 @Composable
-private fun HapticToggleCard(
-    enabled: Boolean,
-    onToggle: (Boolean) -> Unit,
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        ),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .hapticClickable { onToggle(!enabled) }
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f),
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Vibration,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp),
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = stringResource(R.string.settings_haptic_feedback),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = if (enabled) stringResource(R.string.settings_haptic_on) else stringResource(R.string.settings_haptic_off),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
-            }
-            Icon(
-                imageVector = if (enabled) Icons.Filled.CheckCircle else Icons.Filled.Info,
-                contentDescription = null,
-                tint = if (enabled) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun LanguageCard() {
-    val view = LocalView.current
+private fun LanguageItem() {
     val currentLocale = AppCompatDelegate.getApplicationLocales()
     val currentTag = currentLocale.toLanguageTags().ifEmpty { "" }
-    var expanded by remember { mutableStateOf(false) }
 
-    data class LangOption(val tag: String, val label: String, val nativeLabel: String)
-    val options = listOf(
-        LangOption("", stringResource(R.string.settings_language_system), ""),
-        LangOption("en", "English", ""),
-        LangOption("zh-Hans", "简体中文", "Simplified Chinese"),
-        LangOption("zh-Hant", "繁體中文", "Traditional Chinese"),
-        LangOption("ja", "日本語", "Japanese"),
+    val tags = listOf("", "en", "zh-Hans", "zh-Hant", "ja")
+    val labels = listOf(
+        stringResource(R.string.settings_language_system),
+        "English", "简体中文", "繁體中文", "日本語",
     )
+    val selectedIndex = tags.indexOfFirst { tag ->
+        if (tag.isEmpty()) currentTag.isEmpty() else currentTag.startsWith(tag)
+    }.coerceAtLeast(0)
 
-    val currentOption = options.firstOrNull { opt ->
-        when {
-            opt.tag.isEmpty() && currentTag.isEmpty() -> true
-            opt.tag.isNotEmpty() && currentTag.startsWith(opt.tag) -> true
-            else -> false
-        }
-    } ?: options[0]
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        ),
-    ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .hapticClickable { expanded = true }
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Info,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp),
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = stringResource(R.string.settings_language),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            text = currentOption.label,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
-                }
-                Icon(
-                    imageVector = Icons.Filled.ArrowDropDown,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+    SettingsDropdownItem(
+        title = stringResource(R.string.settings_language),
+        icon = Icons.Filled.Language,
+        items = labels,
+        selectedIndex = selectedIndex,
+        onItemSelected = { index ->
+            val locales = if (tags[index].isEmpty()) {
+                LocaleListCompat.getEmptyLocaleList()
+            } else {
+                LocaleListCompat.forLanguageTags(tags[index])
             }
-
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
-            ) {
-                options.forEach { option ->
-                    val isSelected = option.tag == currentOption.tag
-                    DropdownMenuItem(
-                        text = {
-                            Column {
-                                Text(
-                                    text = option.label,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                )
-                                if (option.nativeLabel.isNotEmpty()) {
-                                    Text(
-                                        text = option.nativeLabel,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                        },
-                        trailingIcon = {
-                            if (isSelected) {
-                                Icon(
-                                    imageVector = Icons.Filled.CheckCircle,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(16.dp),
-                                )
-                            }
-                        },
-                        onClick = {
-                            view.hapticClick()
-                            expanded = false
-                            val locales = if (option.tag.isEmpty()) {
-                                LocaleListCompat.getEmptyLocaleList()
-                            } else {
-                                LocaleListCompat.forLanguageTags(option.tag)
-                            }
-                            AppCompatDelegate.setApplicationLocales(locales)
-                        },
-                    )
-                }
-            }
-        }
-    }
+            AppCompatDelegate.setApplicationLocales(locales)
+        },
+    )
 }
 
 private fun formatUptime(seconds: Long): String {

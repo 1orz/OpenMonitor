@@ -118,7 +118,11 @@
     <string name="settings_not_running">停止中</string>
     <string name="settings_not_detected">未検出</string>
     <string name="settings_sampling">データ更新頻度</string>
+    <string name="settings_group_appearance">外観</string>
+    <string name="settings_group_monitor">モニター</string>
+    <string name="settings_group_about">バージョン情報</string>
     <string name="settings_theme">テーマ</string>
+    <string name="settings_theme_summary">カラー、ダークモード、ページスケール</string>
     <string name="settings_theme_mode_system">システムに従う</string>
     <string name="settings_theme_mode_light">ライト</string>
     <string name="settings_theme_mode_dark">ダーク</string>
