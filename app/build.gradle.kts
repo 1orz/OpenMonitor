@@ -225,6 +225,7 @@ dependencies {
     ksp(libs.hilt.work.compiler)
 
     implementation(libs.libsu.core)
+    implementation(libs.zxing.core)
 
     // Firebase
     implementation(platform(libs.firebase.bom))

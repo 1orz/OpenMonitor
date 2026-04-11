@@ -24,3 +24,6 @@
 release.jks
 
 issuses
+
+# Separate repo (Cloudflare Worker)
+/donate-worker/

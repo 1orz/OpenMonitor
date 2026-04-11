@@ -161,8 +161,9 @@
     <string name="mode_basic">基本モード</string>
 
     <!-- ログ画面 -->
-    <string name="log_pause_scroll">自動スクロール一時停止</string>
-    <string name="log_resume_scroll">自動スクロール再開</string>
+    <string name="log_pause">一時停止</string>
+    <string name="log_resume">再開</string>
+    <string name="log_paused_banner">一時停止中 — タップで再開</string>
     <string name="log_refresh">今すぐ更新</string>
     <string name="log_copy_all">すべてコピー</string>
     <string name="log_clear">クリア</string>
@@ -206,6 +207,24 @@
     <string name="mode_adb_description">ADB経由でDaemonを手動起動（FPS/プロセス等利用可能）</string>
     <string name="mode_shizuku_description">Shizuku経由でShell権限を取得（推奨）</string>
     <string name="mode_basic_description">特権なし、フレームレート監視不可</string>
+
+    <!-- 寄付 -->
+    <string name="donate_title">開発者を支援</string>
+    <string name="donate_summary">Alipayで開発者にコーヒーをおごる</string>
+    <string name="donate_custom">カスタム</string>
+    <string name="donate_button">Alipayで寄付</string>
+    <string name="donate_creating">注文を作成中\u2026</string>
+    <string name="donate_waiting">支払い待ち\u2026</string>
+    <string name="donate_scan_qr">Alipay未インストール。QRコードをスキャンしてください</string>
+    <string name="donate_success">ご支援ありがとうございます！</string>
+    <string name="donate_failed">支払い失敗</string>
+    <string name="donate_retry">リトライ</string>
+    <string name="donate_timeout">支払いタイムアウト</string>
+    <string name="donate_amount_error">有効な金額を入力してください（0.01〜999.99）</string>
+    <string name="donate_verifying">確認中\u2026</string>
+    <string name="donate_challenge_failed">検証に失敗しました</string>
+    <string name="donate_qr_title">QRコードで支払い</string>
+    <string name="donate_open_alipay">Alipayを開く</string>
 
     <!-- オープンソースライセンス -->
     <string name="settings_open_source_licenses">オープンソースライセンス</string>

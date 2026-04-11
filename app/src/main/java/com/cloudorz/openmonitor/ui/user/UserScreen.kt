@@ -92,6 +92,7 @@ import com.cloudorz.openmonitor.ui.component.SettingsDropdownItem
 import com.cloudorz.openmonitor.ui.component.SettingsGroup
 import com.cloudorz.openmonitor.ui.component.SettingsNavigateItem
 import com.cloudorz.openmonitor.ui.component.SettingsSwitchItem
+import androidx.compose.material.icons.filled.Favorite
 import kotlinx.coroutines.launch
 import rikka.shizuku.Shizuku
 
@@ -100,6 +101,7 @@ fun UserScreen(
     permissionManager: PermissionManager,
     onNavigateToLicenses: () -> Unit = {},
     onNavigateToTheme: () -> Unit = {},
+    onNavigateToDonate: () -> Unit = {},
     viewModel: UserViewModel = hiltViewModel(),
 ) {
     val view = LocalView.current
@@ -284,6 +286,19 @@ fun UserScreen(
                     )
                 },
             ),
+        )
+
+        // ── Donate ──
+        SettingsGroup(
+            title = stringResource(R.string.donate_title),
+            items = listOf {
+                SettingsNavigateItem(
+                    title = stringResource(R.string.donate_title),
+                    summary = stringResource(R.string.donate_summary),
+                    icon = Icons.Filled.Favorite,
+                    onClick = onNavigateToDonate,
+                )
+            },
         )
 
         // ── About ──

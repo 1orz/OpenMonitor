@@ -78,9 +78,9 @@ fun LogScreen(
     val daemonLogDates by viewModel.daemonLogDates.collectAsStateWithLifecycle()
     val selectedDaemonDate by viewModel.selectedDaemonDate.collectAsStateWithLifecycle()
     val filterLevel by viewModel.filterLevel.collectAsStateWithLifecycle()
+    val isPaused by viewModel.paused.collectAsStateWithLifecycle()
 
     var selectedTab by remember { mutableIntStateOf(0) }
-    var autoScroll by remember { mutableStateOf(true) }
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
     val view = LocalView.current
@@ -88,7 +88,7 @@ fun LogScreen(
     val appListState = rememberLazyListState()
     val daemonListState = rememberLazyListState()
 
-    // Auto-pause when user scrolls up manually
+    // Auto-scroll when at bottom and not paused
     val appIsAtBottom by remember {
         derivedStateOf {
             val info = appListState.layoutInfo
@@ -110,18 +110,14 @@ fun LogScreen(
         }
     }
 
-    // Re-enable autoScroll when user scrolls back to bottom
-    LaunchedEffect(appIsAtBottom) { if (appIsAtBottom) autoScroll = true }
-    LaunchedEffect(daemonIsAtBottom) { if (daemonIsAtBottom) autoScroll = true }
-
-    // Only auto-scroll if user is at the bottom
+    // Auto-scroll to bottom when new data arrives (only if not paused and at bottom)
     LaunchedEffect(appLogs.size) {
-        if (autoScroll && appIsAtBottom && selectedTab == 0 && appLogs.isNotEmpty()) {
+        if (!isPaused && appIsAtBottom && selectedTab == 0 && appLogs.isNotEmpty()) {
             appListState.animateScrollToItem(appLogs.size - 1)
         }
     }
     LaunchedEffect(daemonLogs.size) {
-        if (autoScroll && daemonIsAtBottom && selectedTab == 1 && daemonLogs.isNotEmpty()) {
+        if (!isPaused && daemonIsAtBottom && selectedTab == 1 && daemonLogs.isNotEmpty()) {
             daemonListState.animateScrollToItem(daemonLogs.size - 1)
         }
     }
@@ -130,20 +126,13 @@ fun LogScreen(
     val actions: @Composable () -> Unit = {
         IconButton(onClick = {
             view.hapticClick()
-            autoScroll = !autoScroll
-            if (autoScroll) {
-                scope.launch {
-                    val state = if (selectedTab == 0) appListState else daemonListState
-                    val count = if (selectedTab == 0) appLogs.size else daemonLogs.size
-                    if (count > 0) state.animateScrollToItem(count - 1)
-                }
-            }
+            viewModel.togglePause()
         }) {
             Icon(
-                imageVector = if (autoScroll) Icons.Outlined.PauseCircle else Icons.Outlined.PlayCircle,
-                contentDescription = if (autoScroll) stringResource(R.string.log_pause_scroll) else stringResource(R.string.log_resume_scroll),
-                tint = if (autoScroll) MaterialTheme.colorScheme.primary
-                       else MaterialTheme.colorScheme.onSurfaceVariant,
+                imageVector = if (isPaused) Icons.Outlined.PlayCircle else Icons.Outlined.PauseCircle,
+                contentDescription = if (isPaused) stringResource(R.string.log_resume) else stringResource(R.string.log_pause),
+                tint = if (isPaused) MaterialTheme.colorScheme.error
+                       else MaterialTheme.colorScheme.primary,
             )
         }
         if (selectedTab == 1) {
@@ -180,6 +169,32 @@ fun LogScreen(
             )
         }
 
+        // Pause indicator banner
+        if (isPaused) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.errorContainer)
+                    .hapticClickable { viewModel.togglePause() }
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                Icon(
+                    Icons.Outlined.PauseCircle,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                )
+                Spacer(modifier = Modifier.size(6.dp))
+                Text(
+                    text = stringResource(R.string.log_paused_banner),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                )
+            }
+        }
+
         FilterBar(
             dates = if (selectedTab == 0) logDates else daemonLogDates,
             selectedDate = if (selectedTab == 0) selectedDate else selectedDaemonDate,
@@ -187,7 +202,7 @@ fun LogScreen(
             filterLevel = filterLevel,
             onFilterLevel = { viewModel.setFilterLevel(it) },
             showDateSelector = true,
-            realtimeLabel = if (selectedTab == 0) stringResource(R.string.log_realtime_logcat) else stringResource(R.string.log_realtime),
+            realtimeLabel = stringResource(R.string.log_realtime),
             onClear = {
                 view.hapticClick()
                 if (selectedTab == 0) viewModel.clearAppLogs() else viewModel.clearDaemonLogs()

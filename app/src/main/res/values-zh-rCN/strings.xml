@@ -161,8 +161,9 @@
     <string name="mode_basic">基础模式</string>
 
     <!-- 日志页 -->
-    <string name="log_pause_scroll">暂停自动滚动</string>
-    <string name="log_resume_scroll">恢复自动滚动</string>
+    <string name="log_pause">暂停</string>
+    <string name="log_resume">继续</string>
+    <string name="log_paused_banner">已暂停 — 点击继续</string>
     <string name="log_refresh">立即刷新</string>
     <string name="log_copy_all">复制全部</string>
     <string name="log_clear">清空</string>
@@ -206,6 +207,24 @@
     <string name="mode_adb_description">通过 ADB 手动启动 Daemon（FPS/进程等可用）</string>
     <string name="mode_shizuku_description">通过 Shizuku 获取 Shell 权限（推荐）</string>
     <string name="mode_basic_description">无特权，帧率监控等功能不可用</string>
+
+    <!-- 捐赠 -->
+    <string name="donate_title">支持开发者</string>
+    <string name="donate_summary">通过支付宝请作者喝杯咖啡</string>
+    <string name="donate_custom">自定义</string>
+    <string name="donate_button">使用支付宝捐赠</string>
+    <string name="donate_creating">正在创建订单\u2026</string>
+    <string name="donate_waiting">等待支付\u2026</string>
+    <string name="donate_scan_qr">未安装支付宝，请扫描二维码支付</string>
+    <string name="donate_success">感谢您的支持！</string>
+    <string name="donate_failed">支付失败</string>
+    <string name="donate_retry">重试</string>
+    <string name="donate_timeout">支付超时</string>
+    <string name="donate_amount_error">请输入有效金额（0.01 - 999.99）</string>
+    <string name="donate_verifying">验证中\u2026</string>
+    <string name="donate_challenge_failed">验证失败</string>
+    <string name="donate_qr_title">扫码支付</string>
+    <string name="donate_open_alipay">打开支付宝</string>
 
     <!-- 开源许可 -->
     <string name="settings_open_source_licenses">开源软件许可</string>

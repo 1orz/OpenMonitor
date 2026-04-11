@@ -91,6 +91,7 @@ import com.cloudorz.openmonitor.ui.sensor.SensorScreen
 import com.cloudorz.openmonitor.ui.splash.PermissionGuideScreen
 import com.cloudorz.openmonitor.ui.splash.PermissionSetupScreen
 import com.cloudorz.openmonitor.ui.splash.hasRequiredPermissions
+import com.cloudorz.openmonitor.ui.donate.DonateScreen
 import com.cloudorz.openmonitor.ui.theme.ColorPaletteScreen
 import com.cloudorz.openmonitor.ui.theme.ThemeViewModel
 import com.cloudorz.openmonitor.ui.user.LicenseDetailScreen
@@ -422,6 +423,13 @@ private fun MainScreen(permissionManager: PermissionManager) {
                         Box(Modifier.padding(p)) { LicenseDetailScreen(libraryIndex = key.index) }
                     }
                 }
+
+                // Donate
+                entry<Route.Donate> {
+                    ScreenWithTopBar(R.string.donate_title) { p ->
+                        Box(Modifier.padding(p)) { DonateScreen() }
+                    }
+                }
             },
         )
     }
@@ -489,6 +497,7 @@ private fun TabsScreen(permissionManager: PermissionManager) {
                     permissionManager = permissionManager,
                     onNavigateToLicenses = { navigator.push(Route.Licenses) },
                     onNavigateToTheme = { navigator.push(Route.ColorPalette) },
+                    onNavigateToDonate = { navigator.push(Route.Donate) },
                 )
             }
         }

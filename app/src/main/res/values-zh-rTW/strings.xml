@@ -161,8 +161,9 @@
     <string name="mode_basic">基礎模式</string>
 
     <!-- 日誌頁 -->
-    <string name="log_pause_scroll">暫停自動捲動</string>
-    <string name="log_resume_scroll">恢復自動捲動</string>
+    <string name="log_pause">暫停</string>
+    <string name="log_resume">繼續</string>
+    <string name="log_paused_banner">已暫停 — 點擊繼續</string>
     <string name="log_refresh">立即重新整理</string>
     <string name="log_copy_all">複製全部</string>
     <string name="log_clear">清除</string>
@@ -206,6 +207,24 @@
     <string name="mode_adb_description">透過 ADB 手動啟動 Daemon（FPS/進程等可用）</string>
     <string name="mode_shizuku_description">透過 Shizuku 取得 Shell 權限（推薦）</string>
     <string name="mode_basic_description">無特權，幀率監控等功能不可用</string>
+
+    <!-- 捐贈 -->
+    <string name="donate_title">支持開發者</string>
+    <string name="donate_summary">透過支付寶請作者喝杯咖啡</string>
+    <string name="donate_custom">自訂</string>
+    <string name="donate_button">使用支付寶捐贈</string>
+    <string name="donate_creating">正在建立訂單\u2026</string>
+    <string name="donate_waiting">等待付款\u2026</string>
+    <string name="donate_scan_qr">未安裝支付寶，請掃描 QR 碼付款</string>
+    <string name="donate_success">感謝您的支持！</string>
+    <string name="donate_failed">付款失敗</string>
+    <string name="donate_retry">重試</string>
+    <string name="donate_timeout">付款逾時</string>
+    <string name="donate_amount_error">請輸入有效金額（0.01 - 999.99）</string>
+    <string name="donate_verifying">驗證中\u2026</string>
+    <string name="donate_challenge_failed">驗證失敗</string>
+    <string name="donate_qr_title">掃碼付款</string>
+    <string name="donate_open_alipay">開啟支付寶</string>
 
     <!-- 開源授權 -->
     <string name="settings_open_source_licenses">開源軟體授權</string>

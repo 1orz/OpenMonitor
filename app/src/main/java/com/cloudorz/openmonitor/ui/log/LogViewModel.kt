@@ -1,13 +1,15 @@
 package com.cloudorz.openmonitor.ui.log
 
-import android.os.Process
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cloudorz.openmonitor.R
 import com.cloudorz.openmonitor.core.common.AppLogEntry
 import com.cloudorz.openmonitor.core.common.AppLogger
 import com.cloudorz.openmonitor.core.data.datasource.DaemonLauncher
+import com.elvishew.xlog.LogLevel
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,22 +21,32 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.BufferedReader
 import java.io.File
-import java.io.InputStreamReader
+import java.time.LocalDate
 import javax.inject.Inject
 
-/** Log level priority for display filtering. */
-enum class LogLevelFilter(val char: Char, val label: String, val displayName: String, val priority: Int) {
-    VERBOSE('V', "V", "Verbose", 0),
-    DEBUG('D', "D", "Debug", 1),
-    INFO('I', "I", "Info", 2),
-    WARN('W', "W", "Warn", 3),
-    ERROR('E', "E", "Error", 4),
+/** Log level for both display filtering and storage filtering. */
+enum class LogLevelFilter(val char: Char, val label: String, val displayName: String, val priority: Int, val xlogLevel: Int) {
+    VERBOSE('V', "V", "Verbose", 0, LogLevel.VERBOSE),
+    DEBUG('D', "D", "Debug", 1, LogLevel.DEBUG),
+    INFO('I', "I", "Info", 2, LogLevel.INFO),
+    WARN('W', "W", "Warn", 3, LogLevel.WARN),
+    ERROR('E', "E", "Error", 4, LogLevel.ERROR);
+
+    companion object {
+        fun fromXLogLevel(level: Int): LogLevelFilter = when {
+            level <= LogLevel.VERBOSE -> VERBOSE
+            level <= LogLevel.DEBUG -> DEBUG
+            level <= LogLevel.INFO -> INFO
+            level <= LogLevel.WARN -> WARN
+            else -> ERROR
+        }
+    }
 }
 
 @HiltViewModel
 class LogViewModel @Inject constructor(
+    @param:ApplicationContext private val context: Context,
     private val daemonLauncher: DaemonLauncher,
 ) : ViewModel() {
 
@@ -43,39 +55,39 @@ class LogViewModel @Inject constructor(
         private const val DAEMON_POLL_INTERVAL_MS = 3_000L
         private const val DATE_REFRESH_INTERVAL_MS = 60_000L
         private const val DAEMON_TAIL_LINES = 300
-        private const val APP_LOG_MAX_LINES = 800
+        private const val APP_LOG_TAIL_LINES = 800
 
-        // Pre-compiled regex — avoid recompiling on every line
         private val XLOG_LINE_REGEX = Regex("""^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s+([VDIWEF])/(.+?):\s*(.*)$""")
-        private val LOGCAT_LINE_REGEX = Regex("""^(\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s+\d+\s+\d+\s+([VDIWEF])\s+(.+?)\s*:\s*(.*)$""")
     }
 
-    // ---- Raw (unfiltered) data ----
-
-    /** Accumulated logcat entries across polls — never shrinks while in real-time mode. */
-    private val logcatBuffer = mutableListOf<AppLogEntry>()
+    // ---- Raw data ----
 
     private val _rawAppLogs = MutableStateFlow<List<AppLogEntry>>(emptyList())
     private val _rawDaemonLogs = MutableStateFlow<List<String>>(emptyList())
 
-    // ---- Display filter ----
+    // ---- Pause ----
 
-    private val _filterLevel = MutableStateFlow(LogLevelFilter.INFO)
+    private val _paused = MutableStateFlow(false)
+    val paused: StateFlow<Boolean> = _paused.asStateFlow()
+
+    // ---- Display + storage filter ----
+
+    private val _filterLevel = MutableStateFlow(
+        LogLevelFilter.fromXLogLevel(AppLogger.minFileLevel),
+    )
     val filterLevel: StateFlow<LogLevelFilter> = _filterLevel.asStateFlow()
 
-    /** Filtered app logs — only entries >= filterLevel are shown. */
     val appLogs: StateFlow<List<AppLogEntry>> = combine(_rawAppLogs, _filterLevel) { logs, level ->
         if (level == LogLevelFilter.VERBOSE) logs
         else logs.filter { levelPriority(it.level) >= level.priority }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    /** Filtered daemon logs — only lines containing level >= filterLevel are shown. */
     val daemonLogs: StateFlow<List<String>> = combine(_rawDaemonLogs, _filterLevel) { lines, level ->
         if (level == LogLevelFilter.VERBOSE) lines
         else lines.filter { parseDaemonLineLevel(it) >= level.priority }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    // ---- Other state ----
+    // ---- Date selection ----
 
     private val _logDates = MutableStateFlow<List<String>>(emptyList())
     val logDates: StateFlow<List<String>> = _logDates.asStateFlow()
@@ -96,7 +108,6 @@ class LogViewModel @Inject constructor(
         get() = "${daemonLauncher.dataDir.absolutePath}/daemon.log"
 
     init {
-        // Date list refresh: file rotation only happens at midnight / 5MB backup
         viewModelScope.launch {
             while (isActive) {
                 refreshLogDates()
@@ -105,26 +116,33 @@ class LogViewModel @Inject constructor(
         }
         viewModelScope.launch {
             while (isActive) {
-                fetchAppLogs()
+                if (!_paused.value) fetchAppLogs()
                 delay(APP_LOG_POLL_INTERVAL_MS)
             }
         }
         viewModelScope.launch {
             while (isActive) {
-                fetchDaemonLogs()
+                if (!_paused.value) fetchDaemonLogs()
                 delay(DAEMON_POLL_INTERVAL_MS)
             }
         }
     }
 
+    fun togglePause() {
+        _paused.value = !_paused.value
+        if (!_paused.value) {
+            viewModelScope.launch { fetchAppLogs() }
+            viewModelScope.launch { fetchDaemonLogs() }
+        }
+    }
+
     fun setFilterLevel(level: LogLevelFilter) {
         _filterLevel.value = level
+        AppLogger.setMinLevel(context, level.xlogLevel)
     }
 
     fun selectDate(date: String?) {
         _selectedDate.value = date
-        // Returning to real-time: reset incremental buffer so next poll starts fresh
-        if (date == null) logcatBuffer.clear()
         viewModelScope.launch { fetchAppLogs() }
     }
 
@@ -139,18 +157,15 @@ class LogViewModel @Inject constructor(
         'V' -> 0; 'D' -> 1; 'I' -> 2; 'W' -> 3; 'E', 'F' -> 4; else -> 0
     }
 
-    /** Extract level priority from daemon log line.
-     *  Daemon format: "15:44:27.814692 [main] message" — no explicit level marker.
-     *  Treat unrecognized lines as INFO so they pass the default filter. */
     private fun parseDaemonLineLevel(line: String): Int = when {
         line.contains(" ERROR ") || line.contains(" error:") -> 4
         line.contains(" WARN") || line.contains(" warn:") -> 3
         line.contains(" DEBUG") || line.contains(" debug:") -> 1
         line.contains(" TRACE") || line.contains(" trace:") -> 0
-        else -> 2 // default = INFO level so lines are visible at default filter
+        else -> 2
     }
 
-    // ---- Data loading ----
+    // ---- App log loading (XLog file-based, no more logcat) ----
 
     private suspend fun refreshLogDates() = withContext(Dispatchers.IO) {
         _logDates.value = AppLogger.listLogFiles().map { it.name }
@@ -158,52 +173,20 @@ class LogViewModel @Inject constructor(
 
     private suspend fun fetchAppLogs() = withContext(Dispatchers.IO) {
         val date = _selectedDate.value
-        if (date != null) loadFromFile(date) else loadFromLogcat()
+        // Real-time = today's XLog file; history = selected date's file
+        val targetDate = date ?: LocalDate.now().toString()
+        loadAppLogFile(targetDate)
     }
 
-    private fun loadFromFile(date: String) {
+    private fun loadAppLogFile(date: String) {
         val dir = AppLogger.logDir ?: return
         val file = File(dir, date)
-        if (!file.exists()) { _rawAppLogs.value = emptyList(); return }
-        _rawAppLogs.value = file.readLines()
-            .mapNotNull { parseXLogLine(it) ?: parseXLogPipeLine(it) }
-            .takeLast(APP_LOG_MAX_LINES)
-    }
-
-    private fun loadFromLogcat() {
-        try {
-            val pid = Process.myPid()
-            val process = Runtime.getRuntime().exec(
-                arrayOf("logcat", "-d", "-v", "threadtime", "--pid=$pid", "-t", "$APP_LOG_MAX_LINES")
-            )
-            val reader = BufferedReader(InputStreamReader(process.inputStream))
-            val dumped = mutableListOf<AppLogEntry>()
-            reader.useLines { lines -> lines.forEach { parseLogcatLine(it)?.let(dumped::add) } }
-            process.waitFor()
-            if (dumped.isEmpty()) return
-
-            val lastCached = logcatBuffer.lastOrNull()
-            if (lastCached == null) {
-                // First load: take the full dump as-is
-                logcatBuffer.addAll(dumped)
-            } else {
-                val pivot = dumped.indexOfLast { it == lastCached }
-                if (pivot >= 0) {
-                    // Append only entries after the last known one
-                    val newEntries = dumped.drop(pivot + 1)
-                    if (newEntries.isNotEmpty()) {
-                        logcatBuffer.addAll(newEntries)
-                        val excess = logcatBuffer.size - APP_LOG_MAX_LINES
-                        if (excess > 0) logcatBuffer.subList(0, excess).clear()
-                    }
-                } else {
-                    // Ring buffer fully rotated since last poll — reset with current dump
-                    logcatBuffer.clear()
-                    logcatBuffer.addAll(dumped)
-                }
-            }
-            if (logcatBuffer.isNotEmpty()) _rawAppLogs.value = logcatBuffer.toList()
-        } catch (_: Exception) { }
+        if (!file.exists()) {
+            _rawAppLogs.value = emptyList()
+            return
+        }
+        val lines = tailFile(file, APP_LOG_TAIL_LINES)
+        _rawAppLogs.value = lines.mapNotNull { parseXLogLine(it) ?: parseXLogPipeLine(it) }
     }
 
     private fun parseXLogLine(line: String): AppLogEntry? {
@@ -212,7 +195,6 @@ class LogViewModel @Inject constructor(
         return AppLogEntry(time.substringAfter(' '), level[0], tag.trim(), message)
     }
 
-    /** Parse xLog pipe-delimited format: "1775429508398|E|TAG|message" */
     private fun parseXLogPipeLine(line: String): AppLogEntry? {
         val parts = line.split("|", limit = 4)
         if (parts.size < 4) return null
@@ -221,22 +203,15 @@ class LogViewModel @Inject constructor(
         if (level !in "VDIWEF") return null
         val tag = parts[2]
         val message = parts[3]
-        // Convert millis to HH:MM:SS.mmm
         val time = java.text.SimpleDateFormat("HH:mm:ss.SSS", java.util.Locale.US)
             .format(java.util.Date(millis))
         return AppLogEntry(time, level, tag, message)
     }
 
-    private fun parseLogcatLine(line: String): AppLogEntry? {
-        if (line.startsWith("-")) return null
-        val match = LOGCAT_LINE_REGEX.matchEntire(line) ?: return null
-        val (time, level, tag, message) = match.destructured
-        return AppLogEntry(time.substringAfter(' '), level[0], tag.trim(), message)
-    }
+    // ---- Daemon log loading ----
 
     private fun refreshDaemonLogDates() {
         val files = daemonLauncher.listDaemonLogFiles()
-        // Only list archived files (daemon-YYYY-MM-DD.log), not current daemon.log
         _daemonLogDates.value = files
             .filter { it.name != "daemon.log" }
             .map { it.name.removePrefix("daemon-").removeSuffix(".log") }
@@ -259,7 +234,6 @@ class LogViewModel @Inject constructor(
                 return@withContext
             }
 
-            // For large files, read only the tail portion to avoid OOM
             val lines = tailFile(logFile, DAEMON_TAIL_LINES)
             if (lines.isNotEmpty()) {
                 _rawDaemonLogs.value = lines
@@ -280,21 +254,17 @@ class LogViewModel @Inject constructor(
         try {
             val raf = java.io.RandomAccessFile(file, "r")
             val fileLength = raf.length()
-            // Read up to 512KB from end (enough for ~300 lines)
             val readSize = minOf(fileLength, 512L * 1024)
             val startPos = fileLength - readSize
             raf.seek(startPos)
             val bytes = ByteArray(readSize.toInt())
             raf.readFully(bytes)
             raf.close()
-            // Skip first partial line if we didn't read from beginning
             val text = String(bytes, Charsets.UTF_8)
             val allLines = text.lines().filter { it.isNotBlank() }
-            // If we started mid-file, drop the first (possibly truncated) line
             val lines = if (startPos > 0 && allLines.isNotEmpty()) allLines.drop(1) else allLines
             return lines.takeLast(maxLines)
-        } catch (e: Exception) {
-            // RandomAccessFile failed — maybe permission issue, try FileInputStream
+        } catch (_: Exception) {
             return try {
                 file.inputStream().bufferedReader().useLines { seq ->
                     val buf = ArrayDeque<String>(maxLines + 1)
@@ -315,13 +285,18 @@ class LogViewModel @Inject constructor(
     fun clearAppLogs() {
         viewModelScope.launch(Dispatchers.IO) {
             val date = _selectedDate.value
-            if (date != null) {
-                val dir = AppLogger.logDir ?: return@launch
-                File(dir, date).delete()
-                refreshLogDates()
-            } else {
-                try { Runtime.getRuntime().exec(arrayOf("logcat", "-c")).waitFor() } catch (_: Exception) { }
-                logcatBuffer.clear()
+            val dir = AppLogger.logDir ?: return@launch
+            val targetDate = date ?: LocalDate.now().toString()
+            val file = File(dir, targetDate)
+            if (file.exists()) {
+                if (date != null) {
+                    // Historical file: delete it
+                    file.delete()
+                    refreshLogDates()
+                } else {
+                    // Today's file: truncate (don't delete — XLog will keep writing to it)
+                    file.writeText("")
+                }
             }
             _rawAppLogs.value = emptyList()
         }
@@ -333,11 +308,18 @@ class LogViewModel @Inject constructor(
 
     fun clearDaemonLogs() {
         viewModelScope.launch(Dispatchers.IO) {
-            // Prefer TCP command (daemon truncates its own file, no permission issues)
-            val cleared = daemonLauncher.clearDaemonLog()
-            if (!cleared) {
-                // Fallback: direct truncation (works if file has 0666 perms)
-                try { File(daemonLogPath).also { if (it.exists()) it.writeText("") } } catch (_: Exception) { }
+            val selectedDate = _selectedDaemonDate.value
+            if (selectedDate != null) {
+                // Historical archive: delete the file
+                val archiveFile = File(daemonLauncher.dataDir, "daemon-$selectedDate.log")
+                archiveFile.delete()
+                refreshDaemonLogDates()
+            } else {
+                // Current daemon.log: use TCP command, fallback to direct truncation
+                val cleared = daemonLauncher.clearDaemonLog()
+                if (!cleared) {
+                    try { File(daemonLogPath).also { if (it.exists()) it.writeText("") } } catch (_: Exception) { }
+                }
             }
             _rawDaemonLogs.value = emptyList()
             _daemonLogStatus.value = null

@@ -119,7 +119,7 @@
     <string name="monitor_load_desc">CPU/GPU/RAM/電池儀表板</string>
     <string name="monitor_process_desc">Top CPU 進程列表</string>
     <string name="monitor_thread_desc">當前應用最耗CPU執行緒</string>
-    <string name="monitor_mini_desc">單行: CPU%/GPU%/溫度/FPS/電流</string>
+    <string name="monitor_mini_desc">單行: CPU%%/GPU%%/溫度/FPS/電流</string>
     <string name="monitor_fps_desc">即時 FPS 計數器</string>
     <string name="monitor_temperature_desc">多感測器溫度值</string>
 
@@ -127,7 +127,7 @@
     <string name="monitor_load_info">顯示 CPU、GPU、記憶體、電池的即時負載儀表板。以 2x2 網格形式呈現四個圓弧儀表，直觀展示系統資源使用情況。</string>
     <string name="monitor_process_info">顯示當前 CPU 佔用率最高的 5 個進程列表，包含進程名稱和 CPU 使用百分比。幫助快速定位高負載進程。</string>
     <string name="monitor_thread_info">顯示當前前台應用中 CPU 佔用率最高的執行緒列表。用於深入分析應用效能瓶頸。</string>
-    <string name="monitor_mini_info">極簡單行模式，顯示 CPU%/GPU%/溫度/FPS/即時電流。佔用螢幕空間最小，適合日常監控。</string>
+    <string name="monitor_mini_info">極簡單行模式，顯示 CPU%%/GPU%%/溫度/FPS/即時電流。佔用螢幕空間最小，適合日常監控。</string>
     <string name="monitor_fps_info">即時幀率計數器，大字體顯示當前 FPS 值，並統計卡頓 (Jank) 次數。適合遊戲和動畫效能測試。</string>
     <string name="monitor_temperature_info">顯示裝置多個溫度感測器的即時讀數，包括 CPU、GPU、電池等區域溫度。用於監控裝置散熱狀況。</string>
 

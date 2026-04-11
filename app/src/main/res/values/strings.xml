@@ -170,8 +170,9 @@
     <string name="mode_basic">Basic Mode</string>
 
     <!-- Log Screen -->
-    <string name="log_pause_scroll">Pause auto-scroll</string>
-    <string name="log_resume_scroll">Resume auto-scroll</string>
+    <string name="log_pause">Pause</string>
+    <string name="log_resume">Resume</string>
+    <string name="log_paused_banner">Paused — tap to resume</string>
     <string name="log_refresh">Refresh now</string>
     <string name="log_copy_all">Copy all</string>
     <string name="log_clear">Clear</string>
@@ -215,6 +216,24 @@
     <string name="mode_adb_description">Manually start Daemon via ADB (FPS/process etc. available)</string>
     <string name="mode_shizuku_description">Obtain Shell permission via Shizuku (recommended)</string>
     <string name="mode_basic_description">No privileges, frame rate monitoring unavailable</string>
+
+    <!-- Donate -->
+    <string name="donate_title">Support the Developer</string>
+    <string name="donate_summary">Buy me a coffee via Alipay</string>
+    <string name="donate_custom">Custom</string>
+    <string name="donate_button">Donate via Alipay</string>
+    <string name="donate_creating">Creating order\u2026</string>
+    <string name="donate_waiting">Waiting for payment\u2026</string>
+    <string name="donate_scan_qr">Alipay not installed. Please scan the QR code.</string>
+    <string name="donate_success">Thank you for your support!</string>
+    <string name="donate_failed">Payment failed</string>
+    <string name="donate_retry">Retry</string>
+    <string name="donate_timeout">Payment timed out</string>
+    <string name="donate_amount_error">Please enter a valid amount (0.01 - 999.99)</string>
+    <string name="donate_verifying">Verifying\u2026</string>
+    <string name="donate_challenge_failed">Verification failed</string>
+    <string name="donate_qr_title">Scan to Pay</string>
+    <string name="donate_open_alipay">Open Alipay</string>
 
     <!-- Open Source Licenses -->
     <string name="settings_open_source_licenses">Open Source Licenses</string>
