@@ -236,6 +236,11 @@
     <string name="about_show_fingerprint">デバイスフィンガープリントを表示</string>
     <string name="about_hide_fingerprint">デバイスフィンガープリントを非表示</string>
 
+    <!-- 利用規約 -->
+    <string name="agreement_title">利用規約</string>
+    <string name="agreement_scroll_hint">続行するには最後までお読みください</string>
+    <string name="agreement_accept">同意して続行</string>
+
     <!-- オープンソースライセンス -->
     <string name="settings_open_source_licenses">オープンソースライセンス</string>
     <string name="licenses_summary">このアプリは %1$d 個のオープンソースライブラリを使用しています</string>

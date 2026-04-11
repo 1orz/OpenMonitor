@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -109,6 +111,14 @@ android {
             commandLine("git", "rev-parse", "--short", "HEAD")
         }.standardOutput.asText.get().trim()
         buildConfigField("String", "GIT_COMMIT", "\"$gitCommit\"")
+
+        val localProps = rootProject.file("local.properties")
+        val hmacKey = if (localProps.exists()) {
+            val props = Properties()
+            localProps.reader().use { reader -> props.load(reader) }
+            props.getProperty("api.hmac.key") ?: ""
+        } else ""
+        buildConfigField("String", "API_HMAC_KEY", "\"$hmacKey\"")
     }
 }
 
@@ -226,6 +236,7 @@ dependencies {
 
     implementation(libs.libsu.core)
     implementation(libs.zxing.core)
+    implementation(libs.markdown.renderer.m3)
 
     // Firebase
     implementation(platform(libs.firebase.bom))

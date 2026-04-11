@@ -8,6 +8,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.cloudorz.openmonitor.core.common.AppLogger
 import com.cloudorz.openmonitor.core.data.repository.DeviceIdentityRepository
+import com.cloudorz.openmonitor.core.data.util.ApiSigner
 import com.cloudorz.openmonitor.core.ui.HapticFeedbackManager
 import com.cloudorz.openmonitor.worker.DatabaseCleanupWorker
 import com.elvishew.xlog.XLog
@@ -39,6 +40,7 @@ class MonitorApp : Application(), Configuration.Provider {
     override fun onCreate() {
         AppLogger.init(this)
         super.onCreate()
+        ApiSigner.hmacKey = BuildConfig.API_HMAC_KEY
         HapticFeedbackManager.init(this)
         scheduleDatabaseCleanup()
         scheduleDeviceIdentify()

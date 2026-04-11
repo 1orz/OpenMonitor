@@ -236,6 +236,11 @@
     <string name="about_show_fingerprint">顯示裝置指紋</string>
     <string name="about_hide_fingerprint">隱藏裝置指紋</string>
 
+    <!-- 使用者協議 -->
+    <string name="agreement_title">使用者協議</string>
+    <string name="agreement_scroll_hint">請閱讀至底部後繼續</string>
+    <string name="agreement_accept">同意並繼續</string>
+
     <!-- 開源授權 -->
     <string name="settings_open_source_licenses">開源軟體授權</string>
     <string name="licenses_summary">本應用使用了 %1$d 個開源軟體庫</string>

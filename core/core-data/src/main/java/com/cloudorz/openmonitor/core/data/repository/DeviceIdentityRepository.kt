@@ -3,6 +3,8 @@ package com.cloudorz.openmonitor.core.data.repository
 import android.content.Context
 import android.util.Log
 import com.cloudorz.openmonitor.core.data.datasource.DeviceFingerprintCollector
+import com.cloudorz.openmonitor.core.data.util.ApiResponseParser
+import com.cloudorz.openmonitor.core.data.util.ApiSigner
 import com.cloudorz.openmonitor.core.model.identity.DeviceFingerprint
 import com.cloudorz.openmonitor.core.model.identity.DeviceIdentity
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -93,7 +95,10 @@ class DeviceIdentityRepository @Inject constructor(
             if (cachedUuid != null) {
                 body.put("cached_uuid", cachedUuid)
             }
-            conn.outputStream.bufferedWriter().use { it.write(body.toString()) }
+            val bodyStr = body.toString()
+
+            ApiSigner.sign("POST", "/api/v1/identify", bodyStr).applyTo(conn)
+            conn.outputStream.bufferedWriter().use { it.write(bodyStr) }
 
             val code = conn.responseCode
             if (code != 200) {
@@ -111,13 +116,13 @@ class DeviceIdentityRepository @Inject constructor(
     }
 
     private fun parseIdentityResponse(response: String): DeviceIdentity {
-        val json = JSONObject(response)
-        val uuid = json.getString("uuid")
+        val data = ApiResponseParser.unwrapData(response)
+        val uuid = data.getString("uuid")
         if (uuid.isBlank()) throw IdentifyException("Empty uuid in response")
         return DeviceIdentity(
             uuid = uuid,
-            isNew = json.optBoolean("is_new", false),
-            createdAt = json.optLong("created_at", 0L),
+            isNew = data.optBoolean("is_new", false),
+            createdAt = data.optLong("created_at", 0L),
             lastIdentifiedAt = System.currentTimeMillis(),
         )
     }

@@ -24,6 +24,7 @@ xlog = "1.11.1"
 zxing = "3.5.3"
 googleServices = "4.4.4"
 firebaseBom = "34.12.0"
+markdownRenderer = "0.27.0"
 
 [libraries]
 # Kotlin & Coroutines
@@ -95,6 +96,9 @@ vico-compose-m3 = { module = "com.patrykandpatrick.vico:compose-m3", version.ref
 # Material Kolor (dynamic color generation)
 material-kolor = { group = "com.materialkolor", name = "material-kolor", version.ref = "materialKolor" }
 
+
+# Markdown
+markdown-renderer-m3 = { module = "com.mikepenz:multiplatform-markdown-renderer-m3", version.ref = "markdownRenderer" }
 
 # QR Code
 zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }

@@ -236,6 +236,11 @@
     <string name="about_show_fingerprint">显示设备指纹</string>
     <string name="about_hide_fingerprint">隐藏设备指纹</string>
 
+    <!-- 用户协议 -->
+    <string name="agreement_title">用户协议</string>
+    <string name="agreement_scroll_hint">请阅读至底部后继续</string>
+    <string name="agreement_accept">同意并继续</string>
+
     <!-- 开源许可 -->
     <string name="settings_open_source_licenses">开源软件许可</string>
     <string name="licenses_summary">本应用使用了 %1$d 个开源软件库</string>

@@ -6,6 +6,8 @@ import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cloudorz.openmonitor.core.data.repository.DeviceIdentityRepository
+import com.cloudorz.openmonitor.core.data.util.ApiResponseParser
+import com.cloudorz.openmonitor.core.data.util.ApiSigner
 import com.elvishew.xlog.XLog
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -182,7 +184,10 @@ class DonateViewModel @Inject constructor(
                 put("lang", lang)
                 if (deviceUuid != null) put("device_uuid", deviceUuid)
             }
-            conn.outputStream.bufferedWriter().use { it.write(body.toString()) }
+            val bodyStr = body.toString()
+
+            ApiSigner.sign("POST", "/api/v1/donate", bodyStr).applyTo(conn)
+            conn.outputStream.bufferedWriter().use { it.write(bodyStr) }
 
             val code = conn.responseCode
             if (code != 200) {
@@ -193,9 +198,9 @@ class DonateViewModel @Inject constructor(
 
             val response = conn.inputStream.bufferedReader().use { it.readText() }
             XLog.tag(TAG).i("createOrder response: $response")
-            val json = JSONObject(response)
-            val qrCode = json.optString("qr_code", "")
-            val tradeNo = json.optString("trade_no", "")
+            val data = ApiResponseParser.unwrapData(response)
+            val qrCode = data.optString("qr_code", "")
+            val tradeNo = data.optString("trade_no", "")
             if (qrCode.isEmpty() || tradeNo.isEmpty()) {
                 XLog.tag(TAG).w("createOrder: missing qr_code or trade_no in response")
                 return null
@@ -255,11 +260,13 @@ class DonateViewModel @Inject constructor(
 
     private fun checkOrderStatus(tradeNo: String): OrderStatusResult? {
         val encodedTradeNo = URLEncoder.encode(tradeNo, "UTF-8")
-        val conn = URL("$API_BASE_URL/api/v1/donate/status?trade_no=$encodedTradeNo")
-            .openConnection() as HttpURLConnection
+        val path = "/api/v1/donate/status?trade_no=$encodedTradeNo"
+        val conn = URL("$API_BASE_URL$path").openConnection() as HttpURLConnection
         return try {
             conn.connectTimeout = CONNECT_TIMEOUT_MS
             conn.readTimeout = READ_TIMEOUT_MS
+            ApiSigner.sign("GET", path, null).applyTo(conn)
+
             val code = conn.responseCode
             if (code != 200) {
                 val errorBody = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
@@ -268,11 +275,11 @@ class DonateViewModel @Inject constructor(
             }
 
             val response = conn.inputStream.bufferedReader().use { it.readText() }
-            val json = JSONObject(response)
-            val status = json.optString("status", "").ifEmpty { return null }
+            val data = ApiResponseParser.unwrapData(response)
+            val status = data.optString("status", "").ifEmpty { return null }
             OrderStatusResult(
                 status = status,
-                buyerLogonId = json.optString("buyer_logon_id", "").ifEmpty { null },
+                buyerLogonId = data.optString("buyer_logon_id", "").ifEmpty { null },
             )
         } catch (e: Exception) {
             XLog.tag(TAG).e("checkOrderStatus exception", e)

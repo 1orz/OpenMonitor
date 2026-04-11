@@ -88,6 +88,8 @@ import com.cloudorz.openmonitor.ui.navigation.Route
 import com.cloudorz.openmonitor.ui.navigation.rememberNavigator
 import com.cloudorz.openmonitor.ui.network.NetworkScreen
 import com.cloudorz.openmonitor.ui.sensor.SensorScreen
+import com.cloudorz.openmonitor.ui.splash.AgreementScreen
+import com.cloudorz.openmonitor.ui.splash.CURRENT_AGREEMENT_VERSION
 import com.cloudorz.openmonitor.ui.splash.PermissionGuideScreen
 import com.cloudorz.openmonitor.ui.splash.PermissionSetupScreen
 import com.cloudorz.openmonitor.ui.splash.hasRequiredPermissions
@@ -142,6 +144,17 @@ private enum class StartupPhase { CHECKING, READY, NEEDS_GUIDE, NEEDS_PERMISSION
 
 @Composable
 private fun MonitorAppContent(permissionManager: PermissionManager, daemonManager: DaemonManager) {
+    val context = LocalContext.current
+    var agreementAccepted by rememberSaveable {
+        val prefs = context.getSharedPreferences("monitor_settings", Context.MODE_PRIVATE)
+        mutableStateOf(prefs.getInt("agreement_accepted_version", 0) >= CURRENT_AGREEMENT_VERSION)
+    }
+
+    if (!agreementAccepted) {
+        AgreementScreen(onAccepted = { agreementAccepted = true })
+        return
+    }
+
     var selectedMode by rememberSaveable {
         mutableStateOf(
             if (permissionManager.hasPersistedMode) permissionManager.currentMode.value else null
