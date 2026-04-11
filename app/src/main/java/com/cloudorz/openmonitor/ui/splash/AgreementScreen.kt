@@ -40,7 +40,7 @@ fun AgreementScreen(onAccepted: () -> Unit) {
     val view = LocalView.current
     val markdownContent = remember {
         try {
-            context.assets.open("agreement.md").bufferedReader().use { it.readText() }
+            context.resources.openRawResource(R.raw.agreement).bufferedReader().use { it.readText() }
         } catch (_: Exception) {
             ""
         }
