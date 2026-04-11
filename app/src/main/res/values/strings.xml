@@ -234,6 +234,13 @@
     <string name="donate_challenge_failed">Verification failed</string>
     <string name="donate_qr_title">Scan to Pay</string>
     <string name="donate_open_alipay">Open Alipay</string>
+    <string name="donate_identifying_device">Identifying device\u2026</string>
+    <string name="donate_identify_failed">Device identification failed</string>
+
+    <!-- About - Device Identity -->
+    <string name="about_device_identity">Device Identity</string>
+    <string name="about_show_fingerprint">Show Device Fingerprint</string>
+    <string name="about_hide_fingerprint">Hide Device Fingerprint</string>
 
     <!-- Open Source Licenses -->
     <string name="settings_open_source_licenses">Open Source Licenses</string>

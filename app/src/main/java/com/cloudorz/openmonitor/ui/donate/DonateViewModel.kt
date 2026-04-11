@@ -5,6 +5,7 @@ import android.content.Intent
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.cloudorz.openmonitor.core.data.repository.DeviceIdentityRepository
 import com.elvishew.xlog.XLog
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -43,16 +44,17 @@ data class DonateUiState(
 @HiltViewModel
 class DonateViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
+    private val identityRepository: DeviceIdentityRepository,
 ) : ViewModel() {
 
     companion object {
         private const val TAG = "Donate"
-        private const val WORKER_BASE_URL = "https://om-donate.cloudorz.com"
+        private const val API_BASE_URL = "https://om-api.cloudorz.com"
         private const val POLL_INTERVAL_MS = 2_000L
         private const val POLL_TIMEOUT_MS = 15 * 60 * 1_000L // 15 minutes (matches Alipay timeout_express)
         private const val CONNECT_TIMEOUT_MS = 10_000
         private const val READ_TIMEOUT_MS = 10_000
-        const val CHALLENGE_URL = "$WORKER_BASE_URL/challenge"
+        const val CHALLENGE_URL = "$API_BASE_URL/challenge"
         val PRESET_AMOUNTS = listOf("1", "2", "5", "10", "20", "30", "50")
 
         fun launchAlipay(context: Context, qrCode: String): Boolean {
@@ -151,7 +153,7 @@ class DonateViewModel @Inject constructor(
     }
 
     private fun createOrder(amount: String, turnstileToken: String): Pair<String, String>? {
-        val conn = URL("$WORKER_BASE_URL/api/donate").openConnection() as HttpURLConnection
+        val conn = URL("$API_BASE_URL/api/v1/donate").openConnection() as HttpURLConnection
         return try {
             conn.requestMethod = "POST"
             conn.connectTimeout = CONNECT_TIMEOUT_MS
@@ -159,9 +161,13 @@ class DonateViewModel @Inject constructor(
             conn.setRequestProperty("Content-Type", "application/json")
             conn.doOutput = true
 
+            val lang = context.resources.configuration.locales[0].language
+            val deviceUuid = identityRepository.getCachedIdentity()?.uuid
             val body = JSONObject().apply {
                 put("amount", amount)
                 put("turnstile_token", turnstileToken)
+                put("lang", lang)
+                if (deviceUuid != null) put("device_uuid", deviceUuid)
             }
             conn.outputStream.bufferedWriter().use { it.write(body.toString()) }
 
@@ -223,7 +229,7 @@ class DonateViewModel @Inject constructor(
 
     private fun checkOrderStatus(tradeNo: String): String? {
         val encodedTradeNo = URLEncoder.encode(tradeNo, "UTF-8")
-        val conn = URL("$WORKER_BASE_URL/api/donate/status?trade_no=$encodedTradeNo")
+        val conn = URL("$API_BASE_URL/api/v1/donate/status?trade_no=$encodedTradeNo")
             .openConnection() as HttpURLConnection
         return try {
             conn.connectTimeout = CONNECT_TIMEOUT_MS

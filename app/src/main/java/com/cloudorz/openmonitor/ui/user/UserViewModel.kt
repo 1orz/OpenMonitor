@@ -5,6 +5,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cloudorz.openmonitor.core.common.PrivilegeMode
 import com.cloudorz.openmonitor.core.data.datasource.DaemonClient
+import com.cloudorz.openmonitor.core.data.repository.DeviceIdentityRepository
+import com.cloudorz.openmonitor.core.model.identity.DeviceFingerprint
+import com.cloudorz.openmonitor.core.model.identity.DeviceIdentity
 import com.cloudorz.openmonitor.core.ui.HapticFeedbackManager
 import com.cloudorz.openmonitor.core.data.datasource.DaemonLauncher
 import com.cloudorz.openmonitor.core.data.datasource.DaemonManager
@@ -36,6 +39,7 @@ class UserViewModel @Inject constructor(
     private val daemonManager: DaemonManager,
     private val daemonLauncher: DaemonLauncher,
     private val themeRepo: ThemeSettingsRepository,
+    private val identityRepository: DeviceIdentityRepository,
     @param:ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -283,5 +287,19 @@ class UserViewModel @Inject constructor(
                 uptimeSeconds = json.optLong("uptime_s", -1).takeIf { it >= 0 },
             )
         } catch (_: Exception) { DaemonInfo() }
+    }
+
+    // ── Device Identity ──
+
+    private val _fingerprint = MutableStateFlow<DeviceFingerprint?>(null)
+    val fingerprint: StateFlow<DeviceFingerprint?> = _fingerprint.asStateFlow()
+
+    fun getCachedIdentity(): DeviceIdentity? = identityRepository.getCachedIdentity()
+
+    fun loadFingerprint() {
+        if (_fingerprint.value != null) return
+        viewModelScope.launch {
+            _fingerprint.value = identityRepository.collectFingerprint()
+        }
     }
 }

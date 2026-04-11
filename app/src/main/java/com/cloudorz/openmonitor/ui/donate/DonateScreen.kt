@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import com.elvishew.xlog.XLog
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -291,23 +292,40 @@ private fun TurnstileChallengeDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                // Invisible Turnstile WebView — only needs to execute JS, no visible UI
                 AndroidView(
                     factory = { ctx ->
                         WebView(ctx).apply {
                             settings.javaScriptEnabled = true
                             settings.domStorageEnabled = true
-                            webViewClient = WebViewClient()
+                            webViewClient = object : WebViewClient() {
+                                override fun onPageFinished(view: WebView?, url: String?) {
+                                    XLog.tag("Turnstile").i("page loaded: $url")
+                                }
+                                override fun onReceivedError(
+                                    view: WebView?, request: android.webkit.WebResourceRequest?,
+                                    error: android.webkit.WebResourceError?,
+                                ) {
+                                    XLog.tag("Turnstile").w("load error: ${error?.description} (${error?.errorCode})")
+                                }
+                            }
+                            webChromeClient = object : android.webkit.WebChromeClient() {
+                                override fun onConsoleMessage(msg: android.webkit.ConsoleMessage?): Boolean {
+                                    XLog.tag("Turnstile").i("JS: ${msg?.message()}")
+                                    return true
+                                }
+                            }
                             addJavascriptInterface(
                                 object {
                                     @JavascriptInterface
                                     fun onToken(token: String) {
+                                        XLog.tag("Turnstile").i("token received: ${token.take(16)}...")
                                         tokenReceived = true
                                         post { onTokenReceived(token) }
                                     }
                                 },
                                 "TurnstileBridge",
                             )
+                            XLog.tag("Turnstile").i("loading: $challengeUrl")
                             loadUrl(challengeUrl)
                         }
                     },

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -92,6 +93,9 @@ import com.cloudorz.openmonitor.ui.component.SettingsDropdownItem
 import com.cloudorz.openmonitor.ui.component.SettingsGroup
 import com.cloudorz.openmonitor.ui.component.SettingsNavigateItem
 import com.cloudorz.openmonitor.ui.component.SettingsSwitchItem
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.material.icons.filled.Favorite
 import kotlinx.coroutines.launch
 import rikka.shizuku.Shizuku
@@ -215,23 +219,27 @@ fun UserScreen(
                         },
                     )
                 }
-                // Daemon status
-                add {
-                    DaemonStatusItem(
-                        status = daemonStatus,
-                        onCheck = { viewModel.checkDaemon() },
-                        onRestart = { viewModel.restartDaemon() },
-                    )
+                // Daemon status (not shown in BASIC mode — daemon is not used)
+                if (currentMode != PrivilegeMode.BASIC) {
+                    add {
+                        DaemonStatusItem(
+                            status = daemonStatus,
+                            onCheck = { viewModel.checkDaemon() },
+                            onRestart = { viewModel.restartDaemon() },
+                        )
+                    }
                 }
             },
         )
 
         // ADB mode: silent background polling until daemon connects
-        DisposableEffect(currentMode) {
-            if (currentMode == PrivilegeMode.ADB) {
-                viewModel.startAdbWatcher()
+        if (currentMode != PrivilegeMode.BASIC) {
+            DisposableEffect(currentMode) {
+                if (currentMode == PrivilegeMode.ADB) {
+                    viewModel.startAdbWatcher()
+                }
+                onDispose { viewModel.stopAdbWatcher() }
             }
-            onDispose { viewModel.stopAdbWatcher() }
         }
 
         // ADB setup guide (hidden once daemon connects)
@@ -304,7 +312,7 @@ fun UserScreen(
         // ── About ──
         var showAboutDialog by remember { mutableStateOf(false) }
         if (showAboutDialog) {
-            AboutDialog(onDismiss = { showAboutDialog = false })
+            AboutDialog(onDismiss = { showAboutDialog = false }, viewModel = viewModel)
         }
 
         // null = still checking, non-null = result
@@ -635,9 +643,13 @@ private fun modeDescription(mode: PrivilegeMode): String = when (mode) {
 }
 
 @Composable
-private fun AboutDialog(onDismiss: () -> Unit) {
+private fun AboutDialog(onDismiss: () -> Unit, viewModel: UserViewModel) {
     val context = LocalContext.current
     val view = LocalView.current
+    var showFingerprint by remember { mutableStateOf(false) }
+    val fingerprint by viewModel.fingerprint.collectAsState()
+    val identity = remember { viewModel.getCachedIdentity() }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
@@ -665,7 +677,10 @@ private fun AboutDialog(onDismiss: () -> Unit) {
             Text("OpenMonitor")
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
                 Text(
                     text = stringResource(R.string.app_description),
                     style = MaterialTheme.typography.bodySmall,
@@ -676,6 +691,125 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                 AboutRow("Commit", BuildConfig.GIT_COMMIT)
                 AboutRow("Author", "1orz")
                 AboutRow("License", "GPLv3")
+
+                // Device Identity
+                val clipboardManager = LocalClipboardManager.current
+                if (identity != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.about_device_identity),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.weight(1f),
+                        )
+                        IconButton(
+                            onClick = {
+                                view.hapticClick()
+                                clipboardManager.setText(AnnotatedString(identity.uuid))
+                            },
+                            modifier = Modifier.size(20.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.ContentCopy,
+                                contentDescription = "Copy UUID",
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    AboutRow("UUID", identity.uuid)
+                }
+
+                // Fingerprint debug toggle
+                Spacer(modifier = Modifier.height(4.dp))
+                TextButton(
+                    onClick = {
+                        view.hapticClick()
+                        showFingerprint = !showFingerprint
+                        if (showFingerprint) viewModel.loadFingerprint()
+                    },
+                ) {
+                    Text(
+                        text = if (showFingerprint) stringResource(R.string.about_hide_fingerprint)
+                               else stringResource(R.string.about_show_fingerprint),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
+
+                if (showFingerprint && fingerprint != null) {
+                    val fp = fingerprint!!
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.about_show_fingerprint),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.weight(1f),
+                        )
+                        IconButton(
+                            onClick = {
+                                view.hapticClick()
+                                val text = buildString {
+                                    if (identity != null) appendLine("UUID: ${identity.uuid}")
+                                    appendLine("MediaDrm ID: ${fp.mediaDrmId ?: "N/A"}")
+                                    appendLine("Serial No: ${fp.serialNo ?: "N/A"}")
+                                    appendLine("Primary ID: ${fp.primaryId()}")
+                                    appendLine("HW Hash: ${fp.hardwareHash()}")
+                                    appendLine("Model: ${fp.model}")
+                                    appendLine("Board: ${fp.board}")
+                                    appendLine("Hardware: ${fp.hardware}")
+                                    appendLine("Manufacturer: ${fp.manufacturer}")
+                                    appendLine("Brand: ${fp.brand}")
+                                    appendLine("Device: ${fp.device}")
+                                    appendLine("Product: ${fp.product}")
+                                    appendLine("SoC: ${fp.socManufacturer} ${fp.socModel}".trim())
+                                    appendLine("Screen: ${fp.screenWidth}x${fp.screenHeight} @${fp.screenDensity}dpi")
+                                    appendLine("RAM: ${fp.totalRam / 1024 / 1024}MB")
+                                    appendLine("SDK: ${fp.sdkInt}")
+                                    appendLine("Mode: ${fp.privilegeMode}")
+                                    append("Sensor Hash: ${fp.sensorHash}")
+                                }
+                                clipboardManager.setText(AnnotatedString(text))
+                            },
+                            modifier = Modifier.size(20.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.ContentCopy,
+                                contentDescription = "Copy all",
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    Column(
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        AboutRow("MediaDrm ID", fp.mediaDrmId ?: "N/A")
+                        AboutRow("Serial No", fp.serialNo ?: "N/A")
+                        AboutRow("Primary ID", fp.primaryId())
+                        AboutRow("HW Hash", fp.hardwareHash())
+                        AboutRow("Model", fp.model)
+                        AboutRow("Board", fp.board)
+                        AboutRow("Hardware", fp.hardware)
+                        AboutRow("Manufacturer", fp.manufacturer)
+                        AboutRow("Brand", fp.brand)
+                        AboutRow("Device", fp.device)
+                        AboutRow("Product", fp.product)
+                        AboutRow("SoC", "${fp.socManufacturer} ${fp.socModel}".trim())
+                        AboutRow("Screen", "${fp.screenWidth}x${fp.screenHeight} @${fp.screenDensity}dpi")
+                        AboutRow("RAM", "${fp.totalRam / 1024 / 1024}MB")
+                        AboutRow("SDK", "${fp.sdkInt}")
+                        AboutRow("Mode", fp.privilegeMode)
+                        AboutRow("Sensor Hash", fp.sensorHash.take(16) + "...")
+                    }
+                }
             }
         },
     )

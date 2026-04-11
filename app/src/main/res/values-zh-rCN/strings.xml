@@ -225,6 +225,13 @@
     <string name="donate_challenge_failed">验证失败</string>
     <string name="donate_qr_title">扫码支付</string>
     <string name="donate_open_alipay">打开支付宝</string>
+    <string name="donate_identifying_device">正在识别设备\u2026</string>
+    <string name="donate_identify_failed">设备识别失败</string>
+
+    <!-- 关于 - 设备身份 -->
+    <string name="about_device_identity">设备身份</string>
+    <string name="about_show_fingerprint">显示设备指纹</string>
+    <string name="about_hide_fingerprint">隐藏设备指纹</string>
 
     <!-- 开源许可 -->
     <string name="settings_open_source_licenses">开源软件许可</string>
