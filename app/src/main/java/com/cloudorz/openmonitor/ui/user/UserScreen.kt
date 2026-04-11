@@ -93,9 +93,9 @@ import com.cloudorz.openmonitor.ui.component.SettingsDropdownItem
 import com.cloudorz.openmonitor.ui.component.SettingsGroup
 import com.cloudorz.openmonitor.ui.component.SettingsNavigateItem
 import com.cloudorz.openmonitor.ui.component.SettingsSwitchItem
+import android.content.ClipData
+import android.content.ClipboardManager
 import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.material.icons.filled.Favorite
 import kotlinx.coroutines.launch
 import rikka.shizuku.Shizuku
@@ -693,7 +693,7 @@ private fun AboutDialog(onDismiss: () -> Unit, viewModel: UserViewModel) {
                 AboutRow("License", "GPLv3")
 
                 // Device Identity
-                val clipboardManager = LocalClipboardManager.current
+                val clipboardManager = context.getSystemService(ClipboardManager::class.java)
                 if (identity != null) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(
@@ -709,7 +709,7 @@ private fun AboutDialog(onDismiss: () -> Unit, viewModel: UserViewModel) {
                         IconButton(
                             onClick = {
                                 view.hapticClick()
-                                clipboardManager.setText(AnnotatedString(identity.uuid))
+                                clipboardManager.setPrimaryClip(ClipData.newPlainText("",identity.uuid))
                             },
                             modifier = Modifier.size(20.dp),
                         ) {
@@ -775,7 +775,7 @@ private fun AboutDialog(onDismiss: () -> Unit, viewModel: UserViewModel) {
                                     appendLine("Mode: ${fp.privilegeMode}")
                                     append("Sensor Hash: ${fp.sensorHash}")
                                 }
-                                clipboardManager.setText(AnnotatedString(text))
+                                clipboardManager.setPrimaryClip(ClipData.newPlainText("",text))
                             },
                             modifier = Modifier.size(20.dp),
                         ) {

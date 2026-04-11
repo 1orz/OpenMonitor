@@ -59,6 +59,6 @@ sealed interface Route : NavKey, Parcelable {
 }
 
 data class TabItem(
-    @StringRes val labelResId: Int,
+    @param:StringRes val labelResId: Int,
     val icon: ImageVector,
 )

@@ -174,6 +174,21 @@ fun DonateScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    // Countdown
+                    var remainingSeconds by remember(uiState.qrExpiresAt) {
+                        mutableStateOf(
+                            ((uiState.qrExpiresAt - System.currentTimeMillis()) / 1000).toInt().coerceAtLeast(0),
+                        )
+                    }
+
+                    LaunchedEffect(uiState.qrExpiresAt) {
+                        while (remainingSeconds > 0) {
+                            delay(1_000L)
+                            remainingSeconds = ((uiState.qrExpiresAt - System.currentTimeMillis()) / 1000).toInt().coerceAtLeast(0)
+                        }
+                        viewModel.onQrExpired()
+                    }
+
                     // QR Code
                     val qrBitmap = remember(uiState.qrCode) {
                         generateQrBitmap(uiState.qrCode, 512)
@@ -191,14 +206,40 @@ fun DonateScreen(
                         )
                     }
 
+                    // Countdown display
                     Spacer(modifier = Modifier.height(12.dp))
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                    Spacer(modifier = Modifier.height(8.dp))
+                    val minutes = remainingSeconds / 60
+                    val seconds = remainingSeconds % 60
                     Text(
-                        text = stringResource(R.string.donate_waiting),
+                        text = stringResource(R.string.donate_qr_expires, String.format("%d:%02d", minutes, seconds)),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (remainingSeconds < 60) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+
+                    // Scan status
+                    Spacer(modifier = Modifier.height(8.dp))
+                    if (uiState.isScanned) {
+                        val buyerId = uiState.buyerLogonId
+                        val scannedText = if (buyerId != null) {
+                            stringResource(R.string.donate_scanned_by, buyerId)
+                        } else {
+                            stringResource(R.string.donate_scanned)
+                        }
+                        Text(
+                            text = scannedText,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color(0xFF4CAF50),
+                        )
+                    } else {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = stringResource(R.string.donate_waiting),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(12.dp))
                     OutlinedButton(

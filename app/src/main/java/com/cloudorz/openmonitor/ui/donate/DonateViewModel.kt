@@ -39,6 +39,9 @@ data class DonateUiState(
     val qrCode: String = "",
     val tradeNo: String = "",
     val error: DonateError? = null,
+    val qrExpiresAt: Long = 0L,
+    val isScanned: Boolean = false,
+    val buyerLogonId: String? = null,
 )
 
 @HiltViewModel
@@ -120,6 +123,8 @@ class DonateViewModel @Inject constructor(
                         state = DonateState.WAITING_PAYMENT,
                         qrCode = result.first,
                         tradeNo = result.second,
+                        qrExpiresAt = System.currentTimeMillis() + POLL_TIMEOUT_MS,
+                        isScanned = false,
                     )
                 }
                 // Try to launch Alipay
@@ -142,8 +147,16 @@ class DonateViewModel @Inject constructor(
         }
     }
 
+    fun onQrExpired() {
+        pollJob?.cancel()
+        pollJob = null
+        _uiState.update {
+            it.copy(state = DonateState.FAILED, error = DonateError.TIMEOUT)
+        }
+    }
+
     fun retry() {
-        _uiState.update { it.copy(state = DonateState.IDLE, error = null) }
+        _uiState.update { it.copy(state = DonateState.IDLE, error = null, isScanned = false) }
     }
 
     fun resetState() {
@@ -210,8 +223,8 @@ class DonateViewModel @Inject constructor(
                     break
                 }
 
-                val status = checkOrderStatus(tradeNo)
-                when (status) {
+                val result = checkOrderStatus(tradeNo) ?: continue
+                when (result.status) {
                     "TRADE_SUCCESS", "TRADE_FINISHED" -> {
                         _uiState.update { it.copy(state = DonateState.SUCCESS) }
                         break
@@ -222,12 +235,25 @@ class DonateViewModel @Inject constructor(
                         }
                         break
                     }
+                    "WAIT_BUYER_PAY" -> {
+                        _uiState.update {
+                            it.copy(
+                                isScanned = true,
+                                buyerLogonId = result.buyerLogonId ?: it.buyerLogonId,
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 
-    private fun checkOrderStatus(tradeNo: String): String? {
+    private data class OrderStatusResult(
+        val status: String,
+        val buyerLogonId: String? = null,
+    )
+
+    private fun checkOrderStatus(tradeNo: String): OrderStatusResult? {
         val encodedTradeNo = URLEncoder.encode(tradeNo, "UTF-8")
         val conn = URL("$API_BASE_URL/api/v1/donate/status?trade_no=$encodedTradeNo")
             .openConnection() as HttpURLConnection
@@ -243,7 +269,11 @@ class DonateViewModel @Inject constructor(
 
             val response = conn.inputStream.bufferedReader().use { it.readText() }
             val json = JSONObject(response)
-            json.optString("status", "").ifEmpty { null }
+            val status = json.optString("status", "").ifEmpty { return null }
+            OrderStatusResult(
+                status = status,
+                buyerLogonId = json.optString("buyer_logon_id", "").ifEmpty { null },
+            )
         } catch (e: Exception) {
             XLog.tag(TAG).e("checkOrderStatus exception", e)
             null

@@ -17,10 +17,10 @@ import javax.inject.Singleton
 /**
  * 设备身份仓库：采集指纹 → POST /api/identify → 缓存 UUID。
  *
- * 匹配策略（后端实现）：
- * 1. media_drm_id 完全匹配 → 返回已有 UUID
- * 2. serial_no 完全匹配 → 返回已有 UUID
- * 3. 均不匹配 → 创建新设备记录，返回新 UUID
+ * 两层识别策略（后端实现）：
+ * 1. 客户端带上缓存 UUID → 后端查记录并校验 DRM 吻合 → 确认身份
+ * 2. 无缓存 UUID（清除数据/重装）→ 后端通过 media_drm_id 唯一匹配找回
+ * 3. 均无法匹配 → 创建新设备记录
  */
 @Singleton
 class DeviceIdentityRepository @Inject constructor(
@@ -65,7 +65,8 @@ class DeviceIdentityRepository @Inject constructor(
     suspend fun identify(): Result<DeviceIdentity> = withContext(Dispatchers.IO) {
         try {
             val fingerprint = collector.collect()
-            val identity = postIdentify(fingerprint)
+            val cachedUuid = prefs.getString(KEY_UUID, null)
+            val identity = postIdentify(fingerprint, cachedUuid)
             cacheIdentity(identity)
             Result.success(identity)
         } catch (e: Exception) {
@@ -79,7 +80,7 @@ class DeviceIdentityRepository @Inject constructor(
         return collector.collect()
     }
 
-    private fun postIdentify(fingerprint: DeviceFingerprint): DeviceIdentity {
+    private fun postIdentify(fingerprint: DeviceFingerprint, cachedUuid: String?): DeviceIdentity {
         val conn = URL(IDENTIFY_URL).openConnection() as HttpURLConnection
         return try {
             conn.requestMethod = "POST"
@@ -89,6 +90,9 @@ class DeviceIdentityRepository @Inject constructor(
             conn.doOutput = true
 
             val body = fingerprint.toJson()
+            if (cachedUuid != null) {
+                body.put("cached_uuid", cachedUuid)
+            }
             conn.outputStream.bufferedWriter().use { it.write(body.toString()) }
 
             val code = conn.responseCode
