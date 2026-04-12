@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- CPU chip icon (monochrome for notification) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M15,17H9v-2H7v-2H5v-2h2V9h2V7h6v2h2v2h2v2h-2v2h-2v2zM9,9v6h6V9H9z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M11,3h2v3h-2z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M11,18h2v3h-2z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M3,11h3v2H3z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M18,11h3v2h-3z" />
+</vector>

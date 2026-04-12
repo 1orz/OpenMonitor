@@ -1,0 +1,5 @@
+# Build outputs
+monitor-daemon
+mcli
+mcli-mac
+*.exe

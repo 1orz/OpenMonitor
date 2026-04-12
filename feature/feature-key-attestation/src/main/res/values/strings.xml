@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Key Attestation Screen -->
+    <string name="ka_attestation_failed">Attestation Failed</string>
+    <string name="ka_retry">Retry</string>
+
+    <!-- Boot state card -->
+    <string name="ka_boot_state">Verified Boot State</string>
+    <string name="ka_bootloader_locked">Bootloader Locked</string>
+    <string name="ka_bootloader_unlocked">Bootloader Unlocked</string>
+
+    <!-- Trust banner -->
+    <string name="ka_trust_chain_untrusted">Certificate Chain Untrusted</string>
+    <string name="ka_trust_chain_desc">Certificate chain contains a revoked or invalid certificate</string>
+
+    <!-- Attestation info card -->
+    <string name="ka_attestation_info">Attestation Info</string>
+    <string name="ka_attestation_version">Attest Version</string>
+    <string name="ka_attestation_security">Attest Security</string>
+    <string name="ka_keymaster_version">KM Version</string>
+    <string name="ka_keymaster_security">KM Security</string>
+    <string name="ka_challenge">Challenge</string>
+    <string name="ka_unique_id">Unique ID</string>
+
+    <!-- Revocation list row -->
+    <string name="ka_revocation_list">Revocation List</string>
+    <string name="ka_revocation_entries">%d entries</string>
+    <string name="ka_revocation_no_data">No data</string>
+    <string name="ka_revocation_refresh">Refresh</string>
+
+    <!-- Certificate chain card -->
+    <string name="ka_cert_chain">Certificate Chain</string>
+    <string name="ka_cert_index">Certificate #%d</string>
+    <string name="ka_subject">Subject</string>
+    <string name="ka_cert_not_before">Not Before</string>
+    <string name="ka_cert_not_after">Not After</string>
+    <string name="ka_cert_revoked">Revoked</string>
+
+    <!-- HW / SW badges -->
+    <string name="ka_hw_badge">HW</string>
+    <string name="ka_sw_badge">SW</string>
+
+    <!-- Authorization list card -->
+    <string name="ka_authorization_list">Authorization List</string>
+    <string name="ka_purposes">Purposes</string>
+    <string name="ka_algorithm">Algorithm</string>
+    <string name="ka_key_size">Key Size</string>
+    <string name="ka_digest">Digest</string>
+    <string name="ka_ec_curve">EC Curve</string>
+    <string name="ka_no_auth_required">No Auth Required</string>
+    <string name="ka_rollback_resistance">Rollback Resistance</string>
+    <string name="ka_early_boot_only">Early Boot Only</string>
+    <string name="ka_creation_time">Creation Time</string>
+    <string name="ka_origin">Origin</string>
+    <string name="ka_os_version">OS Version</string>
+    <string name="ka_os_patch">OS Patch</string>
+    <string name="ka_vendor_patch">Vendor Patch</string>
+    <string name="ka_boot_patch">Boot Patch</string>
+    <string name="ka_device_locked">Device Locked</string>
+    <string name="ka_boot_key">Boot Key</string>
+    <string name="ka_boot_hash">Boot Hash</string>
+    <string name="ka_brand">Brand</string>
+    <string name="ka_device">Device</string>
+    <string name="ka_product">Product</string>
+    <string name="ka_manufacturer">Manufacturer</string>
+    <string name="ka_model">Model</string>
+
+    <!-- Loading steps -->
+    <string name="ka_loading_init">Initializing…</string>
+    <string name="ka_loading_root_keys">Loading root public keys…</string>
+    <string name="ka_loading_revocation">Fetching revocation list…</string>
+    <string name="ka_loading_keygen">Generating attestation key…</string>
+    <string name="ka_loading_shizuku">Connecting to Shizuku…</string>
+    <string name="ka_loading_parsing">Parsing certificates…</string>
+    <string name="ka_loading_timeout">Timeout: %ds</string>
+
+    <!-- Top-bar menu -->
+    <string name="ka_menu_more">More options</string>
+    <string name="ka_menu_use_attest_key">Use Attest Key</string>
+    <string name="ka_menu_use_strongbox">Use StrongBox</string>
+    <string name="ka_menu_use_shizuku">Shizuku Mode</string>
+    <string name="ka_menu_reset">Reset Keys</string>
+    <string name="ka_menu_save">Save to File</string>
+    <string name="ka_menu_load">Load from File</string>
+</resources>

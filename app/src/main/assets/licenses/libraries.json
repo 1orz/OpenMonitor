@@ -1,0 +1,146 @@
+[
+  {
+    "name": "AndroidX",
+    "version": "various",
+    "copyright": "Copyright The Android Open Source Project",
+    "description": "Core KTX, AppCompat, Activity, Navigation3, Lifecycle, Room, WorkManager",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+    "url": "https://android.googlesource.com/platform/frameworks/support"
+  },
+  {
+    "name": "Bouncy Castle",
+    "version": "1.83",
+    "copyright": "Copyright (c) 2000-2024 The Legion of the Bouncy Castle Inc.",
+    "description": "Lightweight cryptography APIs and ASN.1 parsing",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://raw.githubusercontent.com/bcgit/bc-java/main/LICENSE.md",
+    "url": "https://github.com/bcgit/bc-java"
+  },
+  {
+    "name": "CBOR",
+    "version": "0.9",
+    "copyright": "Copyright (c) 2014-2024 Constantin Rack",
+    "description": "Concise Binary Object Representation (RFC 7049) for Java",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://raw.githubusercontent.com/c-rack/cbor-java/master/LICENSE",
+    "url": "https://github.com/c-rack/cbor-java"
+  },
+  {
+    "name": "cpuinfo",
+    "version": "main",
+    "copyright": "Copyright (c) 2019 Google LLC, 2017-2018 Facebook Inc.",
+    "description": "CPU information library (L1/L2/L3 cache, NEON detection)",
+    "license": "BSD-2-Clause",
+    "licenseUrl": "https://raw.githubusercontent.com/pytorch/cpuinfo/main/LICENSE",
+    "url": "https://github.com/pytorch/cpuinfo"
+  },
+  {
+    "name": "Dagger Hilt",
+    "version": "2.59.2",
+    "copyright": "Copyright 2012 The Dagger Authors",
+    "description": "Dependency injection framework for Android",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://raw.githubusercontent.com/google/dagger/master/LICENSE.txt",
+    "url": "https://github.com/google/dagger"
+  },
+  {
+    "name": "Firebase Android SDK",
+    "version": "34.12.0",
+    "copyright": "Copyright The Android Open Source Project",
+    "description": "Google Analytics for Firebase",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://raw.githubusercontent.com/firebase/firebase-android-sdk/master/LICENSE",
+    "url": "https://github.com/firebase/firebase-android-sdk"
+  },
+  {
+    "name": "Guava",
+    "version": "33.5.0",
+    "copyright": "Copyright (C) 2010 The Guava Authors",
+    "description": "Google core libraries for Java (Android variant)",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://raw.githubusercontent.com/google/guava/master/LICENSE",
+    "url": "https://github.com/google/guava"
+  },
+  {
+    "name": "Jetpack Compose",
+    "version": "2026.03.01",
+    "copyright": "Copyright The Android Open Source Project",
+    "description": "Modern declarative UI toolkit (UI, Material 3, Icons, Foundation)",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+    "url": "https://developer.android.com/develop/ui/compose"
+  },
+  {
+    "name": "KeyAttestation",
+    "version": "1.8.4",
+    "copyright": "Copyright (c) 2021 vvb2060",
+    "description": "Android key attestation parsing and verification",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+    "url": "https://github.com/vvb2060/KeyAttestation"
+  },
+  {
+    "name": "Kotlin",
+    "version": "2.3.20",
+    "copyright": "Copyright 2000-2020 JetBrains s.r.o. and Kotlin Programming Language contributors",
+    "description": "The Kotlin programming language",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://raw.githubusercontent.com/JetBrains/kotlin/master/license/LICENSE.txt",
+    "url": "https://github.com/JetBrains/kotlin"
+  },
+  {
+    "name": "Kotlin Coroutines",
+    "version": "1.10.2",
+    "copyright": "Copyright 2000-2020 JetBrains s.r.o. and Kotlin Programming Language contributors",
+    "description": "Kotlin coroutines for asynchronous programming",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://raw.githubusercontent.com/Kotlin/kotlinx.coroutines/master/LICENSE.txt",
+    "url": "https://github.com/Kotlin/kotlinx.coroutines"
+  },
+  {
+    "name": "libsu",
+    "version": "6.0.0",
+    "copyright": "Copyright 2023 John Wu",
+    "description": "Android root shell library (KernelSU / Magisk / APatch)",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://raw.githubusercontent.com/topjohnwu/libsu/master/LICENSE",
+    "url": "https://github.com/topjohnwu/libsu"
+  },
+  {
+    "name": "Material Kolor",
+    "version": "4.1.1",
+    "copyright": "Copyright 2023 Jordan Fisher",
+    "description": "Dynamic Material 3 color scheme generation from seed colors",
+    "license": "MIT",
+    "licenseUrl": "https://raw.githubusercontent.com/jordond/MaterialKolor/main/LICENSE",
+    "url": "https://github.com/jordond/MaterialKolor"
+  },
+  {
+    "name": "Shizuku API",
+    "version": "13.1.5",
+    "copyright": "Copyright (c) 2021 RikkaW",
+    "description": "Use system APIs directly with ADB/root privileges",
+    "license": "MIT",
+    "licenseUrl": "https://raw.githubusercontent.com/RikkaApps/Shizuku-API/master/LICENSE",
+    "url": "https://github.com/RikkaApps/Shizuku-API"
+  },
+  {
+    "name": "Vico",
+    "version": "3.1.0",
+    "copyright": "Copyright 2022 by Patryk Goworowski and Patrick Michalik",
+    "description": "Chart library for Jetpack Compose and Material 3",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://raw.githubusercontent.com/patrykandpatrick/vico/master/LICENSE",
+    "url": "https://github.com/patrykandpatrick/vico"
+  },
+  {
+    "name": "XLog",
+    "version": "1.11.1",
+    "copyright": "Copyright 2016 Elvis Hew",
+    "description": "Lightweight and extensible Android logger",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://raw.githubusercontent.com/elvishew/xLog/master/LICENSE",
+    "url": "https://github.com/elvishew/xLog"
+  }
+]

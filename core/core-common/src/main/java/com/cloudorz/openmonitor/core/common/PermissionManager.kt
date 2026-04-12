@@ -1,0 +1,168 @@
+package com.cloudorz.openmonitor.core.common
+
+import android.content.Context
+import com.elvishew.xlog.XLog
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import androidx.core.content.edit
+import javax.inject.Inject
+import javax.inject.Singleton
+
+@Singleton
+class PermissionManager @Inject constructor(
+    @param:ApplicationContext private val context: Context,
+    private val rootExecutor: RootExecutor,
+    private val shizukuExecutor: ShizukuExecutor,
+    private val adbExecutor: AdbExecutor,
+    private val basicExecutor: BasicExecutor,
+    private val rootFrameworkDetector: RootFrameworkDetector,
+    private val shizukuVariantDetector: ShizukuVariantDetector,
+) {
+    companion object {
+        private const val TAG = "PermissionManager"
+    }
+
+    private val prefs = context.getSharedPreferences("monitor_settings", Context.MODE_PRIVATE)
+
+    private val _currentMode = MutableStateFlow(PrivilegeMode.BASIC)
+
+    val currentMode: StateFlow<PrivilegeMode> = _currentMode.asStateFlow()
+
+    val hasPersistedMode: Boolean
+
+    /** Mirrors ShizukuExecutor.binderAlive — true while Shizuku is attached. */
+    val shizukuBinderAlive: StateFlow<Boolean> get() = shizukuExecutor.binderAlive
+
+    /** Result of the most recent Shizuku permission request. Null until user responds. */
+    val shizukuPermissionResult: StateFlow<Boolean?> get() = shizukuExecutor.permissionResult
+
+    fun resetShizukuPermissionResult() = shizukuExecutor.resetPermissionResult()
+
+    /** True if Shizuku binder is alive AND permission is granted (synchronous). */
+    fun isShizukuAvailableSync(): Boolean = shizukuExecutor.isAvailableSync()
+
+    /** Triggers the Shizuku permission grant dialog if not yet granted. */
+    fun requestShizukuPermission() = shizukuExecutor.requestPermissionIfNeeded()
+
+    init {
+        val saved = prefs.getString("privilege_mode", null)
+        hasPersistedMode = saved != null
+        if (saved != null) {
+            val mode = try {
+                PrivilegeMode.valueOf(saved)
+            } catch (_: IllegalArgumentException) {
+                PrivilegeMode.BASIC
+            }
+            _currentMode.value = mode
+            if (mode == PrivilegeMode.SHIZUKU) {
+                shizukuExecutor.bindService()
+            }
+        }
+    }
+
+    /**
+     * Parallel framework detection with 6s hard timeout. Does NOT call `su` — no popup
+     * for new users. Returns raw detection results for the UI to present.
+     */
+    suspend fun detectParallel(): Pair<RootFrameworkDetector.Result, ShizukuVariantDetector.Result> =
+        coroutineScope {
+            withTimeoutOrNull(6_000L) {
+                val rootDeferred = async { rootFrameworkDetector.detect() }
+                val shizukuDeferred = async { shizukuVariantDetector.detect() }
+                rootDeferred.await() to shizukuDeferred.await()
+            } ?: (RootFrameworkDetector.Result() to ShizukuVariantDetector.Result())
+        }
+
+    suspend fun detectBestMode(): PrivilegeMode = withContext(Dispatchers.IO) {
+        val rootAvailable = withTimeoutOrNull(5000L) {
+            rootExecutor.isAvailable()
+        } ?: false
+        val detected = when {
+            rootAvailable -> PrivilegeMode.ROOT
+            shizukuExecutor.isAvailable() -> PrivilegeMode.SHIZUKU
+            hasElevatedShellAccess() -> PrivilegeMode.ADB
+            else -> PrivilegeMode.BASIC
+        }
+        _currentMode.value = detected
+        persistMode(detected)
+        if (detected == PrivilegeMode.SHIZUKU) {
+            shizukuExecutor.bindService()
+        }
+        detected
+    }
+
+    fun setMode(mode: PrivilegeMode) {
+        val oldMode = _currentMode.value
+        _currentMode.value = mode
+        persistMode(mode)
+
+        // Unbind Shizuku when switching away; binding is handled solely
+        // by awaitShizukuReady() to avoid double-bind race conditions.
+        if (mode != PrivilegeMode.SHIZUKU && oldMode == PrivilegeMode.SHIZUKU) {
+            shizukuExecutor.unbindService()
+        }
+    }
+
+    /**
+     * Waits for the Shizuku UserService to be bound (up to [timeoutMs]).
+     * Call before launching daemon in SHIZUKU mode to avoid 10s wait per launch attempt.
+     */
+    suspend fun awaitShizukuReady(timeoutMs: Long = 10_000L): Boolean {
+        XLog.tag("PermissionManager").e("awaitShizukuReady: isServiceBound=${shizukuExecutor.isServiceBound}, timeout=${timeoutMs}ms")
+        if (shizukuExecutor.isServiceBound) return true
+        shizukuExecutor.bindService()
+        val result = withTimeoutOrNull(timeoutMs) {
+            var waited = 0L
+            while (!shizukuExecutor.isServiceBound) {
+                delay(200)
+                waited += 200
+                if (waited % 2000 == 0L) {
+                    XLog.tag("PermissionManager").e("awaitShizukuReady: still waiting... ${waited}ms elapsed")
+                }
+            }
+            true
+        } ?: false
+        XLog.tag("PermissionManager").e("awaitShizukuReady: result=$result")
+        return result
+    }
+
+    fun getExecutor(): ShellExecutor {
+        return when (_currentMode.value) {
+            PrivilegeMode.ROOT -> rootExecutor
+            PrivilegeMode.ADB -> adbExecutor
+            PrivilegeMode.SHIZUKU -> shizukuExecutor
+            PrivilegeMode.BASIC -> basicExecutor
+        }
+    }
+
+    fun getExecutor(mode: PrivilegeMode): ShellExecutor {
+        return when (mode) {
+            PrivilegeMode.ROOT -> rootExecutor
+            PrivilegeMode.ADB -> adbExecutor
+            PrivilegeMode.SHIZUKU -> shizukuExecutor
+            PrivilegeMode.BASIC -> basicExecutor
+        }
+    }
+
+    private fun persistMode(mode: PrivilegeMode) {
+        prefs.edit { putString("privilege_mode", mode.name) }
+    }
+
+    private suspend fun hasElevatedShellAccess(): Boolean {
+        return try {
+            val result = adbExecutor.execute("cat /data/system/packages.xml | head -c 1")
+            result.isSuccess && result.stdout.isNotEmpty()
+        } catch (e: Exception) {
+            XLog.tag(TAG).d("hasElevatedShellAccess check failed", e)
+            false
+        }
+    }
+}

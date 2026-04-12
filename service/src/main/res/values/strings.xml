@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="float_notification_title">OpenMonitor</string>
+    <string name="float_notification_text">Float monitor running</string>
+    <string name="float_channel_name">Float Monitor</string>
+    <string name="float_channel_desc">Float monitor background notification</string>
+    <string name="float_notification_action_panel">Control Panel</string>
+    <string name="float_temp_header">Temp</string>
+    <string name="thermal_cat_battery">Battery</string>
+    <string name="thermal_cat_skin">Skin</string>
+    <string name="thermal_cat_modem">Modem</string>
+    <string name="thermal_cat_camera">Camera</string>
+    <string name="thermal_cat_charger">Charger</string>
+    <string name="thermal_no_data">No thermal data</string>
+    <string name="notification_battery_label">Battery</string>
+    <!-- Float window UI -->
+    <string name="float_process_title">Process Manager</string>
+    <string name="float_filter_all">All</string>
+    <string name="float_filter_app">App</string>
+    <string name="float_need_shell">Shell permission required</string>
+    <string name="float_loading">Loading…</string>
+    <string name="float_tap_to_kill">Tap again to kill</string>
+    <string name="float_btn_load">Load</string>
+    <string name="float_btn_mini">Mini</string>
+    <string name="float_btn_temp">Temp</string>
+    <string name="float_btn_process">Process</string>
+    <string name="float_btn_thread">Thread</string>
+    <string name="float_btn_cpu_freq">CPU Freq</string>
+    <string name="float_btn_gpu_freq">GPU Freq</string>
+    <string name="float_btn_ext_temp">Ext. Temp</string>
+    <string name="float_btn_net_speed">Net Speed</string>
+    <string name="float_btn_net_split">Split Net</string>
+</resources>

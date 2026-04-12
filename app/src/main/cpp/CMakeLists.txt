@@ -1,0 +1,27 @@
+cmake_minimum_required(VERSION 3.4.1)
+project(OpenMonitor-Native)
+
+# Import prebuilt cpuinfo static library
+set(distribution_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external)
+
+add_library(lib_cpuinfo STATIC IMPORTED)
+set_target_properties(lib_cpuinfo PROPERTIES IMPORTED_LOCATION
+        ${distribution_DIR}/cpuinfo/lib/${ANDROID_ABI}/libcpuinfo.a)
+
+# Build JNI bridge shared library
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
+
+add_library(cpuinfo-bridge SHARED
+        cpuinfo_bridge.cpp)
+
+target_include_directories(cpuinfo-bridge PRIVATE
+        ${distribution_DIR}/cpuinfo/include)
+
+target_link_libraries(cpuinfo-bridge
+        android
+        lib_cpuinfo
+        log)
+
+# Vulkan info bridge
+add_library(vulkan-info SHARED vulkan_info.cpp)
+target_link_libraries(vulkan-info android log dl)

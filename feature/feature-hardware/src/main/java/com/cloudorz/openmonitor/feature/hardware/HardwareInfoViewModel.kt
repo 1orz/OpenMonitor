@@ -1,0 +1,103 @@
+package com.cloudorz.openmonitor.feature.hardware
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.cloudorz.openmonitor.core.data.repository.CpuRepository
+import com.cloudorz.openmonitor.core.data.repository.DisplayRepository
+import com.cloudorz.openmonitor.core.data.repository.GpuRepository
+import com.cloudorz.openmonitor.core.data.repository.MemoryRepository
+import com.cloudorz.openmonitor.core.data.repository.StorageRepository
+import com.cloudorz.openmonitor.core.model.cpu.CpuGlobalStatus
+import com.cloudorz.openmonitor.core.model.display.DisplayInfo
+import com.cloudorz.openmonitor.core.model.gpu.GpuInfo
+import com.cloudorz.openmonitor.core.model.memory.MemoryInfo
+import com.cloudorz.openmonitor.core.model.memory.SwapInfo
+import com.cloudorz.openmonitor.core.model.storage.StorageInfo
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+data class HardwareInfoUiState(
+    val cpuStatus: CpuGlobalStatus = CpuGlobalStatus(),
+    val gpuInfo: GpuInfo = GpuInfo(),
+    val memoryInfo: MemoryInfo = MemoryInfo(),
+    val swapInfo: SwapInfo = SwapInfo(),
+    val storageInfo: StorageInfo = StorageInfo(),
+    val displayInfo: DisplayInfo = DisplayInfo(),
+    val isLoading: Boolean = true,
+)
+
+@HiltViewModel
+class HardwareInfoViewModel @Inject constructor(
+    private val cpuRepository: CpuRepository,
+    private val gpuRepository: GpuRepository,
+    private val memoryRepository: MemoryRepository,
+    private val storageRepository: StorageRepository,
+    private val displayRepository: DisplayRepository,
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow(HardwareInfoUiState())
+    val uiState: StateFlow<HardwareInfoUiState> = _uiState.asStateFlow()
+
+    init {
+        loadStaticData()
+        observeMemory()
+    }
+
+    private fun loadStaticData() {
+        viewModelScope.launch {
+            try {
+                val cpu = cpuRepository.getCpuStatus()
+                _uiState.update { it.copy(cpuStatus = cpu, isLoading = false) }
+            } catch (e: Exception) {
+                android.util.Log.w("HardwareInfoVM", "CPU load failed", e)
+            }
+        }
+        viewModelScope.launch {
+            try {
+                val gpu = gpuRepository.getGpuInfo()
+                _uiState.update { it.copy(gpuInfo = gpu) }
+            } catch (e: Exception) {
+                android.util.Log.w("HardwareInfoVM", "GPU load failed", e)
+            }
+        }
+        viewModelScope.launch {
+            try {
+                val storage = storageRepository.getStorageInfo()
+                _uiState.update { it.copy(storageInfo = storage) }
+            } catch (e: Exception) {
+                android.util.Log.w("HardwareInfoVM", "Storage load failed", e)
+            }
+        }
+        viewModelScope.launch {
+            try {
+                val display = displayRepository.getDisplayInfo()
+                _uiState.update { it.copy(displayInfo = display) }
+            } catch (e: Exception) {
+                android.util.Log.w("HardwareInfoVM", "Display load failed", e)
+            }
+        }
+    }
+
+    private fun observeMemory() {
+        viewModelScope.launch {
+            memoryRepository.observeMemoryInfo(intervalMs = 5000L)
+                .catch { e -> android.util.Log.w("HardwareInfoVM", "Memory flow error", e) }
+                .collect { memory ->
+                    _uiState.update { it.copy(memoryInfo = memory, isLoading = false) }
+                }
+        }
+        viewModelScope.launch {
+            memoryRepository.observeSwapInfo(intervalMs = 5000L)
+                .catch { e -> android.util.Log.w("HardwareInfoVM", "Swap flow error", e) }
+                .collect { swap ->
+                    _uiState.update { it.copy(swapInfo = swap) }
+                }
+        }
+    }
+}
