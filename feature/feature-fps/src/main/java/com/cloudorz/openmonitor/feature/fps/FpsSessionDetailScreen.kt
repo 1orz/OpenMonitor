@@ -369,7 +369,7 @@ private fun StatsGridCard(records: List<FpsFrameRecord>) {
     val fivePercentLow = if (fpsList.size >= 20) {
         fpsList.sorted().take((fpsList.size * 0.05).toInt().coerceAtLeast(1)).average()
     } else fpsList.minOrNull() ?: 0.0
-    val maxTemp = records.maxOfOrNull { it.cpuTemp } ?: 0.0
+    val maxTemp = records.maxOfOrNull { it.batteryTemp } ?: 0.0
     val powers = records.map { kotlin.math.abs(it.powerW) }.filter { it > 0 }
     val avgPower = if (powers.isNotEmpty()) powers.average() else 0.0
 
@@ -386,8 +386,8 @@ private fun StatsGridCard(records: List<FpsFrameRecord>) {
             StatCell(stringResource(R.string.fps_stat_variance), "%.1f".format(stdDev), "FPS", MaterialTheme.colorScheme.onSurfaceVariant)
             StatCell(stringResource(R.string.fps_stat_smoothness), "%.1f%%".format(smoothness), stringResource(R.string.fps_stat_smoothness_unit), smoothnessColor(smoothness))
             StatCell(stringResource(R.string.fps_stat_low), "%.1f".format(fivePercentLow), "FPS", fpsStatColor(fivePercentLow))
-            if (maxTemp > 0) StatCell(stringResource(R.string.fps_stat_max_temp), "%.1f".format(maxTemp), "°C", tempStatColor(maxTemp))
-            if (avgPower > 0) StatCell(stringResource(R.string.fps_stat_avg_power), "%.2f".format(avgPower), "W", PowerColor)
+            if (maxTemp > 0) StatCell(stringResource(R.string.fps_stat_max_temp), "%.1f°C".format(maxTemp), stringResource(R.string.fps_stat_source_battery), tempStatColor(maxTemp))
+            if (avgPower > 0) StatCell(stringResource(R.string.fps_stat_power), "%.2fW".format(avgPower), stringResource(R.string.fps_stat_average), PowerColor)
         }
     }
 }

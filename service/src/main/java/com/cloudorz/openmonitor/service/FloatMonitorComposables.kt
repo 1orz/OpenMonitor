@@ -684,9 +684,9 @@ fun FloatFpsContent(service: FloatMonitorService) {
                     .padding(horizontal = 6.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                listOf(5, 10, 15, 30).forEach { minutes ->
+                listOf(10, 30, 0).forEach { minutes ->
                     DurationButton(
-                        label = "${minutes}m",
+                        label = if (minutes > 0) "${minutes}m" else "\u221E",
                         onClick = { service.onFpsDurationSelected(minutes) },
                     )
                 }

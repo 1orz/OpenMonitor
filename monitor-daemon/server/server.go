@@ -280,30 +280,7 @@ func (s *Server) dispatch(cmd string) []byte {
 			s.Shutdown()
 		}()
 		return []byte(`{"status":"exiting"}`)
-	case "processes":
-		return jsonBytes(listProcesses())
-	case "kill":
-		parts := strings.SplitN(cmd, "\n", 2)
-		if len(parts) < 2 {
-			return []byte(`{"error":"usage: kill\\n<pid>"}`)
-		}
-		pid, err := strconv.Atoi(strings.TrimSpace(parts[1]))
-		if err != nil {
-			return []byte(`{"error":"invalid pid"}`)
-		}
-		if err := doKillProcess(pid); err != nil {
-			return []byte(fmt.Sprintf(`{"error":"%s"}`, err.Error()))
-		}
-		return []byte(`{"status":"ok"}`)
 	default:
-		if strings.HasPrefix(name, "threads/") {
-			pidStr := strings.TrimPrefix(name, "threads/")
-			pid, err := strconv.Atoi(pidStr)
-			if err != nil {
-				return []byte(`{"error":"invalid pid in threads command"}`)
-			}
-			return jsonBytes(listThreads(pid))
-		}
 		return []byte(fmt.Sprintf(`{"error":"unknown command: %s"}`, name))
 	}
 }

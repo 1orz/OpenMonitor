@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
@@ -12,11 +13,13 @@ import (
 // Pointer fields are null (JSON null) when the corresponding data cannot be read.
 type BatteryInfo struct {
 	CurrentMA *int     `json:"current_ma"` // mA, negative=discharging
+	CurrentUA *int     `json:"current_ua"` // raw µA from sysfs, negative=discharging
 	VoltageMV *int     `json:"voltage_mv"` // mV
+	VoltageUV *int     `json:"voltage_uv"` // raw µV from sysfs
 	Temp      *float64 `json:"temp"`       // °C
 	Capacity  *int     `json:"capacity"`   // %
 	Status    *string  `json:"status"`     // Charging / Discharging / Full / Not charging
-	PowerMW   *int     `json:"power_mw"`   // abs(current_ma) * voltage_mv / 1000
+	PowerMW   *int     `json:"power_mw"`   // computed from raw µA×µV for precision
 }
 
 // batteryBases lists candidate sysfs directories in priority order.
@@ -30,82 +33,106 @@ var batteryBases = []string{
 
 var (
 	batteryOnce       sync.Once
-	cachedBatteryBase string
 	batteryUseDumpsys bool
+	batCurrentFile    *sysFile
+	batVoltageFile    *sysFile
+	batTempFile       *sysFile
+	batCapFile        *sysFile
+	batStatusFile     *sysFile
 )
 
 func initBattery() {
 	batteryOnce.Do(func() {
-		cachedBatteryBase = findBatteryBase()
-		if cachedBatteryBase != "" {
-			logInfo("battery", "sysfs base: %s", cachedBatteryBase)
+		base := findBatteryBase()
+		if base != "" {
+			logInfo("battery", "sysfs base: %s", base)
+			batCurrentFile = openSysFile(base + "/current_now")
+			batVoltageFile = openSysFile(base + "/voltage_now")
+			batTempFile = openSysFile(base + "/temp")
+			batCapFile = openSysFile(base + "/capacity")
+			batStatusFile = openSysFile(base + "/status")
+
+			opened := 0
+			for _, sf := range []*sysFile{batCurrentFile, batVoltageFile, batTempFile, batCapFile, batStatusFile} {
+				if sf != nil {
+					opened++
+				}
+			}
+			logInfo("battery", "persistent FDs: %d/5 files opened", opened)
 		} else {
 			batteryUseDumpsys = true
 			logWarn("battery", "no sysfs battery found, using dumpsys fallback")
 		}
+
+		unlockOPlusGaugeUpdate()
 	})
 }
 
 func readBattery() BatteryInfo {
 	initBattery()
-	if cachedBatteryBase != "" {
-		info := readBatterySysfs(cachedBatteryBase)
+	if !batteryUseDumpsys {
+		info := readBatterySysfs()
 		if info.Capacity != nil && *info.Capacity > 0 {
 			return info
 		}
-		// sysfs base exists but read failed (e.g. current_now locked by vendor)
 		logWarn("battery", "sysfs read incomplete, using dumpsys fallback")
 	}
 	return readBatteryDumpsys()
 }
 
-func readBatterySysfs(base string) BatteryInfo {
+func readBatterySysfs() BatteryInfo {
 	info := BatteryInfo{}
 
-	if v, ok := readSysInt(base + "/current_now"); ok {
+	if v, ok := batCurrentFile.readInt(); ok {
+		info.CurrentUA = &v
 		ma := v / 1000
 		info.CurrentMA = &ma
 	}
-	if v, ok := readSysInt(base + "/voltage_now"); ok {
+	if v, ok := batVoltageFile.readInt(); ok {
+		info.VoltageUV = &v
 		mv := v / 1000
 		info.VoltageMV = &mv
 	}
-	if v, ok := readSysInt(base + "/temp"); ok {
+	if v, ok := batTempFile.readInt(); ok {
 		t := float64(v) / 10.0
 		info.Temp = &t
 	}
-	if v, ok := readSysInt(base + "/capacity"); ok {
+	if v, ok := batCapFile.readInt(); ok {
 		info.Capacity = &v
 	}
-	if b, err := os.ReadFile(base + "/status"); err == nil {
-		s := strings.TrimSpace(string(b))
+	if s := batStatusFile.readString(); s != "" {
 		info.Status = &s
 	}
 
 	// Normalize: negative = discharging, positive = charging.
-	if info.Status != nil && info.CurrentMA != nil {
-		if *info.Status == "Discharging" && *info.CurrentMA > 0 {
-			neg := -(*info.CurrentMA)
-			info.CurrentMA = &neg
-		} else if (*info.Status == "Charging" || *info.Status == "Full") && *info.CurrentMA < 0 {
-			pos := -(*info.CurrentMA)
-			info.CurrentMA = &pos
+	if info.Status != nil && info.CurrentUA != nil {
+		if *info.Status == "Discharging" && *info.CurrentUA > 0 {
+			negUa := -(*info.CurrentUA)
+			info.CurrentUA = &negUa
+			negMa := -(*info.CurrentMA)
+			info.CurrentMA = &negMa
+		} else if (*info.Status == "Charging" || *info.Status == "Full") && *info.CurrentUA < 0 {
+			posUa := -(*info.CurrentUA)
+			info.CurrentUA = &posUa
+			posMa := -(*info.CurrentMA)
+			info.CurrentMA = &posMa
 		}
 	}
 
-	if info.CurrentMA != nil && info.VoltageMV != nil {
-		cur := *info.CurrentMA
+	// Power: compute from raw µA×µV for maximum precision.
+	if info.CurrentUA != nil && info.VoltageUV != nil {
+		cur := int64(*info.CurrentUA)
 		if cur < 0 {
 			cur = -cur
 		}
-		pw := cur * (*info.VoltageMV) / 1000
+		pw := int(cur * int64(*info.VoltageUV) / 1_000_000_000)
 		info.PowerMW = &pw
 	}
 	return info
 }
 
 // readBatteryDumpsys parses `dumpsys battery` output.
-// current_ma is not available via this path — stays nil.
+// current_ma/current_ua are not available via this path — stays nil.
 func readBatteryDumpsys() BatteryInfo {
 	out, err := exec.Command("dumpsys", "battery").Output()
 	if err != nil {
@@ -174,15 +201,24 @@ func findBatteryBase() string {
 	return ""
 }
 
-// readSysInt reads a single integer from a sysfs file.
-func readSysInt(path string) (int, bool) {
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return 0, false
+// unlockOPlusGaugeUpdate removes the OPlus vendor sampling frequency limit
+// so current_now refreshes at our desired rate instead of the default 5s.
+func unlockOPlusGaugeUpdate() {
+	const forceActive = "/proc/oplus-votable/GAUGE_UPDATE/force_active"
+	const forceVal = "/proc/oplus-votable/GAUGE_UPDATE/force_val"
+
+	if _, err := os.Stat(forceActive); err != nil {
+		return
 	}
-	v, err := strconv.Atoi(strings.TrimSpace(string(b)))
-	if err != nil {
-		return 0, false
+
+	intervalMs := GetSampleInterval()
+	logInfo("battery", "OPlus GAUGE_UPDATE detected, unlocking to %dms", intervalMs)
+
+	if err := os.WriteFile(forceVal, []byte(fmt.Sprintf("%d\n", intervalMs)), 0644); err != nil {
+		logWarn("battery", "failed to write GAUGE_UPDATE force_val: %v", err)
+		return
 	}
-	return v, true
+	if err := os.WriteFile(forceActive, []byte("1\n"), 0644); err != nil {
+		logWarn("battery", "failed to write GAUGE_UPDATE force_active: %v", err)
+	}
 }

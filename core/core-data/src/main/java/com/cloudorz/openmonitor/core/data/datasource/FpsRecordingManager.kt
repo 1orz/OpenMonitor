@@ -14,8 +14,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.abs
 
 enum class FpsRecordingState {
@@ -69,10 +71,12 @@ class FpsRecordingManager @Inject constructor(
     private var fpsAccumulator = mutableListOf<Double>()
     private var powerAccumulator = mutableListOf<Double>()
     private var recordingStartTime = 0L
+    private val finishing = AtomicBoolean(false)
 
     fun startRecording(durationSeconds: Int) {
         if (_state.value != FpsRecordingState.IDLE) return
 
+        finishing.set(false)
         _state.value = FpsRecordingState.COUNTDOWN
         _info.value = FpsRecordingInfo(
             durationLimitSeconds = durationSeconds,
@@ -125,23 +129,23 @@ class FpsRecordingManager @Inject constructor(
             }
 
             // Sampling loop: collect data independently of UI timer
-            while (true) {
+            while (_state.value == FpsRecordingState.RECORDING) {
                 try {
                     val fpsData = fpsDataSource.getDaemonFps()
 
                     // Collect system metrics in parallel with FPS
-                    val snapshot = try { aggregatedMonitorDataSource.collectSnapshot() } catch (_: Exception) { null }
-                    val battery = try { batteryDataSource.getBatteryStatus() } catch (_: Exception) { null }
-                    val gpuInfo = try { gpuDataSource.getGpuInfo() } catch (_: Exception) { null }
+                    val snapshot = try { aggregatedMonitorDataSource.collectSnapshot() } catch (e: CancellationException) { throw e } catch (_: Exception) { null }
+                    val battery = try { batteryDataSource.getBatteryStatus() } catch (e: CancellationException) { throw e } catch (_: Exception) { null }
+                    val gpuInfo = try { gpuDataSource.getGpuInfo() } catch (e: CancellationException) { throw e } catch (_: Exception) { null }
 
                     // Per-core frequencies
-                    val coreCount = try { cpuDataSource.getCpuCoreCount() } catch (_: Exception) { 0 }
+                    val coreCount = try { cpuDataSource.getCpuCoreCount() } catch (e: CancellationException) { throw e } catch (_: Exception) { 0 }
                     val coreFreqs = mutableListOf<Long>()
                     for (i in 0 until coreCount) {
                         try {
                             val info = cpuDataSource.getCoreInfo(i)
                             coreFreqs.add(info.currentFreqKHz / 1000) // kHz → MHz
-                        } catch (_: Exception) {
+                        } catch (e: CancellationException) { throw e } catch (_: Exception) {
                             coreFreqs.add(0L)
                         }
                     }
@@ -161,7 +165,7 @@ class FpsRecordingManager @Inject constructor(
                             // Persist to DB session (keeps latest app as session-level label)
                             try {
                                 fpsRepository.updateSessionAppInfo(sessionId, pkg, name, version)
-                            } catch (e: Exception) {
+                            } catch (e: CancellationException) { throw e } catch (e: Exception) {
                                 Log.w(TAG, "Failed to update session app info", e)
                             }
                         }
@@ -186,6 +190,8 @@ class FpsRecordingManager @Inject constructor(
                             packageName = _info.value.packageName,
                         )
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.w(TAG, "Sample failed", e)
                 }
@@ -198,14 +204,18 @@ class FpsRecordingManager @Inject constructor(
     fun stopRecording() {
         if (_state.value != FpsRecordingState.RECORDING && _state.value != FpsRecordingState.COUNTDOWN) return
 
+        val wasCountdown = _state.value == FpsRecordingState.COUNTDOWN
         val sessionId = _info.value.sessionId
+
+        // Set IDLE *before* cancel so the while-loop condition sees it immediately
+        _state.value = FpsRecordingState.IDLE
+
         recordingJob?.cancel()
         recordingJob = null
         elapsedTickerJob?.cancel()
         elapsedTickerJob = null
 
-        if (_state.value == FpsRecordingState.COUNTDOWN) {
-            _state.value = FpsRecordingState.IDLE
+        if (wasCountdown) {
             _info.value = FpsRecordingInfo()
             return
         }
@@ -216,8 +226,12 @@ class FpsRecordingManager @Inject constructor(
     }
 
     private suspend fun finishRecording(sessionId: Long) {
+        if (!finishing.compareAndSet(false, true)) return
+        _state.value = FpsRecordingState.IDLE
         elapsedTickerJob?.cancel()
         elapsedTickerJob = null
+        recordingJob?.cancel()
+        recordingJob = null
         val durationSeconds = ((System.currentTimeMillis() - recordingStartTime) / 1000).toInt()
         val avgFps = if (fpsAccumulator.isNotEmpty()) fpsAccumulator.average() else 0.0
         val avgPower = if (powerAccumulator.isNotEmpty()) powerAccumulator.average() else 0.0
@@ -234,10 +248,10 @@ class FpsRecordingManager @Inject constructor(
             Log.e(TAG, "Failed to end session", e)
         }
 
-        _state.value = FpsRecordingState.IDLE
         _info.value = FpsRecordingInfo()
         fpsAccumulator.clear()
         powerAccumulator.clear()
+        finishing.set(false)
     }
 
     private fun extractPackageFromLayer(layer: String): String {

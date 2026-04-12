@@ -67,6 +67,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cloudorz.openmonitor.core.data.datasource.FpsRecordingState
 import com.cloudorz.openmonitor.core.model.fps.FpsWatchSession
+import androidx.compose.runtime.LaunchedEffect
 import com.cloudorz.openmonitor.core.ui.R
 import com.cloudorz.openmonitor.core.ui.hapticClick
 import com.cloudorz.openmonitor.core.ui.theme.ChartGreen
@@ -74,6 +75,8 @@ import com.cloudorz.openmonitor.core.ui.theme.ChartRed
 import com.cloudorz.openmonitor.core.ui.theme.ChartYellow
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.widget.Toast
+import androidx.compose.material3.Switch
 import androidx.core.graphics.createBitmap
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -86,6 +89,12 @@ fun FpsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
+    LaunchedEffect(Unit) {
+        viewModel.toastEvent.collect { msgRes ->
+            Toast.makeText(context, context.getString(msgRes), Toast.LENGTH_SHORT).show()
+        }
+    }
 
     FpsContent(
         uiState = uiState,
@@ -102,6 +111,7 @@ fun FpsScreen(
         onSelectAll = { viewModel.selectAll(uiState.sessions) },
         onDeleteSelected = viewModel::deleteSelected,
         onSessionClick = onSessionClick,
+        onToggleFpsFloat = viewModel::toggleFpsFloat,
     )
 }
 
@@ -118,6 +128,7 @@ private fun FpsContent(
     onSelectAll: () -> Unit,
     onDeleteSelected: () -> Unit,
     onSessionClick: (String) -> Unit = {},
+    onToggleFpsFloat: (Boolean) -> Unit = {},
 ) {
     val view = LocalView.current
     Column(modifier = Modifier.fillMaxSize()) {
@@ -134,6 +145,13 @@ private fun FpsContent(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            item(key = "fps_float_toggle") {
+                FpsFloatToggleCard(
+                    enabled = uiState.isFpsFloatEnabled,
+                    onToggle = { view.hapticClick(); onToggleFpsFloat(it) },
+                )
+            }
+
             // Recording status card (shown when recording or countdown)
             if (uiState.recordingState != FpsRecordingState.IDLE) {
                 item(key = "recording_status") {
@@ -298,6 +316,45 @@ private fun RecordingStatusCard(uiState: FpsUiState) {
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun FpsFloatToggleCard(
+    enabled: Boolean,
+    onToggle: (Boolean) -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        ),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.fps_float_toggle_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = stringResource(R.string.fps_float_toggle_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Switch(
+                checked = enabled,
+                onCheckedChange = onToggle,
+            )
         }
     }
 }

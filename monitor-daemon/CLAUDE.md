@@ -1,113 +1,86 @@
 # monitor-daemon
 
-Go 编写的 Android 系统监控后台服务，以 TCP 帧协议对外暴露实时性能数据。
+Go 编写的 Android 系统性能数据采集服务。零外部依赖，TCP 帧协议对外暴露实时 Snapshot。
+
+**定位**：纯指标采集器 + 控制端点。进程管理已移至 App 侧（2026-04-12）。
 
 ## 项目结构
 
 ```
 monitor-daemon/
 ├── cmd/
-│   ├── daemon/main.go      # daemon 入口（-addr / -sample-ms / -data-dir / --no-detach）
-│   └── client/main.go      # CLI 调试工具（-addr / -watch / -interval）
-├── daemon/daemon.go         # stdio 脱离 + PID 文件管理
-├── proto/proto.go           # 帧协议：WriteFrame / ReadFrame / SendCmd
+│   ├── daemon/main.go      # daemon 入口
+│   └── client/main.go      # CLI 调试工具（mcli）
+├── daemon/daemon.go         # Daemonize: stdio 脱离 + Setsid + PID 文件
+├── proto/proto.go           # 帧协议：4字节大端长度 + UTF-8 payload（上限 1MB）
 ├── collector/
-│   ├── collector.go         # Snapshot 模型 + 采样调度（默认 200ms 系统 / 500ms FPS）
-│   ├── battery.go           # 电池：sysfs 优先，fallback dumpsys battery
-│   ├── cpu.go               # /proc/stat + /sys/.../cpufreq/scaling_cur_freq
-│   ├── gpu.go               # /sys/class/kgsl（Adreno）/ mali（Mali），需 root
-│   ├── memory.go            # /proc/meminfo
-│   ├── thermal.go           # /sys/class/thermal/thermal_zone*/temp，类型关键字匹配
-│   ├── fps.go               # dumpsys SurfaceFlinger --timestats，500ms 采样
-│   └── logger.go            # 日志级别控制
-├── server/server.go         # TCP 服务：request-response + stream 推送 + heartbeat
+│   ├── collector.go         # Snapshot 模型 + 采样调度（200ms 系统 / 500ms FPS）
+│   ├── cpu.go               # /proc/stat 差分 + /sys/.../scaling_cur_freq
+│   ├── gpu.go               # Adreno /sys/class/kgsl + Mali fallback（需 root）
+│   ├── thermal.go           # thermal_zone 类型关键字匹配 + fallback zone0
+│   ├── memory.go            # /proc/meminfo（MemTotal + MemAvailable）
+│   ├── battery.go           # sysfs 优先 → dumpsys battery fallback
+│   ├── fps.go               # dumpsys SurfaceFlinger --timestats，PerfDog jank 算法
+│   └── logger.go            # 运行时可调日志级别（debug/info/warning/error）
+├── server/
+│   ├── server.go            # TCP 服务：request-response + stream 推送 + heartbeat
+│   └── watchdog.go          # App 进程存活监控，5s 间隔 pidof + am broadcast 重启
 ├── go.mod                   # module: monitor-daemon，go 1.21，零外部依赖
-├── build.sh                 # 构建脚本（自动检测设备，见下方构建说明）
+├── build.sh                 # 交叉编译脚本（自动检测设备）
 └── test_client.py           # Python 测试客户端
 ```
 
-## 通信协议
-
-**帧格式**：`[4字节大端无符号整数长度][UTF-8 JSON/文本 payload]`，上限 1 MB。
-
-Go 封装在 `proto` 包：
-```go
-proto.WriteFrame(w, payload)        // 写一帧
-proto.ReadFrame(r) ([]byte, error)  // 读一帧
-proto.SendCmd(conn, cmd) ([]byte, error) // 发命令收响应（一次性）
-```
-
-**持久连接**：服务端对每条连接循环读命令（读超时 30s），客户端可复用同一条 TCP 连接发多条命令。
-
-## 命令参考
-
-### 普通请求-响应
+## 启动参数
 
 ```
-ping              → PingInfo JSON（见下方）
-daemon-version    → {"version":"1.0.0","protocol":"...","port":9876}
-monitor           → Snapshot JSON（见数据模型）
-daemon-exit       → {"status":"exiting"}  (triggers graceful process shutdown)
+-addr           TCP 监听地址（默认 0.0.0.0:9876）
+-sample-ms      系统采样间隔 ms（默认 200，最小 100）
+-pprof-addr     pprof HTTP 地址（如 0.0.0.0:6060），空则禁用
+-data-dir       PID / 日志文件目录（默认 /data/local/tmp）
+--no-detach     前台运行（开发用）
 ```
 
-**ping 响应**：
-```json
-{
-  "status": "pong",
-  "version": "1.0.0",
-  "commit": "<git-hash>",
-  "runner": "root",
-  "pid": 12345,
-  "started_at": "2026-04-10T12:00:00Z",
-  "uptime_s": 3600
-}
-```
+## TCP 命令
+
+### 数据查询
+
+| 命令 | 响应 | 说明 |
+|------|------|------|
+| `ping` | `{"status":"pong","version":"...","commit":"...","runner":"root","pid":N,"started_at":"...","uptime_s":N}` | 心跳 + 身份信息 |
+| `daemon-version` | 同 ping | 别名 |
+| `monitor` | Snapshot JSON（见下方） | 返回缓存快照，不触发 I/O |
 
 ### 运行时控制
 
-```
-sample-interval\n<ms>       → 调整系统采样间隔（最小 100ms）
-log-level\n<level>          → 切换日志级别（debug/info/warn/error）
-heartbeat-timeout\n<seconds>→ 设置心跳超时（0=禁用），超时无 ping 则 daemon 自动退出
-```
-
-### 进程管理
-
-```
-processes                   → 进程列表 JSON
-kill\n<pid>                 → 终止指定进程
-threads/<pid>               → 指定进程的线程列表 JSON
-```
+| 命令 | 响应 | 说明 |
+|------|------|------|
+| `sample-interval\n<ms>` | `{"status":"ok","interval_ms":N}` | 调整系统采样间隔（最小 100ms） |
+| `log-level\n<level>` | `{"status":"ok","level":"..."}` | debug / info / warning / error |
+| `heartbeat-timeout\n<seconds>` | `{"status":"ok","timeout_s":N}` | 心跳超时（0=禁用），超时无 ping 则自动退出 |
+| `clear-log` | `{"status":"ok"}` | 截断 daemon.log |
+| `daemon-exit` | `{"status":"exiting"}` | 100ms 后优雅退出 |
 
 ### Watchdog
 
-```
-watchdog-start              → 启动 watchdog
-watchdog-stop               → 停止 watchdog
-watchdog-status             → 查询 watchdog 状态
-```
+| 命令 | 响应 | 说明 |
+|------|------|------|
+| `watchdog-start` | `{"status":"ok","watchdog":true,"changed":bool}` | 启动 App 进程监控（5s 间隔 `pidof`，死亡则 `am broadcast` 重启） |
+| `watchdog-stop` | `{"status":"ok","watchdog":false,"changed":bool}` | 停止监控 |
+| `watchdog-status` | `{"watchdog":bool}` | 查询状态 |
 
 ### 流式推送
 
 ```
-stream:<interval_ms>\n<cmd>
+stream:<interval_ms>\n<cmd>    → 按间隔持续推送 dispatch(cmd) 结果
 ```
 
-客户端发一次，服务端按 `interval_ms`（最小 100ms）持续推帧，直到：
-- 客户端发送 `@signal:exit`
-- TCP 连接断开（写超时 5s 或读错误）
+- 最小间隔 100ms，首帧立即发送
+- 客户端发 `@signal:exit` 或断连则停止
+- 典型用法：`stream:1000\nmonitor`
 
-示例：
-```
-stream:1000\nmonitor     → 每秒推一帧完整 Snapshot
-stream:500\nmonitor      → 500ms 推一帧
-```
+## 数据模型（Snapshot）
 
-**退出**：客户端发 `@signal:exit` 帧，服务端停止推送并关闭连接。
-
-## 数据模型
-
-`monitor` 命令返回 `Snapshot`（全量）：
+`monitor` 命令返回：
 
 ```json
 {
@@ -142,127 +115,150 @@ stream:500\nmonitor      → 500ms 推一帧
 ```
 
 字段说明：
-- `cpu_load`：每核负载 %，按核心序号排列（不含聚合行）
-- `cpu_freq`：每核当前频率 MHz
-- `battery.current_ma`：**负数 = 放电，正数 = 充电**，root 模式下才有值（HyperOS 等厂商锁死 sysfs）
-- `battery.power_mw`：实时功耗 mW = abs(current_ma) × voltage_mv / 1000，current_ma 为 0 时此字段也为 0
-- `gpu_freq` / `gpu_load`：需 root 权限读取 `/sys/class/kgsl`，否则为 0
-- `runner`：当前权限级别（"root" 或 "shell"）
+- `cpu_load`：每核负载 %（不含聚合行），`/proc/stat` 两次采样差分计算
+- `cpu_freq`：每核 MHz，读 `/sys/devices/system/cpu/cpu[0-15]/cpufreq/scaling_cur_freq`
+- `cpu_temp`：°C，thermal_zone 类型匹配（见下方）
+- `gpu_freq` / `gpu_load`：需 root，否则 null
+- `battery.current_ma`：**负数=放电，正数=充电**，root 模式读 sysfs current_now；HyperOS 锁死时为 null
+- `battery.power_mw`：abs(current_ma) × voltage_mv / 1000
+- `runner`：`"root"` 或 `"shell"`
+- 所有指标字段为 pointer，采集不到时 JSON null
 
-## 权限说明
+## 后台采集
 
-| 数据项 | shell 权限 | root 权限 |
-|--------|-----------|----------|
-| CPU 负载 / 频率 | ✅ | ✅ |
-| CPU 温度 | ✅ | ✅ |
+### 系统采样（默认 200ms，可调）
+
+每周期读取以下数据源（collector/collector.go sampleSystem）：
+
+| 数据 | 文件 / 路径 | 说明 |
+|------|-------------|------|
+| CPU 负载 | `/proc/stat` | 解析 cpu 行各 tick 字段，与前次差分计算每核 load% |
+| CPU 频率 | `/sys/devices/system/cpu/cpu{0-15}/cpufreq/scaling_cur_freq` | kHz → MHz，遇到首个缺失核停止 |
+| CPU 温度 | `/sys/class/thermal/thermal_zone*/temp` | 启动时探测 type 文件匹配关键字，缓存路径 |
+| GPU 频率 | `/sys/class/kgsl/kgsl-3d0/gpuclk` → `devfreq/cur_freq` → `/sys/kernel/gpu/gpu_clock` → Mali 路径 | sync.Once 探测，root only |
+| GPU 负载 | `/sys/class/kgsl/kgsl-3d0/gpu_busy_percentage` → 多 fallback | 同上 |
+| 内存 | `/proc/meminfo` | 仅取 MemTotal + MemAvailable，kB → MB |
+| 电池 | sysfs `/sys/class/power_supply/{battery,Battery,bms,BAT0,BAT1}/` | current_now / voltage_now / temp / capacity / status |
+| 电池 fallback | `dumpsys battery` | sysfs 不可用时降级，无 current_ma |
+
+**温度路径探测关键字**（thermal.go）：`cpu`, `soc`, `tsens_tz_sensor`, `cpu-1-0` ~ `cpu-1-3`, `thermal_zone0`, `skin`, `quiet-therm`。无匹配则 fallback zone0。
+
+**GPU 路径**（gpu.go）：Adreno (`/sys/class/kgsl/kgsl-3d0/`) 优先，Mali (`/sys/devices/platform/mali.0/`) 备选，启动时 sync.Once 探测一次并缓存。
+
+### FPS 采样（固定 500ms）
+
+每周期执行的外部命令（collector/fps.go）：
+
+| 命令 | 频率 | 超时 | 用途 |
+|------|------|------|------|
+| `dumpsys SurfaceFlinger --timestats -dump` | 每 500ms | 5s | 解析各 layer totalFrames，差分算 FPS |
+| `dumpsys activity activities` | 每 500ms | 5s | 获取 mResumedActivity → 前台包名 |
+| `dumpsys window displays` | 每 500ms（fallback） | 5s | 获取 mFocusedApp → 前台包名 |
+| `dumpsys SurfaceFlinger --latency <layer>` | 按需（delta=0 或 jank 检测时） | 5s | 逐帧 actualPresentTime，PerfDog jank 算法 |
+| `dumpsys SurfaceFlinger --timestats -enable/-clear` | 启动 + 恢复 | 5s | 重置 timestats 状态 |
+
+**FPS 计算**：rawFps = delta_frames / delta_seconds，直出无平滑。
+
+**Jank 检测**（PerfDog 算法）：
+- Jank：frameTime > 2 × avg(prev2) AND > 2 × 16.67ms
+- BigJank：frameTime > 3 × avg(prev2) AND > 3 × 16.67ms
+
+**Layer 选择**：粘性跟踪当前 layer，仅在另一 layer delta > 2 倍时切换，优先 BLAST layer。
+
+**恢复机制**：连续 6 次采集失败 或 距上次 enable > 10 分钟 → 重新 enable + clear timestats。
+
+## 权限矩阵
+
+| 数据 | shell | root |
+|------|-------|------|
+| CPU 负载 / 频率 / 温度 | ✅ | ✅ |
 | 内存 | ✅ | ✅ |
-| FPS | ✅ | ✅ |
-| 电池容量 / 温度 / 电压 / 状态 | ✅（dumpsys） | ✅（sysfs） |
-| 电池电流 / 功率 | ❌（HyperOS 锁死） | ✅（sysfs current_now） |
+| FPS / Jank | ✅ | ✅ |
+| 电池容量 / 温度 / 电压 / 状态 | ✅（dumpsys fallback） | ✅（sysfs 直读） |
+| 电池电流 / 功率 | ❌（HyperOS 锁 sysfs） | ✅ |
 | GPU 频率 / 负载 | ❌ | ✅ |
-| 进程列表 / Kill | ✅（部分） | ✅ |
 
-**电池电流备注**：Android App 进程可通过 `BatteryManager.getIntProperty(BATTERY_PROPERTY_CURRENT_NOW)` 无 root 获取；native daemon 进程无法调用 Android API，在 HyperOS 等锁定 sysfs 的系统上只能留 0。OpenMonitor App 集成时应在 App 侧补充此字段。
+## Daemon 存在的必要性
 
-## 采样频率
+| 数据 | 为什么 App 无法替代 |
+|------|---------------------|
+| GPU 频率/负载 | sysfs 路径权限 0600，需 root 才能读 |
+| FPS / Jank | `dumpsys SurfaceFlinger --timestats` 需 shell/root 权限执行 |
+| 电池电流（sysfs） | HyperOS 等厂商锁死 sysfs current_now，App BatteryManager API 可补充但精度不同 |
+| CPU/内存/温度 | App 也能读，但 daemon 200ms 高频采样对 App 主线程无影响，且数据通过 TCP 缓存推送更高效 |
 
-| 数据项 | 默认采样间隔 | 方式 |
-|--------|------------|------|
-| CPU 负载 / 频率 / 温度 | 200ms | sysfs |
-| GPU 频率 / 负载 | 200ms | sysfs |
-| 内存 | 200ms | /proc/meminfo |
-| 电池 | 200ms | sysfs → dumpsys battery fallback |
-| FPS | 500ms | dumpsys SurfaceFlinger --timestats（EMA 平滑，α=0.4） |
+**已移至 App 侧的功能**（2026-04-12）：进程列表（`ps` + `/proc` 直读）、进程 Kill（`ShellExecutor kill -9`）、线程列表（`/proc/<pid>/task/`）。移除原因：`processes` 命令占 daemon ~75% CPU（pprof 实测，每次调用 ~2700 次 /proc 文件读取 + 300 个临时 goroutine）。
 
-系统采样间隔可通过 `-sample-ms` 启动参数或 `sample-interval` 命令动态调整（最小 100ms）。
+## 性能概况（2026-04-12 pprof 实测，瘦身后）
 
-FPS 采集注意事项：
-- 启动时执行 `--timestats -enable` + `-clear` 重置历史快照，避免 prevCounts 建立在静止数据上导致 delta 恒为 0
-- 自动跟踪前台应用（`dumpsys window displays` 获取 mFocusedApp）
-- 无活跃帧时 FPS 每次衰减 5，平滑归零
+移除进程管理后，daemon 仅剩系统采样 + FPS 采集：
+
+| 采集器 | CPU 占比 | 主要开销 |
+|--------|----------|----------|
+| 系统采样（200ms） | ~4.8% | sysfs 文件 open/read syscall |
+| FPS 采样（500ms） | ~1.2% | dumpsys 子进程 spawn |
+| **合计** | **~6%** | **预计实际 3-4%（去除 GC 压力后）** |
+
+**pprof 端点**：启动时加 `--pprof-addr 0.0.0.0:6060`，然后：
+```bash
+adb forward tcp:6060 tcp:6060
+go tool pprof -http=:8080 'http://127.0.0.1:6060/debug/pprof/profile?seconds=10'
+```
 
 ## 构建与部署
 
 ```bash
-# 构建全部目标（自动检测已连接设备）
+# 交叉编译（自动检测设备并推送）
 ./build.sh [device_serial]
 
-# 手动构建
+# 手动编译
 GOOS=android GOARCH=arm64 CGO_ENABLED=0 go build -o monitor-daemon ./cmd/daemon
 GOOS=android GOARCH=arm64 CGO_ENABLED=0 go build -o mcli ./cmd/client
-go build -o mcli-mac ./cmd/client   # macOS 本机调试用
+go build -o mcli-mac ./cmd/client   # macOS 本机调试
 
-# 推送到设备
-adb -s <serial> push monitor-daemon /data/local/tmp/monitor-daemon
-adb -s <serial> shell chmod 755 /data/local/tmp/monitor-daemon
+# 推送 + 启动
+adb push monitor-daemon /data/local/tmp/monitor-daemon
+adb shell chmod 755 /data/local/tmp/monitor-daemon
+adb shell su -c /data/local/tmp/monitor-daemon          # root，自动 daemon 化
+adb shell su -c "/data/local/tmp/monitor-daemon --pprof-addr 0.0.0.0:6060"  # 带 pprof
 
-# 启动（root，推荐）— 自动 daemon 化，立即返回 shell
-adb -s <serial> shell su -c /data/local/tmp/monitor-daemon
-
-# 启动（shell，无 GPU 和电池电流）
-adb -s <serial> shell /data/local/tmp/monitor-daemon
-
-# 启动（开发模式，前台运行，日志输出到 stdout）
-./monitor-daemon --no-detach
-
-# 自定义采样间隔启动
-./monitor-daemon -sample-ms 500
-
-# 停止（通过 TCP 命令优雅退出）
+# 停止
 ./mcli-mac daemon-exit
 
-# 端口转发（macOS 本机调试）
-adb -s <serial> forward tcp:9876 tcp:9876
+# 端口转发
+adb forward tcp:9876 tcp:9876
 ```
 
-## CLI 工具（mcli / mcli-mac）
+## CLI 工具（mcli）
 
 ```bash
-# 单次查询
-./mcli-mac monitor
-./mcli-mac ping
-./mcli-mac daemon-version
-
-# 流式监控（每秒刷新）
-./mcli-mac -watch monitor
-./mcli-mac -watch -interval 500ms monitor
-
-# 连接远端
-./mcli-mac -addr 192.168.x.x:9876 -watch monitor
+./mcli-mac monitor                               # 单次查询
+./mcli-mac ping                                   # 心跳
+./mcli-mac -watch monitor                         # 流式（默认 1s）
+./mcli-mac -watch -interval 500ms monitor         # 500ms 间隔
+./mcli-mac -addr 192.168.x.x:9876 -watch monitor  # 远端
 ```
 
-## OpenMonitor App 集成
+## App 集成
 
-daemon 作为可选的高权限数据源，App 通过 TCP 连接本机 127.0.0.1:9876 获取数据，并在以下场景补充 daemon 的盲区：
+daemon 作为可选高权限数据源，App TCP 连接 127.0.0.1:9876：
 
-| 数据项 | 集成方式 |
-|--------|---------|
-| 电池电流 / 功率 | App 侧用 `BatteryManager.getIntProperty(BATTERY_PROPERTY_CURRENT_NOW)` 补充 |
-| GPU 数据（无 root） | App 侧通过 OpenGL ES / Vulkan API 估算，或展示 N/A |
-| daemon 可用性检测 | 启动时 `ping`，超时则降级到纯 App 数据源 |
-| 进程管理 | App 通过 `processes` / `kill` / `threads/<pid>` 命令管理 |
+1. 启动时 `ping`（1s 超时），成功则发 `stream:1000\nmonitor` 接收推帧
+2. 失败或断连：自动降级到 App 自有 DataSource 体系
+3. 电池电流：App 侧 `BatteryManager.getIntProperty(BATTERY_PROPERTY_CURRENT_NOW)` 补充
+4. 进程管理：App 侧 ShellExecutor（跟随用户设置的权限模式）
 
-**集成模式**：
-1. App 启动时尝试连接 daemon（`ping`，1s 超时）
-2. 连接成功：发 `stream:1000\nmonitor`，接收推帧，合并 App 侧电池电流后更新 UI
-3. 连接失败：完全走 App 自有采集路径（现有 DataSource 体系）
-4. daemon 断连：自动降级，不影响 App 正常功能
-
-**协议实现参考**（Kotlin）：
+**帧协议**（Kotlin，与 proto/proto.go 一致）：
 ```kotlin
-// 帧读写与 proto/proto.go 完全一致
 fun writeFrame(os: OutputStream, payload: ByteArray) {
-    val len = ByteBuffer.allocate(4).putInt(payload.size).array()
-    os.write(len)
+    os.write(ByteBuffer.allocate(4).putInt(payload.size).array())
     os.write(payload)
 }
 
-fun readFrame(is: InputStream): ByteArray {
-    val lenBuf = ByteArray(4)
-    is.readFully(lenBuf)
+fun readFrame(`is`: InputStream): ByteArray {
+    val lenBuf = ByteArray(4); `is`.readFully(lenBuf)
     val len = ByteBuffer.wrap(lenBuf).int
-    val buf = ByteArray(len)
-    is.readFully(buf)
+    val buf = ByteArray(len); `is`.readFully(buf)
     return buf
 }
 ```

@@ -1,11 +1,10 @@
 package collector
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 type cpuStat struct {
@@ -13,16 +12,39 @@ type cpuStat struct {
 	idle  uint64
 }
 
+var (
+	cpuOnce      sync.Once
+	procStatFile *procFile
+	cpuFreqFiles []*sysFile
+)
+
+func initCpuFiles() {
+	cpuOnce.Do(func() {
+		procStatFile = openProcFile("/proc/stat")
+		if procStatFile == nil {
+			logWarn("cpu", "failed to open /proc/stat")
+		}
+		for i := 0; i < 16; i++ {
+			path := fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq", i)
+			sf := openSysFile(path)
+			if sf == nil {
+				break
+			}
+			cpuFreqFiles = append(cpuFreqFiles, sf)
+		}
+		logInfo("cpu", "persistent FDs: /proc/stat + %d core freq files", len(cpuFreqFiles))
+	})
+}
+
 // readCpuStats reads /proc/stat and returns per-core stats (index 0 = aggregate).
 func readCpuStats() []cpuStat {
-	f, err := os.Open("/proc/stat")
-	if err != nil {
+	initCpuFiles()
+	if procStatFile == nil {
 		return nil
 	}
-	defer f.Close()
 
 	var stats []cpuStat
-	sc := bufio.NewScanner(f)
+	sc := procStatFile.newScanner()
 	for sc.Scan() {
 		line := sc.Text()
 		if !strings.HasPrefix(line, "cpu") {
@@ -77,19 +99,15 @@ func calcCpuLoad(prev, curr []cpuStat) []float64 {
 
 // readCpuFreqs reads current CPU frequencies from /sys (MHz).
 func readCpuFreqs() []int {
+	initCpuFiles()
 	var freqs []int
-	for i := 0; i < 16; i++ {
-		path := fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq", i)
-		b, err := os.ReadFile(path)
-		if err != nil {
-			break
-		}
-		khz, err := strconv.ParseInt(strings.TrimSpace(string(b)), 10, 64)
-		if err != nil {
+	for _, sf := range cpuFreqFiles {
+		khz, ok := sf.readInt()
+		if !ok {
 			freqs = append(freqs, 0)
 			continue
 		}
-		freqs = append(freqs, int(khz/1000))
+		freqs = append(freqs, khz/1000)
 	}
 	return freqs
 }

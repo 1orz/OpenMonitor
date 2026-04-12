@@ -31,6 +31,8 @@
     <string name="fps_session_name">セッション名</string>
     <string name="fps_unknown_app">不明なアプリ</string>
     <string name="fps_start_from_float">FPSフロートウィンドウをタップして記録開始</string>
+    <string name="fps_float_toggle_title">FPS フロートウィンドウ</string>
+    <string name="fps_float_toggle_desc">リアルタイムFPSカウンターオーバーレイを表示</string>
     <string name="fps_delete_confirm_title">セッション削除</string>
     <string name="fps_delete_confirm_msg">この記録セッションを削除しますか？</string>
     <string name="fps_countdown">カウントダウン %d秒</string>
@@ -71,6 +73,9 @@
     <string name="fps_stat_smoothness">\u226545FPS</string>
     <string name="fps_stat_low">5% Low</string>
     <string name="fps_stat_avg_power">平均電力</string>
+    <string name="fps_stat_source_battery">バッテリー</string>
+    <string name="fps_stat_power">電力</string>
+    <string name="fps_stat_average">平均値</string>
     <string name="fps_stat_max_temp">最高温度</string>
     <string name="fps_stat_smoothness_unit">スムーズ率</string>
     <string name="fps_stat_total">合計</string>

@@ -22,6 +22,7 @@ class AggregatedMonitorDataSource @Inject constructor(
     private val shellExecutor: ShellExecutor,
     private val platformDetector: PlatformDetector,
     private val daemonDataSource: DaemonDataSource,
+    private val thermalDataSource: ThermalDataSource,
     @param:ApplicationContext private val context: Context,
 ) {
     companion object {
@@ -58,14 +59,7 @@ class AggregatedMonitorDataSource @Inject constructor(
         if (daemonDataSource.isAvailable()) {
             val snap = daemonDataSource.collectSnapshot()
             if (snap != null) {
-                val rawUa = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
-                val currentMa: Int? = if (rawUa != Int.MIN_VALUE) {
-                    val ma = MonitorParser.normalizeCurrentToMa(rawUa.toLong())
-                    val status = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_STATUS)
-                    val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                        status == BatteryManager.BATTERY_STATUS_FULL
-                    MonitorParser.ensureCurrentSign(ma, isCharging)
-                } else null
+                val currentMa = snap.batteryCurrentMa ?: getBatteryCurrentFromApi()
                 val result = snap.copy(batteryCurrentMa = currentMa)
                 lastDaemonSnapshot = result
                 return@withContext result
@@ -108,13 +102,13 @@ class AggregatedMonitorDataSource @Inject constructor(
             null
         }
 
-        val temp = getBatteryTempFromApi()
+        val cpuTemp = try { thermalDataSource.getCpuTemperature() } catch (_: Exception) { null }
         val currentMa = getBatteryCurrentFromApi()
 
         MonitorSnapshot(
             cpuLoadPercent = cpuLoad,
             gpuLoadPercent = gpuLoad,
-            cpuTempCelsius = temp,
+            cpuTempCelsius = cpuTemp,
             batteryCurrentMa = currentMa,
             fpsData = null,
         )

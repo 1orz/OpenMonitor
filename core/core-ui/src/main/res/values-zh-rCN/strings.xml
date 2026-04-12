@@ -31,6 +31,8 @@
     <string name="fps_session_name">会话名称</string>
     <string name="fps_unknown_app">未知应用</string>
     <string name="fps_start_from_float">点击 FPS 悬浮窗开始录制</string>
+    <string name="fps_float_toggle_title">FPS 悬浮窗</string>
+    <string name="fps_float_toggle_desc">显示实时帧率计数器悬浮窗</string>
     <string name="fps_delete_confirm_title">删除会话</string>
     <string name="fps_delete_confirm_msg">确定要删除这条录制记录吗？</string>
     <string name="fps_countdown">倒计时 %d 秒</string>
@@ -71,6 +73,9 @@
     <string name="fps_stat_smoothness">\u226545FPS</string>
     <string name="fps_stat_low">5% 低帧</string>
     <string name="fps_stat_avg_power">平均功率</string>
+    <string name="fps_stat_source_battery">电池</string>
+    <string name="fps_stat_power">功率</string>
+    <string name="fps_stat_average">平均值</string>
     <string name="fps_stat_max_temp">最高温度</string>
     <string name="fps_stat_smoothness_unit">流畅度</string>
     <string name="fps_stat_total">总计</string>

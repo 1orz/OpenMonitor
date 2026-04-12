@@ -1,23 +1,37 @@
 package collector
 
 import (
-	"bufio"
-	"os"
 	"strconv"
 	"strings"
+	"sync"
 )
+
+var (
+	memOnce     sync.Once
+	memInfoFile *procFile
+)
+
+func initMemFiles() {
+	memOnce.Do(func() {
+		memInfoFile = openProcFile("/proc/meminfo")
+		if memInfoFile == nil {
+			logWarn("memory", "failed to open /proc/meminfo")
+		} else {
+			logInfo("memory", "persistent FD: /proc/meminfo")
+		}
+	})
+}
 
 // readMemInfo reads /proc/meminfo and returns MemTotal/MemAvailable in MB.
 // Returns nil pointers when the file cannot be read.
 func readMemInfo() (*int64, *int64) {
-	f, err := os.Open("/proc/meminfo")
-	if err != nil {
+	initMemFiles()
+	if memInfoFile == nil {
 		return nil, nil
 	}
-	defer f.Close()
 
 	var totalKB, availKB int64
-	sc := bufio.NewScanner(f)
+	sc := memInfoFile.newScanner()
 	for sc.Scan() {
 		line := sc.Text()
 		if strings.HasPrefix(line, "MemTotal:") {

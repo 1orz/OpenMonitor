@@ -3,7 +3,6 @@ package collector
 import (
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 )
@@ -15,11 +14,11 @@ var cpuThermalTypes = []string{
 }
 
 var (
-	thermalOnce    sync.Once
-	cachedTempPath string
+	thermalOnce     sync.Once
+	cachedTempFile  *sysFile
 )
 
-// resolveThermalPath probes thermal zones once and caches the best CPU zone path.
+// resolveThermalPath probes thermal zones once and opens a persistent FD.
 func resolveThermalPath() {
 	thermalOnce.Do(func() {
 		zones, err := filepath.Glob("/sys/class/thermal/thermal_zone*/temp")
@@ -36,14 +35,14 @@ func resolveThermalPath() {
 			}
 			zoneType := strings.TrimSpace(string(b))
 			if matchesCpuType(zoneType) {
-				cachedTempPath = p
+				cachedTempFile = openSysFile(p)
 				logInfo("thermal", "CPU zone: %s (type=%s)", p, zoneType)
 				return
 			}
 		}
 
 		// Fallback: use thermal_zone0
-		cachedTempPath = zones[0]
+		cachedTempFile = openSysFile(zones[0])
 		logWarn("thermal", "no CPU-type zone matched, using fallback: %s", zones[0])
 	})
 }
@@ -51,10 +50,21 @@ func resolveThermalPath() {
 // readCpuTemp returns CPU/SoC temperature in °C, or nil if unavailable.
 func readCpuTemp() *float64 {
 	resolveThermalPath()
-	if cachedTempPath == "" {
+	if cachedTempFile == nil {
 		return nil
 	}
-	return readTempFile(cachedTempPath)
+	raw, ok := cachedTempFile.readInt()
+	if !ok {
+		return nil
+	}
+	// Kernel reports millidegrees or degrees depending on driver
+	var v float64
+	if raw > 1000 {
+		v = float64(int(float64(raw)/100)) / 10.0
+	} else {
+		v = float64(int(float64(raw)*10)) / 10.0
+	}
+	return &v
 }
 
 func matchesCpuType(t string) bool {
@@ -65,23 +75,4 @@ func matchesCpuType(t string) bool {
 		}
 	}
 	return false
-}
-
-func readTempFile(path string) *float64 {
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return nil
-	}
-	raw, err := strconv.ParseFloat(strings.TrimSpace(string(b)), 64)
-	if err != nil {
-		return nil
-	}
-	// Kernel reports millidegrees or degrees depending on driver
-	var v float64
-	if raw > 1000 {
-		v = float64(int(raw/100)) / 10.0
-	} else {
-		v = float64(int(raw*10)) / 10.0
-	}
-	return &v
 }

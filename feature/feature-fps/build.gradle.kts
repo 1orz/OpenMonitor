@@ -29,6 +29,7 @@ dependencies {
     implementation(project(":core:core-data"))
     implementation(project(":core:core-ui"))
     implementation(project(":core:core-common"))
+    implementation(project(":service"))
 
     implementation(libs.core.ktx)
     implementation(libs.coroutines.core)

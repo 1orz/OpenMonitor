@@ -224,6 +224,7 @@ fun UserScreen(
                     add {
                         DaemonStatusItem(
                             status = daemonStatus,
+                            canRestart = currentMode != PrivilegeMode.ADB,
                             onCheck = { viewModel.checkDaemon() },
                             onRestart = { viewModel.restartDaemon() },
                         )
@@ -459,19 +460,21 @@ private fun ModeDropdownItem(
 @Composable
 private fun DaemonStatusItem(
     status: UserViewModel.DaemonStatus,
+    canRestart: Boolean,
     onCheck: () -> Unit,
     onRestart: () -> Unit,
 ) {
     val view = LocalView.current
     var showVersionDialog by remember { mutableStateOf(false) }
 
-    // Version match = daemon version equals app version (primary check)
-    // Commit match = build-time expected commit matches daemon's actual commit (secondary)
     val appBaseVersion = BuildConfig.VERSION_NAME.substringBefore("-")
     val versionMatch = status.version != null && status.version == appBaseVersion
+    // Commit match is the authoritative check — DaemonLauncher uses it for upgrade decisions.
+    // Version string may diverge (daemon default "0.0.1" vs CI-set app version).
     val commitMatch = status.expectedCommit != null &&
         status.currentCommit != null &&
         status.currentCommit.contains(status.expectedCommit)
+    val isMatch = commitMatch
 
     if (showVersionDialog) {
         VersionInfoDialog(
@@ -518,23 +521,25 @@ private fun DaemonStatusItem(
                         modifier = Modifier.size(32.dp),
                     ) {
                         Icon(
-                            imageVector = if (versionMatch) Icons.Filled.CheckCircle else Icons.Filled.Warning,
+                            imageVector = if (isMatch) Icons.Filled.CheckCircle else Icons.Filled.Warning,
                             contentDescription = null,
-                            tint = if (versionMatch) Color(0xFF4CAF50) else Color(0xFFFFA726),
+                            tint = if (isMatch) Color(0xFF4CAF50) else Color(0xFFFFA726),
                             modifier = Modifier.size(18.dp),
                         )
                     }
                 }
-                IconButton(
-                    onClick = { view.hapticClick(); if (status.connected) onRestart() else onCheck() },
-                    modifier = Modifier.size(32.dp),
-                    enabled = !status.checking,
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Refresh,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
+                if (canRestart || !status.connected) {
+                    IconButton(
+                        onClick = { view.hapticClick(); if (status.connected) onRestart() else onCheck() },
+                        modifier = Modifier.size(32.dp),
+                        enabled = !status.checking,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Refresh,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
                 }
             }
         },
@@ -559,14 +564,14 @@ private fun VersionInfoDialog(
         },
         icon = {
             Icon(
-                imageVector = if (versionMatch) Icons.Filled.CheckCircle else Icons.Filled.Warning,
+                imageVector = if (commitMatch) Icons.Filled.CheckCircle else Icons.Filled.Warning,
                 contentDescription = null,
-                tint = if (versionMatch) Color(0xFF4CAF50) else Color(0xFFFFA726),
+                tint = if (commitMatch) Color(0xFF4CAF50) else Color(0xFFFFA726),
                 modifier = Modifier.size(32.dp),
             )
         },
         title = {
-            Text(if (versionMatch) stringResource(R.string.settings_version_match) else stringResource(R.string.settings_version_mismatch))
+            Text(if (commitMatch) stringResource(R.string.settings_version_match) else stringResource(R.string.settings_version_mismatch))
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {

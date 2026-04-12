@@ -44,6 +44,7 @@ class BatteryDataSource @Inject constructor(
         )
 
         private const val UEVENT_PATH = "/sys/class/power_supply/battery/uevent"
+        private const val STATUS_CHANGE_SETTLE_MS = 2000L
     }
     private val batteryPath = "/sys/class/power_supply/battery"
 
@@ -54,6 +55,9 @@ class BatteryDataSource @Inject constructor(
     private val batteryManager: BatteryManager by lazy {
         context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
     }
+
+    @Volatile private var lastChargingStatus: BatteryChargingStatus? = null
+    @Volatile private var statusChangeTimeMs: Long = 0L
 
     suspend fun getBatteryStatus(): BatteryStatus = withContext(Dispatchers.IO) {
         val batteryIntent = context.registerReceiver(
@@ -121,7 +125,22 @@ class BatteryDataSource @Inject constructor(
         // current_now: multi-tier fallback (sysfs paths → API → uevent → intent)
         val rawCurrentMa = readBatteryCurrent(batteryIntent)
         val isCharging = status == BatteryChargingStatus.CHARGING || status == BatteryChargingStatus.FULL
-        val currentMa = MonitorParser.ensureCurrentSign(rawCurrentMa, isCharging).toLong()
+        var currentMa = MonitorParser.ensureCurrentSign(rawCurrentMa, isCharging).toLong()
+
+        // Noise filter: detect status transitions and suppress mismatched samples
+        val now = System.currentTimeMillis()
+        if (lastChargingStatus != null && lastChargingStatus != status) {
+            statusChangeTimeMs = now
+        }
+        lastChargingStatus = status
+        if (now - statusChangeTimeMs < STATUS_CHANGE_SETTLE_MS && currentMa != 0L) {
+            val currentIsDischarge = currentMa < 0
+            val statusIsDischarge = status == BatteryChargingStatus.DISCHARGING
+            if (currentIsDischarge != statusIsDischarge) {
+                Log.d(TAG, "Noise filter: rejecting transient sample (current=${currentMa}mA, status=$status)")
+                currentMa = 0L
+            }
+        }
 
         val chargeType = sysfsReader.readString("$batteryPath/charge_type") ?: ""
         val powerW = abs(currentMa / 1000.0 * voltageV)

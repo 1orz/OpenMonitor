@@ -271,7 +271,7 @@ class FloatMonitorService : LifecycleService() {
 
     fun onProcessKill(pid: Int) {
         lifecycleScope.launch(Dispatchers.IO) {
-            daemonClient.sendCommand("kill\n$pid")
+            processDataSource.killProcess(pid)
         }
     }
 

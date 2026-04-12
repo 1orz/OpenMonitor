@@ -80,7 +80,7 @@ func openLogFile(dataDir string) (*os.File, error) {
 
 // Daemonize re-execs the current binary as a background child with stdio
 // redirected to the log file, then the parent exits immediately.
-func Daemonize(addr string, sampleMs int64, dataDir string) {
+func Daemonize(addr string, sampleMs int64, dataDir string, pprofAddr string) {
 	os.MkdirAll(dataDir, 0777)
 
 	if err := CheckRunning(dataDir); err != nil {
@@ -98,10 +98,13 @@ func Daemonize(addr string, sampleMs int64, dataDir string) {
 	pidPath := filepath.Join(dataDir, "monitor-daemon.pid")
 	PidPath = pidPath
 
-	// Re-exec self with --no-detach so the child won't fork again
-	cmd := exec.Command(os.Args[0], "--no-detach", "--addr", addr,
+	args := []string{"--no-detach", "--addr", addr,
 		"--sample-ms", strconv.FormatInt(sampleMs, 10),
-		"--data-dir", dataDir)
+		"--data-dir", dataDir}
+	if pprofAddr != "" {
+		args = append(args, "--pprof-addr", pprofAddr)
+	}
+	cmd := exec.Command(os.Args[0], args...)
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}

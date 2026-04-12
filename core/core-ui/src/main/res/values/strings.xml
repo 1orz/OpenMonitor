@@ -32,6 +32,8 @@
     <string name="fps_session_name">Session Name</string>
     <string name="fps_unknown_app">Unknown App</string>
     <string name="fps_start_from_float">Tap FPS float window to start recording</string>
+    <string name="fps_float_toggle_title">FPS Float Window</string>
+    <string name="fps_float_toggle_desc">Show real-time FPS counter overlay</string>
     <string name="fps_delete_confirm_title">Delete Session</string>
     <string name="fps_delete_confirm_msg">Are you sure you want to delete this recording session?</string>
     <string name="fps_countdown">Countdown %ds</string>
@@ -72,6 +74,9 @@
     <string name="fps_stat_smoothness">\u226545FPS</string>
     <string name="fps_stat_low">5% Low</string>
     <string name="fps_stat_avg_power">AVG Power</string>
+    <string name="fps_stat_source_battery">Battery</string>
+    <string name="fps_stat_power">Power</string>
+    <string name="fps_stat_average">Average</string>
     <string name="fps_stat_max_temp">MAX Temp</string>
     <string name="fps_stat_smoothness_unit">Smoothness</string>
     <string name="fps_stat_total">Total</string>

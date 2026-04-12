@@ -31,6 +31,8 @@
     <string name="fps_session_name">工作階段名稱</string>
     <string name="fps_unknown_app">未知應用</string>
     <string name="fps_start_from_float">點擊 FPS 懸浮窗開始錄製</string>
+    <string name="fps_float_toggle_title">FPS 懸浮窗</string>
+    <string name="fps_float_toggle_desc">顯示即時幀率計數器懸浮窗</string>
     <string name="fps_delete_confirm_title">刪除工作階段</string>
     <string name="fps_delete_confirm_msg">確定要刪除這條錄製記錄嗎？</string>
     <string name="fps_countdown">倒數計時 %d 秒</string>
@@ -71,6 +73,9 @@
     <string name="fps_stat_smoothness">\u226545FPS</string>
     <string name="fps_stat_low">5% 低幀</string>
     <string name="fps_stat_avg_power">平均功率</string>
+    <string name="fps_stat_source_battery">電池</string>
+    <string name="fps_stat_power">功率</string>
+    <string name="fps_stat_average">平均值</string>
     <string name="fps_stat_max_temp">最高溫度</string>
     <string name="fps_stat_smoothness_unit">流暢度</string>
     <string name="fps_stat_total">總計</string>

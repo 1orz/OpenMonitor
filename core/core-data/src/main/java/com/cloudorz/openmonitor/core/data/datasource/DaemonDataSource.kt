@@ -78,7 +78,6 @@ class DaemonDataSource @Inject constructor(
     /**
      * Fetches a full system snapshot from the daemon.
      * Returns null if daemon is unavailable or the response cannot be parsed.
-     * batteryCurrentMa is NOT provided by daemon — caller should fill it separately.
      */
     suspend fun collectSnapshot(): MonitorSnapshot? = withContext(Dispatchers.IO) {
         val raw = client.sendCommand("monitor")
@@ -131,6 +130,18 @@ class DaemonDataSource @Inject constructor(
             val gpuLoad = if (!obj.isNull("gpu_load")) obj.getDouble("gpu_load") else null
             val gpuFreq = if (!obj.isNull("gpu_freq")) obj.getInt("gpu_freq") else null
 
+            var batteryCurrentMa: Int? = null
+            var batteryCurrentUa: Int? = null
+            var batteryVoltageUv: Int? = null
+            var batteryPowerMw: Int? = null
+            if (!obj.isNull("battery")) {
+                val bat = obj.getJSONObject("battery")
+                batteryCurrentMa = if (!bat.isNull("current_ma")) bat.getInt("current_ma") else null
+                batteryCurrentUa = if (!bat.isNull("current_ua")) bat.getInt("current_ua") else null
+                batteryVoltageUv = if (!bat.isNull("voltage_uv")) bat.getInt("voltage_uv") else null
+                batteryPowerMw = if (!bat.isNull("power_mw")) bat.getInt("power_mw") else null
+            }
+
             MonitorSnapshot(
                 cpuLoadPercent = cpuLoad,
                 cpuCoreLoads = cpuCoreLoads,
@@ -138,9 +149,12 @@ class DaemonDataSource @Inject constructor(
                 gpuLoadPercent = gpuLoad,
                 gpuFreqMhz = gpuFreq,
                 cpuTempCelsius = temp,
+                batteryCurrentMa = batteryCurrentMa,
+                batteryCurrentUa = batteryCurrentUa,
+                batteryVoltageUv = batteryVoltageUv,
+                batteryPowerMw = batteryPowerMw,
                 fpsData = fpsData,
                 daemonRunner = runner,
-                // batteryCurrentMa intentionally left null — filled by caller from BatteryManager
             )
         } catch (e: Exception) {
             XLog.tag(TAG).e("parseSnapshot failed: ${e.message}")
