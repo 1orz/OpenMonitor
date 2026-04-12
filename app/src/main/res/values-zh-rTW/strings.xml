@@ -240,6 +240,7 @@
     <string name="agreement_title">使用者協議</string>
     <string name="agreement_scroll_hint">請閱讀至底部後繼續</string>
     <string name="agreement_accept">同意並繼續</string>
+    <string name="agreement_accept_countdown">同意並繼續 (%1$ds)</string>
 
     <!-- 開源授權 -->
     <string name="settings_open_source_licenses">開源軟體授權</string>

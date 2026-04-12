@@ -249,6 +249,7 @@
     <string name="agreement_title">User Agreement</string>
     <string name="agreement_scroll_hint">Please read to the bottom to continue</string>
     <string name="agreement_accept">Agree and Continue</string>
+    <string name="agreement_accept_countdown">Agree and Continue (%1$ds)</string>
 
     <!-- Open Source Licenses -->
     <string name="settings_open_source_licenses">Open Source Licenses</string>

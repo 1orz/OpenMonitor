@@ -240,6 +240,7 @@
     <string name="agreement_title">用户协议</string>
     <string name="agreement_scroll_hint">请阅读至底部后继续</string>
     <string name="agreement_accept">同意并继续</string>
+    <string name="agreement_accept_countdown">同意并继续 (%1$ds)</string>
 
     <!-- 开源许可 -->
     <string name="settings_open_source_licenses">开源软件许可</string>

@@ -89,7 +89,8 @@ import com.cloudorz.openmonitor.ui.navigation.rememberNavigator
 import com.cloudorz.openmonitor.ui.network.NetworkScreen
 import com.cloudorz.openmonitor.ui.sensor.SensorScreen
 import com.cloudorz.openmonitor.ui.splash.AgreementScreen
-import com.cloudorz.openmonitor.ui.splash.CURRENT_AGREEMENT_VERSION
+import com.cloudorz.openmonitor.ui.splash.backgroundAgreementCheck
+import com.cloudorz.openmonitor.ui.splash.checkAgreementNeeded
 import com.cloudorz.openmonitor.ui.splash.PermissionGuideScreen
 import com.cloudorz.openmonitor.ui.splash.PermissionSetupScreen
 import com.cloudorz.openmonitor.ui.splash.hasRequiredPermissions
@@ -145,15 +146,32 @@ private enum class StartupPhase { CHECKING, READY, NEEDS_GUIDE, NEEDS_PERMISSION
 @Composable
 private fun MonitorAppContent(permissionManager: PermissionManager, daemonManager: DaemonManager) {
     val context = LocalContext.current
-    var agreementAccepted by rememberSaveable {
-        val prefs = context.getSharedPreferences("monitor_settings", Context.MODE_PRIVATE)
-        mutableStateOf(prefs.getInt("agreement_accepted_version", 0) >= CURRENT_AGREEMENT_VERSION)
+    var agreementState by rememberSaveable { mutableStateOf("checking") }
+
+    LaunchedEffect(Unit) {
+        if (agreementState != "checking") return@LaunchedEffect
+        agreementState = if (checkAgreementNeeded(context)) "needs_accept" else "accepted"
     }
 
-    if (!agreementAccepted) {
-        AgreementScreen(onAccepted = { agreementAccepted = true })
-        return
+    when (agreementState) {
+        "checking" -> {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator()
+            }
+            return
+        }
+        "needs_accept" -> {
+            AgreementScreen(onAccepted = { agreementState = "accepted" })
+            return
+        }
     }
+
+    LaunchedEffect(Unit) { backgroundAgreementCheck(context) }
 
     var selectedMode by rememberSaveable {
         mutableStateOf(
