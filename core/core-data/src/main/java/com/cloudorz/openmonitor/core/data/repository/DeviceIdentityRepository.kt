@@ -3,6 +3,7 @@ package com.cloudorz.openmonitor.core.data.repository
 import android.content.Context
 import android.util.Log
 import com.cloudorz.openmonitor.core.data.datasource.DeviceFingerprintCollector
+import com.cloudorz.openmonitor.core.data.util.ApiEncryptor
 import com.cloudorz.openmonitor.core.data.util.ApiResponseParser
 import com.cloudorz.openmonitor.core.data.util.ApiSigner
 import com.cloudorz.openmonitor.core.model.identity.DeviceFingerprint
@@ -95,10 +96,10 @@ class DeviceIdentityRepository @Inject constructor(
             if (cachedUuid != null) {
                 body.put("cached_uuid", cachedUuid)
             }
-            val bodyStr = body.toString()
+            val encrypted = ApiEncryptor.encrypt(body.toString())
 
-            ApiSigner.sign("POST", "/api/v1/identify", bodyStr).applyTo(conn)
-            conn.outputStream.bufferedWriter().use { it.write(bodyStr) }
+            ApiSigner.sign("POST", "/api/v1/identify", encrypted).applyTo(conn)
+            conn.outputStream.bufferedWriter().use { it.write(encrypted) }
 
             val code = conn.responseCode
             if (code != 200) {

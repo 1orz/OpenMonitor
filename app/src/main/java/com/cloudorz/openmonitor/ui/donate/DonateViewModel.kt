@@ -6,6 +6,7 @@ import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cloudorz.openmonitor.core.data.repository.DeviceIdentityRepository
+import com.cloudorz.openmonitor.core.data.util.ApiEncryptor
 import com.cloudorz.openmonitor.core.data.util.ApiResponseParser
 import com.cloudorz.openmonitor.core.data.util.ApiSigner
 import com.elvishew.xlog.XLog
@@ -184,10 +185,10 @@ class DonateViewModel @Inject constructor(
                 put("lang", lang)
                 if (deviceUuid != null) put("device_uuid", deviceUuid)
             }
-            val bodyStr = body.toString()
+            val encrypted = ApiEncryptor.encrypt(body.toString())
 
-            ApiSigner.sign("POST", "/api/v1/donate", bodyStr).applyTo(conn)
-            conn.outputStream.bufferedWriter().use { it.write(bodyStr) }
+            ApiSigner.sign("POST", "/api/v1/donate", encrypted).applyTo(conn)
+            conn.outputStream.bufferedWriter().use { it.write(encrypted) }
 
             val code = conn.responseCode
             if (code != 200) {

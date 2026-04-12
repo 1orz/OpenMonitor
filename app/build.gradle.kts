@@ -119,6 +119,13 @@ android {
             props.getProperty("api.hmac.key") ?: ""
         } else ""
         buildConfigField("String", "API_HMAC_KEY", "\"$hmacKey\"")
+
+        val ecPublicKey = if (localProps.exists()) {
+            val p = Properties()
+            localProps.reader().use { reader -> p.load(reader) }
+            p.getProperty("api.ec.public.key") ?: ""
+        } else ""
+        buildConfigField("String", "API_EC_PUBLIC_KEY", "\"$ecPublicKey\"")
     }
 }
 
