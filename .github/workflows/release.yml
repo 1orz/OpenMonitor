@@ -8,7 +8,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # needed to create release
+      contents: write
 
     steps:
       - name: Checkout
@@ -21,14 +21,26 @@ jobs:
         id: version
         run: |
           TAG="${GITHUB_REF#refs/tags/v}"
-          # v1.2.3 → VERSION_NAME=1.2.3, VERSION_CODE=10203
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$TAG"
+
+          # v1.0.0-beta.1 → IS_BETA=true, BASE=1.0.0
+          # v1.0.0         → IS_BETA=false, BASE=1.0.0
+          if [[ "$TAG" == *"-beta"* ]]; then
+            IS_BETA=true
+            BASE_VERSION="${TAG%%-*}"
+          else
+            IS_BETA=false
+            BASE_VERSION="$TAG"
+          fi
+
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE_VERSION"
           MAJOR=${MAJOR:-0}; MINOR=${MINOR:-0}; PATCH=${PATCH:-0}
           CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
+
           echo "VERSION_NAME=$TAG" >> "$GITHUB_OUTPUT"
           echo "VERSION_CODE=$CODE" >> "$GITHUB_OUTPUT"
           echo "TAG=v$TAG" >> "$GITHUB_OUTPUT"
-          echo "Parsed: v$TAG → versionCode=$CODE"
+          echo "IS_BETA=$IS_BETA" >> "$GITHUB_OUTPUT"
+          echo "Parsed: v$TAG → versionCode=$CODE, beta=$IS_BETA"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -46,6 +58,11 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: echo "$KEYSTORE_BASE64" | base64 -d > $GITHUB_WORKSPACE/release.jks
+
+      - name: Configure API keys
+        run: |
+          echo "api.hmac.key=${{ secrets.API_HMAC_KEY }}" >> local.properties
+          echo "api.ec.public.key=${{ secrets.API_EC_PUBLIC_KEY }}" >> local.properties
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -68,7 +85,6 @@ jobs:
           mkdir -p release-artifacts
           for apk in "$OUT"/app-*-release.apk; do
             base=$(basename "$apk")
-            # app-arm64-v8a-release.apk → OpenMonitor-v1.2.3_10203-arm64-v8a-release.apk
             abi=$(echo "$base" | sed 's/app-\(.*\)-release.apk/\1/')
             new="OpenMonitor-v${V}_${C}-${abi}-release.apk"
             cp "$apk" "release-artifacts/$new"
@@ -80,6 +96,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.TAG }}
-          name: OpenMonitor ${{ steps.version.outputs.TAG }}
+          name: "OpenMonitor ${{ steps.version.outputs.TAG }}"
+          prerelease: ${{ steps.version.outputs.IS_BETA == 'true' }}
           generate_release_notes: true
           files: release-artifacts/*.apk
