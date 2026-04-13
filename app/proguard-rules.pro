@@ -33,3 +33,7 @@
 
 # PowerProfile is an internal Android API used via reflection for battery capacity
 -dontwarn com.android.internal.os.PowerProfile
+
+# EdDSA library references sun.security.x509.X509Key which doesn't exist on Android
+-dontwarn sun.security.x509.X509Key
+-keep class net.i2p.crypto.eddsa.** { *; }
