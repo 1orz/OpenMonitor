@@ -232,6 +232,17 @@
     <string name="agreement_accept">同意並繼續</string>
     <string name="agreement_accept_countdown">同意並繼續 (%1$ds)</string>
 
+    <!-- 加入群組 -->
+    <string name="settings_group_community">社群</string>
+    <string name="join_telegram">Telegram 群組</string>
+    <string name="join_qq_group">QQ 群</string>
+    <string name="qq_group_number">群號: %1$s</string>
+    <string name="qq_group_copied">QQ 群號已複製</string>
+    <string name="qq_not_installed">未安裝 QQ</string>
+    <string name="join_qq_channel">QQ 頻道</string>
+    <string name="qq_channel_number">頻道號: %1$s</string>
+    <string name="qq_channel_copied">QQ 頻道號已複製</string>
+
     <!-- 開源授權 -->
     <string name="settings_open_source_licenses">開源軟體授權</string>
     <string name="licenses_summary">本應用使用了 %1$d 個開源軟體庫</string>

@@ -241,6 +241,17 @@
     <string name="agreement_accept">Agree and Continue</string>
     <string name="agreement_accept_countdown">Agree and Continue (%1$ds)</string>
 
+    <!-- Join Group -->
+    <string name="settings_group_community">Community</string>
+    <string name="join_telegram">Telegram Group</string>
+    <string name="join_qq_group">QQ Group</string>
+    <string name="qq_group_number">Group: %1$s</string>
+    <string name="qq_group_copied">QQ group number copied</string>
+    <string name="qq_not_installed">QQ not installed</string>
+    <string name="join_qq_channel">QQ Channel</string>
+    <string name="qq_channel_number">Channel: %1$s</string>
+    <string name="qq_channel_copied">QQ channel ID copied</string>
+
     <!-- Open Source Licenses -->
     <string name="settings_open_source_licenses">Open Source Licenses</string>
     <string name="licenses_summary">This app uses %1$d open source libraries</string>

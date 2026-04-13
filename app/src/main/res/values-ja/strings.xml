@@ -232,6 +232,17 @@
     <string name="agreement_accept">同意して続行</string>
     <string name="agreement_accept_countdown">同意して続行 (%1$ds)</string>
 
+    <!-- グループに参加 -->
+    <string name="settings_group_community">コミュニティ</string>
+    <string name="join_telegram">Telegram グループ</string>
+    <string name="join_qq_group">QQ グループ</string>
+    <string name="qq_group_number">グループ: %1$s</string>
+    <string name="qq_group_copied">QQグループ番号をコピーしました</string>
+    <string name="qq_not_installed">QQがインストールされていません</string>
+    <string name="join_qq_channel">QQ チャンネル</string>
+    <string name="qq_channel_number">チャンネル: %1$s</string>
+    <string name="qq_channel_copied">QQチャンネルIDをコピーしました</string>
+
     <!-- オープンソースライセンス -->
     <string name="settings_open_source_licenses">オープンソースライセンス</string>
     <string name="licenses_summary">このアプリは %1$d 個のオープンソースライブラリを使用しています</string>

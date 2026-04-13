@@ -95,8 +95,10 @@ import com.cloudorz.openmonitor.ui.component.SettingsNavigateItem
 import com.cloudorz.openmonitor.ui.component.SettingsSwitchItem
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.widget.Toast
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Groups
 import kotlinx.coroutines.launch
 import rikka.shizuku.Shizuku
 
@@ -298,6 +300,166 @@ fun UserScreen(
                     onClick = onNavigateToDonate,
                 )
             },
+        )
+
+        // ── Community ──
+        val communityContext = LocalContext.current
+        SettingsGroup(
+            title = stringResource(R.string.settings_group_community),
+            items = listOf(
+                {
+                    val telegramUrl = "https://t.me/OpenMonitor"
+                    ListItem(
+                        modifier = Modifier.hapticClickable(onClick = {
+                            try {
+                                communityContext.startActivity(
+                                    Intent(Intent.ACTION_VIEW, telegramUrl.toUri()),
+                                )
+                            } catch (_: Exception) {}
+                        }),
+                        colors = ListItemDefaults.colors(
+                            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+                        ),
+                        headlineContent = { Text(stringResource(R.string.join_telegram)) },
+                        supportingContent = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = telegramUrl,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.outline,
+                                    modifier = Modifier.weight(1f, fill = false),
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                IconButton(
+                                    onClick = {
+                                        val clipboard = communityContext.getSystemService(ClipboardManager::class.java)
+                                        clipboard?.setPrimaryClip(ClipData.newPlainText("Telegram", telegramUrl))
+                                        Toast.makeText(communityContext, communityContext.getString(R.string.qq_group_copied), Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier.size(20.dp),
+                                ) {
+                                    Icon(Icons.Filled.ContentCopy, null, modifier = Modifier.size(14.dp))
+                                }
+                            }
+                        },
+                        leadingContent = {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_telegram),
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp),
+                            )
+                        },
+                        trailingContent = {
+                            Icon(Icons.AutoMirrored.Filled.NavigateNext, contentDescription = null)
+                        },
+                    )
+                },
+                {
+                    val qqGroupNumber = "1094684232"
+                    val qqGroupKey = "E1Txl1Vhjit7h9Yl6KeTQZXqf6npyKG9"
+                    ListItem(
+                        modifier = Modifier.hapticClickable(onClick = {
+                            try {
+                                communityContext.startActivity(
+                                    Intent(
+                                        Intent.ACTION_VIEW,
+                                        "mqqopensdkapi://bizAgent/qm/qr?url=http%3A%2F%2Fqm.qq.com%2Fcgi-bin%2Fqm%2Fqr%3Ffrom%3Dapp%26p%3Dandroid%26jump_from%3Dwebapi%26k%3D$qqGroupKey".toUri(),
+                                    ),
+                                )
+                            } catch (_: Exception) {
+                                Toast.makeText(communityContext, communityContext.getString(R.string.qq_not_installed), Toast.LENGTH_SHORT).show()
+                            }
+                        }),
+                        colors = ListItemDefaults.colors(
+                            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+                        ),
+                        headlineContent = { Text(stringResource(R.string.join_qq_group)) },
+                        supportingContent = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = qqGroupNumber,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.outline,
+                                    modifier = Modifier.weight(1f, fill = false),
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                IconButton(
+                                    onClick = {
+                                        val clipboard = communityContext.getSystemService(ClipboardManager::class.java)
+                                        clipboard?.setPrimaryClip(ClipData.newPlainText("QQ Group", qqGroupNumber))
+                                        Toast.makeText(communityContext, communityContext.getString(R.string.qq_group_copied), Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier.size(20.dp),
+                                ) {
+                                    Icon(Icons.Filled.ContentCopy, null, modifier = Modifier.size(14.dp))
+                                }
+                            }
+                        },
+                        leadingContent = {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_qq),
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp),
+                            )
+                        },
+                        trailingContent = {
+                            Icon(Icons.AutoMirrored.Filled.NavigateNext, contentDescription = null)
+                        },
+                    )
+                },
+                {
+                    val qqChannelId = "OpenMonitor1"
+                    val qqChannelUrl = "https://pd.qq.com/s/ft7tc3xae"
+                    ListItem(
+                        modifier = Modifier.hapticClickable(onClick = {
+                            try {
+                                communityContext.startActivity(
+                                    Intent(Intent.ACTION_VIEW, qqChannelUrl.toUri()),
+                                )
+                            } catch (_: Exception) {
+                                val clipboard = communityContext.getSystemService(ClipboardManager::class.java)
+                                clipboard?.setPrimaryClip(ClipData.newPlainText("QQ Channel", qqChannelUrl))
+                                Toast.makeText(communityContext, communityContext.getString(R.string.qq_channel_copied), Toast.LENGTH_SHORT).show()
+                            }
+                        }),
+                        colors = ListItemDefaults.colors(
+                            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+                        ),
+                        headlineContent = { Text(stringResource(R.string.join_qq_channel)) },
+                        supportingContent = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = qqChannelId,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.outline,
+                                    modifier = Modifier.weight(1f, fill = false),
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                IconButton(
+                                    onClick = {
+                                        val clipboard = communityContext.getSystemService(ClipboardManager::class.java)
+                                        clipboard?.setPrimaryClip(ClipData.newPlainText("QQ Channel", qqChannelId))
+                                        Toast.makeText(communityContext, communityContext.getString(R.string.qq_channel_copied), Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier.size(20.dp),
+                                ) {
+                                    Icon(Icons.Filled.ContentCopy, null, modifier = Modifier.size(14.dp))
+                                }
+                            }
+                        },
+                        leadingContent = {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_qq_channel),
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp),
+                            )
+                        },
+                        trailingContent = {
+                            Icon(Icons.AutoMirrored.Filled.NavigateNext, contentDescription = null)
+                        },
+                    )
+                },
+            ),
         )
 
         // ── About ──
