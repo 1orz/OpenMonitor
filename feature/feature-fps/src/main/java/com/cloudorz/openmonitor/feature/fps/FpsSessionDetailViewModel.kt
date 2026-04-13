@@ -8,6 +8,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cloudorz.openmonitor.core.data.CsvExporter
+import com.cloudorz.openmonitor.core.data.datasource.CpuDataSource
 import com.cloudorz.openmonitor.core.data.datasource.DeviceNameSource
 import com.cloudorz.openmonitor.core.data.datasource.SocDatabase
 import com.cloudorz.openmonitor.core.data.repository.FpsRepository
@@ -28,11 +29,17 @@ data class SessionDeviceInfo(
     val osVersion: String,
 )
 
+data class CpuClusterInfo(
+    val coreIndices: List<Int>,
+    val microarchName: String?,
+)
+
 data class FpsSessionDetailState(
     val session: FpsWatchSession? = null,
     val records: List<FpsFrameRecord> = emptyList(),
     val loading: Boolean = true,
     val deviceInfo: SessionDeviceInfo? = null,
+    val cpuClusters: List<CpuClusterInfo> = emptyList(),
 )
 
 @HiltViewModel
@@ -43,6 +50,7 @@ class FpsSessionDetailViewModel @Inject constructor(
     private val csvExporter: CsvExporter,
     private val socDatabase: SocDatabase,
     private val deviceNameSource: DeviceNameSource,
+    private val cpuDataSource: CpuDataSource,
 ) : ViewModel() {
 
     private var sessionId: Long = savedStateHandle.get<String>("sessionId")?.toLongOrNull() ?: 0L
@@ -54,7 +62,28 @@ class FpsSessionDetailViewModel @Inject constructor(
 
     init {
         _state.value = _state.value.copy(deviceInfo = buildDeviceInfo())
+        loadCpuClusters()
         if (sessionId > 0L) loadSession()
+    }
+
+    private fun loadCpuClusters() {
+        viewModelScope.launch {
+            try {
+                val globalStatus = cpuDataSource.getGlobalStatus()
+                val clusters = globalStatus.clusters.map { cluster ->
+                    val archName = cluster.coreIndices.firstNotNullOfOrNull { idx ->
+                        globalStatus.cores.getOrNull(idx)?.microarchName
+                    }
+                    CpuClusterInfo(
+                        coreIndices = cluster.coreIndices,
+                        microarchName = archName,
+                    )
+                }
+                _state.value = _state.value.copy(cpuClusters = clusters)
+            } catch (e: Exception) {
+                android.util.Log.w("FpsDetailVM", "Failed to load CPU clusters", e)
+            }
+        }
     }
 
     private fun buildDeviceInfo(): SessionDeviceInfo {

@@ -84,6 +84,7 @@ class FloatMonitorService : LifecycleService() {
         private const val KEY_MINI_GPU_FREQ = "mini_show_gpu_freq"
         private const val BATTERY_SAMPLING_INTERVAL_MS = 30_000L
         private const val POLL_INTERVAL_MS = 1000L
+        private const val FPS_POLL_INTERVAL_MS = 500L
         private const val KEY_DARK_MODE = "dark_mode"
         private const val KEY_TEMP_EXTENDED = "temp_extended_categories"
         private const val KEY_MINI_NET_SPEED = "mini_show_net_speed"
@@ -157,6 +158,7 @@ class FloatMonitorService : LifecycleService() {
     val cpuCoreLoads = MutableStateFlow<List<Double>?>(null)
     val cpuCoreFreqs = MutableStateFlow<List<Int>?>(null)
     val gpuFreqMhz = MutableStateFlow<Int?>(null)
+    val ddrFreqMbps = MutableStateFlow<Int?>(null)
     val batteryTemp = MutableStateFlow<Double?>(null)
     val hasShellAccess = MutableStateFlow(false)
     val hasRootAccess = MutableStateFlow(false)
@@ -178,6 +180,9 @@ class FloatMonitorService : LifecycleService() {
     val memTotalMB = MutableStateFlow(0.0)
     val memUsedMB = MutableStateFlow(0.0)
     val loadMonitorCompact = MutableStateFlow(true)
+
+    data class ClusterInfo(val coreIndices: List<Int>, val name: String?)
+    val cpuClusters = MutableStateFlow<List<ClusterInfo>>(emptyList())
     val miniShowCpuFreq = MutableStateFlow(false)
     val miniShowGpuFreq = MutableStateFlow(false)
     val tempShowExtended = MutableStateFlow(false)
@@ -380,6 +385,23 @@ class FloatMonitorService : LifecycleService() {
             if (key == KEY_DARK_MODE) floatDarkTheme.value = computeFloatIsDark()
         }
         prefs.registerOnSharedPreferenceChangeListener(prefChangeListener)
+        loadCpuClusters()
+    }
+
+    private fun loadCpuClusters() {
+        lifecycleScope.launch {
+            try {
+                val status = cpuDataSource.getGlobalStatus()
+                cpuClusters.value = status.clusters.map { cluster ->
+                    val archName = cluster.coreIndices.firstNotNullOfOrNull { idx ->
+                        status.cores.getOrNull(idx)?.microarchName
+                    }
+                    ClusterInfo(coreIndices = cluster.coreIndices, name = archName)
+                }
+            } catch (e: Exception) {
+                android.util.Log.d("FloatService", "cluster load failed", e)
+            }
+        }
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -770,6 +792,7 @@ class FloatMonitorService : LifecycleService() {
         cpuCoreFreqs.value = snapshot.cpuCoreFreqs
         cpuCoreLoads.value = snapshot.cpuCoreLoads
         gpuFreqMhz.value = snapshot.gpuFreqMhz
+        ddrFreqMbps.value = snapshot.ddrFreqMbps
         currentMa.value = snapshot.batteryCurrentMa
 
         val batteryInfo = batteryDataSource.getBatteryStatus()
@@ -808,7 +831,7 @@ class FloatMonitorService : LifecycleService() {
                 } catch (e: Exception) {
                     Log.w(TAG, "collectSharedFps failed", e)
                 }
-                delay(POLL_INTERVAL_MS)
+                delay(FPS_POLL_INTERVAL_MS)
             }
         }
     }

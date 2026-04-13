@@ -18,6 +18,7 @@ data class MonitorSnapshot(
     val batteryChargeFullDesignUah: Int? = null,
     val batteryChargeCounterUah: Int? = null,
     val batteryHealth: String? = null,
+    val ddrFreqMbps: Int? = null,
     val fpsData: FpsData? = null,
     val daemonRunner: String = "",  // "root" | "shell" | "" (non-daemon path)
     val timestamp: Long = System.currentTimeMillis(),

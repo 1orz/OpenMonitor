@@ -41,9 +41,7 @@
     <string name="fps_chart_fps_temp">FPS / Temperature</string>
     <string name="fps_chart_frame_time">Frame Time (ms)</string>
     <string name="fps_chart_cpu_usage">CPU / GPU Usage (%)</string>
-    <string name="fps_chart_cpu_core_load">CPU Core Load (%)</string>
-    <string name="fps_chart_gpu_freq">GPU Frequency (MHz)</string>
-    <string name="fps_chart_cpu_freq">CPU Core Frequency (MHz)</string>
+    <string name="fps_chart_cpu_gpu_freq">CPU / GPU Frequency (MHz)</string>
     <string name="fps_chart_power">Power / Battery</string>
     <string name="fps_chart_battery_current">Battery Current (mA)</string>
     <string name="fps_chart_temperature">Temperature</string>
@@ -53,9 +51,7 @@
     <string name="fps_section_fps_temp">FPS</string>
     <string name="fps_section_frame_time">Frame Time</string>
     <string name="fps_section_cpu_gpu">CPU / GPU</string>
-    <string name="fps_section_cpu_core_load">CPU Core Load</string>
-    <string name="fps_section_gpu_freq">GPU Freq</string>
-    <string name="fps_section_cpu_freq">CPU Freq</string>
+    <string name="fps_section_cpu_gpu_freq">CPU / GPU Freq</string>
     <string name="fps_section_jank">Jank</string>
     <string name="fps_section_power">Power</string>
     <string name="fps_section_current">Current</string>

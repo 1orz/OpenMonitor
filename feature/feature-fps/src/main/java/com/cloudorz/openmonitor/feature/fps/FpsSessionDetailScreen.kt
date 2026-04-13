@@ -1,7 +1,11 @@
 package com.cloudorz.openmonitor.feature.fps
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.Typeface
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -12,6 +16,9 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
+import com.google.zxing.qrcode.QRCodeWriter
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -136,15 +143,18 @@ private val CoreColors = listOf(
     Color(0xFF26C6DA), Color(0xFF8D6E63),
 )
 
+private val ClusterColors = listOf(
+    Color(0xFF42A5F5), Color(0xFFFF7043), Color(0xFF66BB6A),
+    Color(0xFFAB47BC),
+)
+
 private val LegendLabelKey = ExtraStore.Key<List<String>>()
 
 private enum class ChartSection(val labelRes: Int) {
     FPS_TEMP(R.string.fps_section_fps_temp),
     FRAME_TIME(R.string.fps_section_frame_time),
     CPU_GPU(R.string.fps_section_cpu_gpu),
-    CPU_CORE_LOAD(R.string.fps_section_cpu_core_load),
-    GPU_FREQ(R.string.fps_section_gpu_freq),
-    CPU_FREQ(R.string.fps_section_cpu_freq),
+    CPU_GPU_FREQ(R.string.fps_section_cpu_gpu_freq),
     JANK(R.string.fps_section_jank),
     POWER(R.string.fps_section_power),
     CURRENT(R.string.fps_section_current),
@@ -198,7 +208,11 @@ fun FpsSessionDetailScreen(
                     onClick = {
                         showSaveMenu = false
                         scope.launch {
-                            pendingBitmap = captureLongScreenshot(view, scrollState, contentBounds)
+                            val content = captureLongScreenshot(view, scrollState, contentBounds)
+                            val banner = createExportBanner(context, content.width)
+                            pendingBitmap = prependBanner(banner, content)
+                            banner.recycle()
+                            content.recycle()
                             imageLauncher.launch(viewModel.getImageFileName())
                         }
                     },
@@ -336,16 +350,10 @@ private fun FpsSessionDetailContent(
                 if (chartsReady) FrameTimeChart(records) else ChartSkeleton()
             }
             if (sectionVisibility[ChartSection.CPU_GPU] != false) {
-                if (chartsReady) CpuGpuUsageChart(records) else ChartSkeleton()
+                if (chartsReady) CpuGpuUsageChart(records, state.cpuClusters) else ChartSkeleton()
             }
-            if (sectionVisibility[ChartSection.CPU_CORE_LOAD] != false) {
-                if (chartsReady) CpuCoreLoadChart(records) else ChartSkeleton()
-            }
-            if (sectionVisibility[ChartSection.GPU_FREQ] != false) {
-                if (chartsReady) GpuFreqChart(records) else ChartSkeleton()
-            }
-            if (sectionVisibility[ChartSection.CPU_FREQ] != false) {
-                if (chartsReady) CpuCoreFreqChart(records) else ChartSkeleton()
+            if (sectionVisibility[ChartSection.CPU_GPU_FREQ] != false) {
+                if (chartsReady) CpuGpuFreqChart(records, state.cpuClusters) else ChartSkeleton()
             }
             if (sectionVisibility[ChartSection.JANK] != false) {
                 if (chartsReady) JankChart(records) else ChartSkeleton()
@@ -915,21 +923,43 @@ private fun FrameTimeChart(records: List<FpsFrameRecord>) {
 }
 
 @Composable
-private fun CpuGpuUsageChart(records: List<FpsFrameRecord>) {
-    if (records.none { it.cpuLoad > 0.0 }) return
+private fun CpuGpuUsageChart(records: List<FpsFrameRecord>, cpuClusters: List<CpuClusterInfo>) {
+    if (records.none { it.cpuLoad > 0.0 || it.cpuCoreLoads.isNotEmpty() }) return
     val hasGpu = records.any { it.gpuLoad > 0.0 }
+    val hasTotal = records.any { it.cpuLoad > 0.0 }
+    val maxCores = records.maxOfOrNull { it.cpuCoreLoads.size } ?: 0
+    val clusters = if (maxCores > 0) cpuClusters.ifEmpty { fallbackClusters(maxCores) } else emptyList()
 
-    val allLabels = mutableListOf("CPU(%)")
-    val allColors = mutableListOf(CpuColor)
+    val allLabels = mutableListOf<String>()
+    val allColors = mutableListOf<Color>()
+    if (hasTotal) { allLabels.add("CPU(%)"); allColors.add(CpuColor) }
     if (hasGpu) { allLabels.add("GPU(%)"); allColors.add(GpuColor) }
+    clusters.forEachIndexed { ci, info ->
+        allLabels.add(clusterLabel(ci, info))
+        allColors.add(ClusterColors[ci % ClusterColors.size])
+    }
 
     val seriesVis = remember { mutableStateMapOf<String, Boolean>() }
 
     val visLabels = mutableListOf<String>()
     val visColors = mutableListOf<Color>()
     val visData = mutableListOf<List<Number>>()
-    if (seriesVis["CPU(%)"] != false) { visLabels.add("CPU(%)"); visColors.add(CpuColor); visData.add(records.map { it.cpuLoad }) }
-    if (hasGpu && seriesVis["GPU(%)"] != false) { visLabels.add("GPU(%)"); visColors.add(GpuColor); visData.add(records.map { it.gpuLoad }) }
+    if (hasTotal && seriesVis["CPU(%)"] != false) {
+        visLabels.add("CPU(%)"); visColors.add(CpuColor); visData.add(records.map { it.cpuLoad })
+    }
+    if (hasGpu && seriesVis["GPU(%)"] != false) {
+        visLabels.add("GPU(%)"); visColors.add(GpuColor); visData.add(records.map { it.gpuLoad })
+    }
+    clusters.forEachIndexed { ci, info ->
+        val label = allLabels[if (hasTotal) 1 else 0] // skip CPU+GPU offset
+        val actualLabel = clusterLabel(ci, info)
+        if (seriesVis[actualLabel] != false) {
+            visLabels.add(actualLabel); visColors.add(ClusterColors[ci % ClusterColors.size])
+            visData.add(records.map { r ->
+                info.coreIndices.map { r.cpuCoreLoads.getOrElse(it) { 0.0 } }.average()
+            })
+        }
+    }
 
     if (visData.isEmpty()) return
 
@@ -941,101 +971,56 @@ private fun CpuGpuUsageChart(records: List<FpsFrameRecord>) {
 }
 
 @Composable
-private fun GpuFreqChart(records: List<FpsFrameRecord>) {
-    if (records.none { it.gpuFreqMhz > 0 }) return
-    val hasUsage = records.any { it.gpuLoad > 0.0 }
+private fun CpuGpuFreqChart(records: List<FpsFrameRecord>, cpuClusters: List<CpuClusterInfo>) {
+    val hasGpuFreq = records.any { it.gpuFreqMhz > 0 }
+    val hasCpuFreq = records.any { it.cpuCoreFreqsMhz.isNotEmpty() }
+    if (!hasGpuFreq && !hasCpuFreq) return
 
-    val freqLabel = stringResource(R.string.fps_series_freq)
-    val usageLabel = stringResource(R.string.fps_series_usage)
+    val maxCores = records.maxOfOrNull { it.cpuCoreFreqsMhz.size } ?: 0
+    val clusters = if (maxCores > 0) cpuClusters.ifEmpty { fallbackClusters(maxCores) } else emptyList()
 
-    val allLabels = mutableListOf(freqLabel)
-    val allColors = mutableListOf(GpuColor)
-    if (hasUsage) { allLabels.add(usageLabel); allColors.add(Color(0xFF5C6BC0)) }
-
-    val seriesVis = remember { mutableStateMapOf<String, Boolean>() }
-
-    val visLabels = mutableListOf<String>()
-    val visColors = mutableListOf<Color>()
-    val visData = mutableListOf<List<Number>>()
-    if (seriesVis[freqLabel] != false) { visLabels.add(freqLabel); visColors.add(GpuColor); visData.add(records.map { it.gpuFreqMhz }) }
-    if (hasUsage && seriesVis[usageLabel] != false) { visLabels.add(usageLabel); visColors.add(Color(0xFF5C6BC0)); visData.add(records.map { it.gpuLoad }) }
-
-    if (visData.isEmpty()) return
-
-    ChartCard(stringResource(R.string.fps_chart_gpu_freq), allLabels, allColors, seriesVis) {
-        key(visLabels.joinToString()) {
-            VicoLineChart(records, visData, visColors, visLabels)
-        }
-    }
-}
-
-@Composable
-private fun CpuCoreLoadChart(records: List<FpsFrameRecord>) {
-    if (records.none { it.cpuCoreLoads.isNotEmpty() }) return
-    val maxCores = records.maxOf { it.cpuCoreLoads.size }
-    if (maxCores == 0) return
-    val hasTotal = records.any { it.cpuLoad > 0.0 }
-
-    // Total first, then per-core
     val allLabels = mutableListOf<String>()
     val allColors = mutableListOf<Color>()
-    if (hasTotal) { allLabels.add("CPU(%)"); allColors.add(CpuColor) }
-    for (i in 0 until maxCores) { allLabels.add("Core $i"); allColors.add(CoreColors[i % CoreColors.size]) }
+    if (hasGpuFreq) { allLabels.add("GPU"); allColors.add(GpuColor) }
+    clusters.forEachIndexed { ci, info ->
+        allLabels.add(clusterLabel(ci, info))
+        allColors.add(ClusterColors[ci % ClusterColors.size])
+    }
 
     val seriesVis = remember { mutableStateMapOf<String, Boolean>() }
 
     val visLabels = mutableListOf<String>()
     val visColors = mutableListOf<Color>()
     val visData = mutableListOf<List<Number>>()
-    if (hasTotal && seriesVis["CPU(%)"] != false) {
-        visLabels.add("CPU(%)"); visColors.add(CpuColor); visData.add(records.map { it.cpuLoad })
+    if (hasGpuFreq && seriesVis["GPU"] != false) {
+        visLabels.add("GPU"); visColors.add(GpuColor); visData.add(records.map { it.gpuFreqMhz })
     }
-    for (i in 0 until maxCores) {
-        val label = "Core $i"
+    clusters.forEachIndexed { ci, info ->
+        val label = clusterLabel(ci, info)
         if (seriesVis[label] != false) {
-            visLabels.add(label); visColors.add(CoreColors[i % CoreColors.size])
-            visData.add(records.map { it.cpuCoreLoads.getOrElse(i) { 0.0 } })
+            visLabels.add(label); visColors.add(ClusterColors[ci % ClusterColors.size])
+            visData.add(records.map { r -> r.cpuCoreFreqsMhz.getOrElse(info.coreIndices.first()) { 0L } })
         }
     }
 
     if (visData.isEmpty()) return
 
-    ChartCard(stringResource(R.string.fps_chart_cpu_core_load), allLabels, allColors, seriesVis) {
-        key(visLabels.joinToString()) {
-            VicoLineChart(records, visData, visColors, visLabels, yAxisSuffix = "%", fixedMaxY = 100.0)
-        }
-    }
-}
-
-@Composable
-private fun CpuCoreFreqChart(records: List<FpsFrameRecord>) {
-    if (records.none { it.cpuCoreFreqsMhz.isNotEmpty() }) return
-    val maxCores = records.maxOf { it.cpuCoreFreqsMhz.size }
-    if (maxCores == 0) return
-
-    val allLabels = (0 until maxCores).map { "Core $it" }
-    val allColors = (0 until maxCores).map { CoreColors[it % CoreColors.size] }
-    val seriesVis = remember { mutableStateMapOf<String, Boolean>() }
-
-    val visLabels = mutableListOf<String>()
-    val visColors = mutableListOf<Color>()
-    val visData = mutableListOf<List<Number>>()
-    for (i in 0 until maxCores) {
-        val label = "Core $i"
-        if (seriesVis[label] != false) {
-            visLabels.add(label); visColors.add(CoreColors[i % CoreColors.size])
-            visData.add(records.map { it.cpuCoreFreqsMhz.getOrElse(i) { 0L } })
-        }
-    }
-
-    if (visData.isEmpty()) return
-
-    ChartCard(stringResource(R.string.fps_chart_cpu_freq), allLabels, allColors, seriesVis) {
+    ChartCard(stringResource(R.string.fps_chart_cpu_gpu_freq), allLabels, allColors, seriesVis) {
         key(visLabels.joinToString()) {
             VicoLineChart(records, visData, visColors, visLabels, yAxisSuffix = "MHz")
         }
     }
 }
+
+private fun clusterLabel(index: Int, info: CpuClusterInfo): String {
+    val cores = info.coreIndices.joinToString(",") { "C$it" }
+    val name = info.microarchName
+    return if (name != null) "$name ($cores)" else "Cluster $index ($cores)"
+}
+
+/** Fallback: one cluster per core when real cluster info is unavailable. */
+private fun fallbackClusters(maxCores: Int): List<CpuClusterInfo> =
+    listOf(CpuClusterInfo(coreIndices = (0 until maxCores).toList(), microarchName = null))
 
 @Composable
 private fun JankChart(records: List<FpsFrameRecord>) {
@@ -1237,6 +1222,140 @@ private fun formatDuration(seconds: Long): String {
     return when {
         h > 0 -> "%d:%02d:%02d".format(h, m, s); m > 0 -> "%d:%02d".format(m, s); else -> "${s}s"
     }
+}
+
+// ---- Export Banner ----
+
+private const val BANNER_BASE_URL = "https://om.cloudorz.com"
+
+private fun createExportBanner(context: Context, width: Int): Bitmap {
+    val uid = context.getSharedPreferences("device_identity", Context.MODE_PRIVATE)
+        .getString("uuid", null).orEmpty()
+    val qrUrl = if (uid.isNotEmpty()) "$BANNER_BASE_URL?uid=$uid" else BANNER_BASE_URL
+    val bannerH = (width * 0.08f).toInt().coerceIn(72, 140)
+    val bitmap = createBitmap(width, bannerH, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val pad = bannerH * 0.2f
+
+    // Background
+    canvas.drawColor(android.graphics.Color.parseColor("#0D1B2A"))
+
+    // Accent line at bottom
+    val linePaint = Paint().apply { color = android.graphics.Color.parseColor("#1B6CA8"); style = Paint.Style.FILL }
+    canvas.drawRect(0f, bannerH - 2f, width.toFloat(), bannerH.toFloat(), linePaint)
+
+    // ---- Left: App Icon ----
+    val iconSize = (bannerH * 0.55f).toInt()
+    val iconTop = (bannerH - iconSize) / 2f
+    val icon = try {
+        context.packageManager.getApplicationIcon(context.packageName)
+    } catch (_: Exception) { null }
+    if (icon != null) {
+        val iconBmp = icon.toBitmapSafe(iconSize, iconSize)
+        val iconLeft = pad
+        val saved = canvas.save()
+        val iconRect = RectF(iconLeft, iconTop, iconLeft + iconSize, iconTop + iconSize)
+        val path = android.graphics.Path().apply { addRoundRect(iconRect, iconSize * 0.22f, iconSize * 0.22f, android.graphics.Path.Direction.CW) }
+        canvas.clipPath(path)
+        canvas.drawBitmap(iconBmp, iconLeft, iconTop, null)
+        canvas.restoreToCount(saved)
+        iconBmp.recycle()
+    }
+
+    // ---- Text: "OpenMonitor" + version + url ----
+    val textLeft = pad + iconSize + pad * 0.6f
+    val centerY = bannerH / 2f
+
+    val namePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.WHITE
+        textSize = bannerH * 0.28f
+        typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+    }
+    val version = try {
+        "v" + (context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "")
+    } catch (_: Exception) { "" }
+    val versionPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.parseColor("#667788")
+        textSize = bannerH * 0.18f
+        typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+    }
+    val urlPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.parseColor("#4A5568")
+        textSize = bannerH * 0.16f
+        typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+    }
+
+    // Measure to lay out on single line: "OpenMonitor  v0.0.1     om.cloudorz.com"
+    val nameWidth = namePaint.measureText("OpenMonitor")
+    val versionWidth = versionPaint.measureText(version)
+    val gap1 = bannerH * 0.15f  // gap between name and version
+    val gap2 = bannerH * 0.35f  // wider gap before url
+
+    val baselineY = centerY + bannerH * 0.1f
+    canvas.drawText("OpenMonitor", textLeft, baselineY, namePaint)
+    canvas.drawText(version, textLeft + nameWidth + gap1, baselineY, versionPaint)
+    canvas.drawText("om.cloudorz.com", textLeft + nameWidth + gap1 + versionWidth + gap2, baselineY, urlPaint)
+
+    // ---- Right: QR Code ----
+    val qrSize = (bannerH * 0.72f).toInt()
+    val qrBmp = generateQrBitmap(qrUrl, qrSize)
+    if (qrBmp != null) {
+        val qrLeft = width - pad - qrSize
+        val qrTop = (bannerH - qrSize) / 2f
+
+        val qrBgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE }
+        val qrPad = qrSize * 0.04f
+        val r = qrPad * 1.5f
+        canvas.drawRoundRect(
+            RectF(qrLeft - qrPad, qrTop - qrPad, qrLeft + qrSize + qrPad, qrTop + qrSize + qrPad),
+            r, r, qrBgPaint,
+        )
+        canvas.drawBitmap(qrBmp, qrLeft, qrTop, null)
+        qrBmp.recycle()
+    }
+
+    return bitmap
+}
+
+private fun prependBanner(banner: Bitmap, content: Bitmap): Bitmap {
+    val result = createBitmap(content.width, banner.height + content.height, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(result)
+    canvas.drawBitmap(banner, 0f, 0f, null)
+    canvas.drawBitmap(content, 0f, banner.height.toFloat(), null)
+    return result
+}
+
+private fun generateQrBitmap(content: String, size: Int): Bitmap? {
+    if (content.isEmpty()) return null
+    return try {
+        val hints = mapOf(
+            EncodeHintType.MARGIN to 0,
+            EncodeHintType.CHARACTER_SET to "UTF-8",
+            EncodeHintType.ERROR_CORRECTION to com.google.zxing.qrcode.decoder.ErrorCorrectionLevel.M,
+        )
+        // Render at higher resolution, then scale down for crisp edges
+        val renderSize = size.coerceAtLeast(512)
+        val matrix = QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, renderSize, renderSize, hints)
+        val raw = createBitmap(renderSize, renderSize, Bitmap.Config.RGB_565)
+        for (x in 0 until renderSize) {
+            for (y in 0 until renderSize) {
+                raw.setPixel(x, y, if (matrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+            }
+        }
+        if (renderSize == size) raw
+        else Bitmap.createScaledBitmap(raw, size, size, true).also { raw.recycle() }
+    } catch (_: Exception) {
+        null
+    }
+}
+
+private fun Drawable.toBitmapSafe(width: Int, height: Int): Bitmap {
+    if (this is BitmapDrawable && bitmap != null) return Bitmap.createScaledBitmap(bitmap, width, height, true)
+    val bmp = createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bmp)
+    setBounds(0, 0, width, height)
+    draw(canvas)
+    return bmp
 }
 
 private fun Drawable.toBitmap(width: Int, height: Int): Bitmap {

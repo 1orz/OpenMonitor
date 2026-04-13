@@ -129,6 +129,7 @@ fun FloatLoadMonitorContent(service: FloatMonitorService) {
     val coreLoads by service.cpuCoreLoads.collectAsState()
     val coreFreqs by service.cpuCoreFreqs.collectAsState()
     val gpuFreq by service.gpuFreqMhz.collectAsState()
+    val ddrFreq by service.ddrFreqMbps.collectAsState()
     val mA by service.currentMa.collectAsState()
     val batTemp by service.batteryTemp.collectAsState()
     val fps by service.currentFps.collectAsState()
@@ -140,116 +141,126 @@ fun FloatLoadMonitorContent(service: FloatMonitorService) {
         Box(
             modifier = Modifier
                 .background(BG, RoundedCornerShape(8.dp))
-                .padding(6.dp),
+                .padding(4.dp),
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 val maxFreq = coreFreqs?.maxOrNull()
                 FloatRingGauge(
                     percentage = (cpu ?: 0.0).toFloat(),
                     color = CpuColor,
                     label = "CPU",
-                    size = 40.dp,
+                    size = 32.dp,
+                    strokeWidth = 3.dp,
                     bottomLabel = if (maxFreq != null) "${maxFreq}MHz" else "",
                 )
                 FloatRingGauge(
                     percentage = (gpu ?: 0.0).toFloat(),
                     color = GpuColor,
                     label = "GPU",
-                    size = 40.dp,
+                    size = 32.dp,
+                    strokeWidth = 3.dp,
                     bottomLabel = if (gpuFreq != null && gpuFreq!! > 0) "${gpuFreq}MHz" else "0MHz",
                 )
                 FloatRingGauge(
                     percentage = (mem ?: 0.0).toFloat(),
                     color = MemColor,
                     label = "RAM",
-                    size = 40.dp,
+                    size = 32.dp,
+                    strokeWidth = 3.dp,
                     bottomLabel = if (temp != null && temp!! > 0) "%.1f\u00B0C".format(temp) else "",
                 )
             }
         }
     } else {
         // 完整模式：左侧圆环 + 右侧详细文字
+        val clusters by service.cpuClusters.collectAsState()
+
         Box(
             modifier = Modifier
-                .width(240.dp)
+                .width(226.dp)
                 .background(BG, RoundedCornerShape(10.dp))
                 .padding(8.dp),
         ) {
             Row {
                 // 左侧三个圆环
                 Column(
-                    modifier = Modifier.width(58.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.width(44.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    val maxFreq = coreFreqs?.maxOrNull()
                     FloatRingGauge(
                         percentage = (cpu ?: 0.0).toFloat(),
                         color = CpuColor,
                         label = "CPU",
-                        size = 46.dp,
-                        bottomLabel = if (maxFreq != null) "${maxFreq}MHz" else "",
+                        size = 34.dp,
+                        strokeWidth = 3.dp,
                     )
                     FloatRingGauge(
                         percentage = (gpu ?: 0.0).toFloat(),
                         color = GpuColor,
                         label = "GPU",
-                        size = 46.dp,
-                        bottomLabel = if (gpuFreq != null && gpuFreq!! > 0) "${gpuFreq}MHz" else "0MHz",
+                        size = 34.dp,
+                        strokeWidth = 3.dp,
                     )
                     FloatRingGauge(
                         percentage = (mem ?: 0.0).toFloat(),
                         color = MemColor,
-                        label = "${(mem ?: 0.0).toInt()}%",
-                        size = 46.dp,
-                        bottomLabel = if (temp != null && temp!! > 0) "%.1f\u00B0C".format(temp) else "",
+                        label = "RAM",
+                        size = 34.dp,
+                        strokeWidth = 3.dp,
                     )
                 }
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(6.dp))
                 // 右侧详细信息
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    // RAM
-                    val memPct = (mem ?: 0.0).toInt()
-                    DetailLine("#RAM", "%d%%  %.0fMB/%.0fMB".format(memPct, memUsedMB, memTotalMB), MemColor)
-                    // CPU temp
-                    val tempVal = temp
-                    DetailLine("#CPU", if (tempVal != null && tempVal > 0) "%.1f\u00B0C".format(tempVal) else "--\u00B0C", if (tempVal != null) tempColor(tempVal) else TextSecondary)
-                    // Per-core info
+                    // 按簇显示: 负载 + 频率
                     val cores = coreLoads
                     val freqs = coreFreqs
-                    if (!cores.isNullOrEmpty()) {
-                        // 分组显示核心
+                    if (clusters.isNotEmpty() && !cores.isNullOrEmpty()) {
+                        clusters.forEach { cluster ->
+                            val avgLoad = cluster.coreIndices
+                                .map { cores.getOrElse(it) { 0.0 } }.average()
+                            val freq = freqs?.getOrNull(cluster.coreIndices.first()) ?: 0
+                            val tag = cluster.name ?: "C${cluster.coreIndices.first()}-${cluster.coreIndices.last()}"
+                            DetailLine(tag, "%d%%  %dMHz".format(avgLoad.toInt(), freq), TextPrimary)
+                        }
+                    } else if (!cores.isNullOrEmpty()) {
                         val grouped = groupCoresByFreq(freqs)
                         grouped.forEach { (range, freq) ->
                             DetailLine(range, if (freq > 0) "${freq}MHz" else "", TextSecondary)
                         }
-                        // 各核心负载
-                        val coreTexts = cores.mapIndexed { i, load -> "C$i %d%%".format(load.toInt()) }
-                        val rows = coreTexts.chunked(4)
-                        rows.forEach { row ->
-                            Text(
-                                text = row.joinToString("  "),
-                                style = MonoStyle.copy(fontSize = 7.sp, color = TextSecondary),
-                            )
-                        }
                     }
+                    // GPU freq
+                    if (gpuFreq != null && gpuFreq!! > 0) {
+                        DetailLine("GPU", "%d%%  %dMHz".format((gpu ?: 0.0).toInt(), gpuFreq), GpuColor)
+                    }
+                    // RAM + DDR
+                    val ramText = if (ddrFreq != null && ddrFreq!! > 0) {
+                        "%d%%  %dMbps".format((mem ?: 0.0).toInt(), ddrFreq)
+                    } else {
+                        "%d%%  %.0f/%.0fMB".format((mem ?: 0.0).toInt(), memUsedMB, memTotalMB)
+                    }
+                    DetailLine("RAM", ramText, MemColor)
+                    // CPU temp
+                    val tempVal = temp
+                    DetailLine("TEMP", if (tempVal != null && tempVal > 0) "%.1f\u00B0C".format(tempVal) else "--", if (tempVal != null) tempColor(tempVal) else TextSecondary)
                     // FPS
                     val fpsVal = fps
                     if (fpsVal != null) {
-                        DetailLine("#FPS", "%.1f".format(fpsVal), fpsColor(fpsVal))
+                        DetailLine("FPS", "%.1f".format(fpsVal), fpsColor(fpsVal))
                     }
                     // Power
                     val mAVal = mA
                     if (mAVal != null) {
-                        DetailLine("#PWR", "%dmA".format(mAVal), CurrentColor)
+                        DetailLine("PWR", "%dmA".format(mAVal), CurrentColor)
                     }
                     // Battery temp
                     val batTempVal = batTemp
                     if (batTempVal != null && batTempVal > 0) {
-                        DetailLine("#BAT", "%.1f\u00B0C  %d%%".format(batTempVal, bat), BatColor)
+                        DetailLine("BAT", "%.1f\u00B0C  %d%%".format(batTempVal, bat), BatColor)
                     }
                 }
             }
@@ -262,12 +273,14 @@ private fun DetailLine(label: String, value: String, valueColor: Color) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             text = label,
-            style = MonoStyle.copy(fontSize = 8.sp, color = TextSecondary),
-            modifier = Modifier.width(34.dp),
+            style = MonoStyle.copy(fontSize = 7.sp, color = TextSecondary),
+            modifier = Modifier.width(36.dp),
+            maxLines = 1,
         )
         Text(
             text = value,
             style = MonoStyle.copy(fontSize = 8.sp, color = valueColor),
+            maxLines = 1,
         )
     }
 }

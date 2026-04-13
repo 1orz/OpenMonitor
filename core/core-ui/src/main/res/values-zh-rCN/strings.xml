@@ -40,9 +40,7 @@
     <string name="fps_chart_fps_temp">FPS / 温度</string>
     <string name="fps_chart_frame_time">帧时间 (ms)</string>
     <string name="fps_chart_cpu_usage">CPU / GPU 占用率 (%)</string>
-    <string name="fps_chart_cpu_core_load">CPU 各核心占用率 (%)</string>
-    <string name="fps_chart_gpu_freq">GPU 频率 (MHz)</string>
-    <string name="fps_chart_cpu_freq">CPU 各核心频率 (MHz)</string>
+    <string name="fps_chart_cpu_gpu_freq">CPU / GPU 频率 (MHz)</string>
     <string name="fps_chart_power">功率 / 电量</string>
     <string name="fps_chart_battery_current">电池电流 (mA)</string>
     <string name="fps_chart_temperature">温度</string>
@@ -52,9 +50,7 @@
     <string name="fps_section_fps_temp">FPS</string>
     <string name="fps_section_frame_time">帧时间</string>
     <string name="fps_section_cpu_gpu">CPU / GPU</string>
-    <string name="fps_section_cpu_core_load">CPU 核心</string>
-    <string name="fps_section_gpu_freq">GPU 频率</string>
-    <string name="fps_section_cpu_freq">CPU 频率</string>
+    <string name="fps_section_cpu_gpu_freq">CPU / GPU 频率</string>
     <string name="fps_section_jank">卡顿</string>
     <string name="fps_section_power">功率</string>
     <string name="fps_section_current">电流</string>

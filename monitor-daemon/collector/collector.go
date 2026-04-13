@@ -47,6 +47,9 @@ type Snapshot struct {
 	MemTotalMB *int64 `json:"memory_total_mb"`
 	MemAvailMB *int64 `json:"memory_avail_mb"`
 
+	// DDR frequency (Mbps) — nil when sysfs path inaccessible
+	DdrFreqMbps *int `json:"ddr_freq_mbps"`
+
 	// Battery
 	Battery BatteryInfo `json:"battery"`
 
@@ -117,6 +120,7 @@ func (c *Collector) sampleSystem() {
 	gpuFreq := readGpuFreqMhz()
 	gpuLoad := readGpuLoad()
 	totalMB, availMB := readMemInfo()
+	ddrFreq := readDdrFreqMbps()
 	battery := readBattery()
 	fpsResult := c.fps.get()
 
@@ -134,6 +138,7 @@ func (c *Collector) sampleSystem() {
 		GpuLoad:     gpuLoad,
 		MemTotalMB:  totalMB,
 		MemAvailMB:  availMB,
+		DdrFreqMbps: ddrFreq,
 		Battery:     battery,
 		Runner:      daemonRunner,
 		TimestampMs: time.Now().UnixMilli(),

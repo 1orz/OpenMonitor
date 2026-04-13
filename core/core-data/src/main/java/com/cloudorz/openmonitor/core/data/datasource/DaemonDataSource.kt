@@ -129,6 +129,7 @@ class DaemonDataSource @Inject constructor(
             val temp = if (!obj.isNull("cpu_temp")) obj.getDouble("cpu_temp") else null
             val gpuLoad = if (!obj.isNull("gpu_load")) obj.getDouble("gpu_load") else null
             val gpuFreq = if (!obj.isNull("gpu_freq")) obj.getInt("gpu_freq") else null
+            val ddrFreqMbps = if (!obj.isNull("ddr_freq_mbps")) obj.getInt("ddr_freq_mbps") else null
 
             var batteryCurrentMa: Int? = null
             var batteryCurrentUa: Int? = null
@@ -168,6 +169,7 @@ class DaemonDataSource @Inject constructor(
                 batteryChargeFullDesignUah = batteryChargeFullDesignUah,
                 batteryChargeCounterUah = batteryChargeCounterUah,
                 batteryHealth = batteryHealth,
+                ddrFreqMbps = ddrFreqMbps,
                 fpsData = fpsData,
                 daemonRunner = runner,
             )
