@@ -247,4 +247,22 @@
     <string name="settings_open_source_licenses">開源軟體授權</string>
     <string name="licenses_summary">本應用使用了 %1$d 個開源軟體庫</string>
 
+    <!-- 啟用 -->
+    <string name="activation_title">啟用 OpenMonitor</string>
+    <string name="activation_subtitle">輸入啟用碼以解鎖全部功能</string>
+    <string name="activation_device_id">裝置 ID</string>
+    <string name="activation_code_hint">啟用碼</string>
+    <string name="activation_activate">啟用</string>
+    <string name="activation_activating">正在啟用\u2026</string>
+    <string name="activation_success">啟用成功！</string>
+    <string name="activation_invalid_code">啟用碼無效</string>
+    <string name="activation_wrong_device">該啟用碼未綁定此裝置</string>
+    <string name="activation_revoked">該啟用碼已被撤銷</string>
+    <string name="activation_network_error">網路錯誤，請檢查網路連線</string>
+    <string name="activation_copied">裝置 ID 已複製</string>
+    <string name="activation_contact">聯繫開發者取得啟用碼</string>
+    <string name="activation_plan_basic">基礎版</string>
+    <string name="activation_plan_pro">專業版</string>
+    <string name="activation_plan_ultimate">旗艦版</string>
+
 </resources>

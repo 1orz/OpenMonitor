@@ -247,4 +247,22 @@
     <string name="settings_open_source_licenses">オープンソースライセンス</string>
     <string name="licenses_summary">このアプリは %1$d 個のオープンソースライブラリを使用しています</string>
 
+    <!-- アクティベーション -->
+    <string name="activation_title">OpenMonitor をアクティベート</string>
+    <string name="activation_subtitle">アクティベーションコードを入力して全機能をロック解除</string>
+    <string name="activation_device_id">デバイス ID</string>
+    <string name="activation_code_hint">アクティベーションコード</string>
+    <string name="activation_activate">アクティベート</string>
+    <string name="activation_activating">アクティベート中\u2026</string>
+    <string name="activation_success">アクティベーション成功！</string>
+    <string name="activation_invalid_code">無効なアクティベーションコード</string>
+    <string name="activation_wrong_device">このコードはこのデバイスにバインドされていません</string>
+    <string name="activation_revoked">このアクティベーションコードは取り消されました</string>
+    <string name="activation_network_error">ネットワークエラー、接続を確認してください</string>
+    <string name="activation_copied">デバイス ID をコピーしました</string>
+    <string name="activation_contact">開発者に連絡してアクティベーションコードを取得</string>
+    <string name="activation_plan_basic">ベーシック</string>
+    <string name="activation_plan_pro">プロ</string>
+    <string name="activation_plan_ultimate">アルティメット</string>
+
 </resources>

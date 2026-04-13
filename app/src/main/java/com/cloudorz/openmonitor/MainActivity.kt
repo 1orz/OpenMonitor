@@ -63,6 +63,9 @@ import com.cloudorz.openmonitor.core.common.PermissionManager
 import com.cloudorz.openmonitor.core.common.PrivilegeMode
 import com.cloudorz.openmonitor.core.data.datasource.DaemonManager
 import com.cloudorz.openmonitor.core.data.datasource.DaemonState
+import com.cloudorz.openmonitor.core.data.repository.ActivationRepository
+import com.cloudorz.openmonitor.core.data.repository.DeviceIdentityRepository
+import com.cloudorz.openmonitor.ui.activation.ActivationScreen
 import com.cloudorz.openmonitor.core.ui.hapticClick
 import com.cloudorz.openmonitor.core.ui.theme.LocalColorMode
 import com.cloudorz.openmonitor.core.ui.theme.LocalPageScale
@@ -115,6 +118,12 @@ class MainActivity : AppCompatActivity() {
     @Inject
     lateinit var daemonManager: DaemonManager
 
+    @Inject
+    lateinit var identityRepository: DeviceIdentityRepository
+
+    @Inject
+    lateinit var activationRepository: ActivationRepository
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -133,17 +142,25 @@ class MainActivity : AppCompatActivity() {
                 LocalPageScale provides themeState.pageScale,
             ) {
                 MonitorTheme(appSettings = themeState.appSettings) {
-                    MonitorAppContent(permissionManager, daemonManager)
+                    MonitorAppContent(
+                        permissionManager, daemonManager,
+                        identityRepository, activationRepository,
+                    )
                 }
             }
         }
     }
 }
 
-private enum class StartupPhase { CHECKING, READY, NEEDS_GUIDE, NEEDS_PERMISSIONS }
+private enum class StartupPhase { CHECKING, READY, NEEDS_GUIDE, NEEDS_PERMISSIONS, NEEDS_ACTIVATION }
 
 @Composable
-private fun MonitorAppContent(permissionManager: PermissionManager, daemonManager: DaemonManager) {
+private fun MonitorAppContent(
+    permissionManager: PermissionManager,
+    daemonManager: DaemonManager,
+    identityRepository: DeviceIdentityRepository,
+    activationRepository: ActivationRepository,
+) {
     val context = LocalContext.current
     var agreementState by rememberSaveable { mutableStateOf("checking") }
 
@@ -214,10 +231,18 @@ private fun MonitorAppContent(permissionManager: PermissionManager, daemonManage
                 daemonManager.ensureRunning()
             }
             startupStepResId = R.string.startup_almost_ready
-            startupPhase = StartupPhase.READY
+            if (activationRepository.isActivated()) {
+                startupPhase = StartupPhase.READY
+            } else {
+                startupPhase = StartupPhase.NEEDS_ACTIVATION
+            }
         }
         if (startupPhase == StartupPhase.CHECKING) {
-            startupPhase = StartupPhase.READY
+            if (activationRepository.isActivated()) {
+                startupPhase = StartupPhase.READY
+            } else {
+                startupPhase = StartupPhase.NEEDS_ACTIVATION
+            }
         }
     }
 
@@ -279,7 +304,20 @@ private fun MonitorAppContent(permissionManager: PermissionManager, daemonManage
         }
         StartupPhase.NEEDS_PERMISSIONS -> {
             PermissionSetupScreen(
-                onAllGranted = { startupPhase = StartupPhase.READY },
+                onAllGranted = {
+                    if (activationRepository.isActivated()) {
+                        startupPhase = StartupPhase.READY
+                    } else {
+                        startupPhase = StartupPhase.NEEDS_ACTIVATION
+                    }
+                },
+            )
+        }
+        StartupPhase.NEEDS_ACTIVATION -> {
+            ActivationScreen(
+                identityRepository = identityRepository,
+                activationRepository = activationRepository,
+                onActivated = { startupPhase = StartupPhase.READY },
             )
         }
         StartupPhase.READY -> {

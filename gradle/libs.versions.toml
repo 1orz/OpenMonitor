@@ -22,6 +22,7 @@ vico = "3.1.0"
 materialKolor = "4.1.1"
 xlog = "1.11.1"
 zxing = "3.5.3"
+eddsa = "0.3.0"
 googleServices = "4.4.4"
 firebaseBom = "34.12.0"
 markdownRenderer = "0.27.0"
@@ -102,6 +103,9 @@ markdown-renderer-m3 = { module = "com.mikepenz:multiplatform-markdown-renderer-
 
 # QR Code
 zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
+
+# Ed25519
+eddsa = { module = "net.i2p.crypto:eddsa", version.ref = "eddsa" }
 
 # Test
 junit = { module = "junit:junit", version.ref = "junit" }

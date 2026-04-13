@@ -126,6 +126,13 @@ android {
             p.getProperty("api.ec.public.key") ?: ""
         } else ""
         buildConfigField("String", "API_EC_PUBLIC_KEY", "\"$ecPublicKey\"")
+
+        val activationPublicKey = if (localProps.exists()) {
+            val p = Properties()
+            localProps.reader().use { reader -> p.load(reader) }
+            p.getProperty("activation.ed25519.public.key") ?: ""
+        } else ""
+        buildConfigField("String", "ACTIVATION_PUBLIC_KEY", "\"$activationPublicKey\"")
     }
 }
 

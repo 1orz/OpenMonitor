@@ -247,4 +247,22 @@
     <string name="settings_open_source_licenses">开源软件许可</string>
     <string name="licenses_summary">本应用使用了 %1$d 个开源软件库</string>
 
+    <!-- 激活 -->
+    <string name="activation_title">激活 OpenMonitor</string>
+    <string name="activation_subtitle">输入激活码以解锁全部功能</string>
+    <string name="activation_device_id">设备 ID</string>
+    <string name="activation_code_hint">激活码</string>
+    <string name="activation_activate">激活</string>
+    <string name="activation_activating">正在激活\u2026</string>
+    <string name="activation_success">激活成功！</string>
+    <string name="activation_invalid_code">激活码无效</string>
+    <string name="activation_wrong_device">该激活码未绑定此设备</string>
+    <string name="activation_revoked">该激活码已被吊销</string>
+    <string name="activation_network_error">网络错误，请检查网络连接</string>
+    <string name="activation_copied">设备 ID 已复制</string>
+    <string name="activation_contact">联系开发者获取激活码</string>
+    <string name="activation_plan_basic">基础版</string>
+    <string name="activation_plan_pro">专业版</string>
+    <string name="activation_plan_ultimate">旗舰版</string>
+
 </resources>

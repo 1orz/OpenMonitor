@@ -29,6 +29,7 @@ import javax.inject.Singleton
 class DeviceIdentityRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     private val collector: DeviceFingerprintCollector,
+    private val activationRepository: ActivationRepository,
 ) {
     companion object {
         private const val TAG = "DeviceIdentity"
@@ -120,6 +121,11 @@ class DeviceIdentityRepository @Inject constructor(
         val data = ApiResponseParser.unwrapData(response)
         val uuid = data.getString("uuid")
         if (uuid.isBlank()) throw IdentifyException("Empty uuid in response")
+
+        // 同步激活状态：服务端在 identify 响应中附带 activation 字段
+        val activationJson = data.optJSONObject("activation")
+        activationRepository.syncFromIdentifyResponse(uuid, activationJson)
+
         return DeviceIdentity(
             uuid = uuid,
             isNew = data.optBoolean("is_new", false),
