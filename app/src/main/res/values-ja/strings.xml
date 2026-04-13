@@ -31,7 +31,7 @@
     <string name="shizuku_wait_desc">表示された Shizuku 認証ダイアログで【許可】をタップしてください。\n\nShizuku が実行されていない場合は、先に Shizuku を起動してください。</string>
 
     <!-- クイック設定タイル -->
-    <string name="tile_label">システムモニター</string>
+    <string name="tile_label">OpenMonitor</string>
     <string name="tile_label_format">CPU %1$d%% · %2$s°C</string>
 
     <!-- ストレージ -->

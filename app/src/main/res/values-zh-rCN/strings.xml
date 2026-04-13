@@ -31,7 +31,7 @@
     <string name="shizuku_wait_desc">请在弹出的 Shizuku 授权对话框中点击【允许】。\n\n若 Shizuku 未运行，请先启动 Shizuku 后重试。</string>
 
     <!-- Quick Settings Tile -->
-    <string name="tile_label">系统监控</string>
+    <string name="tile_label">OpenMonitor</string>
     <string name="tile_label_format">CPU %1$d%% · %2$s°C</string>
 
     <!-- 存储信息 -->
