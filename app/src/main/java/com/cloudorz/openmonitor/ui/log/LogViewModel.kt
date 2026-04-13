@@ -107,25 +107,35 @@ class LogViewModel @Inject constructor(
     private val daemonLogPath: String
         get() = "${daemonLauncher.dataDir.absolutePath}/daemon.log"
 
-    init {
-        viewModelScope.launch {
-            while (isActive) {
-                refreshLogDates()
-                delay(DATE_REFRESH_INTERVAL_MS)
+    private var pollingJob: kotlinx.coroutines.Job? = null
+
+    fun startObserving() {
+        if (pollingJob?.isActive == true) return
+        pollingJob = viewModelScope.launch {
+            launch {
+                while (isActive) {
+                    refreshLogDates()
+                    delay(DATE_REFRESH_INTERVAL_MS)
+                }
+            }
+            launch {
+                while (isActive) {
+                    if (!_paused.value) fetchAppLogs()
+                    delay(APP_LOG_POLL_INTERVAL_MS)
+                }
+            }
+            launch {
+                while (isActive) {
+                    if (!_paused.value) fetchDaemonLogs()
+                    delay(DAEMON_POLL_INTERVAL_MS)
+                }
             }
         }
-        viewModelScope.launch {
-            while (isActive) {
-                if (!_paused.value) fetchAppLogs()
-                delay(APP_LOG_POLL_INTERVAL_MS)
-            }
-        }
-        viewModelScope.launch {
-            while (isActive) {
-                if (!_paused.value) fetchDaemonLogs()
-                delay(DAEMON_POLL_INTERVAL_MS)
-            }
-        }
+    }
+
+    fun stopObserving() {
+        pollingJob?.cancel()
+        pollingJob = null
     }
 
     fun togglePause() {

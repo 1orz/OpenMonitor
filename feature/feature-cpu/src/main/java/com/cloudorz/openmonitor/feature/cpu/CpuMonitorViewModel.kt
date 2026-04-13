@@ -6,12 +6,11 @@ import androidx.lifecycle.viewModelScope
 import com.cloudorz.openmonitor.core.data.repository.CpuRepository
 import com.cloudorz.openmonitor.core.model.cpu.CpuGlobalStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
 data class CpuMonitorUiState(
@@ -21,50 +20,21 @@ data class CpuMonitorUiState(
 
 @HiltViewModel
 class CpuMonitorViewModel @Inject constructor(
-    private val cpuRepository: CpuRepository,
+    cpuRepository: CpuRepository,
 ) : ViewModel() {
 
     companion object {
         private const val TAG = "CpuMonitorViewModel"
     }
 
-    private val _uiState = MutableStateFlow(CpuMonitorUiState())
-    val uiState: StateFlow<CpuMonitorUiState> = _uiState.asStateFlow()
+    fun refresh() {}
 
-    init {
-        observeCpuStatus()
-    }
-
-    private fun observeCpuStatus() {
-        viewModelScope.launch {
-            cpuRepository.observeCpuStatus(intervalMs = 1000L)
-                .catch { e -> Log.w(TAG, "observeCpuStatus error", e) }
-                .collect { status ->
-                    _uiState.update {
-                        it.copy(
-                            cpuStatus = status,
-                            isLoading = false,
-                        )
-                    }
-                }
-        }
-    }
-
-    fun refresh() {
-        _uiState.update { it.copy(isLoading = true) }
-        viewModelScope.launch {
-            try {
-                val status = cpuRepository.getCpuStatus()
-                _uiState.update {
-                    it.copy(
-                        cpuStatus = status,
-                        isLoading = false,
-                    )
-                }
-            } catch (e: Exception) {
-                Log.w(TAG, "refresh failed", e)
-                _uiState.update { it.copy(isLoading = false) }
-            }
-        }
-    }
+    val uiState: StateFlow<CpuMonitorUiState> = cpuRepository.observeCpuStatus(intervalMs = 1000L)
+        .catch { e -> Log.w(TAG, "observeCpuStatus error", e); emit(CpuGlobalStatus()) }
+        .map { status -> CpuMonitorUiState(cpuStatus = status, isLoading = false) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = CpuMonitorUiState(),
+        )
 }

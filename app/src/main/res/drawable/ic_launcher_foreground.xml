@@ -1,26 +1,73 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <!-- Simple monitor/screen icon shape -->
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+
+    <!-- Water fill: clipped to screen interior, gradient below curve -->
+    <group>
+        <clip-path
+            android:pathData="M168,178h176c10,0 18,8 18,18v100c0,10 -8,18 -18,18h-176c-10,0 -18,-8 -18,-18v-100c0,-10 8,-18 18,-18z" />
+        <path
+            android:pathData="M150,272C172,264 192,248 216,250C238,252 252,278 272,275C290,272 300,252 308,242L308,314L150,314Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:endX="0"
+                    android:endY="314"
+                    android:startX="0"
+                    android:startY="228"
+                    android:type="linear">
+                    <item
+                        android:color="#6B80CBC4"
+                        android:offset="0" />
+                    <item
+                        android:color="#3D4DB6AC"
+                        android:offset="0.55" />
+                    <item
+                        android:color="#0826A69A"
+                        android:offset="1" />
+                </gradient>
+            </aapt:attr>
+        </path>
+    </group>
+
+    <!-- Monitor screen frame -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M30,32h48c2.2,0 4,1.8 4,4v28c0,2.2 -1.8,4 -4,4H30c-2.2,0 -4,-1.8 -4,-4V36C26,33.8 27.8,32 30,32z" />
+        android:fillColor="#00000000"
+        android:pathData="M165,170h182c14,0 25,11 25,25v110c0,14 -11,25 -25,25h-182c-14,0 -25,-11 -25,-25v-110c0,-14 11,-25 25,-25z"
+        android:strokeColor="#E1F5FE"
+        android:strokeLineJoin="round"
+        android:strokeWidth="16" />
+
+    <!-- Monitor stand neck -->
     <path
-        android:fillColor="#1976D2"
-        android:pathData="M32,36h44v24H32z" />
+        android:fillColor="#E1F5FE"
+        android:pathData="M243,330h26v26h-26z" />
+
+    <!-- Monitor base -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M46,72h16v4H46z" />
+        android:fillColor="#E1F5FE"
+        android:pathData="M212,352h88c6,0 10,4 10,10c0,2 -2,4 -4,4h-100c-2,0 -4,-2 -4,-4c0,-6 4,-10 10,-10z" />
+
+    <!-- Performance curve stroke -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M42,76h24v2H42z" />
-    <!-- Simple chart line inside screen -->
+        android:fillColor="#00000000"
+        android:pathData="M150,272C172,264 192,248 216,250C238,252 252,278 272,275C290,272 300,252 308,242"
+        android:strokeColor="#E1F5FE"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="8" />
+
+    <!-- Curve end point: outer glow -->
     <path
-        android:fillColor="@android:color/transparent"
-        android:strokeColor="#64B5F6"
-        android:strokeWidth="2"
-        android:pathData="M36,54 L44,48 L52,52 L60,42 L68,46 L72,40" />
+        android:fillColor="#A5D6A7"
+        android:pathData="M308,234a8,8 0,1 1,-0.01 0z" />
+
+    <!-- Curve end point: inner dot -->
+    <path
+        android:fillColor="#C8E6C9"
+        android:pathData="M308,237.5a4.5,4.5 0,1 1,-0.01 0z" />
+
 </vector>

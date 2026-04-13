@@ -15,9 +15,11 @@ import com.cloudorz.openmonitor.core.model.memory.SwapInfo
 import com.cloudorz.openmonitor.core.model.storage.StorageInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -41,19 +43,17 @@ class HardwareInfoViewModel @Inject constructor(
     private val displayRepository: DisplayRepository,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(HardwareInfoUiState())
-    val uiState: StateFlow<HardwareInfoUiState> = _uiState.asStateFlow()
+    private val _staticState = MutableStateFlow(HardwareInfoUiState())
 
     init {
         loadStaticData()
-        observeMemory()
     }
 
     private fun loadStaticData() {
         viewModelScope.launch {
             try {
                 val cpu = cpuRepository.getCpuStatus()
-                _uiState.update { it.copy(cpuStatus = cpu, isLoading = false) }
+                _staticState.update { it.copy(cpuStatus = cpu, isLoading = false) }
             } catch (e: Exception) {
                 android.util.Log.w("HardwareInfoVM", "CPU load failed", e)
             }
@@ -61,7 +61,7 @@ class HardwareInfoViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val gpu = gpuRepository.getGpuInfo()
-                _uiState.update { it.copy(gpuInfo = gpu) }
+                _staticState.update { it.copy(gpuInfo = gpu) }
             } catch (e: Exception) {
                 android.util.Log.w("HardwareInfoVM", "GPU load failed", e)
             }
@@ -69,7 +69,7 @@ class HardwareInfoViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val storage = storageRepository.getStorageInfo()
-                _uiState.update { it.copy(storageInfo = storage) }
+                _staticState.update { it.copy(storageInfo = storage) }
             } catch (e: Exception) {
                 android.util.Log.w("HardwareInfoVM", "Storage load failed", e)
             }
@@ -77,27 +77,24 @@ class HardwareInfoViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val display = displayRepository.getDisplayInfo()
-                _uiState.update { it.copy(displayInfo = display) }
+                _staticState.update { it.copy(displayInfo = display) }
             } catch (e: Exception) {
                 android.util.Log.w("HardwareInfoVM", "Display load failed", e)
             }
         }
     }
 
-    private fun observeMemory() {
-        viewModelScope.launch {
-            memoryRepository.observeMemoryInfo(intervalMs = 5000L)
-                .catch { e -> android.util.Log.w("HardwareInfoVM", "Memory flow error", e) }
-                .collect { memory ->
-                    _uiState.update { it.copy(memoryInfo = memory, isLoading = false) }
-                }
-        }
-        viewModelScope.launch {
-            memoryRepository.observeSwapInfo(intervalMs = 5000L)
-                .catch { e -> android.util.Log.w("HardwareInfoVM", "Swap flow error", e) }
-                .collect { swap ->
-                    _uiState.update { it.copy(swapInfo = swap) }
-                }
-        }
-    }
+    val uiState: StateFlow<HardwareInfoUiState> = combine(
+        _staticState,
+        memoryRepository.observeMemoryInfo(intervalMs = 5000L)
+            .catch { e -> android.util.Log.w("HardwareInfoVM", "Memory flow error", e); emit(MemoryInfo()) },
+        memoryRepository.observeSwapInfo(intervalMs = 5000L)
+            .catch { e -> android.util.Log.w("HardwareInfoVM", "Swap flow error", e); emit(SwapInfo()) },
+    ) { static, memory, swap ->
+        static.copy(memoryInfo = memory, swapInfo = swap, isLoading = false)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = HardwareInfoUiState(),
+    )
 }

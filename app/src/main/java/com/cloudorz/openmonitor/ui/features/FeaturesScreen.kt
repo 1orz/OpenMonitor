@@ -18,7 +18,6 @@ import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.VpnKey
 import androidx.compose.material.icons.outlined.PhoneAndroid
-import androidx.compose.material.icons.outlined.Sensors
 import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material3.HorizontalDivider
@@ -51,7 +50,6 @@ fun FeaturesScreen(
         FeatureItem(stringResource(R.string.feature_fps_recording), Icons.Outlined.Speed, Route.Fps),
         FeatureItem(stringResource(R.string.feature_process_monitor), Icons.Outlined.Memory, Route.Process),
         FeatureItem(stringResource(R.string.feature_float_monitor), Icons.Outlined.Layers, Route.FloatMonitor),
-        FeatureItem(stringResource(R.string.feature_sensor), Icons.Outlined.Sensors, Route.Sensor),
         FeatureItem(stringResource(R.string.feature_network_monitor), Icons.Outlined.SwapVert, Route.Network),
         FeatureItem(stringResource(R.string.feature_key_attestation), Icons.Outlined.VpnKey, Route.KeyAttestation),
         FeatureItem(stringResource(R.string.feature_debug_log), Icons.Outlined.BugReport, Route.Log),

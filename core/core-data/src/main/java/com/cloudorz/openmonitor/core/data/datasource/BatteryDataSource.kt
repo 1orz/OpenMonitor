@@ -145,6 +145,14 @@ class BatteryDataSource @Inject constructor(
         val chargeType = sysfsReader.readString("$batteryPath/charge_type") ?: ""
         val powerW = abs(currentMa / 1000.0 * voltageV)
 
+        // Extended battery info from sysfs (available on ROOT mode, null on BASIC)
+        val cycleCount = sysfsReader.readInt("$batteryPath/cycle_count")
+        val chargeFullUah = sysfsReader.readLong("$batteryPath/charge_full")
+        val chargeFullDesignUah = sysfsReader.readLong("$batteryPath/charge_full_design")
+        val chargeCounterUah = sysfsReader.readLong("$batteryPath/charge_counter")
+            ?: batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)
+                .takeIf { it != Int.MIN_VALUE && it != 0 }?.toLong()
+
         BatteryStatus(
             capacity = level,
             temperatureCelsius = temperature,
@@ -157,7 +165,11 @@ class BatteryDataSource @Inject constructor(
             statusText = statusStr,
             chargerPower = powerW,
             capacityMah = capacityMah,
-            timestamp = System.currentTimeMillis()
+            timestamp = System.currentTimeMillis(),
+            cycleCount = cycleCount,
+            chargeFullMah = chargeFullUah?.let { it / 1000.0 },
+            chargeFullDesignMah = chargeFullDesignUah?.let { it / 1000.0 },
+            chargeCounterMah = chargeCounterUah?.let { it / 1000.0 },
         )
     }
 

@@ -8,6 +8,7 @@ import com.cloudorz.openmonitor.core.model.process.ProcessState
 import com.cloudorz.openmonitor.core.model.process.ThreadInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -20,6 +21,10 @@ class ProcessDataSource @Inject constructor(
     companion object {
         private const val TAG = "ProcessDataSource"
     }
+
+    // Thread CPU delta state: key = tid, value = (utime+stime total ticks)
+    private val prevThreadTicks = ConcurrentHashMap<Int, Long>()
+    @Volatile private var prevSystemTotalTicks: Long = 0L
 
     private val androidUserPattern = Regex("u\\d+_a\\d+")
     private val packageNamePattern = Regex("^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)+$")
@@ -137,19 +142,79 @@ class ProcessDataSource @Inject constructor(
         result.isSuccess
     }
 
+    /**
+     * Reads threads for a process with CPU usage calculated via delta from /proc/pid/task/tid/stat.
+     * Requires two consecutive calls to produce non-zero CPU percentages (first call seeds the baseline).
+     */
     suspend fun getThreads(pid: Int): List<ThreadInfo> = withContext(Dispatchers.IO) {
         try {
-            java.io.File("/proc/$pid/task").list()
-                ?.mapNotNull { tidStr ->
-                    val tid = tidStr.toIntOrNull() ?: return@mapNotNull null
-                    val name = sysfsReader.readString("/proc/$pid/task/$tid/comm")?.trim() ?: ""
-                    ThreadInfo(tid = tid, name = name)
-                }
-                ?: emptyList()
+            // Read system-wide total CPU ticks for the delta denominator
+            val sysTotalTicks = readSystemTotalTicks()
+            val sysDelta = sysTotalTicks - prevSystemTotalTicks
+            val hasPrevious = prevSystemTotalTicks > 0L && sysDelta > 0L
+
+            val tids = java.io.File("/proc/$pid/task").list() ?: return@withContext emptyList()
+            val currentTicks = ConcurrentHashMap<Int, Long>()
+
+            val threads = tids.mapNotNull { tidStr ->
+                val tid = tidStr.toIntOrNull() ?: return@mapNotNull null
+                val name = try {
+                    java.io.File("/proc/$pid/task/$tid/comm").readText().trim()
+                } catch (_: Exception) { "" }
+
+                val ticks = readThreadTicks(pid, tid)
+                currentTicks[tid] = ticks
+
+                val cpuPercent = if (hasPrevious) {
+                    val prevTicks = prevThreadTicks[tid] ?: ticks
+                    val threadDelta = ticks - prevTicks
+                    if (threadDelta > 0) {
+                        (threadDelta.toDouble() / sysDelta * 100.0).coerceIn(0.0, 100.0)
+                    } else 0.0
+                } else 0.0
+
+                ThreadInfo(tid = tid, name = name, cpuLoadPercent = cpuPercent)
+            }.sortedByDescending { it.cpuLoadPercent }
+
+            // Update state for next delta
+            prevThreadTicks.clear()
+            prevThreadTicks.putAll(currentTicks)
+            prevSystemTotalTicks = sysTotalTicks
+
+            threads
         } catch (e: Exception) {
             Log.d(TAG, "getThreads failed for pid=$pid: ${e.message}")
             emptyList()
         }
+    }
+
+    /** Reads utime + stime from /proc/pid/task/tid/stat (fields 14 and 15, 1-indexed). */
+    private fun readThreadTicks(pid: Int, tid: Int): Long {
+        return try {
+            val stat = java.io.File("/proc/$pid/task/$tid/stat").readText()
+            // Format: "tid (comm) S ... utime stime ..."
+            // comm can contain spaces/parens, so find the last ')' to skip it
+            val afterComm = stat.indexOf(')') + 2 // skip ") "
+            if (afterComm < 2 || afterComm >= stat.length) return 0L
+            val fields = stat.substring(afterComm).trim().split(' ')
+            // fields[0] = state, fields[11] = utime (index 13-2), fields[12] = stime (index 14-2)
+            val utime = fields.getOrNull(11)?.toLongOrNull() ?: 0L
+            val stime = fields.getOrNull(12)?.toLongOrNull() ?: 0L
+            utime + stime
+        } catch (_: Exception) { 0L }
+    }
+
+    /** Reads total CPU ticks from the aggregate "cpu" line in /proc/stat. */
+    private fun readSystemTotalTicks(): Long {
+        return try {
+            val cpuLine = java.io.File("/proc/stat").bufferedReader().use { it.readLine() }
+            // "cpu  user nice system idle iowait irq softirq steal ..."
+            cpuLine?.split(' ')
+                ?.filter { it.isNotEmpty() }
+                ?.drop(1) // skip "cpu"
+                ?.sumOf { it.toLongOrNull() ?: 0L }
+                ?: 0L
+        } catch (_: Exception) { 0L }
     }
 
     private fun parseState(c: Char): ProcessState = when (c) {

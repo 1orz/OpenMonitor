@@ -134,12 +134,22 @@ class DaemonDataSource @Inject constructor(
             var batteryCurrentUa: Int? = null
             var batteryVoltageUv: Int? = null
             var batteryPowerMw: Int? = null
+            var batteryCycleCount: Int? = null
+            var batteryChargeFullUah: Int? = null
+            var batteryChargeFullDesignUah: Int? = null
+            var batteryChargeCounterUah: Int? = null
+            var batteryHealth: String? = null
             if (!obj.isNull("battery")) {
                 val bat = obj.getJSONObject("battery")
                 batteryCurrentMa = if (!bat.isNull("current_ma")) bat.getInt("current_ma") else null
                 batteryCurrentUa = if (!bat.isNull("current_ua")) bat.getInt("current_ua") else null
                 batteryVoltageUv = if (!bat.isNull("voltage_uv")) bat.getInt("voltage_uv") else null
                 batteryPowerMw = if (!bat.isNull("power_mw")) bat.getInt("power_mw") else null
+                batteryCycleCount = if (!bat.isNull("cycle_count")) bat.getInt("cycle_count") else null
+                batteryChargeFullUah = if (!bat.isNull("charge_full_uah")) bat.getInt("charge_full_uah") else null
+                batteryChargeFullDesignUah = if (!bat.isNull("charge_full_design_uah")) bat.getInt("charge_full_design_uah") else null
+                batteryChargeCounterUah = if (!bat.isNull("charge_counter_uah")) bat.getInt("charge_counter_uah") else null
+                batteryHealth = if (!bat.isNull("health")) bat.getString("health") else null
             }
 
             MonitorSnapshot(
@@ -153,6 +163,11 @@ class DaemonDataSource @Inject constructor(
                 batteryCurrentUa = batteryCurrentUa,
                 batteryVoltageUv = batteryVoltageUv,
                 batteryPowerMw = batteryPowerMw,
+                batteryCycleCount = batteryCycleCount,
+                batteryChargeFullUah = batteryChargeFullUah,
+                batteryChargeFullDesignUah = batteryChargeFullDesignUah,
+                batteryChargeCounterUah = batteryChargeCounterUah,
+                batteryHealth = batteryHealth,
                 fpsData = fpsData,
                 daemonRunner = runner,
             )

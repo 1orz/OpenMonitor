@@ -12,7 +12,6 @@ import android.os.IBinder
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
-import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
@@ -65,7 +64,6 @@ class FloatMonitorService : LifecycleService() {
         const val ACTION_STOP = "com.cloudorz.openmonitor.service.FLOAT_STOP"
         const val ACTION_ADD_MONITOR = "com.cloudorz.openmonitor.service.FLOAT_ADD"
         const val ACTION_REMOVE_MONITOR = "com.cloudorz.openmonitor.service.FLOAT_REMOVE"
-        const val ACTION_UPDATE_POLL_SETTINGS = "com.cloudorz.openmonitor.service.UPDATE_POLL"
         const val ACTION_SHOW_PANEL = "com.cloudorz.openmonitor.service.FLOAT_SHOW_PANEL"
         const val EXTRA_MONITOR_TYPE = "monitor_type"
 
@@ -85,8 +83,7 @@ class FloatMonitorService : LifecycleService() {
         private const val KEY_MINI_CPU_FREQ = "mini_show_cpu_freq"
         private const val KEY_MINI_GPU_FREQ = "mini_show_gpu_freq"
         private const val BATTERY_SAMPLING_INTERVAL_MS = 30_000L
-        const val KEY_POLL_INTERVAL = "poll_interval"
-        const val DEFAULT_POLL_INTERVAL = 500L
+        private const val POLL_INTERVAL_MS = 1000L
         private const val KEY_DARK_MODE = "dark_mode"
         private const val KEY_TEMP_EXTENDED = "temp_extended_categories"
         private const val KEY_MINI_NET_SPEED = "mini_show_net_speed"
@@ -104,16 +101,15 @@ class FloatMonitorService : LifecycleService() {
                 putExtra(EXTRA_MONITOR_TYPE, monitorType)
             }
 
+        fun showPanelIntent(context: Context): Intent =
+            Intent(context, FloatMonitorService::class.java).apply { action = ACTION_SHOW_PANEL }
+
         fun removeMonitorIntent(context: Context, monitorType: String): Intent =
             Intent(context, FloatMonitorService::class.java).apply {
                 action = ACTION_REMOVE_MONITOR
                 putExtra(EXTRA_MONITOR_TYPE, monitorType)
             }
 
-        fun updatePollSettingsIntent(context: Context): Intent =
-            Intent(context, FloatMonitorService::class.java).apply {
-                action = ACTION_UPDATE_POLL_SETTINGS
-            }
     }
 
     @Inject lateinit var cpuDataSource: CpuDataSource
@@ -141,6 +137,8 @@ class FloatMonitorService : LifecycleService() {
 
     // Shared FPS collection: single writer to currentFps
     private var sharedFpsJob: Job? = null
+    // Shared snapshot collection: LOAD and MINI share one data loop
+    private var sharedSnapshotJob: Job? = null
 
     // Shared data states for composables (null = data not yet available)
     val cpuLoad = MutableStateFlow<Double?>(null)
@@ -176,7 +174,6 @@ class FloatMonitorService : LifecycleService() {
     val fpsRecordingInfo get() = fpsRecordingManager.info
     private var fpsInteractionJob: Job? = null
     private var fpsDurationMenuJob: Job? = null
-    private var notificationUpdateJob: Job? = null
     val batteryVoltage = MutableStateFlow(0.0)
     val memTotalMB = MutableStateFlow(0.0)
     val memUsedMB = MutableStateFlow(0.0)
@@ -421,9 +418,6 @@ class FloatMonitorService : LifecycleService() {
                 val type = intent.getStringExtra(EXTRA_MONITOR_TYPE) ?: return START_STICKY
                 removeMonitor(type)
             }
-            ACTION_UPDATE_POLL_SETTINGS -> {
-                restartAllJobs()
-            }
             ACTION_SHOW_PANEL -> {
                 showControlPanel()
             }
@@ -457,10 +451,9 @@ class FloatMonitorService : LifecycleService() {
 
         startForeground(
             NOTIFICATION_ID,
-            buildCustomNotification(),
+            buildMinimalNotification(),
             ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
         )
-        startNotificationUpdateJob()
         startBatterySampling()
 
         restoreJob?.cancel()
@@ -476,61 +469,14 @@ class FloatMonitorService : LifecycleService() {
         )
     }
 
-    /** User-visible foreground notification. */
-    private fun buildCustomNotification(): Notification {
+    private fun buildMinimalNotification(): Notification {
         val pendingIntent = getShowPanelPendingIntent()
-
-        val mA = currentMa.value ?: 0
-        val voltage = batteryVoltage.value
-        val powerW = if (voltage > 0) (mA * voltage / 1000.0) else 0.0
-        val bat = batteryLevel.value
-        val batTempVal = batteryTemp.value ?: 0.0
-        val dataText = "%.2fW  %d%%  %.1f\u00B0C".format(powerW, bat, batTempVal)
-
-        val remoteViews = RemoteViews(packageName, R.layout.notification_monitor).apply {
-            setTextViewText(R.id.notify_data, dataText)
-            val batteryIconRes = when {
-                bat >= 60 -> R.drawable.ic_battery_full
-                bat >= 20 -> R.drawable.ic_battery_mid
-                else -> R.drawable.ic_battery_low
-            }
-            setImageViewResource(R.id.notify_battery_icon, batteryIconRes)
-        }
-
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+        return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContent(remoteViews)
-            .setWhen(System.currentTimeMillis())
+            .setContentTitle(getString(R.string.float_channel_name))
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .build()
-
-        notification.flags = Notification.FLAG_NO_CLEAR or
-            Notification.FLAG_ONGOING_EVENT or
-            Notification.FLAG_FOREGROUND_SERVICE
-
-        return notification
-    }
-
-    private fun startNotificationUpdateJob() {
-        notificationUpdateJob?.cancel()
-        notificationUpdateJob = lifecycleScope.launch {
-            while (currentCoroutineContext().isActive) {
-                delay(3000)
-                try {
-                    val batteryInfo = withContext(Dispatchers.IO) { batteryDataSource.getBatteryStatus() }
-                    batteryLevel.value = batteryInfo.capacity
-                    batteryVoltage.value = batteryInfo.voltageV
-                    batteryTemp.value = batteryInfo.temperatureCelsius
-                    currentMa.value = batteryInfo.currentMa
-
-                    val manager = getSystemService(NotificationManager::class.java)
-                    manager.notify(NOTIFICATION_ID, buildCustomNotification())
-                } catch (e: Exception) {
-                    Log.w(TAG, "updateNotification failed", e)
-                }
-            }
-        }
     }
 
     private fun startBatterySampling() {
@@ -592,12 +538,12 @@ class FloatMonitorService : LifecycleService() {
                 putStringSet(KEY_ENABLED_MONITORS, emptySet())
             }
 
-        notificationUpdateJob?.cancel()
-        notificationUpdateJob = null
         batterySamplingJob?.cancel()
         batterySamplingJob = null
         sharedFpsJob?.cancel()
         sharedFpsJob = null
+        sharedSnapshotJob?.cancel()
+        sharedSnapshotJob = null
         dataCollectionJobs.values.forEach { it.cancel() }
         dataCollectionJobs.clear()
         floatWindowManager.removeAllWindows()
@@ -624,8 +570,10 @@ class FloatMonitorService : LifecycleService() {
             ensureSharedFpsJob()
         }
 
-        // Start data collection (TYPE_FPS has no per-type job, FPS is handled by shared job)
-        if (type != TYPE_FPS) {
+        // LOAD and MINI share a single snapshot job; FPS uses shared FPS job
+        if (type == TYPE_LOAD || type == TYPE_MINI) {
+            ensureSharedSnapshotJob()
+        } else if (type != TYPE_FPS) {
             val job = lifecycleScope.launch {
                 collectDataForType(type)
             }
@@ -746,6 +694,19 @@ class FloatMonitorService : LifecycleService() {
             }
         }
 
+        // Stop shared snapshot if neither LOAD nor MINI remains
+        if (type == TYPE_LOAD || type == TYPE_MINI) {
+            val otherSnapshotNeeded = when (type) {
+                TYPE_LOAD -> floatWindowManager.isWindowActive(TYPE_MINI)
+                TYPE_MINI -> floatWindowManager.isWindowActive(TYPE_LOAD)
+                else -> false
+            }
+            if (!otherSnapshotNeeded) {
+                sharedSnapshotJob?.cancel()
+                sharedSnapshotJob = null
+            }
+        }
+
         dataCollectionJobs.remove(type)?.cancel()
         floatWindowManager.removeWindow(type)
 
@@ -766,16 +727,10 @@ class FloatMonitorService : LifecycleService() {
             .edit { putStringSet(KEY_ENABLED_MONITORS, monitorIds) }
     }
 
-    private fun getPollInterval(): Long =
-        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-            .getLong(KEY_POLL_INTERVAL, DEFAULT_POLL_INTERVAL)
-
     private suspend fun collectDataForType(type: String) {
         while (currentCoroutineContext().isActive) {
             try {
                 when (type) {
-                    TYPE_LOAD -> collectLoadData()
-                    TYPE_MINI -> collectMiniData()
                     TYPE_TEMPERATURE -> collectThermalData()
                     TYPE_PROCESS -> collectProcessData()
                     TYPE_THREAD -> collectThreadData()
@@ -783,8 +738,7 @@ class FloatMonitorService : LifecycleService() {
             } catch (e: Exception) {
                 Log.w(TAG, "collectDataForType($type) failed", e)
             }
-            // Process/Thread are heavier — use 2x interval (min 1000ms)
-            val base = getPollInterval()
+            val base = POLL_INTERVAL_MS
             val intervalMs = if (type == TYPE_PROCESS || type == TYPE_THREAD) {
                 (base * 2).coerceAtLeast(1000L)
             } else {
@@ -794,7 +748,21 @@ class FloatMonitorService : LifecycleService() {
         }
     }
 
-    private suspend fun collectLoadData() {
+    private fun ensureSharedSnapshotJob() {
+        if (sharedSnapshotJob?.isActive == true) return
+        sharedSnapshotJob = lifecycleScope.launch {
+            while (isActive) {
+                try {
+                    collectSharedSnapshot()
+                } catch (e: Exception) {
+                    Log.w(TAG, "shared snapshot failed", e)
+                }
+                delay(POLL_INTERVAL_MS)
+            }
+        }
+    }
+
+    private suspend fun collectSharedSnapshot() {
         val snapshot = aggregatedMonitorDataSource.collectSnapshot()
         cpuLoad.value = snapshot.cpuLoadPercent
         gpuLoad.value = snapshot.gpuLoadPercent
@@ -815,23 +783,6 @@ class FloatMonitorService : LifecycleService() {
         memTotalMB.value = memInfo.totalMem / (1024.0 * 1024.0)
         memUsedMB.value = (memInfo.totalMem - memInfo.availMem) / (1024.0 * 1024.0)
         memUsed.value = ((memInfo.totalMem - memInfo.availMem).toDouble() / memInfo.totalMem) * 100.0
-    }
-
-    private suspend fun collectMiniData() {
-        val snapshot = aggregatedMonitorDataSource.collectSnapshot()
-        cpuLoad.value = snapshot.cpuLoadPercent
-        gpuLoad.value = snapshot.gpuLoadPercent
-        cpuTemp.value = snapshot.cpuTempCelsius
-        currentMa.value = snapshot.batteryCurrentMa
-        cpuCoreLoads.value = snapshot.cpuCoreLoads
-        cpuCoreFreqs.value = snapshot.cpuCoreFreqs
-        gpuFreqMhz.value = snapshot.gpuFreqMhz
-
-        try {
-            batteryTemp.value = batteryDataSource.getBatteryStatus().temperatureCelsius
-        } catch (e: Exception) {
-            Log.w(TAG, "getBatteryStatus for mini failed", e)
-        }
 
         if (miniShowNetSpeed.value) {
             try {
@@ -839,7 +790,7 @@ class FloatMonitorService : LifecycleService() {
                 netRxSpeed.value = netInfo.rxSpeedBytesPerSec
                 netTxSpeed.value = netInfo.txSpeedBytesPerSec
             } catch (e: Exception) {
-                Log.w(TAG, "getNetworkInfo for mini failed", e)
+                Log.w(TAG, "getNetworkInfo failed", e)
             }
         }
     }
@@ -857,24 +808,8 @@ class FloatMonitorService : LifecycleService() {
                 } catch (e: Exception) {
                     Log.w(TAG, "collectSharedFps failed", e)
                 }
-                delay(getPollInterval())
+                delay(POLL_INTERVAL_MS)
             }
-        }
-    }
-
-    /** Restart all active collection jobs with the new poll interval */
-    private fun restartAllJobs() {
-        // Restart shared FPS job
-        if (sharedFpsJob?.isActive == true) {
-            sharedFpsJob?.cancel()
-            sharedFpsJob = null
-            ensureSharedFpsJob()
-        }
-        // Restart per-type data jobs
-        val activeTypes = dataCollectionJobs.keys.toList()
-        for (type in activeTypes) {
-            dataCollectionJobs.remove(type)?.cancel()
-            dataCollectionJobs[type] = lifecycleScope.launch { collectDataForType(type) }
         }
     }
 
@@ -987,7 +922,7 @@ class FloatMonitorService : LifecycleService() {
             NotificationChannel(
                 CHANNEL_ID,
                 getString(R.string.float_channel_name),
-                NotificationManager.IMPORTANCE_LOW,
+                NotificationManager.IMPORTANCE_MIN,
             ).apply {
                 description = getString(R.string.float_channel_desc)
                 setShowBadge(false)

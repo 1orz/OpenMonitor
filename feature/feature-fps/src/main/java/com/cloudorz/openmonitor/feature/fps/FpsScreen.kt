@@ -31,7 +31,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.SelectAll
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -100,11 +99,6 @@ fun FpsScreen(
         uiState = uiState,
         onDeleteSession = viewModel::deleteSession,
         onRenameSession = viewModel::renameSession,
-        onExportSession = { sessionId ->
-            viewModel.getExportIntent(sessionId) { intent ->
-                context.startActivity(intent)
-            }
-        },
         onToggleSelectionMode = viewModel::toggleSelectionMode,
         onExitSelectionMode = viewModel::exitSelectionMode,
         onToggleSelection = viewModel::toggleSelection,
@@ -121,7 +115,6 @@ private fun FpsContent(
     uiState: FpsUiState,
     onDeleteSession: (Long) -> Unit,
     onRenameSession: (Long, String) -> Unit,
-    onExportSession: (Long) -> Unit,
     onToggleSelectionMode: () -> Unit,
     onExitSelectionMode: () -> Unit,
     onToggleSelection: (Long) -> Unit,
@@ -173,7 +166,6 @@ private fun FpsContent(
                         isSelectionMode = uiState.isSelectionMode,
                         isSelected = uiState.selectedIds.contains(session.sessionId.toLongOrNull() ?: 0L),
                         onDelete = { onDeleteSession(session.sessionId.toLongOrNull() ?: 0L) },
-                        onExport = { onExportSession(session.sessionId.toLongOrNull() ?: 0L) },
                         onRename = { newDesc -> onRenameSession(session.sessionId.toLongOrNull() ?: 0L, newDesc) },
                         onClick = {
                             view.hapticClick()
@@ -397,7 +389,6 @@ private fun SessionCard(
     isSelectionMode: Boolean,
     isSelected: Boolean,
     onDelete: () -> Unit,
-    onExport: () -> Unit,
     onRename: (String) -> Unit,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
@@ -499,15 +490,7 @@ private fun SessionCard(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                     )
                 }
-                IconButton(onClick = { view.hapticClick(); onExport() }) {
-                    Icon(
-                        imageVector = Icons.Default.Share,
-                        contentDescription = "CSV",
-                        modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                    )
-                }
-                IconButton(onClick = { view.hapticClick(); showDeleteConfirm = true }) {
+IconButton(onClick = { view.hapticClick(); showDeleteConfirm = true }) {
                     Icon(
                         imageVector = Icons.Default.Delete,
                         contentDescription = stringResource(R.string.delete),

@@ -89,6 +89,12 @@
     <string name="fps_series_usage">使用率(%)</string>
     <string name="fps_series_jank">卡頓</string>
     <string name="fps_series_big_jank">嚴重卡頓</string>
+    <!-- FPS Export -->
+    <string name="fps_save_to_download">儲存</string>
+    <string name="fps_save_as_image">儲存為圖片</string>
+    <string name="fps_save_as_csv">儲存為 CSV</string>
+    <string name="fps_saved_to_downloads">已儲存到 Downloads/OpenMonitor/%1$s</string>
+    <string name="fps_save_failed">儲存失敗</string>
 
     <!-- Float Monitor Screen -->
     <string name="float_monitor_title">懸浮監視器</string>
@@ -207,6 +213,10 @@
     <string name="battery_usage_stats_hint">授予使用情況存取權限以在電池圖表中顯示前台應用圖示</string>
     <string name="battery_grant_permission">授予權限</string>
     <string name="battery_export_csv">匯出 CSV</string>
+    <string name="battery_cycle_count">循環次數</string>
+    <string name="battery_actual_capacity">實際容量</string>
+    <string name="battery_remaining_charge">剩餘電量</string>
+    <string name="battery_health_percent">健康度</string>
 
     <!-- 硬體資訊頁 -->
     <string name="hw_processor">處理器</string>

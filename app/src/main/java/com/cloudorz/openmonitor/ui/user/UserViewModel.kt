@@ -14,7 +14,6 @@ import com.cloudorz.openmonitor.core.data.datasource.DaemonManager
 import com.cloudorz.openmonitor.core.data.datasource.DaemonState
 import com.cloudorz.openmonitor.core.ui.theme.ColorMode
 import com.cloudorz.openmonitor.data.repository.ThemeSettingsRepository
-import com.cloudorz.openmonitor.service.FloatMonitorService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
@@ -54,9 +53,6 @@ class UserViewModel @Inject constructor(
         val checkedOnce: Boolean = false,
     )
 
-    data class PollSettings(
-        val intervalMs: Long = FloatMonitorService.DEFAULT_POLL_INTERVAL,
-    )
 
     companion object {
         const val KEY_DARK_MODE = "dark_mode"
@@ -67,13 +63,6 @@ class UserViewModel @Inject constructor(
 
     private val _daemonStatus = MutableStateFlow(DaemonStatus())
     val daemonStatus: StateFlow<DaemonStatus> = _daemonStatus.asStateFlow()
-
-    private val _pollSettings = MutableStateFlow(
-        PollSettings(
-            intervalMs = prefs.getLong(FloatMonitorService.KEY_POLL_INTERVAL, FloatMonitorService.DEFAULT_POLL_INTERVAL),
-        )
-    )
-    val pollSettings: StateFlow<PollSettings> = _pollSettings.asStateFlow()
 
     private val _darkMode = MutableStateFlow(prefs.getInt(KEY_DARK_MODE, 0))
     val darkMode: StateFlow<Int> = _darkMode.asStateFlow()
@@ -86,6 +75,7 @@ class UserViewModel @Inject constructor(
 
     private var refreshJob: Job? = null
     private var adbWatcherJob: Job? = null
+    private var screenVisible = false
 
     init {
         viewModelScope.launch {
@@ -93,13 +83,25 @@ class UserViewModel @Inject constructor(
                 if (state == DaemonState.RUNNING) {
                     _daemonStatus.value = buildStatus(alive = true)
                     sendLogLevel("debug")
-                    startRefreshLoop()
+                    if (screenVisible) startRefreshLoop()
                 } else if (state == DaemonState.FAILED || state == DaemonState.NOT_NEEDED) {
                     stopRefreshLoop()
                     _daemonStatus.value = buildStatus(alive = false)
                 }
             }
         }
+    }
+
+    fun startObserving() {
+        screenVisible = true
+        if (daemonManager.state.value == DaemonState.RUNNING) {
+            startRefreshLoop()
+        }
+    }
+
+    fun stopObserving() {
+        screenVisible = false
+        stopRefreshLoop()
     }
 
     private fun startRefreshLoop() {
@@ -235,13 +237,6 @@ class UserViewModel @Inject constructor(
         _hapticEnabled.value = enabled
     }
 
-    fun setPollInterval(intervalMs: Long) {
-        prefs.edit { putLong(FloatMonitorService.KEY_POLL_INTERVAL, intervalMs) }
-        _pollSettings.update { it.copy(intervalMs = intervalMs) }
-        try {
-            context.startService(FloatMonitorService.updatePollSettingsIntent(context))
-        } catch (_: Exception) {}
-    }
 
     /**
      * Switches privilege mode: stops daemon under old mode, restarts under new mode.

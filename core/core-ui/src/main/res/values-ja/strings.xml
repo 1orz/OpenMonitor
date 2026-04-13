@@ -89,6 +89,12 @@
     <string name="fps_series_usage">使用率(%)</string>
     <string name="fps_series_jank">ジャンク</string>
     <string name="fps_series_big_jank">重度ジャンク</string>
+    <!-- FPS Export -->
+    <string name="fps_save_to_download">保存</string>
+    <string name="fps_save_as_image">画像として保存</string>
+    <string name="fps_save_as_csv">CSVとして保存</string>
+    <string name="fps_saved_to_downloads">Downloads/OpenMonitor/%1$s に保存しました</string>
+    <string name="fps_save_failed">保存に失敗しました</string>
 
     <!-- Float Monitor Screen -->
     <string name="float_monitor_title">フロートモニター</string>
@@ -207,6 +213,10 @@
     <string name="battery_usage_stats_hint">使用状況へのアクセスを許可すると、バッテリーチャートにフォアグラウンドアプリのアイコンを表示</string>
     <string name="battery_grant_permission">権限を許可</string>
     <string name="battery_export_csv">CSVエクスポート</string>
+    <string name="battery_cycle_count">充放電回数</string>
+    <string name="battery_actual_capacity">実際容量</string>
+    <string name="battery_remaining_charge">残量</string>
+    <string name="battery_health_percent">バッテリー健康度</string>
 
     <!-- ハードウェア情報画面 -->
     <string name="hw_processor">プロセッサ</string>

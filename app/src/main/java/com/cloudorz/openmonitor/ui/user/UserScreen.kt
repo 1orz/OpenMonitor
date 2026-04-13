@@ -116,6 +116,11 @@ fun UserScreen(
     val daemonStatus by viewModel.daemonStatus.collectAsState()
     var showModeDropdown by remember { mutableStateOf(false) }
 
+    DisposableEffect(viewModel) {
+        viewModel.startObserving()
+        onDispose { viewModel.stopObserving() }
+    }
+
     // Listen for Shizuku binder changes
     DisposableEffect(Unit) {
         val binderListener = Shizuku.OnBinderReceivedListener {
@@ -253,10 +258,6 @@ fun UserScreen(
 
         // ── Appearance ──
         val hapticEnabled by viewModel.hapticEnabled.collectAsState()
-        val pollSettings by viewModel.pollSettings.collectAsState()
-        val pollIntervals = listOf(200L, 500L, 1000L, 2000L)
-        val pollLabels = pollIntervals.map { if (it < 1000) "${it}ms" else "${it / 1000}s" }
-        val pollSelectedIndex = pollIntervals.indexOf(pollSettings.intervalMs).coerceAtLeast(0)
 
         SettingsGroup(
             title = stringResource(R.string.settings_group_appearance),
@@ -276,25 +277,14 @@ fun UserScreen(
         // ── Monitor ──
         SettingsGroup(
             title = stringResource(R.string.settings_group_monitor),
-            items = listOf(
-                {
-                    SettingsDropdownItem(
-                        title = stringResource(R.string.settings_sampling),
-                        icon = Icons.Filled.Speed,
-                        items = pollLabels,
-                        selectedIndex = pollSelectedIndex,
-                        onItemSelected = { viewModel.setPollInterval(pollIntervals[it]) },
-                    )
-                },
-                {
-                    SettingsSwitchItem(
-                        title = stringResource(R.string.settings_haptic_feedback),
-                        icon = Icons.Filled.Vibration,
-                        checked = hapticEnabled,
-                        onCheckedChange = viewModel::setHapticEnabled,
-                    )
-                },
-            ),
+            items = listOf {
+                SettingsSwitchItem(
+                    title = stringResource(R.string.settings_haptic_feedback),
+                    icon = Icons.Filled.Vibration,
+                    checked = hapticEnabled,
+                    onCheckedChange = viewModel::setHapticEnabled,
+                )
+            },
         )
 
         // ── Donate ──

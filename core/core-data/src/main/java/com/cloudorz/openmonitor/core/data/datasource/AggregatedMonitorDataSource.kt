@@ -59,7 +59,8 @@ class AggregatedMonitorDataSource @Inject constructor(
         if (daemonDataSource.isAvailable()) {
             val snap = daemonDataSource.collectSnapshot()
             if (snap != null) {
-                val currentMa = snap.batteryCurrentMa ?: getBatteryCurrentFromApi()
+                val currentMa = snap.batteryCurrentMa.takeIf { it != null && it != 0 }
+                    ?: getBatteryCurrentFromApi()
                 val result = snap.copy(batteryCurrentMa = currentMa)
                 lastDaemonSnapshot = result
                 return@withContext result

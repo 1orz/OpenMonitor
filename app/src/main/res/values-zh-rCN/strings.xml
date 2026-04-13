@@ -37,14 +37,6 @@
     <!-- 存储信息 -->
     <string name="partitions">分区</string>
 
-    <!-- 传感器 -->
-    <string name="sensor_vendor">厂商</string>
-    <string name="sensor_resolution">分辨率</string>
-    <string name="sensor_max_range">最大范围</string>
-    <string name="sensor_power">功耗</string>
-    <string name="sensor_min_delay">最小延迟</string>
-    <string name="sensor_version">版本</string>
-
     <!-- 网络监控 -->
     <string name="network_connected">已连接</string>
     <string name="network_disconnected">未连接</string>
@@ -95,7 +87,6 @@
     <string name="nav_process">进程</string>
     <string name="nav_process_detail">进程详情</string>
     <string name="nav_float_monitor">悬浮监视器</string>
-    <string name="nav_sensor">传感器</string>
     <string name="nav_network">网络</string>
     <string name="nav_key_attestation">密钥认证</string>
     <string name="nav_debug_log">调试日志</string>
@@ -108,7 +99,6 @@
     <string name="feature_fps_recording">帧率记录</string>
     <string name="feature_process_monitor">进程监控</string>
     <string name="feature_float_monitor">悬浮监视器</string>
-    <string name="feature_sensor">传感器</string>
     <string name="feature_network_monitor">网络监控</string>
     <string name="feature_key_attestation">密钥认证</string>
     <string name="feature_debug_log">调试日志</string>

@@ -69,6 +69,11 @@ fun LogScreen(
     viewModel: LogViewModel = hiltViewModel(),
     onProvideTopBarActions: (@Composable () -> Unit) -> Unit = {},
 ) {
+    DisposableEffect(viewModel) {
+        viewModel.startObserving()
+        onDispose { viewModel.stopObserving() }
+    }
+
     val appLogs by viewModel.appLogs.collectAsStateWithLifecycle()
     val daemonLogs by viewModel.daemonLogs.collectAsStateWithLifecycle()
     val daemonLogStatusResId by viewModel.daemonLogStatus.collectAsStateWithLifecycle()

@@ -89,6 +89,12 @@
     <string name="fps_series_usage">使用率(%)</string>
     <string name="fps_series_jank">卡顿</string>
     <string name="fps_series_big_jank">严重卡顿</string>
+    <!-- FPS Export -->
+    <string name="fps_save_to_download">保存</string>
+    <string name="fps_save_as_image">保存为图片</string>
+    <string name="fps_save_as_csv">保存为 CSV</string>
+    <string name="fps_saved_to_downloads">已保存到 Downloads/OpenMonitor/%1$s</string>
+    <string name="fps_save_failed">保存失败</string>
 
     <!-- Float Monitor Screen -->
     <string name="float_monitor_title">悬浮监视器</string>
@@ -207,6 +213,10 @@
     <string name="battery_usage_stats_hint">授予使用情况访问权限以在电池图表中显示前台应用图标</string>
     <string name="battery_grant_permission">授予权限</string>
     <string name="battery_export_csv">导出 CSV</string>
+    <string name="battery_cycle_count">循环次数</string>
+    <string name="battery_actual_capacity">实际容量</string>
+    <string name="battery_remaining_charge">剩余电量</string>
+    <string name="battery_health_percent">健康度</string>
 
     <!-- 硬件信息页 -->
     <string name="hw_processor">处理器</string>

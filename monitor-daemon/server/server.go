@@ -232,17 +232,6 @@ func (s *Server) dispatch(cmd string) []byte {
 		return []byte(collector.VersionJSON())
 	case "monitor":
 		return jsonBytes(s.collector.GetSnapshot())
-	case "sample-interval":
-		parts := strings.SplitN(cmd, "\n", 2)
-		if len(parts) < 2 {
-			return []byte(fmt.Sprintf(`{"status":"ok","interval_ms":%d}`, collector.GetSampleInterval()))
-		}
-		ms, err := strconv.ParseInt(strings.TrimSpace(parts[1]), 10, 64)
-		if err != nil {
-			return []byte(fmt.Sprintf(`{"error":"invalid interval: %s"}`, strings.TrimSpace(parts[1])))
-		}
-		collector.SetSampleInterval(ms)
-		return []byte(fmt.Sprintf(`{"status":"ok","interval_ms":%d}`, collector.GetSampleInterval()))
 	case "log-level":
 		parts := strings.SplitN(cmd, "\n", 2)
 		if len(parts) < 2 {

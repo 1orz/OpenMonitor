@@ -25,7 +25,21 @@ data class BatteryStatus(
     val timestamp: Long = 0,
     val capacityMah: Double = 0.0,
     val health: String = "",
+    // Extended sysfs info (null when unavailable, e.g. BASIC mode)
+    val cycleCount: Int? = null,
+    val chargeFullMah: Double? = null,       // actual full capacity (degrades over time)
+    val chargeFullDesignMah: Double? = null,  // design full capacity
+    val chargeCounterMah: Double? = null,     // current remaining charge in mAh
 ) {
+    /** Real battery health % based on charge_full / charge_full_design. */
+    val realHealthPercent: Int?
+        get() {
+            if (chargeFullMah != null && chargeFullDesignMah != null && chargeFullDesignMah > 0) {
+                return (chargeFullMah / chargeFullDesignMah * 100).toInt().coerceIn(0, 100)
+            }
+            return null
+        }
+
     val powerW: Double
         get() = (currentMa / 1000.0) * voltageV
 

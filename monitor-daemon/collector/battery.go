@@ -20,6 +20,13 @@ type BatteryInfo struct {
 	Capacity  *int     `json:"capacity"`   // %
 	Status    *string  `json:"status"`     // Charging / Discharging / Full / Not charging
 	PowerMW   *int     `json:"power_mw"`   // computed from raw µA×µV for precision
+
+	// Extended battery info (sysfs only, null on devices that lack these files)
+	CycleCount        *int `json:"cycle_count"`          // charge cycles
+	ChargeFullUah     *int `json:"charge_full_uah"`      // actual full capacity µAh (degrades over time)
+	ChargeFullDesign  *int `json:"charge_full_design_uah"` // design full capacity µAh
+	ChargeCounterUah  *int `json:"charge_counter_uah"`   // current remaining charge µAh
+	Health            *string `json:"health"`             // "Good" / "Overheat" / "Dead" / ...
 }
 
 // batteryBases lists candidate sysfs directories in priority order.
@@ -39,6 +46,13 @@ var (
 	batTempFile       *sysFile
 	batCapFile        *sysFile
 	batStatusFile     *sysFile
+	batPowerFile      *sysFile
+	// Extended info files
+	batCycleCountFile      *sysFile
+	batChargeFullFile      *sysFile
+	batChargeFullDesignFile *sysFile
+	batChargeCounterFile   *sysFile
+	batHealthFile          *sysFile
 )
 
 func initBattery() {
@@ -51,14 +65,21 @@ func initBattery() {
 			batTempFile = openSysFile(base + "/temp")
 			batCapFile = openSysFile(base + "/capacity")
 			batStatusFile = openSysFile(base + "/status")
+			batPowerFile = openSysFile(base + "/power_now")
+			batCycleCountFile = openSysFile(base + "/cycle_count")
+			batChargeFullFile = openSysFile(base + "/charge_full")
+			batChargeFullDesignFile = openSysFile(base + "/charge_full_design")
+			batChargeCounterFile = openSysFile(base + "/charge_counter")
+			batHealthFile = openSysFile(base + "/health")
 
 			opened := 0
-			for _, sf := range []*sysFile{batCurrentFile, batVoltageFile, batTempFile, batCapFile, batStatusFile} {
+			for _, sf := range []*sysFile{batCurrentFile, batVoltageFile, batTempFile, batCapFile, batStatusFile, batPowerFile,
+				batCycleCountFile, batChargeFullFile, batChargeFullDesignFile, batChargeCounterFile, batHealthFile} {
 				if sf != nil {
 					opened++
 				}
 			}
-			logInfo("battery", "persistent FDs: %d/5 files opened", opened)
+			logInfo("battery", "persistent FDs: %d/11 files opened", opened)
 		} else {
 			batteryUseDumpsys = true
 			logWarn("battery", "no sysfs battery found, using dumpsys fallback")
@@ -83,16 +104,39 @@ func readBattery() BatteryInfo {
 func readBatterySysfs() BatteryInfo {
 	info := BatteryInfo{}
 
+	// current_now: some devices report µA (abs >= 10000), others report mA directly.
 	if v, ok := batCurrentFile.readInt(); ok {
-		info.CurrentUA = &v
-		ma := v / 1000
-		info.CurrentMA = &ma
+		abs := v
+		if abs < 0 {
+			abs = -abs
+		}
+		if abs >= 10000 {
+			// Device reports µA — we have raw precision
+			info.CurrentUA = &v
+			ma := v / 1000
+			info.CurrentMA = &ma
+		} else {
+			// Device reports mA (e.g. OnePlus/OPlus) — no µA precision
+			info.CurrentMA = &v
+			// CurrentUA stays nil — no raw µA available
+		}
 	}
+
+	// voltage_now: most devices report µV (abs >= 100000), some report mV.
 	if v, ok := batVoltageFile.readInt(); ok {
-		info.VoltageUV = &v
-		mv := v / 1000
-		info.VoltageMV = &mv
+		abs := v
+		if abs < 0 {
+			abs = -abs
+		}
+		if abs >= 100000 {
+			info.VoltageUV = &v
+			mv := v / 1000
+			info.VoltageMV = &mv
+		} else {
+			info.VoltageMV = &v
+		}
 	}
+
 	if v, ok := batTempFile.readInt(); ok {
 		t := float64(v) / 10.0
 		info.Temp = &t
@@ -104,22 +148,25 @@ func readBatterySysfs() BatteryInfo {
 		info.Status = &s
 	}
 
-	// Normalize: negative = discharging, positive = charging.
-	if info.Status != nil && info.CurrentUA != nil {
-		if *info.Status == "Discharging" && *info.CurrentUA > 0 {
-			negUa := -(*info.CurrentUA)
-			info.CurrentUA = &negUa
-			negMa := -(*info.CurrentMA)
-			info.CurrentMA = &negMa
-		} else if (*info.Status == "Charging" || *info.Status == "Full") && *info.CurrentUA < 0 {
-			posUa := -(*info.CurrentUA)
-			info.CurrentUA = &posUa
-			posMa := -(*info.CurrentMA)
-			info.CurrentMA = &posMa
+	// Normalize sign: negative = discharging, positive = charging.
+	if info.Status != nil {
+		isDischarging := *info.Status == "Discharging"
+		isCharging := *info.Status == "Charging" || *info.Status == "Full"
+		if info.CurrentMA != nil {
+			if (isDischarging && *info.CurrentMA > 0) || (isCharging && *info.CurrentMA < 0) {
+				neg := -(*info.CurrentMA)
+				info.CurrentMA = &neg
+			}
+		}
+		if info.CurrentUA != nil {
+			if (isDischarging && *info.CurrentUA > 0) || (isCharging && *info.CurrentUA < 0) {
+				neg := -(*info.CurrentUA)
+				info.CurrentUA = &neg
+			}
 		}
 	}
 
-	// Power: compute from raw µA×µV for maximum precision.
+	// Power: prefer raw µA×µV for max precision, fallback to mA×mV.
 	if info.CurrentUA != nil && info.VoltageUV != nil {
 		cur := int64(*info.CurrentUA)
 		if cur < 0 {
@@ -127,12 +174,49 @@ func readBatterySysfs() BatteryInfo {
 		}
 		pw := int(cur * int64(*info.VoltageUV) / 1_000_000_000)
 		info.PowerMW = &pw
+	} else if info.CurrentMA != nil && info.VoltageMV != nil {
+		cur := *info.CurrentMA
+		if cur < 0 {
+			cur = -cur
+		}
+		pw := cur * (*info.VoltageMV) / 1000
+		info.PowerMW = &pw
 	}
+
+	// power_now sysfs: use as fallback if we couldn't compute above.
+	if info.PowerMW == nil || *info.PowerMW == 0 {
+		if v, ok := batPowerFile.readInt(); ok && v != 0 {
+			// power_now is typically in µW
+			mw := v / 1000
+			if mw == 0 {
+				mw = v // might already be mW
+			}
+			info.PowerMW = &mw
+		}
+	}
+
+	// Extended battery info
+	if v, ok := batCycleCountFile.readInt(); ok {
+		info.CycleCount = &v
+	}
+	if v, ok := batChargeFullFile.readInt(); ok {
+		info.ChargeFullUah = &v
+	}
+	if v, ok := batChargeFullDesignFile.readInt(); ok {
+		info.ChargeFullDesign = &v
+	}
+	if v, ok := batChargeCounterFile.readInt(); ok {
+		info.ChargeCounterUah = &v
+	}
+	if s := batHealthFile.readString(); s != "" {
+		info.Health = &s
+	}
+
 	return info
 }
 
 // readBatteryDumpsys parses `dumpsys battery` output.
-// current_ma/current_ua are not available via this path — stays nil.
+// Also parses OEM-specific fields (e.g. OPlus "Battery current").
 func readBatteryDumpsys() BatteryInfo {
 	out, err := exec.Command("dumpsys", "battery").Output()
 	if err != nil {
@@ -167,6 +251,14 @@ func readBatteryDumpsys() BatteryInfo {
 			usbPowered = true
 		case line == "Wireless powered: true":
 			wirelessPowered = true
+		// OPlus-specific: "Battery current : 157" (mA)
+		case strings.HasPrefix(line, "Battery current"):
+			parts := strings.SplitN(line, ":", 2)
+			if len(parts) == 2 {
+				if v, e := strconv.Atoi(strings.TrimSpace(parts[1])); e == nil && v != 0 {
+					info.CurrentMA = &v
+				}
+			}
 		}
 	}
 
@@ -188,6 +280,23 @@ func readBatteryDumpsys() BatteryInfo {
 		}
 	}
 	info.Status = &status
+
+	// Normalize sign for dumpsys current (OPlus reports positive regardless).
+	if info.CurrentMA != nil {
+		if status == "Discharging" && *info.CurrentMA > 0 {
+			neg := -(*info.CurrentMA)
+			info.CurrentMA = &neg
+		}
+		// Compute power from mA × mV.
+		if info.VoltageMV != nil {
+			cur := *info.CurrentMA
+			if cur < 0 {
+				cur = -cur
+			}
+			pw := cur * (*info.VoltageMV) / 1000
+			info.PowerMW = &pw
+		}
+	}
 
 	return info
 }
@@ -211,10 +320,9 @@ func unlockOPlusGaugeUpdate() {
 		return
 	}
 
-	intervalMs := GetSampleInterval()
-	logInfo("battery", "OPlus GAUGE_UPDATE detected, unlocking to %dms", intervalMs)
+	logInfo("battery", "OPlus GAUGE_UPDATE detected, unlocking to %dms", sampleIntervalMs)
 
-	if err := os.WriteFile(forceVal, []byte(fmt.Sprintf("%d\n", intervalMs)), 0644); err != nil {
+	if err := os.WriteFile(forceVal, []byte(fmt.Sprintf("%d\n", sampleIntervalMs)), 0644); err != nil {
 		logWarn("battery", "failed to write GAUGE_UPDATE force_val: %v", err)
 		return
 	}

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -56,21 +55,8 @@ type Snapshot struct {
 	TimestampMs int64  `json:"timestamp_ms"`
 }
 
-// sampleIntervalMs is the background sampling rate, adjustable at runtime.
-var sampleIntervalMs int64 = 200
-
-// SetSampleInterval adjusts the background sampling rate (minimum 100ms).
-func SetSampleInterval(ms int64) {
-	if ms < 100 {
-		ms = 100
-	}
-	atomic.StoreInt64(&sampleIntervalMs, ms)
-}
-
-// GetSampleInterval returns the current sampling interval in ms.
-func GetSampleInterval() int64 {
-	return atomic.LoadInt64(&sampleIntervalMs)
-}
+// sampleIntervalMs is the fixed background sampling rate.
+const sampleIntervalMs = 500
 
 // Collector runs background high-frequency sampling.
 // Clients read the latest cached snapshot via GetSnapshot().
@@ -99,7 +85,7 @@ func (c *Collector) Start() {
 	go func() {
 		for {
 			c.sampleSystem()
-			time.Sleep(time.Duration(atomic.LoadInt64(&sampleIntervalMs)) * time.Millisecond)
+			time.Sleep(sampleIntervalMs * time.Millisecond)
 		}
 	}()
 }

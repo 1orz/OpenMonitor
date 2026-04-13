@@ -170,6 +170,12 @@ fun BatteryStatusCard(
                     label = stringResource(R.string.battery_health),
                     value = battery.health.ifEmpty { "${battery.healthPercent}%" },
                 )
+                if (battery.cycleCount != null) {
+                    InfoItem(
+                        label = stringResource(R.string.battery_cycle_count),
+                        value = "${battery.cycleCount}",
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -196,12 +202,43 @@ fun BatteryStatusCard(
                         "--"
                     },
                 )
-                InfoItem(
-                    label = stringResource(R.string.battery_current_energy),
-                    value = "%.1f Wh".format(
-                        battery.capacityMah / 1000.0 * battery.voltageV * battery.capacity / 100.0,
-                    ),
-                )
+                if (battery.chargeFullMah != null) {
+                    InfoItem(
+                        label = stringResource(R.string.battery_actual_capacity),
+                        value = "%.0f mAh".format(battery.chargeFullMah),
+                    )
+                }
+                if (battery.realHealthPercent != null) {
+                    InfoItem(
+                        label = stringResource(R.string.battery_health_percent),
+                        value = "${battery.realHealthPercent}%",
+                    )
+                } else {
+                    InfoItem(
+                        label = stringResource(R.string.battery_current_energy),
+                        value = "%.1f Wh".format(
+                            battery.capacityMah / 1000.0 * battery.voltageV * battery.capacity / 100.0,
+                        ),
+                    )
+                }
+            }
+            if (battery.chargeCounterMah != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    InfoItem(
+                        label = stringResource(R.string.battery_remaining_charge),
+                        value = "%.0f mAh".format(battery.chargeCounterMah),
+                    )
+                    InfoItem(
+                        label = stringResource(R.string.battery_current_energy),
+                        value = "%.1f Wh".format(
+                            battery.capacityMah / 1000.0 * battery.voltageV * battery.capacity / 100.0,
+                        ),
+                    )
+                }
             }
         }
     }

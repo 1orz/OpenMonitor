@@ -34,7 +34,6 @@ monitor-daemon/
 
 ```
 -addr           TCP 监听地址（默认 0.0.0.0:9876）
--sample-ms      系统采样间隔 ms（默认 200，最小 100）
 -pprof-addr     pprof HTTP 地址（如 0.0.0.0:6060），空则禁用
 -data-dir       PID / 日志文件目录（默认 /data/local/tmp）
 --no-detach     前台运行（开发用）
@@ -54,7 +53,6 @@ monitor-daemon/
 
 | 命令 | 响应 | 说明 |
 |------|------|------|
-| `sample-interval\n<ms>` | `{"status":"ok","interval_ms":N}` | 调整系统采样间隔（最小 100ms） |
 | `log-level\n<level>` | `{"status":"ok","level":"..."}` | debug / info / warning / error |
 | `heartbeat-timeout\n<seconds>` | `{"status":"ok","timeout_s":N}` | 心跳超时（0=禁用），超时无 ping 则自动退出 |
 | `clear-log` | `{"status":"ok"}` | 截断 daemon.log |

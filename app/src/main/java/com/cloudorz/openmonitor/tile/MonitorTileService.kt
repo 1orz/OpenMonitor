@@ -1,94 +1,39 @@
 package com.cloudorz.openmonitor.tile
 
-import android.app.PendingIntent
 import android.content.Intent
-import android.graphics.drawable.Icon
-import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
-import com.cloudorz.openmonitor.MainActivity
 import com.cloudorz.openmonitor.R
-import com.cloudorz.openmonitor.core.data.datasource.CpuDataSource
-import com.cloudorz.openmonitor.core.data.datasource.ThermalDataSource
+import com.cloudorz.openmonitor.service.FloatMonitorService
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 @AndroidEntryPoint
 class MonitorTileService : TileService() {
 
-    @Inject
-    lateinit var cpuDataSource: CpuDataSource
-
-    @Inject
-    lateinit var thermalDataSource: ThermalDataSource
-
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private var refreshJob: Job? = null
-
     override fun onStartListening() {
         super.onStartListening()
-        refreshJob?.cancel()
-        refreshJob = scope.launch {
-            while (true) {
-                updateTileData()
-                delay(REFRESH_INTERVAL_MS)
-            }
-        }
-    }
-
-    override fun onStopListening() {
-        refreshJob?.cancel()
-        super.onStopListening()
+        updateTileState()
     }
 
     override fun onClick() {
         super.onClick()
-        val intent = Intent(this, MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0, intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startActivityAndCollapse(pendingIntent)
+        val prefs = getSharedPreferences("monitor_settings", MODE_PRIVATE)
+        val serviceActive = prefs.getBoolean("float_service_active", false)
+
+        if (serviceActive) {
+            startService(FloatMonitorService.showPanelIntent(this))
         } else {
-            @Suppress("StartActivityAndCollapseDeprecated", "DEPRECATION")
-            startActivityAndCollapse(intent)
+            startForegroundService(FloatMonitorService.startIntent(this))
         }
+        updateTileState()
     }
 
-    override fun onDestroy() {
-        scope.cancel()
-        super.onDestroy()
-    }
-
-    private suspend fun updateTileData() {
+    private fun updateTileState() {
         val tile = qsTile ?: return
-
-        val loads = cpuDataSource.getCpuLoad()
-        val totalLoad = if (loads.isNotEmpty()) loads[0] else 0.0
-        val loadPercent = totalLoad.toInt()
-
-        val cpuTemp = thermalDataSource.getCpuTemperature()
-        val tempStr = if (cpuTemp != null) "${cpuTemp.toInt()}" else "--"
-
-        tile.label = getString(R.string.tile_label_format, loadPercent, tempStr)
-        tile.state = Tile.STATE_ACTIVE
-
-        tile.icon = Icon.createWithResource(this, R.drawable.ic_tile_monitor)
-
+        val prefs = getSharedPreferences("monitor_settings", MODE_PRIVATE)
+        val active = prefs.getBoolean("float_service_active", false)
+        tile.state = if (active) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
+        tile.label = getString(R.string.tile_label)
         tile.updateTile()
-    }
-
-    companion object {
-        private const val REFRESH_INTERVAL_MS = 2000L
     }
 }

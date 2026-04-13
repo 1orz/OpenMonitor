@@ -90,6 +90,12 @@
     <string name="fps_series_usage">Usage(%)</string>
     <string name="fps_series_jank">Jank</string>
     <string name="fps_series_big_jank">BigJank</string>
+    <!-- FPS Export -->
+    <string name="fps_save_to_download">Save</string>
+    <string name="fps_save_as_image">Save as Image</string>
+    <string name="fps_save_as_csv">Save as CSV</string>
+    <string name="fps_saved_to_downloads">Saved to Downloads/OpenMonitor/%1$s</string>
+    <string name="fps_save_failed">Save failed</string>
 
     <!-- Float Monitor Screen -->
     <string name="float_monitor_title">Float Monitor</string>
@@ -208,6 +214,10 @@
     <string name="battery_usage_stats_hint">Grant usage access permission to display foreground app icons on the battery chart</string>
     <string name="battery_grant_permission">Grant Permission</string>
     <string name="battery_export_csv">Export CSV</string>
+    <string name="battery_cycle_count">Cycle Count</string>
+    <string name="battery_actual_capacity">Actual Capacity</string>
+    <string name="battery_remaining_charge">Remaining Charge</string>
+    <string name="battery_health_percent">Health</string>
 
     <!-- Hardware Info Screen -->
     <string name="hw_processor">Processor</string>

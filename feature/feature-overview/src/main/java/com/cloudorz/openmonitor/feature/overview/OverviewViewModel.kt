@@ -16,12 +16,11 @@ import com.cloudorz.openmonitor.core.model.memory.SwapInfo
 import com.cloudorz.openmonitor.core.model.process.ProcessInfo
 import com.cloudorz.openmonitor.core.model.thermal.ThermalZone
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
 data class OverviewUiState(
@@ -37,94 +36,46 @@ data class OverviewUiState(
 
 @HiltViewModel
 class OverviewViewModel @Inject constructor(
-    private val cpuRepository: CpuRepository,
-    private val memoryRepository: MemoryRepository,
-    private val gpuRepository: GpuRepository,
-    private val batteryRepository: BatteryRepository,
-    private val thermalRepository: ThermalRepository,
-    private val processRepository: ProcessRepository,
+    cpuRepository: CpuRepository,
+    memoryRepository: MemoryRepository,
+    gpuRepository: GpuRepository,
+    batteryRepository: BatteryRepository,
+    thermalRepository: ThermalRepository,
+    processRepository: ProcessRepository,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(OverviewUiState())
-    val uiState: StateFlow<OverviewUiState> = _uiState.asStateFlow()
-
-    init {
-        observeCpuStatus()
-        observeMemoryInfo()
-        observeSwapInfo()
-        observeGpuInfo()
-        observeBatteryStatus()
-        observeThermalZones()
-        observeTopProcesses()
-    }
-
-    private fun observeCpuStatus() {
-        viewModelScope.launch {
-            cpuRepository.observeCpuStatus(intervalMs = 1000L)
-                .catch { e -> android.util.Log.w("OverviewVM", "flow error", e) }
-                .collect { cpu ->
-                    _uiState.update { it.copy(cpuStatus = cpu, isLoading = false) }
-                }
-        }
-    }
-
-    private fun observeMemoryInfo() {
-        viewModelScope.launch {
-            memoryRepository.observeMemoryInfo(intervalMs = 2000L)
-                .catch { e -> android.util.Log.w("OverviewVM", "flow error", e) }
-                .collect { memory ->
-                    _uiState.update { it.copy(memoryInfo = memory, isLoading = false) }
-                }
-        }
-    }
-
-    private fun observeSwapInfo() {
-        viewModelScope.launch {
-            memoryRepository.observeSwapInfo(intervalMs = 3000L)
-                .catch { e -> android.util.Log.w("OverviewVM", "flow error", e) }
-                .collect { swap ->
-                    _uiState.update { it.copy(swapInfo = swap, isLoading = false) }
-                }
-        }
-    }
-
-    private fun observeGpuInfo() {
-        viewModelScope.launch {
-            gpuRepository.observeGpuInfo(intervalMs = 1000L)
-                .catch { e -> android.util.Log.w("OverviewVM", "flow error", e) }
-                .collect { gpu ->
-                    _uiState.update { it.copy(gpuInfo = gpu, isLoading = false) }
-                }
-        }
-    }
-
-    private fun observeBatteryStatus() {
-        viewModelScope.launch {
-            batteryRepository.observeBatteryStatus(intervalMs = 5000L)
-                .catch { e -> android.util.Log.w("OverviewVM", "flow error", e) }
-                .collect { battery ->
-                    _uiState.update { it.copy(batteryStatus = battery, isLoading = false) }
-                }
-        }
-    }
-
-    private fun observeThermalZones() {
-        viewModelScope.launch {
-            thermalRepository.observeThermalZones(intervalMs = 3000L)
-                .catch { e -> android.util.Log.w("OverviewVM", "flow error", e) }
-                .collect { zones ->
-                    _uiState.update { it.copy(thermalZones = zones, isLoading = false) }
-                }
-        }
-    }
-
-    private fun observeTopProcesses() {
-        viewModelScope.launch {
-            processRepository.observeTopProcesses(count = 5, intervalMs = 2000L)
-                .catch { e -> android.util.Log.w("OverviewVM", "flow error", e) }
-                .collect { processes ->
-                    _uiState.update { it.copy(topProcesses = processes, isLoading = false) }
-                }
-        }
-    }
+    val uiState: StateFlow<OverviewUiState> = combine(
+        cpuRepository.observeCpuStatus(intervalMs = 1000L)
+            .catch { e -> android.util.Log.w("OverviewVM", "cpu flow error", e); emit(CpuGlobalStatus()) },
+        memoryRepository.observeMemoryInfo(intervalMs = 2000L)
+            .catch { e -> android.util.Log.w("OverviewVM", "memory flow error", e); emit(MemoryInfo()) },
+        memoryRepository.observeSwapInfo(intervalMs = 3000L)
+            .catch { e -> android.util.Log.w("OverviewVM", "swap flow error", e); emit(SwapInfo()) },
+        gpuRepository.observeGpuInfo(intervalMs = 1000L)
+            .catch { e -> android.util.Log.w("OverviewVM", "gpu flow error", e); emit(GpuInfo()) },
+        batteryRepository.observeBatteryStatus(intervalMs = 5000L)
+            .catch { e -> android.util.Log.w("OverviewVM", "battery flow error", e); emit(BatteryStatus()) },
+    ) { cpu, memory, swap, gpu, battery ->
+        OverviewUiState(
+            cpuStatus = cpu,
+            memoryInfo = memory,
+            swapInfo = swap,
+            gpuInfo = gpu,
+            batteryStatus = battery,
+        )
+    }.combine(
+        thermalRepository.observeThermalZones(intervalMs = 3000L)
+            .catch { e -> android.util.Log.w("OverviewVM", "thermal flow error", e); emit(emptyList()) },
+    ) { state, zones ->
+        state.copy(thermalZones = zones)
+    }.combine(
+        processRepository.observeTopProcesses(count = 5, intervalMs = 2000L)
+            .catch { e -> android.util.Log.w("OverviewVM", "process flow error", e); emit(emptyList()) },
+    ) { state, processes ->
+        state.copy(topProcesses = processes, isLoading = false)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = OverviewUiState(),
+    )
 }

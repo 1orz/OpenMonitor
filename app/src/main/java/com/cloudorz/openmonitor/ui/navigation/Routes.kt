@@ -31,7 +31,6 @@ sealed interface Route : NavKey, Parcelable {
     @Parcelize @Serializable data object Fps : Route
     @Parcelize @Serializable data object Process : Route
     @Parcelize @Serializable data object FloatMonitor : Route
-    @Parcelize @Serializable data object Sensor : Route
     @Parcelize @Serializable data object Network : Route
     @Parcelize @Serializable data object KeyAttestation : Route
     @Parcelize @Serializable data object Log : Route

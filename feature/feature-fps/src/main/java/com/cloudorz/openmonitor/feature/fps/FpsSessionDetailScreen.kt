@@ -2,7 +2,14 @@ package com.cloudorz.openmonitor.feature.fps
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.graphics.createBitmap
+import androidx.compose.foundation.ScrollState
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import androidx.compose.foundation.Image
@@ -28,14 +35,18 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -49,6 +60,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
@@ -106,6 +118,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.sqrt
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private val FpsColor = Color(0xFF42A5F5)
 private val TempColor = Color(0xFFFF7043)
@@ -150,18 +164,55 @@ fun FpsSessionDetailScreen(
     val context = LocalContext.current
     val view = LocalView.current
     var showSectionOptions by remember { mutableStateOf(false) }
+    var showSaveMenu by remember { mutableStateOf(false) }
+    var pendingBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    val scrollState = rememberScrollState()
+    var contentBounds by remember { mutableStateOf(Rect.Zero) }
+    val scope = rememberCoroutineScope()
+
+    val csvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        viewModel.writeCsvToUri(uri) { msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show() }
+    }
+    val imageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/png")) { uri ->
+        val bmp = pendingBitmap ?: return@rememberLauncherForActivityResult
+        pendingBitmap = null
+        if (uri == null) { bmp.recycle(); return@rememberLauncherForActivityResult }
+        viewModel.writeImageToUri(uri, bmp) { msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show() }
+    }
 
     val actions: @Composable () -> Unit = {
         IconButton(onClick = { view.hapticClick(); showSectionOptions = true }) {
             Icon(Icons.Default.Tune, contentDescription = "Chart Options")
         }
-        IconButton(onClick = {
-            view.hapticClick()
-            viewModel.getExportIntent { intent ->
-                context.startActivity(intent)
+        Box {
+            IconButton(onClick = { view.hapticClick(); showSaveMenu = true }) {
+                Icon(Icons.Default.Save, contentDescription = stringResource(R.string.fps_save_to_download))
             }
-        }) {
-            Icon(Icons.Default.Share, contentDescription = "Export CSV")
+            DropdownMenu(
+                expanded = showSaveMenu,
+                onDismissRequest = { showSaveMenu = false },
+            ) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.fps_save_as_image)) },
+                    onClick = {
+                        showSaveMenu = false
+                        scope.launch {
+                            pendingBitmap = captureLongScreenshot(view, scrollState, contentBounds)
+                            imageLauncher.launch(viewModel.getImageFileName())
+                        }
+                    },
+                    leadingIcon = { Icon(Icons.Default.Image, contentDescription = null) },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.fps_save_as_csv)) },
+                    onClick = {
+                        showSaveMenu = false
+                        csvLauncher.launch(viewModel.getCsvFileName())
+                    },
+                    leadingIcon = { Icon(Icons.Default.TableChart, contentDescription = null) },
+                )
+            }
         }
     }
     LaunchedEffect(Unit) { onProvideTopBarActions(actions) }
@@ -169,14 +220,65 @@ fun FpsSessionDetailScreen(
 
     FpsSessionDetailContent(
         state = state,
+        scrollState = scrollState,
+        onContentPositioned = { contentBounds = it },
         showSectionOptions = showSectionOptions,
         onDismissSectionOptions = { showSectionOptions = false },
     )
 }
 
+private suspend fun captureLongScreenshot(
+    view: android.view.View,
+    scrollState: ScrollState,
+    contentBounds: Rect,
+): Bitmap {
+    val rootView = view.rootView
+    val contentTop = contentBounds.top.toInt()
+    val contentLeft = contentBounds.left.toInt()
+    val viewportH = contentBounds.height.toInt()
+    val contentW = contentBounds.width.toInt()
+    val totalH = viewportH + scrollState.maxValue
+
+    if (totalH <= 0 || contentW <= 0) {
+        return Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+    }
+
+    val result = Bitmap.createBitmap(contentW, totalH, Bitmap.Config.ARGB_8888)
+    val resultCanvas = Canvas(result)
+    val originalScroll = scrollState.value
+    var resultY = 0
+
+    while (resultY < totalH) {
+        scrollState.scrollTo(resultY)
+        delay(200)
+        val actualScroll = scrollState.value
+
+        val offsetInViewport = resultY - actualScroll
+        val captureH = minOf(viewportH - offsetInViewport, totalH - resultY)
+
+        val frame = Bitmap.createBitmap(rootView.width, rootView.height, Bitmap.Config.ARGB_8888)
+        rootView.draw(Canvas(frame))
+
+        val src = android.graphics.Rect(
+            contentLeft, contentTop + offsetInViewport,
+            contentLeft + contentW, contentTop + offsetInViewport + captureH,
+        )
+        val dst = android.graphics.Rect(0, resultY, contentW, resultY + captureH)
+        resultCanvas.drawBitmap(frame, src, dst, null)
+        frame.recycle()
+
+        resultY += captureH
+    }
+
+    scrollState.scrollTo(originalScroll)
+    return result
+}
+
 @Composable
 private fun FpsSessionDetailContent(
     state: FpsSessionDetailState,
+    scrollState: ScrollState,
+    onContentPositioned: (Rect) -> Unit,
     showSectionOptions: Boolean = false,
     onDismissSectionOptions: () -> Unit = {},
 ) {
@@ -208,11 +310,18 @@ private fun FpsSessionDetailContent(
         return
     }
 
+    var chartsReady by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(400)
+        chartsReady = true
+    }
+
     ProvideVicoTheme(rememberM3VicoTheme()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .onGloballyPositioned { coords -> onContentPositioned(coords.boundsInRoot()) }
+                .verticalScroll(scrollState)
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -220,17 +329,53 @@ private fun FpsSessionDetailContent(
             if (session != null) SessionHeaderCard(session, dateFormat)
             StatsGridCard(records)
             AppSwitchTimeline(records)
-            if (sectionVisibility[ChartSection.FPS_TEMP] != false) FpsTempChart(records)
-            if (sectionVisibility[ChartSection.FRAME_TIME] != false) FrameTimeChart(records)
-            if (sectionVisibility[ChartSection.CPU_GPU] != false) CpuGpuUsageChart(records)
-            if (sectionVisibility[ChartSection.CPU_CORE_LOAD] != false) CpuCoreLoadChart(records)
-            if (sectionVisibility[ChartSection.GPU_FREQ] != false) GpuFreqChart(records)
-            if (sectionVisibility[ChartSection.CPU_FREQ] != false) CpuCoreFreqChart(records)
-            if (sectionVisibility[ChartSection.JANK] != false) JankChart(records)
-            if (sectionVisibility[ChartSection.POWER] != false) PowerBatteryChart(records)
-            if (sectionVisibility[ChartSection.CURRENT] != false) BatteryCurrentChart(records)
-            if (sectionVisibility[ChartSection.TEMPERATURE] != false) TemperatureChart(records)
+            if (sectionVisibility[ChartSection.FPS_TEMP] != false) {
+                if (chartsReady) FpsTempChart(records) else ChartSkeleton()
+            }
+            if (sectionVisibility[ChartSection.FRAME_TIME] != false) {
+                if (chartsReady) FrameTimeChart(records) else ChartSkeleton()
+            }
+            if (sectionVisibility[ChartSection.CPU_GPU] != false) {
+                if (chartsReady) CpuGpuUsageChart(records) else ChartSkeleton()
+            }
+            if (sectionVisibility[ChartSection.CPU_CORE_LOAD] != false) {
+                if (chartsReady) CpuCoreLoadChart(records) else ChartSkeleton()
+            }
+            if (sectionVisibility[ChartSection.GPU_FREQ] != false) {
+                if (chartsReady) GpuFreqChart(records) else ChartSkeleton()
+            }
+            if (sectionVisibility[ChartSection.CPU_FREQ] != false) {
+                if (chartsReady) CpuCoreFreqChart(records) else ChartSkeleton()
+            }
+            if (sectionVisibility[ChartSection.JANK] != false) {
+                if (chartsReady) JankChart(records) else ChartSkeleton()
+            }
+            if (sectionVisibility[ChartSection.POWER] != false) {
+                if (chartsReady) PowerBatteryChart(records) else ChartSkeleton()
+            }
+            if (sectionVisibility[ChartSection.CURRENT] != false) {
+                if (chartsReady) BatteryCurrentChart(records) else ChartSkeleton()
+            }
+            if (sectionVisibility[ChartSection.TEMPERATURE] != false) {
+                if (chartsReady) TemperatureChart(records) else ChartSkeleton()
+            }
             Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun ChartSkeleton() {
+    Card(
+        Modifier.fillMaxWidth().height(220.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Box(Modifier.fillMaxSize(), Alignment.Center) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(24.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+            )
         }
     }
 }

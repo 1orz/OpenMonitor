@@ -38,14 +38,6 @@
     <!-- Storage Screen -->
     <string name="partitions">Partitions</string>
 
-    <!-- Sensor Screen -->
-    <string name="sensor_vendor">Vendor</string>
-    <string name="sensor_resolution">Resolution</string>
-    <string name="sensor_max_range">Max Range</string>
-    <string name="sensor_power">Power</string>
-    <string name="sensor_min_delay">Min Delay</string>
-    <string name="sensor_version">Version</string>
-
     <!-- Network Screen -->
     <string name="network_connected">Connected</string>
     <string name="network_disconnected">Disconnected</string>
@@ -101,7 +93,6 @@
     <string name="nav_process">Processes</string>
     <string name="nav_process_detail">Process Detail</string>
     <string name="nav_float_monitor">Float Monitor</string>
-    <string name="nav_sensor">Sensors</string>
     <string name="nav_network">Network</string>
     <string name="nav_key_attestation">Key Attestation</string>
     <string name="nav_debug_log">Debug Log</string>
@@ -114,7 +105,6 @@
     <string name="feature_fps_recording">FPS Recording</string>
     <string name="feature_process_monitor">Process Monitor</string>
     <string name="feature_float_monitor">Float Monitor</string>
-    <string name="feature_sensor">Sensors</string>
     <string name="feature_network_monitor">Network Monitor</string>
     <string name="feature_key_attestation">Key Attestation</string>
     <string name="feature_debug_log">Debug Log</string>

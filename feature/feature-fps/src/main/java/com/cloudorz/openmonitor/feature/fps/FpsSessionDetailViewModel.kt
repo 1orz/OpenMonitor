@@ -1,9 +1,9 @@
 package com.cloudorz.openmonitor.feature.fps
 
 import android.app.Application
-import android.content.Intent
+import android.graphics.Bitmap
+import android.net.Uri
 import android.os.Build
-import androidx.core.content.FileProvider
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -14,12 +14,12 @@ import com.cloudorz.openmonitor.core.data.repository.FpsRepository
 import com.cloudorz.openmonitor.core.model.fps.FpsFrameRecord
 import com.cloudorz.openmonitor.core.model.fps.FpsWatchSession
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
-import java.io.File
 import javax.inject.Inject
 
 data class SessionDeviceInfo(
@@ -92,23 +92,41 @@ class FpsSessionDetailViewModel @Inject constructor(
         }
     }
 
-    fun getExportIntent(onReady: (Intent) -> Unit) {
+    fun getCsvFileName(): String = "fps_session_${sessionId}.csv"
+
+    fun getImageFileName(): String = "fps_session_${sessionId}.png"
+
+    fun writeCsvToUri(uri: Uri, onResult: (String) -> Unit) {
         viewModelScope.launch {
-            val context = application.applicationContext
-            val exportDir = File(context.cacheDir, "export").apply { mkdirs() }
-            val file = File(exportDir, "fps_session_${sessionId}.csv")
-            file.outputStream().use { csvExporter.exportFpsSession(sessionId, it) }
-            val uri = FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                file,
-            )
-            val intent = Intent(Intent.ACTION_SEND).apply {
-                type = "text/csv"
-                putExtra(Intent.EXTRA_STREAM, uri)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            val msg = kotlinx.coroutines.withContext(Dispatchers.IO) {
+                try {
+                    val resolver = application.contentResolver
+                    resolver.openOutputStream(uri)?.use { csvExporter.exportFpsSession(sessionId, it) }
+                    application.getString(com.cloudorz.openmonitor.core.ui.R.string.fps_saved_to_downloads, getCsvFileName())
+                } catch (e: Exception) {
+                    android.util.Log.w("FpsDetailVM", "CSV save failed", e)
+                    application.getString(com.cloudorz.openmonitor.core.ui.R.string.fps_save_failed)
+                }
             }
-            onReady(Intent.createChooser(intent, null))
+            onResult(msg)
+        }
+    }
+
+fun writeImageToUri(uri: Uri, bitmap: Bitmap, onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            val msg = kotlinx.coroutines.withContext(Dispatchers.IO) {
+                try {
+                    val resolver = application.contentResolver
+                    resolver.openOutputStream(uri)?.use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                    bitmap.recycle()
+                    application.getString(com.cloudorz.openmonitor.core.ui.R.string.fps_saved_to_downloads, getImageFileName())
+                } catch (e: Exception) {
+                    android.util.Log.w("FpsDetailVM", "Screenshot save failed", e)
+                    bitmap.recycle()
+                    application.getString(com.cloudorz.openmonitor.core.ui.R.string.fps_save_failed)
+                }
+            }
+            onResult(msg)
         }
     }
 }

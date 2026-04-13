@@ -37,14 +37,6 @@
     <!-- ストレージ -->
     <string name="partitions">パーティション</string>
 
-    <!-- センサー -->
-    <string name="sensor_vendor">ベンダー</string>
-    <string name="sensor_resolution">解像度</string>
-    <string name="sensor_max_range">最大範囲</string>
-    <string name="sensor_power">消費電力</string>
-    <string name="sensor_min_delay">最小遅延</string>
-    <string name="sensor_version">バージョン</string>
-
     <!-- ネットワーク -->
     <string name="network_connected">接続中</string>
     <string name="network_disconnected">未接続</string>
@@ -95,7 +87,6 @@
     <string name="nav_process">プロセス</string>
     <string name="nav_process_detail">プロセス詳細</string>
     <string name="nav_float_monitor">フロートモニター</string>
-    <string name="nav_sensor">センサー</string>
     <string name="nav_network">ネットワーク</string>
     <string name="nav_key_attestation">キー認証</string>
     <string name="nav_debug_log">デバッグログ</string>
@@ -108,7 +99,6 @@
     <string name="feature_fps_recording">FPS記録</string>
     <string name="feature_process_monitor">プロセスモニター</string>
     <string name="feature_float_monitor">フロートモニター</string>
-    <string name="feature_sensor">センサー</string>
     <string name="feature_network_monitor">ネットワークモニター</string>
     <string name="feature_key_attestation">キー認証</string>
     <string name="feature_debug_log">デバッグログ</string>

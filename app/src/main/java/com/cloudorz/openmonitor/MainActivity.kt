@@ -87,7 +87,6 @@ import com.cloudorz.openmonitor.ui.navigation.LocalNavigator
 import com.cloudorz.openmonitor.ui.navigation.Route
 import com.cloudorz.openmonitor.ui.navigation.rememberNavigator
 import com.cloudorz.openmonitor.ui.network.NetworkScreen
-import com.cloudorz.openmonitor.ui.sensor.SensorScreen
 import com.cloudorz.openmonitor.ui.splash.AgreementScreen
 import com.cloudorz.openmonitor.ui.splash.backgroundAgreementCheck
 import com.cloudorz.openmonitor.ui.splash.checkAgreementNeeded
@@ -405,11 +404,6 @@ private fun MainScreen(permissionManager: PermissionManager) {
                 // Float monitor
                 entry<Route.FloatMonitor> {
                     ScreenWithTopBar(R.string.nav_float_monitor) { p -> Box(Modifier.padding(p)) { FloatMonitorScreen() } }
-                }
-
-                // Sensor
-                entry<Route.Sensor> {
-                    ScreenWithTopBar(R.string.nav_sensor) { p -> Box(Modifier.padding(p)) { SensorScreen() } }
                 }
 
                 // Network
