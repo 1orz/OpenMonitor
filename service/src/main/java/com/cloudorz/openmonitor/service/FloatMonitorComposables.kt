@@ -1,5 +1,6 @@
 package com.cloudorz.openmonitor.service
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -83,7 +84,7 @@ import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material.icons.filled.SlowMotionVideo
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material.icons.filled.SwapVert
-import androidx.compose.material.icons.filled.CompareArrows
+import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material3.Icon
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -177,7 +178,7 @@ fun FloatLoadMonitorContent(service: FloatMonitorService) {
 
         Box(
             modifier = Modifier
-                .width(226.dp)
+                .animateContentSize()
                 .background(BG, RoundedCornerShape(10.dp))
                 .padding(8.dp),
         ) {
@@ -213,7 +214,6 @@ fun FloatLoadMonitorContent(service: FloatMonitorService) {
                 Spacer(modifier = Modifier.width(6.dp))
                 // 右侧详细信息
                 Column(
-                    modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
                     // 按簇显示: 负载 + 频率
@@ -1258,7 +1258,7 @@ fun FloatControlPanelContent(service: FloatMonitorService) {
         Btn(Icons.Filled.Speed,       stringResource(R.string.float_btn_gpu_freq), miniShowGpuFreq) { service.onMiniGpuFreqToggle() },
         Btn(Icons.Filled.UnfoldMore, stringResource(R.string.float_btn_ext_temp), tempExtended) { service.onTempExtendedToggle() },
         Btn(Icons.Filled.SwapVert,   stringResource(R.string.float_btn_net_speed), miniShowNetSpeed) { service.onMiniNetSpeedToggle() },
-        Btn(Icons.Filled.CompareArrows, stringResource(R.string.float_btn_net_split), miniNetSpeedMode == 1) { service.onMiniNetSpeedModeToggle() },
+        Btn(Icons.AutoMirrored.Filled.CompareArrows, stringResource(R.string.float_btn_net_split), miniNetSpeedMode == 1) { service.onMiniNetSpeedModeToggle() },
     )
 
     val panelBg = if (isSystemInDarkTheme()) Color(0xF0222222) else Color(0xF0FFFFFF)
