@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="96 104 320 320">
+  <defs>
+    <linearGradient id="waterFill" x1="0" y1="228" x2="0" y2="314" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#80CBC4" stop-opacity="0.42"/>
+      <stop offset="0.55" stop-color="#4DB6AC" stop-opacity="0.24"/>
+      <stop offset="1" stop-color="#26A69A" stop-opacity="0.03"/>
+    </linearGradient>
+    <clipPath id="screenClip">
+      <path d="M168,178h176c10,0 18,8 18,18v100c0,10 -8,18 -18,18h-176c-10,0 -18,-8 -18,-18v-100c0,-10 8,-18 18,-18z"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect x="96" y="104" width="320" height="320" fill="#004787"/>
+
+  <!-- Water fill clipped to screen interior -->
+  <g clip-path="url(#screenClip)">
+    <path d="M150,272C172,264 192,248 216,250C238,252 252,278 272,275C290,272 300,252 308,242L308,314L150,314Z" fill="url(#waterFill)"/>
+  </g>
+
+  <!-- Monitor screen frame -->
+  <path d="M165,170h182c14,0 25,11 25,25v110c0,14 -11,25 -25,25h-182c-14,0 -25,-11 -25,-25v-110c0,-14 11,-25 25,-25z" fill="none" stroke="#E1F5FE" stroke-width="16" stroke-linejoin="round"/>
+
+  <!-- Monitor stand neck -->
+  <rect x="243" y="330" width="26" height="26" fill="#E1F5FE"/>
+
+  <!-- Monitor base -->
+  <path d="M212,352h88c6,0 10,4 10,10c0,2 -2,4 -4,4h-100c-2,0 -4,-2 -4,-4c0,-6 4,-10 10,-10z" fill="#E1F5FE"/>
+
+  <!-- Performance curve -->
+  <path d="M150,272C172,264 192,248 216,250C238,252 252,278 272,275C290,272 300,252 308,242" fill="none" stroke="#E1F5FE" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Curve end point: outer glow -->
+  <circle cx="308" cy="242" r="8" fill="#A5D6A7"/>
+
+  <!-- Curve end point: inner dot -->
+  <circle cx="308" cy="242" r="4.5" fill="#C8E6C9"/>
+</svg>
