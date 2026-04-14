@@ -10,23 +10,18 @@
 //!   - Implement `nativeMain()` so control can land in `core::run_server`.
 //!   - Implement `nativeGetBinder()` so Shizuku can forward the binder back
 //!     to the App process (via its own ContentProvider bridge).
-//!
-//! These are `#[no_mangle] pub extern "C"` functions with the JNI-mangled
-//! symbol names the JVM's `System.loadLibrary` lookup will resolve.
 
 use std::ffi::c_void;
 use std::sync::Mutex;
 
+use crate::aidl_gen::com::cloudorz::openmonitor::server::IMonitorService::IMonitorService;
 use crate::core::{LaunchMode, ServerConfig};
-use crate::service::MonitorBinder;
 
-// JNI types we care about. Kept minimal so we don't pull in the `jni` crate
-// for this single file — only raw pointer handles cross the boundary.
 pub type JNIEnv = c_void;
 pub type JClass = *mut c_void;
 pub type JObject = *mut c_void;
 
-static BINDER: Mutex<Option<MonitorBinder>> = Mutex::new(None);
+static BINDER: Mutex<Option<rsbinder::Strong<dyn IMonitorService>>> = Mutex::new(None);
 
 /// Shizuku calls `RustEntry.main(args)` which calls `nativeMain()`. We run
 /// the server on this thread — it's fine to hold it since Shizuku's
@@ -63,12 +58,17 @@ pub extern "C" fn Java_com_cloudorz_openmonitor_server_RustEntry_nativeGetBinder
 ) -> JObject {
     // TODO(Phase 1): return a jobject wrapping the rsbinder AIBinder*.
     // Requires JNI env to call `AIBinder_toJavaBinder(env, binder)`.
+    //
+    // Once rsbinder exposes the raw AIBinder pointer, this becomes:
+    //   let binder = BINDER.lock().ok()?.as_ref()?.as_binder();
+    //   let raw = binder.as_raw();  // *mut AIBinder
+    //   let env = JNIEnv::from_raw(_env);
+    //   env.call_static_method("android/os/Binder", "toJavaBinder", ...)
     std::ptr::null_mut()
 }
 
 /// Stash the binder so `nativeGetBinder` can hand it back.
-#[allow(dead_code)]
-pub(crate) fn store_binder(binder: MonitorBinder) {
+pub(crate) fn store_binder(binder: rsbinder::Strong<dyn IMonitorService>) {
     if let Ok(mut slot) = BINDER.lock() {
         *slot = Some(binder);
     }

@@ -6,6 +6,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use crate::aidl_gen::com::cloudorz::openmonitor::server::IMonitorService::IMonitorService;
 use crate::service::MonitorServiceImpl;
 use crate::shm::SharedSnapshot;
 
@@ -34,19 +35,23 @@ pub struct ServerConfig {
 pub fn run_server(mode: LaunchMode, config: ServerConfig) -> Result<(), ServerError> {
     log::info!("run_server mode={mode:?} config={config:?}");
 
-    // 1. Allocate the shared-memory Snapshot region.
+    // 1. Initialize the binder subsystem.
+    crate::service::init_binder();
+
+    // 2. Allocate the shared-memory Snapshot region.
     let shm = Arc::new(SharedSnapshot::create().map_err(ServerError::Shm)?);
 
-    // 2. Build service impl.
+    // 3. Build service impl.
     let service = MonitorServiceImpl::new(shm.clone());
+    let exit_flag = service.exit_flag();
 
-    // 3. Start the sampling threads (collectors loop every 500 ms).
+    // 4. Start the sampling threads (collectors loop every 500 ms).
     crate::collectors::start_all(shm.clone(), service.runtime_handle());
 
-    // 4. Register the binder service.
-    let binder = service.into_binder().map_err(ServerError::Binder)?;
+    // 5. Create the binder service object.
+    let binder: rsbinder::Strong<dyn IMonitorService> = service.into_binder();
 
-    // 5. Publish to the App.
+    // 6. Publish to the App.
     match mode {
         LaunchMode::Libsu => {
             // libsu path: reverse push via ContentProvider.
@@ -55,14 +60,21 @@ pub fn run_server(mode: LaunchMode, config: ServerConfig) -> Result<(), ServerEr
         }
         LaunchMode::Shizuku => {
             // Shizuku does the push for us — the binder is returned from JNI.
-            // Nothing to do here.
+            // Stash it for nativeGetBinder().
+            #[cfg(target_os = "android")]
+            crate::jni_entry::store_binder(binder.clone());
         }
     }
 
-    // 6. Join binder thread pool. Does not return until exit() is called.
+    // Keep the binder alive by holding the Strong reference.
+    let _keep_alive = binder;
+
+    // 7. Join binder thread pool. Does not return until exit() is called.
     crate::service::join_thread_pool();
 
-    log::info!("run_server: clean shutdown");
+    if exit_flag.load(std::sync::atomic::Ordering::Acquire) {
+        log::info!("run_server: exit() was called — clean shutdown");
+    }
     Ok(())
 }
 

@@ -1,35 +1,19 @@
 //! `IMonitorService` server-side implementation.
 //!
-//! This file wires the generated rsbinder stub (`BnIMonitorService`) to our
-//! domain logic. The generated stub lives in `src/aidl_gen.rs`; until Phase 0
-//! locks down the exact rsbinder-aidl API shape we stub the binder surface
-//! with a trait alias so the rest of the crate compiles.
-//!
-//! TODO(Phase 0): replace `DummyBinder` with the real generated type.
+//! Implements the rsbinder-generated `IMonitorService` trait with the real
+//! binder server stub (`BnMonitorService`).
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use crate::aidl_gen::com::cloudorz::openmonitor::server::{
+    IMonitorCallback::IMonitorCallback,
+    IMonitorService::{BnMonitorService, IMonitorService},
+};
 use crate::shm::SharedSnapshot;
 
-/// Opaque binder handle we pass around. The libsu and Shizuku paths both turn
-/// this into whatever representation rsbinder expects (`Strong<dyn IBinder>`,
-/// `SpIBinder`, etc.).
-pub struct MonitorBinder {
-    inner: Arc<dyn std::any::Any + Send + Sync>,
-}
-
-impl MonitorBinder {
-    pub fn new(svc: Arc<MonitorServiceImpl>) -> Self {
-        Self { inner: svc }
-    }
-
-    /// # Safety
-    /// Caller must know which concrete type this binder was built from.
-    pub unsafe fn as_service(&self) -> Option<&MonitorServiceImpl> {
-        self.inner.downcast_ref::<MonitorServiceImpl>()
-    }
-}
+const SERVER_VERSION: i32 = 1;
 
 /// Shared handle to the runtime side of the server, passed to collectors so
 /// they can notify listeners without having to know about the binder layer.
@@ -40,7 +24,9 @@ pub struct RuntimeHandle {
 }
 
 impl RuntimeHandle {
-    pub fn shm(&self) -> &Arc<SharedSnapshot> { &self.shm }
+    pub fn shm(&self) -> &Arc<SharedSnapshot> {
+        &self.shm
+    }
 
     pub fn notify_focus(&self, pkg: &str) {
         log::debug!("focus → {pkg}");
@@ -60,6 +46,7 @@ impl RuntimeHandle {
 pub struct MonitorServiceImpl {
     shm: Arc<SharedSnapshot>,
     callbacks: Arc<Mutex<CallbackRegistry>>,
+    exit_flag: Arc<AtomicBool>,
 }
 
 impl MonitorServiceImpl {
@@ -67,6 +54,7 @@ impl MonitorServiceImpl {
         Self {
             shm,
             callbacks: Arc::new(Mutex::new(CallbackRegistry::default())),
+            exit_flag: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -77,53 +65,148 @@ impl MonitorServiceImpl {
         }
     }
 
-    /// Bind the service to a binder object and return it.
-    ///
-    /// This is where `BnIMonitorService::new_binder(self)` goes once the
-    /// generated stub is in place.
-    pub fn into_binder(self) -> std::io::Result<MonitorBinder> {
-        let arc = Arc::new(self);
-        // TODO(Phase 0): wrap in rsbinder BnIMonitorService and return a
-        // strong binder. For now we hold the Arc so the SHM stays mapped.
-        Ok(MonitorBinder::new(arc))
+    pub fn exit_flag(&self) -> Arc<AtomicBool> {
+        self.exit_flag.clone()
+    }
+
+    /// Bind the service to a real rsbinder `BnMonitorService` and return the
+    /// strong binder reference.
+    pub fn into_binder(self) -> rsbinder::Strong<dyn IMonitorService> {
+        BnMonitorService::new_binder(self)
     }
 }
 
-/// Set of registered AIDL callbacks. Each callback is keyed by the binder's
-/// stable id so `unregister` can find it again.
+impl rsbinder::Interface for MonitorServiceImpl {
+    fn as_binder(&self) -> rsbinder::SIBinder {
+        // This is the server side — we don't hold our own binder reference.
+        // The BnMonitorService wrapper handles this; this is only called if
+        // someone unwraps the adapter, which shouldn't happen in practice.
+        panic!("MonitorServiceImpl::as_binder called directly — use BnMonitorService wrapper")
+    }
+}
+
+impl IMonitorService for MonitorServiceImpl {
+    fn r#getVersion(&self) -> rsbinder::status::Result<i32> {
+        Ok(SERVER_VERSION)
+    }
+
+    fn r#getSnapshotMemory(&self) -> rsbinder::status::Result<rsbinder::ParcelFileDescriptor> {
+        let dup_fd = self.shm.dup_fd().map_err(|e| {
+            log::error!("dup_fd failed: {e}");
+            rsbinder::Status::from(rsbinder::StatusCode::Unknown)
+        })?;
+        Ok(rsbinder::ParcelFileDescriptor::new(dup_fd))
+    }
+
+    fn r#registerCallback(
+        &self,
+        _arg_cb: &rsbinder::Strong<dyn IMonitorCallback>,
+    ) -> rsbinder::status::Result<()> {
+        if let Ok(mut cbs) = self.callbacks.lock() {
+            cbs.register(_arg_cb.clone());
+        }
+        Ok(())
+    }
+
+    fn r#unregisterCallback(
+        &self,
+        _arg_cb: &rsbinder::Strong<dyn IMonitorCallback>,
+    ) -> rsbinder::status::Result<()> {
+        if let Ok(mut cbs) = self.callbacks.lock() {
+            cbs.unregister(_arg_cb);
+        }
+        Ok(())
+    }
+
+    #[allow(non_snake_case)]
+    fn r#setSamplingRate(
+        &self,
+        _arg_subsystem: &str,
+        _arg_intervalMs: i32,
+    ) -> rsbinder::status::Result<()> {
+        log::info!("setSamplingRate: {_arg_subsystem} → {_arg_intervalMs}ms");
+        // TODO: plumb into collectors
+        Ok(())
+    }
+
+    fn r#setActiveSubsystems(&self, _arg_names: &[String]) -> rsbinder::status::Result<()> {
+        log::info!("setActiveSubsystems: {_arg_names:?}");
+        // TODO: plumb into collectors
+        Ok(())
+    }
+
+    fn r#exit(&self) -> rsbinder::status::Result<()> {
+        log::info!("exit() called — shutting down");
+        self.exit_flag.store(true, Ordering::Release);
+        Ok(())
+    }
+}
+
+/// Set of registered AIDL callbacks.
 #[derive(Default)]
 struct CallbackRegistry {
-    // TODO(Phase 4): keyed map of IMonitorCallback stubs.
-    entries: Vec<DummyCallback>,
+    entries: Vec<rsbinder::Strong<dyn IMonitorCallback>>,
 }
 
 impl CallbackRegistry {
+    fn register(&mut self, cb: rsbinder::Strong<dyn IMonitorCallback>) {
+        self.entries.push(cb);
+    }
+
+    fn unregister(&mut self, cb: &rsbinder::Strong<dyn IMonitorCallback>) {
+        let target = rsbinder::Interface::as_binder(cb.as_ref());
+        self.entries
+            .retain(|e| rsbinder::Interface::as_binder(e.as_ref()) != target);
+    }
+
     fn dispatch_focus(&self, pkg: &str) {
         for cb in &self.entries {
-            cb.on_focus(pkg);
+            if let Err(e) = cb.r#onFocusedPackageChanged(pkg) {
+                log::warn!("callback dispatch_focus failed: {e}");
+            }
         }
     }
+
     fn dispatch_screen(&self, interactive: bool) {
         for cb in &self.entries {
-            cb.on_screen(interactive);
+            if let Err(e) = cb.r#onScreenStateChanged(interactive) {
+                log::warn!("callback dispatch_screen failed: {e}");
+            }
         }
     }
 }
 
-struct DummyCallback;
-impl DummyCallback {
-    fn on_focus(&self, _pkg: &str) {}
-    fn on_screen(&self, _interactive: bool) {}
+/// Enter the binder thread pool. Does not return until the process exits.
+pub fn join_thread_pool() {
+    // On Android, this enters the real binder thread pool.
+    // On host (dev/test), park the thread.
+    #[cfg(target_os = "android")]
+    {
+        if let Err(e) = rsbinder::ProcessState::join_thread_pool() {
+            log::error!("join_thread_pool failed: {e:?}");
+        }
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        log::info!("join_thread_pool: host mode — parking indefinitely");
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(3600));
+        }
+    }
 }
 
-/// Enter the binder thread pool. Does not return until `exit()` is called on
-/// the service binder.
-pub fn join_thread_pool() {
-    // TODO(Phase 0): rsbinder::ProcessState::join_thread_pool().
-    // For the scaffold, park indefinitely so the binary doesn't exit.
-    use std::thread;
-    use std::time::Duration;
-    loop {
-        thread::sleep(Duration::from_secs(3600));
+/// Initialize and start the binder thread pool.
+pub fn init_binder() {
+    #[cfg(target_os = "android")]
+    {
+        // Android binder device path. Standard path for most devices.
+        // Some devices use /dev/binderfs/binder, but /dev/binder is the
+        // compat symlink present on all API 26+ devices.
+        rsbinder::ProcessState::init("/dev/binder", 0);
+        rsbinder::ProcessState::start_thread_pool();
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        log::info!("init_binder: host mode — skipping ProcessState init");
     }
 }

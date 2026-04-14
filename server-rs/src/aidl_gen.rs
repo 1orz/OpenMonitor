@@ -1,16 +1,11 @@
-//! Generated rsbinder stubs live in `$OUT_DIR/aidl/` after build.rs runs.
+//! Generated rsbinder stubs from `build.rs` → `rsbinder-aidl`.
 //!
-//! We `include!` them here so the rest of the crate can reference
-//! `IMonitorService`, `IMonitorCallback`, and the hidden AIDL clients
-//! (`IActivityTaskManager`, `IBatteryPropertiesRegistrar`, …) with plain
-//! `use crate::aidl_gen::...;` paths.
+//! Provides the IMonitorService and IMonitorCallback traits, plus the
+//! BnMonitorService / BpMonitorService / BnMonitorCallback / BpMonitorCallback
+//! binder types.
 //!
-//! Until Phase 0 wires rsbinder-aidl into build.rs, this file is empty.
+//! Usage:
+//!   use crate::aidl_gen::com::cloudorz::openmonitor::server::IMonitorService::*;
+//!   use crate::aidl_gen::com::cloudorz::openmonitor::server::IMonitorCallback::*;
 
-// Included once the generator produces output (see build.rs):
-//
-// include!(concat!(env!("OUT_DIR"), "/aidl/mod.rs"));
-
-// Placeholder — no generated stubs yet. This file becomes one-liner
-// `include!(concat!(env!("OUT_DIR"), "/aidl/mod.rs"));` once rsbinder-aidl
-// in build.rs produces output.
+include!(concat!(env!("OUT_DIR"), "/rsbinder_generated_aidl.rs"));

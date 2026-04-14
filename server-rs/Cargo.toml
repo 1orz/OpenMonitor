@@ -24,6 +24,8 @@ crate-type = ["cdylib", "rlib"]
 # will validate on-device stability; bindgen-libbinder_ndk is the
 # documented fallback).
 rsbinder = "0.6"
+# Required by rsbinder-aidl generated async service traits.
+async-trait = "0.1"
 
 # POSIX: pipe, dup2, getuid, setsid. The 0.29 feature gates require fanout;
 # we only need fork/setsid (`process`) and the generic file/signal sets.
