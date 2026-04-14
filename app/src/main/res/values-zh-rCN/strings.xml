@@ -260,7 +260,7 @@
     <string name="activation_revoked">该激活码已被吊销</string>
     <string name="activation_network_error">网络错误，请检查网络连接</string>
     <string name="activation_copied">设备 ID 已复制</string>
-    <string name="activation_contact">联系开发者获取激活码</string>
+    <string name="activation_contact">软件免费，但内测期间需要进群找群主免费获取激活码才可以正常使用。</string>
     <string name="activation_plan_basic">基础版</string>
     <string name="activation_plan_pro">专业版</string>
     <string name="activation_plan_ultimate">旗舰版</string>

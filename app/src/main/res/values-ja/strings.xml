@@ -260,7 +260,7 @@
     <string name="activation_revoked">このアクティベーションコードは取り消されました</string>
     <string name="activation_network_error">ネットワークエラー、接続を確認してください</string>
     <string name="activation_copied">デバイス ID をコピーしました</string>
-    <string name="activation_contact">開発者に連絡してアクティベーションコードを取得</string>
+    <string name="activation_contact">アプリは無料ですが、ベータ期間中はコミュニティに参加し、管理者から無料のアクティベーションコードを取得する必要があります。</string>
     <string name="activation_plan_basic">ベーシック</string>
     <string name="activation_plan_pro">プロ</string>
     <string name="activation_plan_ultimate">アルティメット</string>

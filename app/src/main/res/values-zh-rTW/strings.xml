@@ -260,7 +260,7 @@
     <string name="activation_revoked">該啟用碼已被撤銷</string>
     <string name="activation_network_error">網路錯誤，請檢查網路連線</string>
     <string name="activation_copied">裝置 ID 已複製</string>
-    <string name="activation_contact">聯繫開發者取得啟用碼</string>
+    <string name="activation_contact">軟體免費，但內測期間需要進群找群主免費取得啟用碼才可以正常使用。</string>
     <string name="activation_plan_basic">基礎版</string>
     <string name="activation_plan_pro">專業版</string>
     <string name="activation_plan_ultimate">旗艦版</string>

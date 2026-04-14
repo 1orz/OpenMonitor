@@ -4,6 +4,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.core.net.toUri
 import androidx.compose.foundation.clickable
+import com.cloudorz.openmonitor.ui.CommunityLinks
 import com.cloudorz.openmonitor.core.ui.hapticClickable
 import com.cloudorz.openmonitor.core.ui.hapticClick
 import androidx.compose.foundation.layout.Arrangement
@@ -308,12 +309,11 @@ fun UserScreen(
             title = stringResource(R.string.settings_group_community),
             items = listOf(
                 {
-                    val telegramUrl = "https://t.me/OpenMonitor"
                     ListItem(
                         modifier = Modifier.hapticClickable(onClick = {
                             try {
                                 communityContext.startActivity(
-                                    Intent(Intent.ACTION_VIEW, telegramUrl.toUri()),
+                                    Intent(Intent.ACTION_VIEW, CommunityLinks.TELEGRAM_URL.toUri()),
                                 )
                             } catch (_: Exception) {}
                         }),
@@ -324,7 +324,7 @@ fun UserScreen(
                         supportingContent = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = telegramUrl,
+                                    text = CommunityLinks.TELEGRAM_URL,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.outline,
                                     modifier = Modifier.weight(1f, fill = false),
@@ -333,7 +333,7 @@ fun UserScreen(
                                 IconButton(
                                     onClick = {
                                         val clipboard = communityContext.getSystemService(ClipboardManager::class.java)
-                                        clipboard?.setPrimaryClip(ClipData.newPlainText("Telegram", telegramUrl))
+                                        clipboard?.setPrimaryClip(ClipData.newPlainText("Telegram", CommunityLinks.TELEGRAM_URL))
                                         Toast.makeText(communityContext, communityContext.getString(R.string.qq_group_copied), Toast.LENGTH_SHORT).show()
                                     },
                                     modifier = Modifier.size(20.dp),
@@ -355,16 +355,11 @@ fun UserScreen(
                     )
                 },
                 {
-                    val qqGroupNumber = "1094684232"
-                    val qqGroupKey = "E1Txl1Vhjit7h9Yl6KeTQZXqf6npyKG9"
                     ListItem(
                         modifier = Modifier.hapticClickable(onClick = {
                             try {
                                 communityContext.startActivity(
-                                    Intent(
-                                        Intent.ACTION_VIEW,
-                                        "mqqopensdkapi://bizAgent/qm/qr?url=http%3A%2F%2Fqm.qq.com%2Fcgi-bin%2Fqm%2Fqr%3Ffrom%3Dapp%26p%3Dandroid%26jump_from%3Dwebapi%26k%3D$qqGroupKey".toUri(),
-                                    ),
+                                    Intent(Intent.ACTION_VIEW, CommunityLinks.QQ_GROUP_URL.toUri()),
                                 )
                             } catch (_: Exception) {
                                 Toast.makeText(communityContext, communityContext.getString(R.string.qq_not_installed), Toast.LENGTH_SHORT).show()
@@ -377,7 +372,7 @@ fun UserScreen(
                         supportingContent = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = qqGroupNumber,
+                                    text = CommunityLinks.QQ_GROUP_NUMBER,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.outline,
                                     modifier = Modifier.weight(1f, fill = false),
@@ -386,7 +381,7 @@ fun UserScreen(
                                 IconButton(
                                     onClick = {
                                         val clipboard = communityContext.getSystemService(ClipboardManager::class.java)
-                                        clipboard?.setPrimaryClip(ClipData.newPlainText("QQ Group", qqGroupNumber))
+                                        clipboard?.setPrimaryClip(ClipData.newPlainText("QQ Group", CommunityLinks.QQ_GROUP_NUMBER))
                                         Toast.makeText(communityContext, communityContext.getString(R.string.qq_group_copied), Toast.LENGTH_SHORT).show()
                                     },
                                     modifier = Modifier.size(20.dp),

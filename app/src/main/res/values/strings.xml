@@ -269,7 +269,7 @@
     <string name="activation_revoked">This activation code has been revoked</string>
     <string name="activation_network_error">Network error, please check your connection</string>
     <string name="activation_copied">Device ID copied</string>
-    <string name="activation_contact">Contact the developer to get an activation code</string>
+    <string name="activation_contact">The app is free, but during beta you need to join the community and ask the admin for a free activation code.</string>
     <string name="activation_plan_basic">Basic</string>
     <string name="activation_plan_pro">Pro</string>
     <string name="activation_plan_ultimate">Ultimate</string>
