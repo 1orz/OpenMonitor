@@ -1,5 +1,5 @@
 [versions]
-agp = "9.1.0"
+agp = "9.1.1"
 kotlin = "2.3.20"
 ksp = "2.3.6"
 coroutines = "1.10.2"
@@ -25,6 +25,8 @@ zxing = "3.5.3"
 eddsa = "0.3.0"
 googleServices = "4.4.4"
 firebaseBom = "34.12.0"
+firebaseCrashlyticsPlugin = "3.0.7"
+firebasePerfPlugin = "2.0.2"
 markdownRenderer = "0.27.0"
 
 [libraries]
@@ -89,6 +91,8 @@ xlog = { module = "com.elvishew:xlog", version.ref = "xlog" }
 # Firebase
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
 firebase-analytics = { module = "com.google.firebase:firebase-analytics" }
+firebase-crashlytics = { module = "com.google.firebase:firebase-crashlytics" }
+firebase-perf = { module = "com.google.firebase:firebase-perf" }
 
 # Vico Charts
 vico-compose = { module = "com.patrykandpatrick.vico:compose", version.ref = "vico" }
@@ -121,3 +125,5 @@ hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 room = { id = "androidx.room", version.ref = "room" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
+firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "firebaseCrashlyticsPlugin" }
+firebase-perf = { id = "com.google.firebase.firebase-perf", version.ref = "firebasePerfPlugin" }
