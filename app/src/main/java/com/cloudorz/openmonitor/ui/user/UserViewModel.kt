@@ -5,7 +5,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cloudorz.openmonitor.core.common.PrivilegeMode
 import com.cloudorz.openmonitor.core.data.datasource.DaemonClient
+import com.cloudorz.openmonitor.core.data.repository.ActivationRepository
 import com.cloudorz.openmonitor.core.data.repository.DeviceIdentityRepository
+import com.cloudorz.openmonitor.core.model.identity.ActivationState
 import com.cloudorz.openmonitor.core.model.identity.DeviceFingerprint
 import com.cloudorz.openmonitor.core.model.identity.DeviceIdentity
 import com.cloudorz.openmonitor.core.ui.HapticFeedbackManager
@@ -39,6 +41,7 @@ class UserViewModel @Inject constructor(
     private val daemonLauncher: DaemonLauncher,
     private val themeRepo: ThemeSettingsRepository,
     private val identityRepository: DeviceIdentityRepository,
+    private val activationRepository: ActivationRepository,
     @param:ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -290,6 +293,8 @@ class UserViewModel @Inject constructor(
     val fingerprint: StateFlow<DeviceFingerprint?> = _fingerprint.asStateFlow()
 
     fun getCachedIdentity(): DeviceIdentity? = identityRepository.getCachedIdentity()
+
+    fun getCachedActivationState(): ActivationState? = activationRepository.getCachedState()
 
     fun loadFingerprint() {
         if (_fingerprint.value != null) return

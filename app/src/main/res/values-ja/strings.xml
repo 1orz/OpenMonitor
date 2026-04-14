@@ -221,10 +221,26 @@
     <string name="donate_identifying_device">デバイスを識別中\u2026</string>
     <string name="donate_identify_failed">デバイスの識別に失敗しました</string>
 
-    <!-- アバウト - デバイスID -->
+    <!-- アバウト画面 -->
+    <string name="about_title">OpenMonitor について</string>
     <string name="about_device_identity">デバイスID</string>
     <string name="about_show_fingerprint">デバイスフィンガープリントを表示</string>
     <string name="about_hide_fingerprint">デバイスフィンガープリントを非表示</string>
+    <string name="about_activation_status">アクティベーション状態</string>
+    <string name="about_activated">有効</string>
+    <string name="about_not_activated">未有効</string>
+    <string name="about_plan">プラン</string>
+    <string name="about_activated_at">有効化日</string>
+    <string name="about_expires_at">有効期限</string>
+    <string name="about_permanent">永久</string>
+    <string name="about_build_info">ビルド情報</string>
+    <string name="about_version">バージョン</string>
+    <string name="about_commit">コミット</string>
+    <string name="about_author">作者</string>
+    <string name="about_license">ライセンス</string>
+    <string name="about_copy_all">すべてコピー</string>
+    <string name="about_copied">コピーしました</string>
+    <string name="about_source_code">ソースコード</string>
 
     <!-- 利用規約 -->
     <string name="agreement_title">利用規約</string>

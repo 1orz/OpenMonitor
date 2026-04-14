@@ -102,6 +102,7 @@ import com.cloudorz.openmonitor.ui.theme.ColorPaletteScreen
 import com.cloudorz.openmonitor.ui.theme.ThemeViewModel
 import com.cloudorz.openmonitor.ui.user.LicenseDetailScreen
 import com.cloudorz.openmonitor.ui.user.OpenSourceLicensesScreen
+import com.cloudorz.openmonitor.ui.user.AboutScreen
 import com.cloudorz.openmonitor.ui.user.UserScreen
 import com.cloudorz.openmonitor.ui.user.allLibraries
 import dagger.hilt.android.AndroidEntryPoint
@@ -538,6 +539,13 @@ private fun MainScreen(permissionManager: PermissionManager) {
                         Box(Modifier.padding(p)) { DonateScreen() }
                     }
                 }
+
+                // About
+                entry<Route.About> {
+                    ScreenWithTopBar(R.string.about_title) { p ->
+                        Box(Modifier.padding(p)) { AboutScreen() }
+                    }
+                }
             },
         )
     }
@@ -606,6 +614,7 @@ private fun TabsScreen(permissionManager: PermissionManager) {
                     onNavigateToLicenses = { navigator.push(Route.Licenses) },
                     onNavigateToTheme = { navigator.push(Route.ColorPalette) },
                     onNavigateToDonate = { navigator.push(Route.Donate) },
+                    onNavigateToAbout = { navigator.push(Route.About) },
                 )
             }
         }

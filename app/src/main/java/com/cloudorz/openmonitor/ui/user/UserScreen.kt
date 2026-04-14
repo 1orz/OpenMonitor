@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -109,6 +108,7 @@ fun UserScreen(
     onNavigateToLicenses: () -> Unit = {},
     onNavigateToTheme: () -> Unit = {},
     onNavigateToDonate: () -> Unit = {},
+    onNavigateToAbout: () -> Unit = {},
     viewModel: UserViewModel = hiltViewModel(),
 ) {
     val view = LocalView.current
@@ -458,11 +458,6 @@ fun UserScreen(
         )
 
         // ── About ──
-        var showAboutDialog by remember { mutableStateOf(false) }
-        if (showAboutDialog) {
-            AboutDialog(onDismiss = { showAboutDialog = false }, viewModel = viewModel)
-        }
-
         // null = still checking, non-null = result
         val updateContext = LocalContext.current
         var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
@@ -473,68 +468,57 @@ fun UserScreen(
         SettingsGroup(
             title = stringResource(R.string.settings_group_about),
             items = buildList {
-                // Version + update status merged into one item
+                // Version + update status
                 add {
                     val info = updateInfo
                     val isChecking = info == null
                     val hasUpdate = info?.hasUpdate == true
                     val isError = info?.isError == true
 
-                    val onItemClick: () -> Unit = if (hasUpdate) {
-                        { UpdateChecker.openDownload(updateContext, info.downloadUrl) }
-                    } else {
-                        { showAboutDialog = true }
-                    }
-
                     ListItem(
-                        modifier = Modifier.hapticClickable(onClick = onItemClick),
+                        modifier = Modifier.hapticClickable(onClick = {
+                            if (hasUpdate) {
+                                UpdateChecker.openDownload(updateContext, info.downloadUrl)
+                            }
+                        }),
                         colors = ListItemDefaults.colors(
                             containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
                         ),
-                        headlineContent = { Text("OpenMonitor") },
+                        headlineContent = {
+                            Text(stringResource(R.string.settings_version_current, BuildConfig.VERSION_NAME))
+                        },
                         supportingContent = {
-                            Row {
-                                Text(
-                                    text = stringResource(R.string.settings_version_current, BuildConfig.VERSION_NAME),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.outline,
-                                )
-                                Text(
-                                    text = "  ·  ",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.outline,
-                                )
-                                Text(
-                                    text = when {
-                                        isChecking -> stringResource(R.string.settings_detecting)
-                                        isError -> stringResource(R.string.settings_check_failed)
-                                        else -> stringResource(R.string.settings_version_latest, info.versionName)
-                                    },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = when {
-                                        isChecking -> MaterialTheme.colorScheme.outline
-                                        isError -> MaterialTheme.colorScheme.error
-                                        hasUpdate -> MaterialTheme.colorScheme.primary
-                                        else -> Color(0xFF4CAF50)
-                                    },
-                                )
-                            }
+                            Text(
+                                text = when {
+                                    isChecking -> stringResource(R.string.settings_detecting)
+                                    isError -> stringResource(R.string.settings_check_failed)
+                                    hasUpdate -> stringResource(R.string.settings_version_latest, info.versionName)
+                                    else -> stringResource(R.string.settings_up_to_date)
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = when {
+                                    isChecking -> MaterialTheme.colorScheme.outline
+                                    isError -> MaterialTheme.colorScheme.error
+                                    hasUpdate -> MaterialTheme.colorScheme.primary
+                                    else -> Color(0xFF4CAF50)
+                                },
+                            )
                         },
                         leadingContent = {
-                            Icon(Icons.Filled.Info, contentDescription = null)
+                            Icon(Icons.Filled.SystemUpdate, contentDescription = null)
                         },
-                        trailingContent = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_github),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Icon(Icons.AutoMirrored.Filled.NavigateNext, contentDescription = null)
-                            }
-                        },
+                        trailingContent = if (hasUpdate) {
+                            { Icon(Icons.AutoMirrored.Filled.NavigateNext, contentDescription = null) }
+                        } else null,
+                    )
+                }
+                // About page
+                add {
+                    SettingsNavigateItem(
+                        title = stringResource(R.string.about_title),
+                        summary = stringResource(R.string.settings_version_format, BuildConfig.VERSION_NAME),
+                        icon = Icons.Filled.Info,
+                        onClick = { onNavigateToAbout() },
                     )
                 }
                 add {
@@ -795,197 +779,6 @@ private fun modeDescription(mode: PrivilegeMode): String = when (mode) {
 }
 
 @Composable
-private fun AboutDialog(onDismiss: () -> Unit, viewModel: UserViewModel) {
-    val context = LocalContext.current
-    val view = LocalView.current
-    var showFingerprint by remember { mutableStateOf(false) }
-    val fingerprint by viewModel.fingerprint.collectAsState()
-    val identity = remember { viewModel.getCachedIdentity() }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = {
-                view.hapticClick()
-                try {
-                    context.startActivity(
-                        Intent(Intent.ACTION_VIEW, "https://github.com/1orz/OpenMonitor".toUri()),
-                    )
-                } catch (_: Exception) {}
-            }) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_github),
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("GitHub")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = { view.hapticClick(); onDismiss() }) { Text(stringResource(R.string.settings_close)) }
-        },
-        title = {
-            Text("OpenMonitor")
-        },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Text(
-                    text = stringResource(R.string.app_description),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                AboutRow("Version", BuildConfig.VERSION_NAME)
-                AboutRow("Commit", BuildConfig.GIT_COMMIT)
-                AboutRow("Author", "1orz")
-                AboutRow("License", "GPLv3")
-
-                // Device Identity
-                val clipboardManager = context.getSystemService(ClipboardManager::class.java)
-                if (identity != null) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = stringResource(R.string.about_device_identity),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.weight(1f),
-                        )
-                        IconButton(
-                            onClick = {
-                                view.hapticClick()
-                                clipboardManager.setPrimaryClip(ClipData.newPlainText("",identity.uuid))
-                            },
-                            modifier = Modifier.size(20.dp),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.ContentCopy,
-                                contentDescription = "Copy UUID",
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                    AboutRow("UUID", identity.uuid)
-                }
-
-                // Fingerprint debug toggle
-                Spacer(modifier = Modifier.height(4.dp))
-                TextButton(
-                    onClick = {
-                        view.hapticClick()
-                        showFingerprint = !showFingerprint
-                        if (showFingerprint) viewModel.loadFingerprint()
-                    },
-                ) {
-                    Text(
-                        text = if (showFingerprint) stringResource(R.string.about_hide_fingerprint)
-                               else stringResource(R.string.about_show_fingerprint),
-                        style = MaterialTheme.typography.labelSmall,
-                    )
-                }
-
-                if (showFingerprint && fingerprint != null) {
-                    val fp = fingerprint!!
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = stringResource(R.string.about_show_fingerprint),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.weight(1f),
-                        )
-                        IconButton(
-                            onClick = {
-                                view.hapticClick()
-                                val text = buildString {
-                                    if (identity != null) appendLine("UUID: ${identity.uuid}")
-                                    appendLine("MediaDrm ID: ${fp.mediaDrmId ?: "N/A"}")
-                                    appendLine("Serial No: ${fp.serialNo ?: "N/A"}")
-                                    appendLine("Primary ID: ${fp.primaryId()}")
-                                    appendLine("HW Hash: ${fp.hardwareHash()}")
-                                    appendLine("Model: ${fp.model}")
-                                    appendLine("Board: ${fp.board}")
-                                    appendLine("Hardware: ${fp.hardware}")
-                                    appendLine("Manufacturer: ${fp.manufacturer}")
-                                    appendLine("Brand: ${fp.brand}")
-                                    appendLine("Device: ${fp.device}")
-                                    appendLine("Product: ${fp.product}")
-                                    appendLine("SoC: ${fp.socManufacturer} ${fp.socModel}".trim())
-                                    appendLine("Screen: ${fp.screenWidth}x${fp.screenHeight} @${fp.screenDensity}dpi")
-                                    appendLine("RAM: ${fp.totalRam / 1024 / 1024}MB")
-                                    appendLine("SDK: ${fp.sdkInt}")
-                                    appendLine("Mode: ${fp.privilegeMode}")
-                                    append("Sensor Hash: ${fp.sensorHash}")
-                                }
-                                clipboardManager.setPrimaryClip(ClipData.newPlainText("",text))
-                            },
-                            modifier = Modifier.size(20.dp),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.ContentCopy,
-                                contentDescription = "Copy all",
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                    Column(
-                        modifier = Modifier.horizontalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(2.dp),
-                    ) {
-                        AboutRow("MediaDrm ID", fp.mediaDrmId ?: "N/A")
-                        AboutRow("Serial No", fp.serialNo ?: "N/A")
-                        AboutRow("Primary ID", fp.primaryId())
-                        AboutRow("HW Hash", fp.hardwareHash())
-                        AboutRow("Model", fp.model)
-                        AboutRow("Board", fp.board)
-                        AboutRow("Hardware", fp.hardware)
-                        AboutRow("Manufacturer", fp.manufacturer)
-                        AboutRow("Brand", fp.brand)
-                        AboutRow("Device", fp.device)
-                        AboutRow("Product", fp.product)
-                        AboutRow("SoC", "${fp.socManufacturer} ${fp.socModel}".trim())
-                        AboutRow("Screen", "${fp.screenWidth}x${fp.screenHeight} @${fp.screenDensity}dpi")
-                        AboutRow("RAM", "${fp.totalRam / 1024 / 1024}MB")
-                        AboutRow("SDK", "${fp.sdkInt}")
-                        AboutRow("Mode", fp.privilegeMode)
-                        AboutRow("Sensor Hash", fp.sensorHash.take(16) + "...")
-                    }
-                }
-            }
-        },
-    )
-}
-
-@Composable
-private fun AboutRow(label: String, value: String) {
-    Row {
-        Text(
-            text = "$label: ",
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-    }
-}
-
-
-@Composable
 private fun AdbSetupCard(
     binaryPath: String,
     onCheck: () -> Unit,
@@ -1066,17 +859,24 @@ private fun AdbSetupCard(
 
 @Composable
 private fun LanguageItem() {
-    val currentLocale = AppCompatDelegate.getApplicationLocales()
-    val currentTag = currentLocale.toLanguageTags().ifEmpty { "" }
+    val appLocales = AppCompatDelegate.getApplicationLocales()
 
     val tags = listOf("", "en", "zh-Hans", "zh-Hant", "ja")
     val labels = listOf(
         stringResource(R.string.settings_language_system),
         "English", "简体中文", "繁體中文", "日本語",
     )
-    val selectedIndex = tags.indexOfFirst { tag ->
-        if (tag.isEmpty()) currentTag.isEmpty() else currentTag.startsWith(tag)
-    }.coerceAtLeast(0)
+    val selectedIndex = if (appLocales.isEmpty) {
+        0
+    } else {
+        val current = appLocales[0]!!
+        tags.indexOfFirst { tag ->
+            if (tag.isEmpty()) return@indexOfFirst false
+            val target = java.util.Locale.forLanguageTag(tag)
+            if (current.language != target.language) return@indexOfFirst false
+            target.script.isEmpty() || current.script == target.script
+        }.coerceAtLeast(0)
+    }
 
     SettingsDropdownItem(
         title = stringResource(R.string.settings_language),

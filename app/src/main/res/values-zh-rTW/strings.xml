@@ -221,10 +221,26 @@
     <string name="donate_identifying_device">正在識別裝置\u2026</string>
     <string name="donate_identify_failed">裝置識別失敗</string>
 
-    <!-- 關於 - 裝置身份 -->
+    <!-- 關於頁面 -->
+    <string name="about_title">關於 OpenMonitor</string>
     <string name="about_device_identity">裝置身份</string>
     <string name="about_show_fingerprint">顯示裝置指紋</string>
     <string name="about_hide_fingerprint">隱藏裝置指紋</string>
+    <string name="about_activation_status">啟用狀態</string>
+    <string name="about_activated">已啟用</string>
+    <string name="about_not_activated">未啟用</string>
+    <string name="about_plan">方案</string>
+    <string name="about_activated_at">啟用時間</string>
+    <string name="about_expires_at">到期時間</string>
+    <string name="about_permanent">永久</string>
+    <string name="about_build_info">建構資訊</string>
+    <string name="about_version">版本</string>
+    <string name="about_commit">提交</string>
+    <string name="about_author">作者</string>
+    <string name="about_license">授權條款</string>
+    <string name="about_copy_all">複製全部資訊</string>
+    <string name="about_copied">已複製</string>
+    <string name="about_source_code">原始碼</string>
 
     <!-- 使用者協議 -->
     <string name="agreement_title">使用者協議</string>

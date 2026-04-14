@@ -26,13 +26,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.os.LocaleListCompat
+import com.cloudorz.openmonitor.R
 import com.cloudorz.openmonitor.core.ui.hapticClick
+import java.util.Locale
 
-/** Language tags and display labels shared with UserScreen's LanguageItem. */
-internal val LANGUAGE_TAGS = listOf("", "en", "zh-Hans", "zh-Hant", "ja")
-internal val LANGUAGE_LABELS = listOf("System", "English", "简体中文", "繁體中文", "日本語")
+/** Language tags – shared with UserScreen's LanguageItem. */
+private val LANGUAGE_TAGS = listOf("", "en", "zh-Hans", "zh-Hant", "ja")
+private val LANGUAGE_NATIVE_LABELS = listOf("English", "简体中文", "繁體中文", "日本語")
 
 /**
  * Shared scaffold for the setup flow (Agreement → Permissions → Activation → Mode).
@@ -49,10 +52,18 @@ fun SetupScaffold(
     val view = LocalView.current
     var languageMenuExpanded by remember { mutableStateOf(false) }
 
-    val currentTag = AppCompatDelegate.getApplicationLocales().toLanguageTags().ifEmpty { "" }
-    val selectedIndex = LANGUAGE_TAGS.indexOfFirst { tag ->
-        if (tag.isEmpty()) currentTag.isEmpty() else currentTag.startsWith(tag)
-    }.coerceAtLeast(0)
+    val appLocales = AppCompatDelegate.getApplicationLocales()
+    val selectedIndex = if (appLocales.isEmpty) {
+        0 // System
+    } else {
+        val current = appLocales[0]!!
+        LANGUAGE_TAGS.indexOfFirst { tag ->
+            if (tag.isEmpty()) return@indexOfFirst false
+            val target = Locale.forLanguageTag(tag)
+            if (current.language != target.language) return@indexOfFirst false
+            target.script.isEmpty() || current.script == target.script
+        }.coerceAtLeast(0)
+    }
 
     Scaffold(
         topBar = {
@@ -69,11 +80,15 @@ fun SetupScaffold(
                                 contentDescription = "Language",
                             )
                         }
+                        val languageLabels = listOf(
+                            stringResource(R.string.settings_language_system),
+                            *LANGUAGE_NATIVE_LABELS.toTypedArray(),
+                        )
                         DropdownMenu(
                             expanded = languageMenuExpanded,
                             onDismissRequest = { languageMenuExpanded = false },
                         ) {
-                            LANGUAGE_LABELS.forEachIndexed { index, label ->
+                            languageLabels.forEachIndexed { index, label ->
                                 DropdownMenuItem(
                                     text = { Text(label) },
                                     onClick = {
