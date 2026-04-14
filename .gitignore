@@ -19,6 +19,8 @@
 *.aar
 /app/release
 
+.playwright-mcp
+
 # Daemon build artifacts (built by Gradle task)
 /app/src/main/jniLibs/
 /app/src/main/assets/daemon/daemon-commit.txt
@@ -26,6 +28,8 @@ release.jks
 
 issuses
 
-# Separate repo (Cloudflare Worker)
+# Separate repos
+/openmonitor-backend/
+/openmonitor-frontend/
 /donate-worker/
 fingerprintjs-android

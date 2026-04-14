@@ -215,6 +215,8 @@
     <string name="donate_challenge_failed">検証に失敗しました</string>
     <string name="donate_qr_title">QRコードで支払い</string>
     <string name="donate_open_alipay">Alipayを開く</string>
+    <string name="donate_cancel">注文をキャンセル</string>
+    <string name="donate_cancelled">注文がキャンセルされました</string>
     <string name="donate_qr_expires">残り %1$s</string>
     <string name="donate_scanned">スキャン済み、支払い待ち\u2026</string>
     <string name="donate_scanned_by">%1$s がスキャン済み、支払い待ち\u2026</string>

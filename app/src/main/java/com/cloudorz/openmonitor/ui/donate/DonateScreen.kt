@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
@@ -29,7 +28,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -137,19 +135,18 @@ fun DonateScreen(
             Text(stringResource(R.string.donate_button))
         }
 
-        // Turnstile challenge dialog
-        if (uiState.state == DonateState.CHALLENGING) {
-            TurnstileChallengeDialog(
-                challengeUrl = DonateViewModel.CHALLENGE_URL,
-                onTokenReceived = { token -> viewModel.onTurnstileToken(token) },
-                onFailed = { viewModel.onTurnstileFailed() },
-                onDismiss = { viewModel.retry() },
-            )
-        }
-
         // Status display
         when (uiState.state) {
-            DonateState.CHALLENGING, DonateState.CREATING -> {
+            DonateState.CHALLENGING -> {
+                Spacer(modifier = Modifier.height(24.dp))
+                InlineTurnstileChallenge(
+                    challengeUrl = DonateViewModel.CHALLENGE_URL,
+                    onTokenReceived = { token -> viewModel.onTurnstileToken(token) },
+                    onFailed = { viewModel.onTurnstileFailed() },
+                )
+            }
+
+            DonateState.CREATING -> {
                 Spacer(modifier = Modifier.height(24.dp))
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -158,10 +155,7 @@ fun DonateScreen(
                     CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = stringResource(
-                            if (uiState.state == DonateState.CHALLENGING) R.string.donate_verifying
-                            else R.string.donate_creating,
-                        ),
+                        text = stringResource(R.string.donate_creating),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -250,6 +244,19 @@ fun DonateScreen(
                     ) {
                         Text(stringResource(R.string.donate_open_alipay))
                     }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = {
+                            view.hapticClick()
+                            viewModel.cancelOrder()
+                        },
+                    ) {
+                        Text(
+                            text = stringResource(R.string.donate_cancel),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                 }
             }
 
@@ -272,6 +279,7 @@ fun DonateScreen(
                 val errorText = when (uiState.error) {
                     DonateError.TIMEOUT -> stringResource(R.string.donate_timeout)
                     DonateError.CHALLENGE_FAILED -> stringResource(R.string.donate_challenge_failed)
+                    DonateError.CLOSED -> stringResource(R.string.donate_cancelled)
                     else -> stringResource(R.string.donate_failed)
                 }
                 Text(
@@ -297,84 +305,86 @@ fun DonateScreen(
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-private fun TurnstileChallengeDialog(
+private fun InlineTurnstileChallenge(
     challengeUrl: String,
     onTokenReceived: (String) -> Unit,
     onFailed: () -> Unit,
-    onDismiss: () -> Unit,
 ) {
     var tokenReceived by remember { mutableStateOf(false) }
+    var showWidget by remember { mutableStateOf(false) }
 
-    // Timeout: if no token received in 15 seconds, fail
+    // Timeout: if no token received in 30 seconds, fail
     LaunchedEffect(Unit) {
-        delay(15_000L)
+        delay(30_000L)
         if (!tokenReceived) {
             onFailed()
         }
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {},
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.settings_close))
-            }
-        },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = stringResource(R.string.donate_verifying),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                AndroidView(
-                    factory = { ctx ->
-                        WebView(ctx).apply {
-                            settings.javaScriptEnabled = true
-                            settings.domStorageEnabled = true
-                            webViewClient = object : WebViewClient() {
-                                override fun onPageFinished(view: WebView?, url: String?) {
-                                    XLog.tag("Turnstile").i("page loaded: $url")
-                                }
-                                override fun onReceivedError(
-                                    view: WebView?, request: android.webkit.WebResourceRequest?,
-                                    error: android.webkit.WebResourceError?,
-                                ) {
-                                    XLog.tag("Turnstile").w("load error: ${error?.description} (${error?.errorCode})")
-                                }
-                            }
-                            webChromeClient = object : android.webkit.WebChromeClient() {
-                                override fun onConsoleMessage(msg: android.webkit.ConsoleMessage?): Boolean {
-                                    XLog.tag("Turnstile").i("JS: ${msg?.message()}")
-                                    return true
-                                }
-                            }
-                            addJavascriptInterface(
-                                object {
-                                    @JavascriptInterface
-                                    fun onToken(token: String) {
-                                        XLog.tag("Turnstile").i("token received: ${token.take(16)}...")
-                                        tokenReceived = true
-                                        post { onTokenReceived(token) }
-                                    }
-                                },
-                                "TurnstileBridge",
-                            )
-                            XLog.tag("Turnstile").i("loading: $challengeUrl")
-                            loadUrl(challengeUrl)
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        if (!showWidget) {
+            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.donate_verifying),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        AndroidView(
+            factory = { ctx ->
+                WebView(ctx).apply {
+                    settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    settings.userAgentString = settings.userAgentString + " OpenMonitor"
+                    setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                    webViewClient = object : WebViewClient() {
+                        override fun onPageFinished(view: WebView?, url: String?) {
+                            XLog.tag("Turnstile").i("page loaded: $url")
                         }
-                    },
-                    modifier = Modifier.size(1.dp),
-                )
-            }
-        },
-    )
+                        override fun onReceivedError(
+                            view: WebView?, request: android.webkit.WebResourceRequest?,
+                            error: android.webkit.WebResourceError?,
+                        ) {
+                            XLog.tag("Turnstile").w("load error: ${error?.description} (${error?.errorCode})")
+                        }
+                    }
+                    webChromeClient = object : android.webkit.WebChromeClient() {
+                        override fun onConsoleMessage(msg: android.webkit.ConsoleMessage?): Boolean {
+                            XLog.tag("Turnstile").i("JS: ${msg?.message()}")
+                            return true
+                        }
+                    }
+                    addJavascriptInterface(
+                        object {
+                            @JavascriptInterface
+                            fun onToken(token: String) {
+                                XLog.tag("Turnstile").i("token received: ${token.take(16)}...")
+                                tokenReceived = true
+                                post { onTokenReceived(token) }
+                            }
+                            @JavascriptInterface
+                            fun onInteractive() {
+                                XLog.tag("Turnstile").i("interactive challenge required")
+                                showWidget = true
+                            }
+                        },
+                        "TurnstileBridge",
+                    )
+                    XLog.tag("Turnstile").i("loading: $challengeUrl")
+                    loadUrl(challengeUrl)
+                }
+            },
+            modifier = if (showWidget) {
+                Modifier.fillMaxWidth().height(180.dp)
+            } else {
+                Modifier.size(1.dp)
+            },
+        )
+    }
 }
 
 private fun generateQrBitmap(content: String, size: Int): Bitmap? {

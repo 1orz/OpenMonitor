@@ -224,6 +224,8 @@
     <string name="donate_challenge_failed">Verification failed</string>
     <string name="donate_qr_title">Scan to Pay</string>
     <string name="donate_open_alipay">Open Alipay</string>
+    <string name="donate_cancel">Cancel Order</string>
+    <string name="donate_cancelled">Order cancelled</string>
     <string name="donate_qr_expires">Expires in %1$s</string>
     <string name="donate_scanned">Scanned, waiting for payment\u2026</string>
     <string name="donate_scanned_by">%1$s scanned, waiting for payment\u2026</string>

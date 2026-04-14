@@ -215,6 +215,8 @@
     <string name="donate_challenge_failed">驗證失敗</string>
     <string name="donate_qr_title">掃碼付款</string>
     <string name="donate_open_alipay">開啟支付寶</string>
+    <string name="donate_cancel">取消訂單</string>
+    <string name="donate_cancelled">訂單已取消</string>
     <string name="donate_qr_expires">剩餘 %1$s</string>
     <string name="donate_scanned">已掃碼，等待付款\u2026</string>
     <string name="donate_scanned_by">%1$s 已掃碼，等待付款\u2026</string>

@@ -158,6 +158,26 @@ class DonateViewModel @Inject constructor(
         }
     }
 
+    fun cancelOrder() {
+        val tradeNo = _uiState.value.tradeNo
+        if (tradeNo.isEmpty()) return
+
+        pollJob?.cancel()
+        pollJob = null
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val success = cancelOrderApi(tradeNo)
+            _uiState.update {
+                if (success) {
+                    it.copy(state = DonateState.FAILED, error = DonateError.CLOSED)
+                } else {
+                    // Even if API call fails, reset to IDLE so user can retry
+                    it.copy(state = DonateState.IDLE, error = null)
+                }
+            }
+        }
+    }
+
     fun retry() {
         _uiState.update { it.copy(state = DonateState.IDLE, error = null, isScanned = false) }
     }
@@ -285,6 +305,41 @@ class DonateViewModel @Inject constructor(
         } catch (e: Exception) {
             XLog.tag(TAG).e("checkOrderStatus exception", e)
             null
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    private fun cancelOrderApi(tradeNo: String): Boolean {
+        val path = "/api/v1/donate/cancel"
+        val conn = URL("$API_BASE_URL$path").openConnection() as HttpURLConnection
+        return try {
+            conn.requestMethod = "POST"
+            conn.connectTimeout = CONNECT_TIMEOUT_MS
+            conn.readTimeout = READ_TIMEOUT_MS
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.doOutput = true
+
+            val body = JSONObject().apply {
+                put("trade_no", tradeNo)
+            }
+            val encrypted = ApiEncryptor.encrypt(body.toString())
+
+            ApiSigner.sign("POST", path, encrypted).applyTo(conn)
+            conn.outputStream.bufferedWriter().use { it.write(encrypted) }
+
+            val code = conn.responseCode
+            if (code != 200) {
+                val errorBody = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
+                XLog.tag(TAG).w("cancelOrder failed: HTTP $code, body=$errorBody")
+                return false
+            }
+
+            XLog.tag(TAG).i("cancelOrder success: $tradeNo")
+            true
+        } catch (e: Exception) {
+            XLog.tag(TAG).e("cancelOrder exception", e)
+            false
         } finally {
             conn.disconnect()
         }
