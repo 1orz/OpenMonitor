@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 密钥认证页 -->
+    <string name="ka_attestation_failed">认证失败</string>
+    <string name="ka_retry">重试</string>
+
+    <!-- 启动状态卡片 -->
+    <string name="ka_boot_state">验证启动状态</string>
+    <string name="ka_bootloader_locked">引导加载程序已锁定</string>
+    <string name="ka_bootloader_unlocked">引导加载程序已解锁</string>
+
+    <!-- 信任横幅 -->
+    <string name="ka_trust_chain_untrusted">证书链不受信任</string>
+    <string name="ka_trust_chain_desc">证书链中有证书被吊销或签名验证失败</string>
+
+    <!-- 认证信息卡片 -->
+    <string name="ka_attestation_info">认证信息</string>
+    <string name="ka_attestation_version">认证版本</string>
+    <string name="ka_attestation_security">认证安全级别</string>
+    <string name="ka_keymaster_version">KM 版本</string>
+    <string name="ka_keymaster_security">KM 安全级别</string>
+    <string name="ka_challenge">认证质询</string>
+    <string name="ka_unique_id">唯一 ID</string>
+
+    <!-- 吊销列表行 -->
+    <string name="ka_revocation_list">吊销列表</string>
+    <string name="ka_revocation_entries">%d 条</string>
+    <string name="ka_revocation_no_data">暂无数据</string>
+    <string name="ka_revocation_refresh">刷新</string>
+
+    <!-- 证书链卡片 -->
+    <string name="ka_cert_chain">证书链</string>
+    <string name="ka_cert_index">证书 #%d</string>
+    <string name="ka_subject">使用者</string>
+    <string name="ka_cert_not_before">不早于</string>
+    <string name="ka_cert_not_after">不晚于</string>
+    <string name="ka_cert_revoked">已吊销</string>
+
+    <!-- HW / SW 标签 -->
+    <string name="ka_hw_badge">HW</string>
+    <string name="ka_sw_badge">SW</string>
+
+    <!-- 授权列表卡片 -->
+    <string name="ka_authorization_list">授权列表</string>
+    <string name="ka_purposes">用途</string>
+    <string name="ka_algorithm">算法</string>
+    <string name="ka_key_size">密钥长度</string>
+    <string name="ka_digest">摘要</string>
+    <string name="ka_ec_curve">EC 曲线</string>
+    <string name="ka_no_auth_required">无需认证</string>
+    <string name="ka_rollback_resistance">回滚保护</string>
+    <string name="ka_early_boot_only">仅早期启动</string>
+    <string name="ka_creation_time">创建时间</string>
+    <string name="ka_origin">来源</string>
+    <string name="ka_os_version">系统版本</string>
+    <string name="ka_os_patch">系统补丁</string>
+    <string name="ka_vendor_patch">厂商补丁</string>
+    <string name="ka_boot_patch">启动补丁</string>
+    <string name="ka_device_locked">设备锁定</string>
+    <string name="ka_boot_key">启动密钥</string>
+    <string name="ka_boot_hash">启动哈希</string>
+    <string name="ka_brand">品牌</string>
+    <string name="ka_device">设备</string>
+    <string name="ka_product">产品</string>
+    <string name="ka_manufacturer">制造商</string>
+    <string name="ka_model">型号</string>
+
+    <!-- 加载步骤 -->
+    <string name="ka_loading_init">正在初始化…</string>
+    <string name="ka_loading_root_keys">正在加载根公钥…</string>
+    <string name="ka_loading_revocation">正在获取吊销列表…</string>
+    <string name="ka_loading_keygen">正在生成认证密钥…</string>
+    <string name="ka_loading_shizuku">正在连接 Shizuku…</string>
+    <string name="ka_loading_parsing">正在解析证书…</string>
+    <string name="ka_loading_timeout">超时: %d秒</string>
+
+    <!-- 顶栏菜单 -->
+    <string name="ka_menu_more">更多选项</string>
+    <string name="ka_menu_use_attest_key">使用 Attest Key</string>
+    <string name="ka_menu_use_strongbox">使用 StrongBox</string>
+    <string name="ka_menu_use_shizuku">Shizuku 模式</string>
+    <string name="ka_menu_reset">重置密钥</string>
+    <string name="ka_menu_save">保存到文件</string>
+    <string name="ka_menu_load">从文件加载</string>
+</resources>

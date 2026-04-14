@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+
+    <!-- Monitor screen frame -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M165,170h182c14,0 25,11 25,25v110c0,14 -11,25 -25,25h-182c-14,0 -25,-11 -25,-25v-110c0,-14 11,-25 25,-25z"
+        android:strokeColor="#FF000000"
+        android:strokeLineJoin="round"
+        android:strokeWidth="16" />
+
+    <!-- Monitor stand neck -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M243,330h26v26h-26z" />
+
+    <!-- Monitor base -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M212,352h88c6,0 10,4 10,10c0,2 -2,4 -4,4h-100c-2,0 -4,-2 -4,-4c0,-6 4,-10 10,-10z" />
+
+    <!-- Performance curve -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M150,272C172,264 192,248 216,250C238,252 252,278 272,275C290,272 300,252 308,242"
+        android:strokeColor="#FF000000"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="8" />
+
+    <!-- Curve end point -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M308,234a8,8 0,1 1,-0.01 0z" />
+
+</vector>

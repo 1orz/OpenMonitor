@@ -1,0 +1,377 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Power Screen -->
+    <string name="battery_info">Battery Info</string>
+    <string name="battery_health">Battery Health</string>
+    <string name="temperature">Temperature</string>
+    <string name="duration">Duration</string>
+
+    <!-- FPS Screen -->
+    <string name="fps_recording_title">FPS Recording</string>
+    <string name="fps_trend">FPS Trend</string>
+    <string name="frame_time">Frame Time</string>
+    <string name="recording">Recording</string>
+    <string name="max_frame_time">Max Frame Time</string>
+    <string name="frame_count">Frame Count</string>
+    <string name="battery_level">Battery</string>
+    <string name="stop_recording">Stop Recording</string>
+    <string name="start_recording">Start Recording</string>
+    <string name="no_recording_sessions">No recording sessions</string>
+    <string name="start_recording_hint">Start recording to view historical data</string>
+    <string name="avg_fps_format">Avg %.1f FPS</string>
+    <string name="delete">Delete</string>
+    <plurals name="fps_selected_count">
+        <item quantity="one">%d selected</item>
+        <item quantity="other">%d selected</item>
+    </plurals>
+    <string name="fps_select_all">Select All</string>
+    <string name="fps_cancel">Cancel</string>
+    <string name="fps_confirm">OK</string>
+    <string name="fps_chart_series_options">Series Options</string>
+    <string name="fps_rename">Rename</string>
+    <string name="fps_session_name">Session Name</string>
+    <string name="fps_unknown_app">Unknown App</string>
+    <string name="fps_start_from_float">Tap FPS float window to start recording</string>
+    <string name="fps_float_toggle_title">FPS Float Window</string>
+    <string name="fps_float_toggle_desc">Show real-time FPS counter overlay</string>
+    <string name="fps_delete_confirm_title">Delete Session</string>
+    <string name="fps_delete_confirm_msg">Are you sure you want to delete this recording session?</string>
+    <string name="fps_countdown">Countdown %ds</string>
+    <string name="fps_recording_progress">%1$s elapsed, %2$s remaining</string>
+    <string name="fps_chart_fps_temp">FPS / Temperature</string>
+    <string name="fps_chart_frame_time">Frame Time (ms)</string>
+    <string name="fps_chart_cpu_usage">CPU / GPU Usage (%)</string>
+    <string name="fps_chart_cpu_gpu_freq">CPU / GPU Frequency (MHz)</string>
+    <string name="fps_chart_power">Power / Battery</string>
+    <string name="fps_chart_battery_current">Battery Current (mA)</string>
+    <string name="fps_chart_temperature">Temperature</string>
+    <string name="fps_chart_jank">Jank Count</string>
+    <string name="fps_chart_options_title">Chart Options</string>
+    <!-- FPS Chart Section Labels -->
+    <string name="fps_section_fps_temp">FPS</string>
+    <string name="fps_section_frame_time">Frame Time</string>
+    <string name="fps_section_cpu_gpu">CPU / GPU</string>
+    <string name="fps_section_cpu_gpu_freq">CPU / GPU Freq</string>
+    <string name="fps_section_jank">Jank</string>
+    <string name="fps_section_power">Power</string>
+    <string name="fps_section_current">Current</string>
+    <string name="fps_section_temperature">Temperature</string>
+    <!-- FPS Session Detail -->
+    <string name="fps_detail_platform">Platform</string>
+    <string name="fps_detail_model">Model</string>
+    <string name="fps_detail_os">OS</string>
+    <string name="fps_detail_app_version">Version</string>
+    <string name="fps_detail_resolution">Resolution</string>
+    <string name="fps_detail_created">Created</string>
+    <string name="fps_stat_max">MAX</string>
+    <string name="fps_stat_min">MIN</string>
+    <string name="fps_stat_avg">AVG</string>
+    <string name="fps_stat_variance">Std Dev</string>
+    <string name="fps_stat_smoothness">\u226545FPS</string>
+    <string name="fps_stat_low">5% Low</string>
+    <string name="fps_stat_avg_power">AVG Power</string>
+    <string name="fps_stat_source_battery">Battery</string>
+    <string name="fps_stat_power">Power</string>
+    <string name="fps_stat_average">Average</string>
+    <string name="fps_stat_max_temp">MAX Temp</string>
+    <string name="fps_stat_smoothness_unit">Smoothness</string>
+    <string name="fps_stat_total">Total</string>
+    <!-- FPS Series Labels -->
+    <string name="fps_series_frame_time">FrameTime(ms)</string>
+    <string name="fps_series_power">Power(W)</string>
+    <string name="fps_series_capacity">Capacity(%)</string>
+    <string name="fps_series_current">Current(mA)</string>
+    <string name="fps_series_bat_temp">Battery(\u00B0C)</string>
+    <string name="fps_series_freq">Freq(MHz)</string>
+    <string name="fps_series_usage">Usage(%)</string>
+    <string name="fps_series_jank">Jank</string>
+    <string name="fps_series_big_jank">BigJank</string>
+    <!-- FPS Export -->
+    <string name="fps_save_to_download">Save</string>
+    <string name="fps_save_as_image">Save as Image</string>
+    <string name="fps_save_as_csv">Save as CSV</string>
+    <string name="fps_saved_to_downloads">Saved to Downloads/OpenMonitor/%1$s</string>
+    <string name="fps_save_failed">Save failed</string>
+
+    <!-- Float Monitor Screen -->
+    <string name="float_monitor_title">Float Monitor</string>
+    <string name="detail_info">Details</string>
+    <string name="permission_desc_title">Permission Info</string>
+    <string name="permission_desc_body">Float window supports two methods:\n1. Accessibility Service (recommended) — no overlay permission needed, also provides foreground app detection\n2. Overlay Permission — traditional method, requires manual authorization</string>
+    <string name="go_enable">Enable</string>
+    <string name="overlay_granted">Overlay permission granted</string>
+    <string name="overlay_not_granted">Overlay permission not granted</string>
+    <string name="go_authorize">Authorize</string>
+    <string name="permission_required_toast">Please grant overlay or accessibility permission first</string>
+    <string name="overlay_mode_title">Float Window Mode</string>
+    <string name="overlay_mode_auto">Auto</string>
+    <string name="overlay_mode_overlay_only">Overlay Only</string>
+    <string name="overlay_mode_desc_auto">Auto-select best method (prefer accessibility)</string>
+    <string name="overlay_mode_desc_overlay">Use standard overlay permission only. Avoids triggering risk controls in payment apps that detect accessibility services.</string>
+    <string name="session_chart_power">Power(W)</string>
+    <string name="session_chart_battery">Battery(%)</string>
+    <string name="session_chart_temp">Temp(\u00B0C)</string>
+    <string name="session_chart_current">Current(mA)</string>
+    <string name="session_chart_capacity">Capacity(%)</string>
+    <string name="tap_to_view_chart">Tap to expand chart</string>
+
+    <!-- FloatMonitorType display names -->
+    <string name="monitor_load">Load Monitor</string>
+    <string name="monitor_process">Process Monitor</string>
+    <string name="monitor_thread">Thread Monitor</string>
+    <string name="monitor_mini">Mini Monitor</string>
+    <string name="monitor_fps">FPS Recorder</string>
+    <string name="monitor_temperature">Temperature Monitor</string>
+
+    <!-- FloatMonitorType descriptions -->
+    <string name="monitor_load_desc">CPU/GPU/RAM/Battery dashboard</string>
+    <string name="monitor_process_desc">Top CPU process list</string>
+    <string name="monitor_thread_desc">Most CPU-intensive threads of current app</string>
+    <string name="monitor_mini_desc">Single line: CPU%%/GPU%%/Temp/FPS/Current</string>
+    <string name="monitor_fps_desc">Real-time FPS counter</string>
+    <string name="monitor_temperature_desc">Multi-sensor temperature values</string>
+
+    <!-- FloatMonitorType info texts -->
+    <string name="monitor_load_info">Displays a real-time dashboard of CPU, GPU, memory, and battery load. Presented as four arc gauges in a 2x2 grid for intuitive system resource overview.</string>
+    <string name="monitor_process_info">Shows the top 5 processes by CPU usage, including process name and CPU percentage. Helps quickly identify high-load processes.</string>
+    <string name="monitor_thread_info">Shows the threads with the highest CPU usage in the current foreground app. Useful for deep analysis of app performance bottlenecks.</string>
+    <string name="monitor_mini_info">Ultra-minimal single-line mode showing CPU%%/GPU%%/Temp/FPS/Real-time current. Takes up minimal screen space, ideal for daily monitoring.</string>
+    <string name="monitor_fps_info">Real-time frame rate counter with large font displaying current FPS and jank count statistics. Ideal for game and animation performance testing.</string>
+    <string name="monitor_temperature_info">Displays real-time readings from multiple temperature sensors including CPU, GPU, and battery zones. Used for monitoring device thermal conditions.</string>
+
+    <!-- CPU Screen -->
+    <string name="cpu_monitor_title">CPU Monitor</string>
+    <string name="refresh">Refresh</string>
+    <string name="online_cores_format">Online cores: %1$d/%2$d</string>
+    <string name="core_status">Core Status</string>
+    <string name="governor">Governor</string>
+    <string name="unknown">Unknown</string>
+    <string name="frequency_range">Frequency Range</string>
+    <string name="avg_load">Avg Load</string>
+    <string name="avg_frequency">Avg Frequency</string>
+    <string name="cpu_cache_info">Cache Info</string>
+    <string name="l1d_cache">L1 Data</string>
+    <string name="l1i_cache">L1 Instruction</string>
+    <string name="l2_cache">L2</string>
+    <string name="l3_cache">L3</string>
+    <string name="arm_neon">ARM NEON</string>
+    <string name="supported">Supported</string>
+    <string name="not_supported">Not Supported</string>
+    <string name="cpu_features">CPU Features</string>
+    <string name="soc_hardware_id">Hardware</string>
+    <string name="soc_architecture">Architecture</string>
+    <string name="soc_abi">ABI</string>
+    <string name="soc_cpu_config">CPU Config</string>
+    <string name="soc_memory">Memory</string>
+    <string name="soc_bandwidth">Bandwidth</string>
+    <string name="soc_channels">Channels</string>
+
+    <!-- Charge Screen -->
+    <string name="charge_info">Charge Info</string>
+    <string name="charging">Charging</string>
+    <string name="not_charging">Not Charging</string>
+    <string name="charge_history">Charge History</string>
+    <string name="charge_curve">Charge Curve</string>
+    <string name="charge_curve_placeholder">Charge curve will display here</string>
+    <string name="charge_curve_auto_start">Recording starts automatically when charger is connected</string>
+    <string name="charge_amount">Charge Amount</string>
+    <string name="energy_charged">Energy Charged</string>
+    <string name="no_charge_records">No charge records</string>
+    <string name="charge_auto_record_hint">Charge data will be recorded automatically when charging</string>
+    <string name="charge_curve_title">Charge Curve</string>
+    <string name="charge_curve_will_show">Charge curve will display here</string>
+    <string name="charge_curve_min_points">At least two data points required</string>
+    <string name="legend_capacity">Capacity</string>
+    <string name="legend_current">Current</string>
+    <string name="legend_temperature">Temperature</string>
+
+    <!-- Battery Screen -->
+    <string name="battery_status">Status</string>
+    <string name="battery_charging">Charging</string>
+    <string name="battery_discharging">Discharging</string>
+    <string name="battery_hour">h</string>
+    <string name="battery_minute">m</string>
+    <string name="battery_current">Current</string>
+    <string name="battery_technology">Technology</string>
+    <string name="battery_capacity_health">Capacity &amp; Health</string>
+    <string name="battery_design_capacity">Design Capacity</string>
+    <string name="battery_current_energy">Current Energy</string>
+    <string name="battery_usage_history">Usage History</string>
+    <string name="battery_total_energy">Total Energy</string>
+    <string name="battery_avg_temp">Avg Temp</string>
+    <string name="battery_voltage">Voltage</string>
+    <string name="battery_charge_status">Charge Status</string>
+    <string name="battery_not_charging">Not Charging</string>
+    <string name="battery_avg_power">Avg Power</string>
+    <string name="battery_screen_on_time">Screen On</string>
+    <string name="battery_estimated_life">Est. Life</string>
+    <string name="battery_usage_scenario">Usage Breakdown</string>
+    <string name="battery_no_usage_data">No usage data yet</string>
+    <string name="battery_usage_stats_hint">Grant usage access permission to display foreground app icons on the battery chart</string>
+    <string name="battery_grant_permission">Grant Permission</string>
+    <string name="battery_export_csv">Export CSV</string>
+    <string name="battery_cycle_count">Cycle Count</string>
+    <string name="battery_actual_capacity">Actual Capacity</string>
+    <string name="battery_remaining_charge">Remaining Charge</string>
+    <string name="battery_health_percent">Health</string>
+
+    <!-- Hardware Info Screen -->
+    <string name="hw_processor">Processor</string>
+    <string name="hw_vendor">Vendor</string>
+    <string name="hw_hardware">Hardware</string>
+    <string name="hw_architecture">Architecture</string>
+    <string name="hw_governor">Governor</string>
+    <string name="hw_core_count">%d Cores</string>
+    <string name="hw_cpu_config">CPU Config</string>
+    <string name="hw_cpu_analysis">CPU Analysis</string>
+    <string name="hw_gpu">GPU</string>
+    <string name="hw_graphics_api">Graphics API</string>
+    <string name="hw_renderer">Renderer</string>
+    <string name="hw_driver_version">Driver Version</string>
+    <string name="hw_vulkan_api_version">Vulkan API Version</string>
+    <string name="hw_opengl_es">OpenGL ES</string>
+    <string name="hw_chip">Chip</string>
+    <string name="hw_on_chip_memory">On-Chip Memory</string>
+    <string name="hw_shader_cores">Shader Cores</string>
+    <string name="hw_bus_width">Bus Width</string>
+    <string name="hw_display">Display</string>
+    <string name="hw_current_resolution">Current Resolution</string>
+    <string name="hw_screen_size">Screen Size</string>
+    <string name="hw_supported_resolutions">Supported Resolutions</string>
+    <string name="hw_supported_refresh_rates">Supported Refresh Rates</string>
+    <string name="hw_aspect_ratio">Aspect Ratio</string>
+    <string name="hw_android_density">Android Density (dpi)</string>
+    <string name="hw_wide_color_gamut">Wide Color Gamut</string>
+    <string name="hw_hdr_support">HDR Support</string>
+    <string name="hw_panel">Panel</string>
+    <string name="hw_memory">Memory</string>
+    <string name="hw_memory_size">Memory Size</string>
+    <string name="hw_total_format">%s Total</string>
+    <string name="hw_used_format">%s Used</string>
+    <string name="hw_free_format">%s Free</string>
+    <string name="hw_storage">Storage</string>
+    <string name="hw_size">Size</string>
+    <string name="hw_type">Type</string>
+    <string name="hw_internal_storage">Internal Storage</string>
+    <string name="hw_file_system">File System</string>
+    <string name="hw_block_size">Block Size</string>
+    <string name="hw_yes">Yes</string>
+    <string name="hw_no">No</string>
+    <string name="hw_bit_64">64-bit</string>
+
+    <!-- CPU Analysis Screen -->
+    <string name="cpu_manufacturer">Manufacturer</string>
+    <string name="cpu_market_name">Market Name</string>
+    <string name="cpu_process_node">Process Node</string>
+    <string name="cpu_core_count">Cores</string>
+    <string name="cpu_frequency">Frequency</string>
+    <string name="cpu_supported_abis">Supported ABIs</string>
+    <string name="cpu_features_label">Features</string>
+    <string name="cpu_cluster_format">Cluster %d</string>
+    <string name="cpu_core_type">Type</string>
+    <string name="cpu_cluster_label">Cluster</string>
+    <string name="cpu_max_freq">Max Frequency</string>
+    <string name="cpu_min_freq">Min Frequency</string>
+    <string name="hw_partitions">Partitions</string>
+
+    <!-- Process Screen -->
+    <string name="process_search_hint">Search processes…</string>
+    <string name="process_filter_all">All</string>
+    <string name="process_filter_app">App</string>
+    <string name="process_sort_cpu">CPU %</string>
+    <string name="process_sort_memory">Memory</string>
+    <string name="process_sort_name">Name</string>
+    <string name="process_sort_pid">PID</string>
+    <string name="process_total_format">%d total</string>
+    <string name="process_empty">No processes found</string>
+    <string name="process_empty_search">No processes matching \"%s\"</string>
+
+    <!-- Process Detail Screen -->
+    <string name="process_not_found">Process not found</string>
+    <string name="process_kill">Kill</string>
+    <string name="process_info">Process Info</string>
+    <string name="process_resource_usage">Resource Usage</string>
+    <string name="process_system_details">System Details</string>
+    <string name="process_command_line">Command Line</string>
+    <string name="process_threads">Threads</string>
+    <string name="process_threads_count">%d threads</string>
+    <string name="process_no_threads">No threads</string>
+    <string name="process_unnamed_thread">&lt;unnamed&gt;</string>
+
+    <!-- Hardware - GPU L2 Cache -->
+    <string name="hw_l2_cache">L2 Cache</string>
+    <!-- Hardware - Vulkan/OpenGL buttons -->
+    <string name="hw_vulkan_features">Vulkan Features</string>
+    <string name="hw_opengl_es_features">OpenGL ES Features</string>
+
+    <!-- OpenGL Info Screen -->
+    <string name="gl_info_title">OpenGL ES Info</string>
+    <string name="gl_version">Version</string>
+    <string name="gl_renderer">Renderer</string>
+    <string name="gl_vendor">Vendor</string>
+    <string name="gl_shading_lang_version">Shading Language Version</string>
+    <string name="gl_extensions_count">Extensions Count</string>
+    <string name="gl_egl_info">EGL Info</string>
+    <string name="gl_extensions_format">Extensions (%d)</string>
+    <string name="gl_egl_extensions_format">EGL Extensions (%d)</string>
+
+    <!-- Vulkan Info Screen -->
+    <string name="vk_gpu_identity">GPU Identity</string>
+    <string name="vk_name">Name</string>
+    <string name="vk_vendor">Vendor</string>
+    <string name="vk_device_id">Device ID</string>
+    <string name="vk_device_type">Device Type</string>
+    <string name="vk_instance_api">Instance API</string>
+    <string name="vk_device_api">Device API</string>
+    <string name="vk_driver_version">Driver Version</string>
+    <string name="vk_device_extensions">Device Extensions</string>
+    <string name="vk_instance_extensions">Instance Extensions</string>
+    <string name="vk_memory">Memory</string>
+    <string name="vk_device_local">Device Local (shared)</string>
+    <string name="vk_heap_format">Heap %d</string>
+    <string name="vk_device_local_suffix"> (Device Local)</string>
+    <string name="vk_limits">Limits</string>
+    <string name="vk_max_1d_image">Max 1D Image</string>
+    <string name="vk_max_2d_image">Max 2D Image</string>
+    <string name="vk_max_3d_image">Max 3D Image</string>
+    <string name="vk_max_cube_image">Max Cube Image</string>
+    <string name="vk_max_array_layers">Max Array Layers</string>
+    <string name="vk_uniform_buffer_range">Uniform Buffer Range</string>
+    <string name="vk_storage_buffer_range">Storage Buffer Range</string>
+    <string name="vk_max_anisotropy">Max Anisotropy</string>
+    <string name="vk_max_compute_invocations">Max Compute Invocations</string>
+    <string name="vk_max_memory_alloc">Max Memory Allocations</string>
+    <string name="vk_max_sampler_alloc">Max Sampler Allocations</string>
+    <string name="vk_core_features">Core Features</string>
+    <string name="vk_yes">Yes</string>
+    <string name="vk_no">No</string>
+    <string name="vk_queues">Queues</string>
+    <string name="vk_queue_flags">Queue %d Flags</string>
+    <string name="vk_queue_count">Queue %d Count</string>
+    <string name="vk_queue_timestamp_bits">Queue %d Timestamp Bits</string>
+    <string name="vk_device_extensions_format">Device Extensions (%d)</string>
+    <string name="vk_instance_extensions_format">Instance Extensions (%d)</string>
+
+    <!-- Vulkan feature names -->
+    <string name="vk_feat_robust_buffer">Robust Buffer Access</string>
+    <string name="vk_feat_sampler_anisotropy">Sampler Anisotropy</string>
+    <string name="vk_feat_geometry_shader">Geometry Shader</string>
+    <string name="vk_feat_tessellation_shader">Tessellation Shader</string>
+    <string name="vk_feat_multi_viewport">Multi Viewport</string>
+    <string name="vk_feat_dual_src_blend">Dual Source Blend</string>
+    <string name="vk_feat_depth_clamp">Depth Clamp</string>
+    <string name="vk_feat_wide_lines">Wide Lines</string>
+    <string name="vk_feat_large_points">Large Points</string>
+
+    <!-- Partition Screen -->
+    <string name="partition_search">Search partitions…</string>
+    <string name="partition_clear">Clear</string>
+    <string name="partition_count_format">%d partitions</string>
+    <string name="partition_device">Device</string>
+    <string name="partition_filesystem">File System</string>
+    <string name="partition_readonly">Read-only</string>
+    <string name="partition_readwrite">Read-write</string>
+    <string name="partition_used_format">%s used</string>
+    <string name="partition_free_format">%s free</string>
+    <string name="partition_access">Access</string>
+</resources>

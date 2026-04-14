@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OpenMonitor</string>
+    <!-- Permission Guide Screen -->
+
+    <string name="mode_root_title">ROOT Mode</string>
+    <string name="mode_root_tag">All features available</string>
+
+    <string name="mode_shizuku_title">Shizuku Mode</string>
+    <string name="mode_shizuku_tag">FPS / Process etc. available</string>
+
+    <string name="mode_basic_title">Basic Mode</string>
+    <string name="mode_basic_tag">Basic monitoring available</string>
+
+    <!-- Permission Guide Screen - detection results -->
+    <string name="guide_probing">Detecting available permissions\u2026</string>
+    <string name="guide_select_mode">Select Permission Mode</string>
+    <string name="guide_use_mode">Use %1$s Mode</string>
+    <string name="guide_badge_recommended">Recommended</string>
+    <string name="mode_root_detected">%1$s detected</string>
+    <string name="mode_root_su_detected">su binary detected</string>
+    <string name="mode_root_not_detected">No root framework detected</string>
+    <string name="mode_shizuku_running">Shizuku running</string>
+    <string name="mode_shizuku_auth_root">Root auth</string>
+    <string name="mode_shizuku_auth_adb">ADB mode</string>
+    <string name="mode_shizuku_pending">pending authorization</string>
+    <string name="mode_shizuku_installed_not_running">Shizuku installed but not running</string>
+    <string name="mode_shizuku_not_installed">Shizuku not installed</string>
+    <string name="mode_adb_subtitle">Manually start Daemon via ADB</string>
+    <string name="mode_basic_subtitle">No permissions, limited to world-readable files</string>
+    <string name="shizuku_wait_title">Waiting for Shizuku</string>
+    <string name="shizuku_wait_desc">Tap [Allow] in the Shizuku authorization dialog.\n\nIf Shizuku is not running, please start it first and try again.</string>
+
+    <!-- Quick Settings Tile -->
+    <string name="tile_label">OpenMonitor</string>
+    <string name="tile_label_format">CPU %1$d%% · %2$s°C</string>
+
+    <!-- Storage Screen -->
+    <string name="partitions">Partitions</string>
+
+    <!-- Network Screen -->
+    <string name="network_connected">Connected</string>
+    <string name="network_disconnected">Disconnected</string>
+    <string name="realtime_speed">Real-time Speed</string>
+    <string name="download">Download</string>
+    <string name="upload">Upload</string>
+    <string name="total_traffic">Total Traffic</string>
+    <string name="total_received">Total Received</string>
+    <string name="total_sent">Total Sent</string>
+    <string name="wifi_details">WiFi Details</string>
+    <string name="signal_strength">Signal Strength</string>
+    <string name="link_speed">Link Speed</string>
+    <string name="frequency">Frequency</string>
+    <string name="ip_address">IP Address</string>
+    <string name="network_location_hint">Location permission required to view SSID and BSSID</string>
+    <string name="network_unknown">Unknown</string>
+
+    <!-- Widget -->
+    <string name="widget_cpu_label" translatable="false">CPU</string>
+    <string name="widget_ram_label" translatable="false">RAM</string>
+    <string name="widget_placeholder_percent" translatable="false">--%</string>
+    <string name="widget_placeholder_temp" translatable="false">--°C</string>
+
+    <!-- Permission Setup Screen -->
+    <string name="perm_setup_title">Grant Required Permissions</string>
+    <string name="perm_setup_subtitle">OpenMonitor needs the following permissions to work properly. All permissions are required.</string>
+    <string name="perm_overlay_title">Overlay (Float Window)</string>
+    <string name="perm_overlay_desc">Display real-time monitors over other apps</string>
+    <string name="perm_usage_title">Usage Stats Access</string>
+    <string name="perm_usage_desc">Read battery usage and app usage statistics</string>
+    <string name="perm_battery_title">Ignore Battery Optimization</string>
+    <string name="perm_battery_desc">Prevent the system from killing the monitoring service in background</string>
+    <string name="perm_notification_title">Notifications</string>
+    <string name="perm_notification_desc">Show foreground service notifications for monitoring</string>
+    <string name="perm_location_title">Location (Optional)</string>
+    <string name="perm_location_desc">Required to display WiFi SSID and BSSID in network monitor</string>
+    <string name="perm_optional_section">Optional</string>
+    <string name="perm_go_grant">Go to Grant</string>
+    <string name="perm_start">Start Using</string>
+    <string name="perm_grant_all_hint">Please grant all permissions above to continue</string>
+
+    <!-- Daemon -->
+    <string name="daemon_launching">Deploying monitor service…</string>
+    <string name="daemon_launch_failed">Monitor service failed to start</string>
+    <string name="daemon_retry">Retry</string>
+    <string name="daemon_fallback_basic">Continue in Basic Mode</string>
+
+    <!-- Navigation titles -->
+    <string name="nav_back">Back</string>
+    <string name="nav_battery">Battery</string>
+    <string name="nav_fps">FPS</string>
+    <string name="nav_fps_detail">FPS Detail</string>
+    <string name="nav_process">Processes</string>
+    <string name="nav_process_detail">Process Detail</string>
+    <string name="nav_float_monitor">Float Monitor</string>
+    <string name="nav_network">Network</string>
+    <string name="nav_key_attestation">Key Attestation</string>
+    <string name="nav_debug_log">Debug Log</string>
+    <string name="nav_hardware_info">Hardware Info</string>
+    <string name="nav_cpu_analysis">CPU Analysis</string>
+
+    <!-- Feature list -->
+    <string name="feature_hardware_info">Hardware Info</string>
+    <string name="feature_battery">Battery</string>
+    <string name="feature_fps_recording">FPS Recording</string>
+    <string name="feature_process_monitor">Process Monitor</string>
+    <string name="feature_float_monitor">Float Monitor</string>
+    <string name="feature_network_monitor">Network Monitor</string>
+    <string name="feature_key_attestation">Key Attestation</string>
+    <string name="feature_debug_log">Debug Log</string>
+
+    <!-- Settings -->
+    <string name="settings_switch_mode">Switch Running Mode</string>
+    <string name="settings_detecting">Detecting…</string>
+    <string name="settings_running">Running</string>
+    <string name="settings_not_running">Not Running</string>
+    <string name="settings_not_detected">Not Detected</string>
+    <string name="settings_sampling">Data Refresh Rate</string>
+    <!-- Settings groups -->
+    <string name="settings_group_system">System</string>
+    <string name="settings_group_appearance">Appearance</string>
+    <string name="settings_group_monitor">Monitor</string>
+    <string name="settings_group_about">About</string>
+    <!-- Theme settings -->
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_summary">Colors, dark mode, page scale</string>
+    <string name="settings_color_mode">Color Mode</string>
+    <string name="settings_theme_mode_system">Auto</string>
+    <string name="settings_theme_mode_light">Light</string>
+    <string name="settings_theme_mode_dark">Dark</string>
+    <string name="settings_theme_mode_amoled">AMOLED</string>
+    <string name="settings_color_style">Color Style</string>
+    <string name="settings_color_spec">Color Spec</string>
+    <string name="settings_page_scale">Page Scale</string>
+
+    <string name="settings_update_available">Update Available</string>
+    <string name="settings_up_to_date">Already up to date</string>
+    <string name="app_description">Lightweight, modern Android system monitor. Real-time hardware status · FPS recording · Process management · Float window · Widget, fully supports Root / Shizuku / ADB.</string>
+    <string name="settings_version_current">Installed: %s</string>
+    <string name="settings_version_latest">Latest: %s</string>
+    <string name="settings_check_failed">Check failed</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_language_system">Follow System</string>
+    <string name="settings_close">Close</string>
+    <string name="settings_confirm">OK</string>
+    <string name="settings_version_match">Version Match</string>
+    <string name="settings_version_mismatch">Version Mismatch</string>
+    <string name="settings_version_format">Version %s</string>
+    <string name="settings_adb_setup">ADB Daemon Setup</string>
+    <string name="settings_adb_run_cmd">Run the following command in terminal to start Daemon:</string>
+    <string name="settings_copy_command">Copy Command</string>
+    <string name="settings_check_connection">Check Connection</string>
+    <string name="settings_auto_detect_hint">Will auto-detect connection after start</string>
+    <string name="settings_haptic_feedback">Haptic Feedback</string>
+
+    <!-- Mode names -->
+    <string name="mode_root">Root Mode</string>
+    <string name="mode_adb">ADB Mode</string>
+    <string name="mode_shizuku">Shizuku Mode</string>
+    <string name="mode_basic">Basic Mode</string>
+
+    <!-- Log Screen -->
+    <string name="log_pause">Pause</string>
+    <string name="log_resume">Resume</string>
+    <string name="log_paused_banner">Paused — tap to resume</string>
+    <string name="log_refresh">Refresh now</string>
+    <string name="log_copy_all">Copy all</string>
+    <string name="log_clear">Clear</string>
+    <string name="log_tab_app">App Log</string>
+    <string name="log_tab_daemon">Daemon Log</string>
+    <string name="log_realtime_logcat">Realtime (logcat)</string>
+    <string name="log_realtime">Realtime</string>
+    <string name="log_source">Source:</string>
+    <string name="log_level">Level:</string>
+    <string name="log_empty">No logs</string>
+    <string name="log_daemon_empty">No Daemon logs</string>
+    <string name="log_daemon_no_date">No daemon log for this date</string>
+    <string name="log_daemon_not_running">No daemon log (daemon not running)</string>
+    <string name="log_daemon_log_empty">Log is empty</string>
+
+    <!-- Splash Screen -->
+    <string name="splash_select_mode">Select Running Mode</string>
+    <string name="splash_mode_desc">Root mode provides full system info, basic mode reads limited data</string>
+    <string name="splash_checking_root">Checking Root Permission</string>
+    <string name="splash_grant_root">Grant permission in Root manager…</string>
+    <string name="splash_root_denied">Root Permission Denied</string>
+    <string name="splash_root_denied_detail">Root not detected. Please check:\n\n1. Device is rooted\n2. Root manager (e.g. Magisk/KernelSU) is installed\n3. Permission was granted in the authorization dialog</string>
+    <string name="splash_retry">Retry</string>
+    <string name="splash_use_basic">Use Basic Mode</string>
+    <string name="splash_go_back">Back</string>
+
+    <!-- Startup Loading Steps -->
+    <string name="startup_initializing">Initializing…</string>
+    <string name="startup_checking_shizuku">Checking Shizuku service…</string>
+    <string name="startup_deploying_daemon">Deploying monitor daemon…</string>
+    <string name="startup_connecting_daemon">Connecting to daemon…</string>
+    <string name="startup_almost_ready">Almost ready…</string>
+
+    <!-- Bottom Navigation -->
+    <string name="nav_features">Features</string>
+    <string name="nav_overview">Overview</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Mode descriptions -->
+    <string name="mode_root_description">Magisk / KernelSU, full Root access</string>
+    <string name="mode_adb_description">Manually start Daemon via ADB (FPS/process etc. available)</string>
+    <string name="mode_shizuku_description">Obtain Shell permission via Shizuku (recommended)</string>
+    <string name="mode_basic_description">No privileges, frame rate monitoring unavailable</string>
+
+    <!-- Donate -->
+    <string name="donate_title">Support the Developer</string>
+    <string name="donate_summary">Buy me a coffee via Alipay</string>
+    <string name="donate_custom">Custom</string>
+    <string name="donate_button">Donate via Alipay</string>
+    <string name="donate_creating">Creating order\u2026</string>
+    <string name="donate_waiting">Waiting for payment\u2026</string>
+    <string name="donate_scan_qr">Alipay not installed. Please scan the QR code.</string>
+    <string name="donate_success">Thank you for your support!</string>
+    <string name="donate_failed">Payment failed</string>
+    <string name="donate_retry">Retry</string>
+    <string name="donate_timeout">Payment timed out</string>
+    <string name="donate_amount_error">Please enter a valid amount (0.01 - 999.99)</string>
+    <string name="donate_verifying">Verifying\u2026</string>
+    <string name="donate_challenge_failed">Verification failed</string>
+    <string name="donate_qr_title">Scan to Pay</string>
+    <string name="donate_open_alipay">Open Alipay</string>
+    <string name="donate_qr_expires">Expires in %1$s</string>
+    <string name="donate_scanned">Scanned, waiting for payment\u2026</string>
+    <string name="donate_scanned_by">%1$s scanned, waiting for payment\u2026</string>
+    <string name="donate_identifying_device">Identifying device\u2026</string>
+    <string name="donate_identify_failed">Device identification failed</string>
+
+    <!-- About Screen -->
+    <string name="about_title">About OpenMonitor</string>
+    <string name="about_device_identity">Device Identity</string>
+    <string name="about_show_fingerprint">Show Device Fingerprint</string>
+    <string name="about_hide_fingerprint">Hide Device Fingerprint</string>
+    <string name="about_activation_status">Activation Status</string>
+    <string name="about_activated">Activated</string>
+    <string name="about_not_activated">Not Activated</string>
+    <string name="about_plan">Plan</string>
+    <string name="about_activated_at">Activated</string>
+    <string name="about_expires_at">Expires</string>
+    <string name="about_permanent">Permanent</string>
+    <string name="about_build_info">Build Info</string>
+    <string name="about_version">Version</string>
+    <string name="about_commit">Commit</string>
+    <string name="about_author">Author</string>
+    <string name="about_license">License</string>
+    <string name="about_copy_all">Copy All Info</string>
+    <string name="about_copied">Copied</string>
+    <string name="about_source_code">Source Code</string>
+
+    <!-- Agreement Screen -->
+    <string name="agreement_title">User Agreement</string>
+    <string name="agreement_scroll_hint">Please read to the bottom to continue</string>
+    <string name="agreement_accept">Agree and Continue</string>
+    <string name="agreement_accept_countdown">Agree and Continue (%1$ds)</string>
+    <string name="agreement_decline">Decline &amp; Exit</string>
+
+    <!-- Setup Stepper -->
+    <string name="stepper_agreement">Agreement</string>
+    <string name="stepper_permissions">Permissions</string>
+    <string name="stepper_activation">Activation</string>
+    <string name="stepper_mode">Mode</string>
+
+    <!-- Join Group -->
+    <string name="settings_group_community">Community</string>
+    <string name="join_telegram">Telegram Group</string>
+    <string name="join_qq_group">QQ Group</string>
+    <string name="qq_group_number">Group: %1$s</string>
+    <string name="qq_group_copied">QQ group number copied</string>
+    <string name="qq_not_installed">QQ not installed</string>
+    <string name="join_qq_channel">QQ Channel</string>
+    <string name="qq_channel_number">Channel: %1$s</string>
+    <string name="qq_channel_copied">QQ channel ID copied</string>
+
+    <!-- Open Source Licenses -->
+    <string name="settings_open_source_licenses">Open Source Licenses</string>
+    <string name="licenses_summary">This app uses %1$d open source libraries</string>
+
+    <!-- Activation -->
+    <string name="activation_title">Activate OpenMonitor</string>
+    <string name="activation_subtitle">Enter the activation code to unlock full features</string>
+    <string name="activation_device_id">Device ID</string>
+    <string name="activation_code_hint">Activation Code</string>
+    <string name="activation_activate">Activate</string>
+    <string name="activation_activating">Activating\u2026</string>
+    <string name="activation_success">Activated successfully!</string>
+    <string name="activation_invalid_code">Invalid activation code</string>
+    <string name="activation_wrong_device">This code is not bound to your device</string>
+    <string name="activation_revoked">This activation code has been revoked</string>
+    <string name="activation_network_error">Network error, please check your connection</string>
+    <string name="activation_copied">Device ID copied</string>
+    <string name="activation_contact">The app is free, but during beta you need to join the community and ask the admin for a free activation code.</string>
+    <string name="activation_plan_basic">Basic</string>
+    <string name="activation_plan_pro">Pro</string>
+    <string name="activation_plan_ultimate">Ultimate</string>
+
+</resources>

@@ -1,0 +1,31 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.vscode
+.DS_Store
+/build
+/*/build
+/*/*/build
+/captures
+.externalNativeBuild
+.cxx
+*.apk
+*.ap_
+*.dex
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+*.aar
+/app/release
+
+# Daemon build artifacts (built by Gradle task)
+/app/src/main/jniLibs/
+/app/src/main/assets/daemon/daemon-commit.txt
+release.jks
+
+issuses
+
+# Separate repo (Cloudflare Worker)
+/donate-worker/
+fingerprintjs-android

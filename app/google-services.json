@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "827923401871",
+    "project_id": "openmonitor-cloudorz",
+    "storage_bucket": "openmonitor-cloudorz.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:827923401871:android:d65e4eb1795440ebe374fa",
+        "android_client_info": {
+          "package_name": "com.cloudorz.openmonitor"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCnKHuuXU92PZQ2GLsSKMJtcdGaY5buRVA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

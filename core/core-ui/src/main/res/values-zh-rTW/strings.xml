@@ -1,0 +1,373 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Power Screen -->
+    <string name="battery_info">電池資訊</string>
+    <string name="battery_health">電池健康度</string>
+    <string name="temperature">溫度</string>
+    <string name="duration">時長</string>
+
+    <!-- FPS Screen -->
+    <string name="fps_recording_title">幀率記錄</string>
+    <string name="fps_trend">FPS 趨勢</string>
+    <string name="frame_time">幀時間</string>
+    <string name="recording">錄製中</string>
+    <string name="max_frame_time">最大幀時間</string>
+    <string name="frame_count">幀數</string>
+    <string name="battery_level">電量</string>
+    <string name="stop_recording">停止錄製</string>
+    <string name="start_recording">開始錄製</string>
+    <string name="no_recording_sessions">暫無錄製工作階段</string>
+    <string name="start_recording_hint">開始錄製以查看歷史資料</string>
+    <string name="avg_fps_format">平均 %.1f FPS</string>
+    <string name="delete">刪除</string>
+    <plurals name="fps_selected_count">
+        <item quantity="other">已選 %d 項</item>
+    </plurals>
+    <string name="fps_select_all">全選</string>
+    <string name="fps_cancel">取消</string>
+    <string name="fps_confirm">確定</string>
+    <string name="fps_chart_series_options">顯示系列</string>
+    <string name="fps_rename">重新命名</string>
+    <string name="fps_session_name">工作階段名稱</string>
+    <string name="fps_unknown_app">未知應用</string>
+    <string name="fps_start_from_float">點擊 FPS 懸浮窗開始錄製</string>
+    <string name="fps_float_toggle_title">FPS 懸浮窗</string>
+    <string name="fps_float_toggle_desc">顯示即時幀率計數器懸浮窗</string>
+    <string name="fps_delete_confirm_title">刪除工作階段</string>
+    <string name="fps_delete_confirm_msg">確定要刪除這條錄製記錄嗎？</string>
+    <string name="fps_countdown">倒數計時 %d 秒</string>
+    <string name="fps_recording_progress">已錄 %1$s，剩餘 %2$s</string>
+    <string name="fps_chart_fps_temp">FPS / 溫度</string>
+    <string name="fps_chart_frame_time">幀時間 (ms)</string>
+    <string name="fps_chart_cpu_usage">CPU / GPU 佔用率 (%)</string>
+    <string name="fps_chart_cpu_gpu_freq">CPU / GPU 頻率 (MHz)</string>
+    <string name="fps_chart_power">功率 / 電量</string>
+    <string name="fps_chart_battery_current">電池電流 (mA)</string>
+    <string name="fps_chart_temperature">溫度</string>
+    <string name="fps_chart_jank">卡頓次數</string>
+    <string name="fps_chart_options_title">圖表選項</string>
+    <!-- FPS Chart Section Labels -->
+    <string name="fps_section_fps_temp">FPS</string>
+    <string name="fps_section_frame_time">幀時間</string>
+    <string name="fps_section_cpu_gpu">CPU / GPU</string>
+    <string name="fps_section_cpu_gpu_freq">CPU / GPU 頻率</string>
+    <string name="fps_section_jank">卡頓</string>
+    <string name="fps_section_power">功率</string>
+    <string name="fps_section_current">電流</string>
+    <string name="fps_section_temperature">溫度</string>
+    <!-- FPS Session Detail -->
+    <string name="fps_detail_platform">平台</string>
+    <string name="fps_detail_model">機型</string>
+    <string name="fps_detail_os">系統</string>
+    <string name="fps_detail_app_version">版本</string>
+    <string name="fps_detail_resolution">解析度</string>
+    <string name="fps_detail_created">建立時間</string>
+    <string name="fps_stat_max">最大</string>
+    <string name="fps_stat_min">最小</string>
+    <string name="fps_stat_avg">平均</string>
+    <string name="fps_stat_variance">標準差</string>
+    <string name="fps_stat_smoothness">\u226545FPS</string>
+    <string name="fps_stat_low">5% 低幀</string>
+    <string name="fps_stat_avg_power">平均功率</string>
+    <string name="fps_stat_source_battery">電池</string>
+    <string name="fps_stat_power">功率</string>
+    <string name="fps_stat_average">平均值</string>
+    <string name="fps_stat_max_temp">最高溫度</string>
+    <string name="fps_stat_smoothness_unit">流暢度</string>
+    <string name="fps_stat_total">總計</string>
+    <!-- FPS Series Labels -->
+    <string name="fps_series_frame_time">幀時間(ms)</string>
+    <string name="fps_series_power">功率(W)</string>
+    <string name="fps_series_capacity">電量(%)</string>
+    <string name="fps_series_current">電流(mA)</string>
+    <string name="fps_series_bat_temp">電池(\u00B0C)</string>
+    <string name="fps_series_freq">頻率(MHz)</string>
+    <string name="fps_series_usage">使用率(%)</string>
+    <string name="fps_series_jank">卡頓</string>
+    <string name="fps_series_big_jank">嚴重卡頓</string>
+    <!-- FPS Export -->
+    <string name="fps_save_to_download">儲存</string>
+    <string name="fps_save_as_image">儲存為圖片</string>
+    <string name="fps_save_as_csv">儲存為 CSV</string>
+    <string name="fps_saved_to_downloads">已儲存到 Downloads/OpenMonitor/%1$s</string>
+    <string name="fps_save_failed">儲存失敗</string>
+
+    <!-- Float Monitor Screen -->
+    <string name="float_monitor_title">懸浮監視器</string>
+    <string name="detail_info">詳細資訊</string>
+    <string name="permission_desc_title">權限說明</string>
+    <string name="permission_desc_body">懸浮窗顯示支援兩種方式：\n1. 無障礙服務（推薦）— 無需懸浮窗權限，同時提供前台應用偵測\n2. 懸浮窗權限 — 傳統方式，需手動授權</string>
+    <string name="go_enable">去開啟</string>
+    <string name="overlay_granted">懸浮窗權限已授予</string>
+    <string name="overlay_not_granted">懸浮窗權限未授予</string>
+    <string name="go_authorize">去授權</string>
+    <string name="permission_required_toast">請先授予懸浮窗權限或啟用無障礙服務</string>
+    <string name="overlay_mode_title">懸浮窗模式</string>
+    <string name="overlay_mode_auto">自動</string>
+    <string name="overlay_mode_overlay_only">僅懸浮窗</string>
+    <string name="overlay_mode_desc_auto">自動選擇最佳方式（優先無障礙）</string>
+    <string name="overlay_mode_desc_overlay">僅使用標準懸浮窗權限。避免觸發支付類應用對無障礙服務的風控偵測。</string>
+    <string name="session_chart_power">功率(W)</string>
+    <string name="session_chart_battery">電量(%)</string>
+    <string name="session_chart_temp">溫度(\u00B0C)</string>
+    <string name="session_chart_current">電流(mA)</string>
+    <string name="session_chart_capacity">電量(%)</string>
+    <string name="tap_to_view_chart">點擊展開圖表</string>
+
+    <!-- FloatMonitorType display names -->
+    <string name="monitor_load">負載監視器</string>
+    <string name="monitor_process">進程監視器</string>
+    <string name="monitor_thread">執行緒監視器</string>
+    <string name="monitor_mini">迷你監視器</string>
+    <string name="monitor_fps">幀率記錄器</string>
+    <string name="monitor_temperature">溫度監視器</string>
+
+    <!-- FloatMonitorType descriptions -->
+    <string name="monitor_load_desc">CPU/GPU/RAM/電池儀表板</string>
+    <string name="monitor_process_desc">Top CPU 進程列表</string>
+    <string name="monitor_thread_desc">當前應用最耗CPU執行緒</string>
+    <string name="monitor_mini_desc">單行: CPU%%/GPU%%/溫度/FPS/電流</string>
+    <string name="monitor_fps_desc">即時 FPS 計數器</string>
+    <string name="monitor_temperature_desc">多感測器溫度值</string>
+
+    <!-- FloatMonitorType info texts -->
+    <string name="monitor_load_info">顯示 CPU、GPU、記憶體、電池的即時負載儀表板。以 2x2 網格形式呈現四個圓弧儀表，直觀展示系統資源使用情況。</string>
+    <string name="monitor_process_info">顯示當前 CPU 佔用率最高的 5 個進程列表，包含進程名稱和 CPU 使用百分比。幫助快速定位高負載進程。</string>
+    <string name="monitor_thread_info">顯示當前前台應用中 CPU 佔用率最高的執行緒列表。用於深入分析應用效能瓶頸。</string>
+    <string name="monitor_mini_info">極簡單行模式，顯示 CPU%%/GPU%%/溫度/FPS/即時電流。佔用螢幕空間最小，適合日常監控。</string>
+    <string name="monitor_fps_info">即時幀率計數器，大字體顯示當前 FPS 值，並統計卡頓 (Jank) 次數。適合遊戲和動畫效能測試。</string>
+    <string name="monitor_temperature_info">顯示裝置多個溫度感測器的即時讀數，包括 CPU、GPU、電池等區域溫度。用於監控裝置散熱狀況。</string>
+
+    <!-- CPU Screen -->
+    <string name="cpu_monitor_title">CPU監控</string>
+    <string name="refresh">重新整理</string>
+    <string name="online_cores_format">線上核心: %1$d/%2$d</string>
+    <string name="core_status">核心狀態</string>
+    <string name="governor">調速器</string>
+    <string name="unknown">未知</string>
+    <string name="frequency_range">頻率範圍</string>
+    <string name="avg_load">平均負載</string>
+    <string name="avg_frequency">平均頻率</string>
+    <string name="cpu_cache_info">快取資訊</string>
+    <string name="l1d_cache">L1 資料</string>
+    <string name="l1i_cache">L1 指令</string>
+    <string name="l2_cache">L2</string>
+    <string name="l3_cache">L3</string>
+    <string name="arm_neon">ARM NEON</string>
+    <string name="supported">支援</string>
+    <string name="not_supported">不支援</string>
+    <string name="cpu_features">CPU 特性</string>
+    <string name="soc_hardware_id">硬體代號</string>
+    <string name="soc_architecture">架構</string>
+    <string name="soc_abi">ABI</string>
+    <string name="soc_cpu_config">CPU 配置</string>
+    <string name="soc_memory">記憶體類型</string>
+    <string name="soc_bandwidth">頻寬</string>
+    <string name="soc_channels">通道</string>
+
+    <!-- Charge Screen -->
+    <string name="charge_info">充電資訊</string>
+    <string name="charging">正在充電</string>
+    <string name="not_charging">未在充電</string>
+    <string name="charge_history">充電歷史記錄</string>
+    <string name="charge_curve">充電曲線</string>
+    <string name="charge_curve_placeholder">充電曲線將在此顯示</string>
+    <string name="charge_curve_auto_start">連接充電器後自動開始記錄</string>
+    <string name="charge_amount">充電量</string>
+    <string name="energy_charged">充入電量</string>
+    <string name="no_charge_records">暫無充電記錄</string>
+    <string name="charge_auto_record_hint">充電時將自動記錄充電資料</string>
+    <string name="charge_curve_title">充電曲線</string>
+    <string name="charge_curve_will_show">充電曲線將在此顯示</string>
+    <string name="charge_curve_min_points">需要至少兩個資料點</string>
+    <string name="legend_capacity">電量</string>
+    <string name="legend_current">電流</string>
+    <string name="legend_temperature">溫度</string>
+
+    <!-- Battery Screen -->
+    <string name="battery_status">狀態</string>
+    <string name="battery_charging">充電中</string>
+    <string name="battery_discharging">放電中</string>
+    <string name="battery_hour">時</string>
+    <string name="battery_minute">分</string>
+    <string name="battery_current">電流</string>
+    <string name="battery_technology">技術</string>
+    <string name="battery_capacity_health">容量和健康</string>
+    <string name="battery_design_capacity">設計容量</string>
+    <string name="battery_current_energy">當前電量</string>
+    <string name="battery_usage_history">使用過程</string>
+    <string name="battery_total_energy">總耗電</string>
+    <string name="battery_avg_temp">平均溫度</string>
+    <string name="battery_voltage">電壓</string>
+    <string name="battery_charge_status">充電狀態</string>
+    <string name="battery_not_charging">未充電</string>
+    <string name="battery_avg_power">平均功耗</string>
+    <string name="battery_screen_on_time">已使用</string>
+    <string name="battery_estimated_life">理論續航</string>
+    <string name="battery_usage_scenario">使用場景</string>
+    <string name="battery_no_usage_data">暫無使用資料</string>
+    <string name="battery_usage_stats_hint">授予使用情況存取權限以在電池圖表中顯示前台應用圖示</string>
+    <string name="battery_grant_permission">授予權限</string>
+    <string name="battery_export_csv">匯出 CSV</string>
+    <string name="battery_cycle_count">循環次數</string>
+    <string name="battery_actual_capacity">實際容量</string>
+    <string name="battery_remaining_charge">剩餘電量</string>
+    <string name="battery_health_percent">健康度</string>
+
+    <!-- 硬體資訊頁 -->
+    <string name="hw_processor">處理器</string>
+    <string name="hw_vendor">供應商</string>
+    <string name="hw_hardware">硬體</string>
+    <string name="hw_architecture">架構</string>
+    <string name="hw_governor">調頻器</string>
+    <string name="hw_core_count">%d 核心數</string>
+    <string name="hw_cpu_config">CPU 配置</string>
+    <string name="hw_cpu_analysis">CPU 分析</string>
+    <string name="hw_gpu">GPU</string>
+    <string name="hw_graphics_api">圖形 API</string>
+    <string name="hw_renderer">渲染器</string>
+    <string name="hw_driver_version">驅動版本</string>
+    <string name="hw_vulkan_api_version">Vulkan API 版本</string>
+    <string name="hw_opengl_es">OpenGL ES</string>
+    <string name="hw_chip">晶片</string>
+    <string name="hw_on_chip_memory">片上儲存器</string>
+    <string name="hw_shader_cores">著色器核心</string>
+    <string name="hw_bus_width">匯流排寬度</string>
+    <string name="hw_display">螢幕</string>
+    <string name="hw_current_resolution">當前解析度</string>
+    <string name="hw_screen_size">螢幕尺寸</string>
+    <string name="hw_supported_resolutions">支援的解析度</string>
+    <string name="hw_supported_refresh_rates">支援的刷新率</string>
+    <string name="hw_aspect_ratio">寬高比</string>
+    <string name="hw_android_density">Android 密度 (dpi)</string>
+    <string name="hw_wide_color_gamut">廣色域</string>
+    <string name="hw_hdr_support">HDR支援</string>
+    <string name="hw_panel">面板</string>
+    <string name="hw_memory">記憶體</string>
+    <string name="hw_memory_size">記憶體大小</string>
+    <string name="hw_total_format">%s 總計</string>
+    <string name="hw_used_format">%s 已使用</string>
+    <string name="hw_free_format">%s 空閒</string>
+    <string name="hw_storage">儲存</string>
+    <string name="hw_size">大小</string>
+    <string name="hw_type">類型</string>
+    <string name="hw_internal_storage">內部儲存器</string>
+    <string name="hw_file_system">檔案系統</string>
+    <string name="hw_block_size">Block 大小</string>
+    <string name="hw_yes">是</string>
+    <string name="hw_no">否</string>
+    <string name="hw_bit_64">64-bit</string>
+
+    <!-- CPU 分析頁 -->
+    <string name="cpu_manufacturer">製造商</string>
+    <string name="cpu_market_name">市場名稱</string>
+    <string name="cpu_process_node">製程</string>
+    <string name="cpu_core_count">核心數</string>
+    <string name="cpu_frequency">頻率</string>
+    <string name="cpu_supported_abis">支援的ABIs</string>
+    <string name="cpu_features_label">特性</string>
+    <string name="cpu_cluster_format">簇 %d</string>
+    <string name="cpu_core_type">類型</string>
+    <string name="cpu_cluster_label">簇</string>
+    <string name="cpu_max_freq">最高頻率</string>
+    <string name="cpu_min_freq">最低頻率</string>
+    <string name="hw_partitions">磁碟分區</string>
+
+    <string name="process_search_hint">搜尋程序…</string>
+    <string name="process_filter_all">全部</string>
+    <string name="process_filter_app">應用</string>
+    <string name="process_sort_cpu">CPU %</string>
+    <string name="process_sort_memory">記憶體</string>
+    <string name="process_sort_name">名稱</string>
+    <string name="process_sort_pid">PID</string>
+    <string name="process_total_format">共 %d 個</string>
+    <string name="process_empty">無程序</string>
+    <string name="process_empty_search">未找到符合 \"%s\" 的程序</string>
+    <string name="process_not_found">程序未找到</string>
+    <string name="process_kill">終止</string>
+    <string name="process_info">程序資訊</string>
+    <string name="process_resource_usage">資源使用</string>
+    <string name="process_system_details">系統詳情</string>
+    <string name="process_command_line">命令列</string>
+    <string name="process_threads">執行緒</string>
+    <string name="process_threads_count">%d 個執行緒</string>
+    <string name="process_no_threads">無執行緒</string>
+    <string name="process_unnamed_thread">&lt;未命名&gt;</string>
+
+    <!-- 硬體 - GPU L2 快取 -->
+    <string name="hw_l2_cache">L2 快取</string>
+    <!-- 硬體 - Vulkan/OpenGL 按鈕 -->
+    <string name="hw_vulkan_features">Vulkan 功能</string>
+    <string name="hw_opengl_es_features">OpenGL ES 功能</string>
+
+    <!-- OpenGL 資訊頁 -->
+    <string name="gl_info_title">OpenGL ES 資訊</string>
+    <string name="gl_version">版本</string>
+    <string name="gl_renderer">渲染器</string>
+    <string name="gl_vendor">供應商</string>
+    <string name="gl_shading_lang_version">著色器語言版本</string>
+    <string name="gl_extensions_count">擴充數量</string>
+    <string name="gl_egl_info">EGL 資訊</string>
+    <string name="gl_extensions_format">擴充 (%d)</string>
+    <string name="gl_egl_extensions_format">EGL 擴充 (%d)</string>
+
+    <!-- Vulkan 資訊頁 -->
+    <string name="vk_gpu_identity">GPU 標識</string>
+    <string name="vk_name">名稱</string>
+    <string name="vk_vendor">供應商</string>
+    <string name="vk_device_id">裝置 ID</string>
+    <string name="vk_device_type">裝置類型</string>
+    <string name="vk_instance_api">實例 API</string>
+    <string name="vk_device_api">裝置 API</string>
+    <string name="vk_driver_version">驅動版本</string>
+    <string name="vk_device_extensions">裝置擴充</string>
+    <string name="vk_instance_extensions">實例擴充</string>
+    <string name="vk_memory">記憶體</string>
+    <string name="vk_device_local">裝置本地（共享）</string>
+    <string name="vk_heap_format">堆 %d</string>
+    <string name="vk_device_local_suffix"> (裝置本地)</string>
+    <string name="vk_limits">限制</string>
+    <string name="vk_max_1d_image">最大 1D 圖像</string>
+    <string name="vk_max_2d_image">最大 2D 圖像</string>
+    <string name="vk_max_3d_image">最大 3D 圖像</string>
+    <string name="vk_max_cube_image">最大立方體圖像</string>
+    <string name="vk_max_array_layers">最大陣列層</string>
+    <string name="vk_uniform_buffer_range">Uniform 緩衝區範圍</string>
+    <string name="vk_storage_buffer_range">儲存緩衝區範圍</string>
+    <string name="vk_max_anisotropy">最大各向異性</string>
+    <string name="vk_max_compute_invocations">最大計算調用</string>
+    <string name="vk_max_memory_alloc">最大記憶體分配</string>
+    <string name="vk_max_sampler_alloc">最大取樣器分配</string>
+    <string name="vk_core_features">核心功能</string>
+    <string name="vk_yes">是</string>
+    <string name="vk_no">否</string>
+    <string name="vk_queues">佇列</string>
+    <string name="vk_queue_flags">佇列 %d 標誌</string>
+    <string name="vk_queue_count">佇列 %d 數量</string>
+    <string name="vk_queue_timestamp_bits">佇列 %d 時間戳位數</string>
+    <string name="vk_device_extensions_format">裝置擴充 (%d)</string>
+    <string name="vk_instance_extensions_format">實例擴充 (%d)</string>
+
+    <!-- Vulkan 功能名稱 -->
+    <string name="vk_feat_robust_buffer">健壯緩衝區存取</string>
+    <string name="vk_feat_sampler_anisotropy">取樣器各向異性</string>
+    <string name="vk_feat_geometry_shader">幾何著色器</string>
+    <string name="vk_feat_tessellation_shader">曲面細分著色器</string>
+    <string name="vk_feat_multi_viewport">多視口</string>
+    <string name="vk_feat_dual_src_blend">雙源混合</string>
+    <string name="vk_feat_depth_clamp">深度鉗位</string>
+    <string name="vk_feat_wide_lines">寬線條</string>
+    <string name="vk_feat_large_points">大點</string>
+
+    <!-- 分區頁 -->
+    <string name="partition_search">搜尋分區…</string>
+    <string name="partition_clear">清除</string>
+    <string name="partition_count_format">%d 個分區</string>
+    <string name="partition_device">分區</string>
+    <string name="partition_filesystem">檔案系統</string>
+    <string name="partition_readonly">唯讀</string>
+    <string name="partition_readwrite">讀寫</string>
+    <string name="partition_used_format">%s 已使用</string>
+    <string name="partition_free_format">%s 空閒</string>
+    <string name="partition_access">存取</string>
+</resources>

@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 权限引导页 -->
+
+    <string name="mode_root_title">ROOT 模式</string>
+    <string name="mode_root_tag">全部功能可用</string>
+
+    <string name="mode_shizuku_title">Shizuku 模式</string>
+    <string name="mode_shizuku_tag">FPS/进程等可用</string>
+
+    <string name="mode_basic_title">基础模式</string>
+    <string name="mode_basic_tag">基本监控可用</string>
+
+    <!-- 权限引导页 - 检测结果 -->
+    <string name="guide_probing">正在检测可用权限\u2026</string>
+    <string name="guide_select_mode">选择权限模式</string>
+    <string name="guide_use_mode">使用 %1$s 模式</string>
+    <string name="guide_badge_recommended">推荐</string>
+    <string name="mode_root_detected">%1$s 已检测到</string>
+    <string name="mode_root_su_detected">检测到 su 二进制文件</string>
+    <string name="mode_root_not_detected">未检测到 Root 框架</string>
+    <string name="mode_shizuku_running">Shizuku 运行中</string>
+    <string name="mode_shizuku_auth_root">Root 授权</string>
+    <string name="mode_shizuku_auth_adb">ADB 模式</string>
+    <string name="mode_shizuku_pending">待授权</string>
+    <string name="mode_shizuku_installed_not_running">Shizuku 已安装但未运行</string>
+    <string name="mode_shizuku_not_installed">Shizuku 未安装</string>
+    <string name="mode_adb_subtitle">通过 ADB 手动启动 Daemon</string>
+    <string name="mode_basic_subtitle">无需权限，仅限世界可读文件</string>
+    <string name="shizuku_wait_title">等待 Shizuku 授权</string>
+    <string name="shizuku_wait_desc">请在弹出的 Shizuku 授权对话框中点击【允许】。\n\n若 Shizuku 未运行，请先启动 Shizuku 后重试。</string>
+
+    <!-- Quick Settings Tile -->
+    <string name="tile_label">OpenMonitor</string>
+    <string name="tile_label_format">CPU %1$d%% · %2$s°C</string>
+
+    <!-- 存储信息 -->
+    <string name="partitions">分区</string>
+
+    <!-- 网络监控 -->
+    <string name="network_connected">已连接</string>
+    <string name="network_disconnected">未连接</string>
+    <string name="realtime_speed">实时速率</string>
+    <string name="download">下载</string>
+    <string name="upload">上传</string>
+    <string name="total_traffic">累计流量</string>
+    <string name="total_received">累计接收</string>
+    <string name="total_sent">累计发送</string>
+    <string name="wifi_details">WiFi 详情</string>
+    <string name="signal_strength">信号强度</string>
+    <string name="link_speed">连接速度</string>
+    <string name="frequency">频率</string>
+    <string name="ip_address">IP 地址</string>
+    <string name="network_location_hint">查看 SSID 和 BSSID 需要位置权限</string>
+    <string name="network_unknown">未知</string>
+
+    <!-- 权限设置页 -->
+    <string name="perm_setup_title">授予必要权限</string>
+    <string name="perm_setup_subtitle">OpenMonitor 需要以下权限才能正常工作，所有权限均为必须。</string>
+    <string name="perm_overlay_title">悬浮窗权限</string>
+    <string name="perm_overlay_desc">在其他应用上方显示实时监控窗口</string>
+    <string name="perm_usage_title">使用量统计权限</string>
+    <string name="perm_usage_desc">读取电池用量和应用使用统计数据</string>
+    <string name="perm_battery_title">忽略电池优化</string>
+    <string name="perm_battery_desc">防止系统在后台杀死监控服务</string>
+    <string name="perm_notification_title">通知权限</string>
+    <string name="perm_notification_desc">显示前台服务通知以保持监控运行</string>
+    <string name="perm_location_title">位置权限（可选）</string>
+    <string name="perm_location_desc">在网络监控中显示 WiFi SSID 和 BSSID 所需</string>
+    <string name="perm_optional_section">可选</string>
+    <string name="perm_go_grant">去授权</string>
+    <string name="perm_start">开始使用</string>
+    <string name="perm_grant_all_hint">请先授予以上全部权限后继续</string>
+
+    <!-- Daemon -->
+    <string name="app_name">OpenMonitor</string>
+    <string name="daemon_launching">正在部署监控服务…</string>
+    <string name="daemon_launch_failed">监控服务启动失败</string>
+    <string name="daemon_retry">重试</string>
+    <string name="daemon_fallback_basic">以基础模式继续</string>
+
+    <!-- 导航标题 -->
+    <string name="nav_back">返回</string>
+    <string name="nav_battery">电池</string>
+    <string name="nav_fps">帧率</string>
+    <string name="nav_fps_detail">帧率详情</string>
+    <string name="nav_process">进程</string>
+    <string name="nav_process_detail">进程详情</string>
+    <string name="nav_float_monitor">悬浮监视器</string>
+    <string name="nav_network">网络</string>
+    <string name="nav_key_attestation">密钥认证</string>
+    <string name="nav_debug_log">调试日志</string>
+    <string name="nav_hardware_info">硬件信息</string>
+    <string name="nav_cpu_analysis">CPU 分析</string>
+
+    <!-- 功能列表 -->
+    <string name="feature_hardware_info">硬件信息</string>
+    <string name="feature_battery">电池电量</string>
+    <string name="feature_fps_recording">帧率记录</string>
+    <string name="feature_process_monitor">进程监控</string>
+    <string name="feature_float_monitor">悬浮监视器</string>
+    <string name="feature_network_monitor">网络监控</string>
+    <string name="feature_key_attestation">密钥认证</string>
+    <string name="feature_debug_log">调试日志</string>
+
+    <!-- 设置 -->
+    <string name="settings_switch_mode">切换运行模式</string>
+    <string name="settings_detecting">检测中…</string>
+    <string name="settings_running">运行中</string>
+    <string name="settings_not_running">未运行</string>
+    <string name="settings_not_detected">未检测</string>
+    <string name="settings_sampling">数据刷新频率</string>
+    <string name="settings_group_system">系统</string>
+    <string name="settings_group_appearance">外观</string>
+    <string name="settings_group_monitor">监控</string>
+    <string name="settings_group_about">关于</string>
+    <string name="settings_theme">主题</string>
+    <string name="settings_theme_summary">颜色、深色模式、页面缩放</string>
+    <string name="settings_color_mode">颜色模式</string>
+    <string name="settings_theme_mode_system">跟随系统</string>
+    <string name="settings_theme_mode_light">浅色</string>
+    <string name="settings_theme_mode_dark">深色</string>
+    <string name="settings_theme_mode_amoled">AMOLED</string>
+    <string name="settings_color_style">配色风格</string>
+    <string name="settings_color_spec">颜色规格</string>
+    <string name="settings_page_scale">页面缩放</string>
+    <string name="settings_update_available">发现新版本</string>
+    <string name="settings_up_to_date">已是最新版本</string>
+    <string name="app_description">轻量、现代的 Android 系统监控工具。实时硬件状态 · FPS 帧率录制 · 进程管理 · 悬浮窗 · 桌面小组件，全面适配 Root / Shizuku / ADB。</string>
+    <string name="settings_version_current">已安装：%s</string>
+    <string name="settings_version_latest">最新版本：%s</string>
+    <string name="settings_check_failed">检查失败</string>
+    <string name="settings_language">语言</string>
+    <string name="settings_language_system">跟随系统</string>
+    <string name="settings_close">关闭</string>
+    <string name="settings_confirm">确定</string>
+    <string name="settings_version_match">版本一致</string>
+    <string name="settings_version_mismatch">版本不一致</string>
+    <string name="settings_version_format">版本 %s</string>
+    <string name="settings_adb_setup">ADB Daemon 设置</string>
+    <string name="settings_adb_run_cmd">在电脑终端执行以下命令启动 Daemon：</string>
+    <string name="settings_copy_command">复制命令</string>
+    <string name="settings_check_connection">检测连接</string>
+    <string name="settings_auto_detect_hint">启动后将自动检测连接</string>
+    <string name="settings_haptic_feedback">触感反馈</string>
+
+    <!-- 模式名称 -->
+    <string name="mode_root">Root 模式</string>
+    <string name="mode_adb">ADB 模式</string>
+    <string name="mode_shizuku">Shizuku 模式</string>
+    <string name="mode_basic">基础模式</string>
+
+    <!-- 日志页 -->
+    <string name="log_pause">暂停</string>
+    <string name="log_resume">继续</string>
+    <string name="log_paused_banner">已暂停 — 点击继续</string>
+    <string name="log_refresh">立即刷新</string>
+    <string name="log_copy_all">复制全部</string>
+    <string name="log_clear">清空</string>
+    <string name="log_tab_app">App 日志</string>
+    <string name="log_tab_daemon">Daemon 日志</string>
+    <string name="log_realtime_logcat">实时 (logcat)</string>
+    <string name="log_realtime">实时</string>
+    <string name="log_source">来源:</string>
+    <string name="log_level">级别:</string>
+    <string name="log_empty">暂无日志</string>
+    <string name="log_daemon_empty">暂无 Daemon 日志</string>
+    <string name="log_daemon_no_date">该日期暂无 daemon 日志</string>
+    <string name="log_daemon_not_running">暂无 daemon 日志（daemon 未运行）</string>
+    <string name="log_daemon_log_empty">日志为空</string>
+
+    <!-- 启动页 -->
+    <string name="splash_select_mode">请选择运行模式</string>
+    <string name="splash_mode_desc">Root模式可获取完整系统信息，基础模式仅能读取部分数据</string>
+    <string name="splash_checking_root">正在检查 Root 权限</string>
+    <string name="splash_grant_root">请在 Root 管理器中授予权限…</string>
+    <string name="splash_root_denied">未获取 Root 权限</string>
+    <string name="splash_root_denied_detail">未检测到 Root 权限。请确认：\n\n1. 设备已 Root\n2. Root 管理器（如 Magisk/KernelSU）已安装\n3. 已在弹出的授权对话框中允许</string>
+    <string name="splash_retry">重试</string>
+    <string name="splash_use_basic">使用基础模式</string>
+    <string name="splash_go_back">返回</string>
+
+    <!-- 启动加载步骤 -->
+    <string name="startup_initializing">正在初始化…</string>
+    <string name="startup_checking_shizuku">正在检查 Shizuku 服务…</string>
+    <string name="startup_deploying_daemon">正在部署监控守护进程…</string>
+    <string name="startup_connecting_daemon">正在连接守护进程…</string>
+    <string name="startup_almost_ready">即将就绪…</string>
+
+    <!-- 底部导航 -->
+    <string name="nav_features">功能</string>
+    <string name="nav_overview">概览</string>
+    <string name="nav_settings">设置</string>
+
+    <!-- 模式描述 -->
+    <string name="mode_root_description">Magisk / KernelSU，完整 Root 权限</string>
+    <string name="mode_adb_description">通过 ADB 手动启动 Daemon（FPS/进程等可用）</string>
+    <string name="mode_shizuku_description">通过 Shizuku 获取 Shell 权限（推荐）</string>
+    <string name="mode_basic_description">无特权，帧率监控等功能不可用</string>
+
+    <!-- 捐赠 -->
+    <string name="donate_title">支持开发者</string>
+    <string name="donate_summary">通过支付宝请作者喝杯咖啡</string>
+    <string name="donate_custom">自定义</string>
+    <string name="donate_button">使用支付宝捐赠</string>
+    <string name="donate_creating">正在创建订单\u2026</string>
+    <string name="donate_waiting">等待支付\u2026</string>
+    <string name="donate_scan_qr">未安装支付宝，请扫描二维码支付</string>
+    <string name="donate_success">感谢您的支持！</string>
+    <string name="donate_failed">支付失败</string>
+    <string name="donate_retry">重试</string>
+    <string name="donate_timeout">支付超时</string>
+    <string name="donate_amount_error">请输入有效金额（0.01 - 999.99）</string>
+    <string name="donate_verifying">验证中\u2026</string>
+    <string name="donate_challenge_failed">验证失败</string>
+    <string name="donate_qr_title">扫码支付</string>
+    <string name="donate_open_alipay">打开支付宝</string>
+    <string name="donate_qr_expires">剩余 %1$s</string>
+    <string name="donate_scanned">已扫码，等待付款\u2026</string>
+    <string name="donate_scanned_by">%1$s 已扫码，等待付款\u2026</string>
+    <string name="donate_identifying_device">正在识别设备\u2026</string>
+    <string name="donate_identify_failed">设备识别失败</string>
+
+    <!-- 关于页面 -->
+    <string name="about_title">关于 OpenMonitor</string>
+    <string name="about_device_identity">设备身份</string>
+    <string name="about_show_fingerprint">显示设备指纹</string>
+    <string name="about_hide_fingerprint">隐藏设备指纹</string>
+    <string name="about_activation_status">激活状态</string>
+    <string name="about_activated">已激活</string>
+    <string name="about_not_activated">未激活</string>
+    <string name="about_plan">方案</string>
+    <string name="about_activated_at">激活时间</string>
+    <string name="about_expires_at">到期时间</string>
+    <string name="about_permanent">永久</string>
+    <string name="about_build_info">构建信息</string>
+    <string name="about_version">版本</string>
+    <string name="about_commit">提交</string>
+    <string name="about_author">作者</string>
+    <string name="about_license">许可证</string>
+    <string name="about_copy_all">复制全部信息</string>
+    <string name="about_copied">已复制</string>
+    <string name="about_source_code">源代码</string>
+
+    <!-- 用户协议 -->
+    <string name="agreement_title">用户协议</string>
+    <string name="agreement_scroll_hint">请阅读至底部后继续</string>
+    <string name="agreement_accept">同意并继续</string>
+    <string name="agreement_accept_countdown">同意并继续 (%1$ds)</string>
+    <string name="agreement_decline">拒绝并退出</string>
+
+    <!-- 引导步骤 -->
+    <string name="stepper_agreement">协议</string>
+    <string name="stepper_permissions">权限</string>
+    <string name="stepper_activation">激活</string>
+    <string name="stepper_mode">模式</string>
+
+    <!-- 加入群组 -->
+    <string name="settings_group_community">社区</string>
+    <string name="join_telegram">Telegram 群组</string>
+    <string name="join_qq_group">QQ 群</string>
+    <string name="qq_group_number">群号: %1$s</string>
+    <string name="qq_group_copied">QQ 群号已复制</string>
+    <string name="qq_not_installed">未安装 QQ</string>
+    <string name="join_qq_channel">QQ 频道</string>
+    <string name="qq_channel_number">频道号: %1$s</string>
+    <string name="qq_channel_copied">QQ 频道号已复制</string>
+
+    <!-- 开源许可 -->
+    <string name="settings_open_source_licenses">开源软件许可</string>
+    <string name="licenses_summary">本应用使用了 %1$d 个开源软件库</string>
+
+    <!-- 激活 -->
+    <string name="activation_title">激活 OpenMonitor</string>
+    <string name="activation_subtitle">输入激活码以解锁全部功能</string>
+    <string name="activation_device_id">设备 ID</string>
+    <string name="activation_code_hint">激活码</string>
+    <string name="activation_activate">激活</string>
+    <string name="activation_activating">正在激活\u2026</string>
+    <string name="activation_success">激活成功！</string>
+    <string name="activation_invalid_code">激活码无效</string>
+    <string name="activation_wrong_device">该激活码未绑定此设备</string>
+    <string name="activation_revoked">该激活码已被吊销</string>
+    <string name="activation_network_error">网络错误，请检查网络连接</string>
+    <string name="activation_copied">设备 ID 已复制</string>
+    <string name="activation_contact">软件免费，但内测期间需要进群找群主免费获取激活码才可以正常使用。</string>
+    <string name="activation_plan_basic">基础版</string>
+    <string name="activation_plan_pro">专业版</string>
+    <string name="activation_plan_ultimate">旗舰版</string>
+
+</resources>
