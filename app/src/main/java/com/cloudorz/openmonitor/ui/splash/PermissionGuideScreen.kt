@@ -146,11 +146,9 @@ fun PermissionGuideScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 48.dp),
+                .padding(horizontal = 24.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            SetupStepper(currentStep = 3, labels = setupStepperLabels())
-
             Spacer(modifier = Modifier.height(8.dp))
 
             Icon(

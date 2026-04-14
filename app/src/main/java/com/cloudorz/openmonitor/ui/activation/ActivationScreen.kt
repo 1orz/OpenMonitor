@@ -58,8 +58,6 @@ import com.cloudorz.openmonitor.core.data.repository.DeviceIdentityRepository
 import com.cloudorz.openmonitor.core.ui.hapticClick
 import com.cloudorz.openmonitor.core.ui.hapticClickable
 import com.cloudorz.openmonitor.ui.CommunityLinks
-import com.cloudorz.openmonitor.ui.splash.SetupStepper
-import com.cloudorz.openmonitor.ui.splash.setupStepperLabels
 import kotlinx.coroutines.launch
 
 @Composable
@@ -88,10 +86,6 @@ fun ActivationScreen(
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Spacer(Modifier.height(24.dp))
-
-        SetupStepper(currentStep = 2, labels = setupStepperLabels())
-
         Spacer(Modifier.height(24.dp))
 
         Icon(

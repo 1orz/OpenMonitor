@@ -91,6 +91,7 @@ import com.cloudorz.openmonitor.ui.navigation.Route
 import com.cloudorz.openmonitor.ui.navigation.rememberNavigator
 import com.cloudorz.openmonitor.ui.network.NetworkScreen
 import com.cloudorz.openmonitor.ui.splash.AgreementScreen
+import com.cloudorz.openmonitor.ui.splash.SetupScaffold
 import com.cloudorz.openmonitor.ui.splash.backgroundAgreementCheck
 import com.cloudorz.openmonitor.ui.splash.checkAgreementNeeded
 import com.cloudorz.openmonitor.ui.splash.PermissionGuideScreen
@@ -284,73 +285,83 @@ private fun MonitorAppContent(
             }
         }
         StartupPhase.NEEDS_AGREEMENT -> {
-            AgreementScreen(
-                onAccepted = {
-                    startupPhase = if (!hasRequiredPermissions(context)) {
-                        StartupPhase.NEEDS_PERMISSIONS
-                    } else if (!activationRepository.isActivated()) {
-                        StartupPhase.NEEDS_ACTIVATION
-                    } else if (!permissionManager.hasPersistedMode) {
-                        StartupPhase.NEEDS_GUIDE
-                    } else {
-                        StartupPhase.LAUNCHING
-                    }
-                },
-                onDeclined = {
-                    (context as? android.app.Activity)?.finishAffinity()
-                },
-            )
+            SetupScaffold(currentStep = 0) {
+                AgreementScreen(
+                    onAccepted = {
+                        startupPhase = if (!hasRequiredPermissions(context)) {
+                            StartupPhase.NEEDS_PERMISSIONS
+                        } else if (!activationRepository.isActivated()) {
+                            StartupPhase.NEEDS_ACTIVATION
+                        } else if (!permissionManager.hasPersistedMode) {
+                            StartupPhase.NEEDS_GUIDE
+                        } else {
+                            StartupPhase.LAUNCHING
+                        }
+                    },
+                    onDeclined = {
+                        (context as? android.app.Activity)?.finishAffinity()
+                    },
+                )
+            }
         }
         StartupPhase.NEEDS_PERMISSIONS -> {
-            PermissionSetupScreen(
-                onAllGranted = {
-                    startupPhase = if (!activationRepository.isActivated()) {
-                        StartupPhase.NEEDS_ACTIVATION
-                    } else if (!permissionManager.hasPersistedMode) {
-                        StartupPhase.NEEDS_GUIDE
-                    } else {
-                        StartupPhase.LAUNCHING
-                    }
-                },
-            )
+            SetupScaffold(currentStep = 1) {
+                PermissionSetupScreen(
+                    onAllGranted = {
+                        startupPhase = if (!activationRepository.isActivated()) {
+                            StartupPhase.NEEDS_ACTIVATION
+                        } else if (!permissionManager.hasPersistedMode) {
+                            StartupPhase.NEEDS_GUIDE
+                        } else {
+                            StartupPhase.LAUNCHING
+                        }
+                    },
+                )
+            }
         }
         StartupPhase.NEEDS_ACTIVATION -> {
-            ActivationScreen(
-                identityRepository = identityRepository,
-                activationRepository = activationRepository,
-                onActivated = {
-                    startupPhase = if (!permissionManager.hasPersistedMode) {
-                        StartupPhase.NEEDS_GUIDE
-                    } else {
-                        StartupPhase.LAUNCHING
-                    }
-                },
-            )
+            SetupScaffold(currentStep = 2) {
+                ActivationScreen(
+                    identityRepository = identityRepository,
+                    activationRepository = activationRepository,
+                    onActivated = {
+                        startupPhase = if (!permissionManager.hasPersistedMode) {
+                            StartupPhase.NEEDS_GUIDE
+                        } else {
+                            StartupPhase.LAUNCHING
+                        }
+                    },
+                )
+            }
         }
         StartupPhase.NEEDS_GUIDE -> {
-            PermissionGuideScreen(
-                permissionManager = permissionManager,
-                daemonManager = daemonManager,
-                onModeSelected = { startupPhase = StartupPhase.READY },
-            )
+            SetupScaffold(currentStep = 3) {
+                PermissionGuideScreen(
+                    permissionManager = permissionManager,
+                    daemonManager = daemonManager,
+                    onModeSelected = { startupPhase = StartupPhase.READY },
+                )
+            }
         }
         StartupPhase.LAUNCHING -> {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background),
-                contentAlignment = Alignment.Center,
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+            SetupScaffold(currentStep = 4) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    CircularProgressIndicator()
-                    Text(
-                        text = stringResource(startupStepResId),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        CircularProgressIndicator()
+                        Text(
+                            text = stringResource(startupStepResId),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }
