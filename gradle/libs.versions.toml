@@ -28,6 +28,7 @@ firebaseBom = "34.12.0"
 firebaseCrashlyticsPlugin = "3.0.7"
 firebasePerfPlugin = "2.0.2"
 markdownRenderer = "0.27.0"
+rustAndroidGradle = "0.9.6"
 
 [libraries]
 # Kotlin & Coroutines
@@ -127,3 +128,6 @@ kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", versi
 google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
 firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "firebaseCrashlyticsPlugin" }
 firebase-perf = { id = "com.google.firebase.firebase-perf", version.ref = "firebasePerfPlugin" }
+# mozilla/rust-android-gradle: builds Rust crates via cargo-ndk and lands
+# the output into the Android source set's jniLibs. Required by :server-rs.
+rust-android = { id = "org.mozilla.rust-android-gradle.rust-android", version.ref = "rustAndroidGradle" }

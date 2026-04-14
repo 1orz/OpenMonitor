@@ -33,3 +33,7 @@ issuses
 /openmonitor-frontend/
 /donate-worker/
 fingerprintjs-android
+
+# Rust server-rs build artifacts
+/server-rs/target/
+/server-rs/Cargo.lock

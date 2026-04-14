@@ -1,0 +1,57 @@
+[package]
+name = "openmonitor-server"
+version = "0.1.0"
+edition = "2021"
+publish = false
+rust-version = "1.78"
+
+# Binary for libsu path. This is what gets packaged as a raw ELF
+# inside the APK's jniLibs/<abi>/openmonitor-server (renamed .so or
+# lib*.so to satisfy Android packaging, but exec'd by root shell).
+[[bin]]
+name = "openmonitor-server"
+path = "src/main.rs"
+
+# Shared library for Shizuku UserService path. Kotlin shim does
+# System.loadLibrary("openmonitor_server") and calls exported JNI
+# functions (nativeMain / nativeGetBinder).
+[lib]
+name = "openmonitor_server"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Rust binder stack on Android. Default choice per plan (Phase 0 POC
+# will validate on-device stability; bindgen-libbinder_ndk is the
+# documented fallback).
+rsbinder = "0.6"
+
+# POSIX: pipe, dup2, getuid, setsid. The 0.29 feature gates require fanout;
+# we only need fork/setsid (`process`) and the generic file/signal sets.
+nix = { version = "0.29", features = ["fs", "process", "signal"] }
+
+libc = "0.2"
+# The `std` feature enables `set_boxed_logger`, which we use in logging.rs.
+log = { version = "0.4", features = ["std"] }
+
+[target.'cfg(target_os = "android")'.dependencies]
+# Only links against Android's liblog on Android targets. On host (dev
+# machine) we fall back to a no-op logger so `cargo test` works.
+android_log-sys = "0.3"
+
+# For Parcel extension types (Bundle construction for reverse binder push).
+# rsbinder provides Parcelable framework; extra helpers here.
+# If rsbinder's Bundle support is incomplete we fall back to hand-rolled
+# Parcel writers in src/binder_push.rs.
+
+[build-dependencies]
+rsbinder-aidl = "0.6"
+
+[profile.release]
+opt-level = "z"          # size over speed for a steady-state daemon
+lto = true
+codegen-units = 1
+panic = "abort"          # binder thread pool doesn't benefit from unwinding
+strip = "symbols"
+
+[profile.dev]
+opt-level = 1            # dev still reasonable on-device

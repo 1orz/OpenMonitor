@@ -206,6 +206,8 @@ dependencies {
     implementation(project(":core:core-data"))
     implementation(project(":core:core-database"))
     implementation(project(":core:core-ui"))
+    implementation(project(":core:core-server-api"))
+    implementation(project(":server-shim"))
     implementation(project(":feature:feature-overview"))
     implementation(project(":feature:feature-battery"))
     implementation(project(":feature:feature-fps"))

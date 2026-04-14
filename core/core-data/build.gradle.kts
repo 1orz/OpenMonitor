@@ -23,6 +23,7 @@ dependencies {
     implementation(project(":core:core-model"))
     implementation(project(":core:core-common"))
     implementation(project(":core:core-database"))
+    implementation(project(":core:core-server-api"))
 
     implementation(libs.core.ktx)
     implementation(libs.coroutines.core)
@@ -30,6 +31,11 @@ dependencies {
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
+
+    // MonitorLauncher — launching the privileged server via libsu / Shizuku.
+    implementation(libs.libsu.core)
+    implementation(libs.shizuku.api)
+    implementation(libs.shizuku.provider)
 
     implementation(libs.eddsa)
 
