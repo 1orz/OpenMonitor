@@ -121,7 +121,9 @@ fun PermissionSetupScreen(onAllGranted: () -> Unit) {
                 .padding(horizontal = 24.dp, vertical = 48.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(modifier = Modifier.height(32.dp))
+            SetupStepper(currentStep = 1, labels = setupStepperLabels())
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             Text(
                 text = stringResource(R.string.perm_setup_title),

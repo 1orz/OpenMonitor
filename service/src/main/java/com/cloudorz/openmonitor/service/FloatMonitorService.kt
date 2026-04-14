@@ -130,6 +130,7 @@ class FloatMonitorService : LifecycleService() {
     @Inject lateinit var batteryRecordDao: BatteryRecordDao
     @Inject lateinit var foregroundAppDataSource: ForegroundAppDataSource
     @Inject lateinit var networkDataSource: com.cloudorz.openmonitor.core.data.datasource.NetworkDataSource
+    @Inject lateinit var activationRepository: com.cloudorz.openmonitor.core.data.repository.ActivationRepository
 
     private lateinit var floatWindowManager: FloatWindowManager
     private var restoreJob: Job? = null
@@ -428,6 +429,13 @@ class FloatMonitorService : LifecycleService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
+
+        // 未激活时只允许停止服务，拒绝其他操作
+        if (!activationRepository.isActivated() && intent?.action != ACTION_STOP) {
+            Log.w(TAG, "Not activated, ignoring action: ${intent?.action}")
+            stopFloatService()
+            return START_NOT_STICKY
+        }
 
         when (intent?.action) {
             ACTION_START -> startFloatService()

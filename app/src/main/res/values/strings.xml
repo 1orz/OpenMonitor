@@ -240,6 +240,13 @@
     <string name="agreement_scroll_hint">Please read to the bottom to continue</string>
     <string name="agreement_accept">Agree and Continue</string>
     <string name="agreement_accept_countdown">Agree and Continue (%1$ds)</string>
+    <string name="agreement_decline">Decline &amp; Exit</string>
+
+    <!-- Setup Stepper -->
+    <string name="stepper_agreement">Agreement</string>
+    <string name="stepper_permissions">Permissions</string>
+    <string name="stepper_activation">Activation</string>
+    <string name="stepper_mode">Mode</string>
 
     <!-- Join Group -->
     <string name="settings_group_community">Community</string>

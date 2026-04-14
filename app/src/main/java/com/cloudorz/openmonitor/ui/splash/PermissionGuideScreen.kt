@@ -149,7 +149,9 @@ fun PermissionGuideScreen(
                 .padding(horizontal = 24.dp, vertical = 48.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(modifier = Modifier.height(24.dp))
+            SetupStepper(currentStep = 3, labels = setupStepperLabels())
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             Icon(
                 imageVector = Icons.Filled.Monitor,

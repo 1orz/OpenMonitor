@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import android.provider.Settings
 import androidx.core.content.edit
 import androidx.lifecycle.ViewModel
+import com.cloudorz.openmonitor.core.data.repository.ActivationRepository
 import com.cloudorz.openmonitor.service.FloatMonitorService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -18,14 +19,16 @@ import javax.inject.Inject
 
 data class FloatMonitorUiState(
     val hasOverlayPermission: Boolean = false,
+    val isActivated: Boolean = false,
     val enabledMonitors: Set<FloatMonitorType> = emptySet(),
 ) {
-    val canShowOverlay: Boolean get() = hasOverlayPermission
+    val canShowOverlay: Boolean get() = hasOverlayPermission && isActivated
 }
 
 @HiltViewModel
 class FloatMonitorViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
+    private val activationRepository: ActivationRepository,
 ) : ViewModel() {
 
     companion object {
@@ -40,6 +43,7 @@ class FloatMonitorViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(
         FloatMonitorUiState(
             hasOverlayPermission = Settings.canDrawOverlays(context),
+            isActivated = activationRepository.isActivated(),
             enabledMonitors = restoreEnabledMonitors(),
         )
     )
@@ -85,6 +89,7 @@ class FloatMonitorViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 hasOverlayPermission = Settings.canDrawOverlays(context),
+                isActivated = activationRepository.isActivated(),
                 enabledMonitors = savedMonitors,
             )
         }

@@ -152,7 +152,16 @@ class MainActivity : AppCompatActivity() {
     }
 }
 
-private enum class StartupPhase { CHECKING, READY, NEEDS_GUIDE, NEEDS_PERMISSIONS, NEEDS_ACTIVATION }
+/**
+ * 启动阶段（严格顺序）:
+ *   CHECKING → NEEDS_AGREEMENT → NEEDS_PERMISSIONS → NEEDS_ACTIVATION → NEEDS_GUIDE → LAUNCHING → READY
+ *
+ * 首次安装走完整流程；后续启动跳过已完成的阶段。
+ * Daemon 仅在 LAUNCHING 阶段释放，确保未激活时不会启动 daemon。
+ */
+private enum class StartupPhase {
+    CHECKING, NEEDS_AGREEMENT, NEEDS_PERMISSIONS, NEEDS_ACTIVATION, NEEDS_GUIDE, LAUNCHING, READY
+}
 
 @Composable
 private fun MonitorAppContent(
@@ -162,45 +171,48 @@ private fun MonitorAppContent(
     activationRepository: ActivationRepository,
 ) {
     val context = LocalContext.current
-    var agreementState by rememberSaveable { mutableStateOf("checking") }
-
-    LaunchedEffect(Unit) {
-        if (agreementState != "checking") return@LaunchedEffect
-        agreementState = if (checkAgreementNeeded(context)) "needs_accept" else "accepted"
-    }
-
-    when (agreementState) {
-        "checking" -> {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background),
-                contentAlignment = Alignment.Center,
-            ) {
-                CircularProgressIndicator()
-            }
-            return
-        }
-        "needs_accept" -> {
-            AgreementScreen(onAccepted = { agreementState = "accepted" })
-            return
-        }
-    }
-
-    LaunchedEffect(Unit) { backgroundAgreementCheck(context) }
-
-    var selectedMode by rememberSaveable {
-        mutableStateOf(
-            if (permissionManager.hasPersistedMode) permissionManager.currentMode.value else null
-        )
-    }
-    var startupPhase by rememberSaveable { mutableStateOf(
-        if (selectedMode != null) StartupPhase.CHECKING else StartupPhase.NEEDS_GUIDE
-    ) }
+    var startupPhase by rememberSaveable { mutableStateOf(StartupPhase.CHECKING) }
     var startupStepResId by remember { mutableIntStateOf(R.string.startup_initializing) }
 
+    // ── Initial phase resolution: skip already-completed phases ──
     LaunchedEffect(Unit) {
-        if (selectedMode == null) return@LaunchedEffect
+        if (startupPhase != StartupPhase.CHECKING) return@LaunchedEffect
+
+        // 1. Agreement
+        if (checkAgreementNeeded(context)) {
+            startupPhase = StartupPhase.NEEDS_AGREEMENT
+            return@LaunchedEffect
+        }
+        // 2. Permissions
+        if (!hasRequiredPermissions(context)) {
+            startupPhase = StartupPhase.NEEDS_PERMISSIONS
+            return@LaunchedEffect
+        }
+        // 3. Activation
+        if (!activationRepository.isActivated()) {
+            startupPhase = StartupPhase.NEEDS_ACTIVATION
+            return@LaunchedEffect
+        }
+        // 4. Mode selection
+        if (!permissionManager.hasPersistedMode) {
+            startupPhase = StartupPhase.NEEDS_GUIDE
+            return@LaunchedEffect
+        }
+        // 5. All good — launch daemon
+        startupPhase = StartupPhase.LAUNCHING
+    }
+
+    // ── Background agreement version check (runs after agreement accepted) ──
+    LaunchedEffect(startupPhase) {
+        if (startupPhase.ordinal > StartupPhase.NEEDS_AGREEMENT.ordinal) {
+            backgroundAgreementCheck(context)
+        }
+    }
+
+    // ── Daemon launch (only in LAUNCHING phase) ──
+    val selectedMode = permissionManager.currentMode.value
+    LaunchedEffect(startupPhase) {
+        if (startupPhase != StartupPhase.LAUNCHING) return@LaunchedEffect
         startupStepResId = R.string.startup_initializing
         withTimeoutOrNull(5_000L) {
             if (selectedMode == PrivilegeMode.SHIZUKU) {
@@ -211,7 +223,6 @@ private fun MonitorAppContent(
                     if (!available) delay(400)
                 }
                 if (!available) {
-                    selectedMode = null
                     startupPhase = StartupPhase.NEEDS_GUIDE
                     return@withTimeoutOrNull
                 }
@@ -220,7 +231,6 @@ private fun MonitorAppContent(
                 startupStepResId = R.string.startup_deploying_daemon
                 val result = daemonManager.ensureRunning()
                 if (result == DaemonState.FAILED) {
-                    selectedMode = null
                     startupPhase = StartupPhase.NEEDS_GUIDE
                     return@withTimeoutOrNull
                 }
@@ -231,38 +241,28 @@ private fun MonitorAppContent(
                 daemonManager.ensureRunning()
             }
             startupStepResId = R.string.startup_almost_ready
-            if (activationRepository.isActivated()) {
-                startupPhase = StartupPhase.READY
-            } else {
-                startupPhase = StartupPhase.NEEDS_ACTIVATION
-            }
+            startupPhase = StartupPhase.READY
         }
-        if (startupPhase == StartupPhase.CHECKING) {
-            if (activationRepository.isActivated()) {
+        // Timeout: daemon didn't start in time — let user re-select mode
+        if (startupPhase == StartupPhase.LAUNCHING) {
+            if (selectedMode == PrivilegeMode.BASIC) {
                 startupPhase = StartupPhase.READY
             } else {
-                startupPhase = StartupPhase.NEEDS_ACTIVATION
+                startupPhase = StartupPhase.NEEDS_GUIDE
             }
         }
     }
 
+    // ── Shizuku binder watchdog ──
     val shizukuBinderAlive by permissionManager.shizukuBinderAlive.collectAsStateWithLifecycle()
     LaunchedEffect(shizukuBinderAlive) {
         if (!shizukuBinderAlive && selectedMode == PrivilegeMode.SHIZUKU
             && startupPhase == StartupPhase.READY) {
             permissionManager.setMode(PrivilegeMode.BASIC)
-            selectedMode = PrivilegeMode.BASIC
         }
     }
 
-    val currentModeFromManager by permissionManager.currentMode.collectAsStateWithLifecycle()
-    LaunchedEffect(currentModeFromManager) {
-        if (startupPhase == StartupPhase.READY) {
-            selectedMode = currentModeFromManager
-        }
-    }
-
-    // Re-check required permissions on every resume — redirect if any was revoked
+    // ── Re-check required permissions on every resume ──
     val appContext = LocalContext.current
     LifecycleResumeEffect(Unit) {
         if (startupPhase == StartupPhase.READY && !hasRequiredPermissions(appContext)) {
@@ -271,8 +271,70 @@ private fun MonitorAppContent(
         onPauseOrDispose {}
     }
 
+    // ── Render current phase ──
     when (startupPhase) {
         StartupPhase.CHECKING -> {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator()
+            }
+        }
+        StartupPhase.NEEDS_AGREEMENT -> {
+            AgreementScreen(
+                onAccepted = {
+                    startupPhase = if (!hasRequiredPermissions(context)) {
+                        StartupPhase.NEEDS_PERMISSIONS
+                    } else if (!activationRepository.isActivated()) {
+                        StartupPhase.NEEDS_ACTIVATION
+                    } else if (!permissionManager.hasPersistedMode) {
+                        StartupPhase.NEEDS_GUIDE
+                    } else {
+                        StartupPhase.LAUNCHING
+                    }
+                },
+                onDeclined = {
+                    (context as? android.app.Activity)?.finishAffinity()
+                },
+            )
+        }
+        StartupPhase.NEEDS_PERMISSIONS -> {
+            PermissionSetupScreen(
+                onAllGranted = {
+                    startupPhase = if (!activationRepository.isActivated()) {
+                        StartupPhase.NEEDS_ACTIVATION
+                    } else if (!permissionManager.hasPersistedMode) {
+                        StartupPhase.NEEDS_GUIDE
+                    } else {
+                        StartupPhase.LAUNCHING
+                    }
+                },
+            )
+        }
+        StartupPhase.NEEDS_ACTIVATION -> {
+            ActivationScreen(
+                identityRepository = identityRepository,
+                activationRepository = activationRepository,
+                onActivated = {
+                    startupPhase = if (!permissionManager.hasPersistedMode) {
+                        StartupPhase.NEEDS_GUIDE
+                    } else {
+                        StartupPhase.LAUNCHING
+                    }
+                },
+            )
+        }
+        StartupPhase.NEEDS_GUIDE -> {
+            PermissionGuideScreen(
+                permissionManager = permissionManager,
+                daemonManager = daemonManager,
+                onModeSelected = { startupPhase = StartupPhase.READY },
+            )
+        }
+        StartupPhase.LAUNCHING -> {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -291,34 +353,6 @@ private fun MonitorAppContent(
                     )
                 }
             }
-        }
-        StartupPhase.NEEDS_GUIDE -> {
-            PermissionGuideScreen(
-                permissionManager = permissionManager,
-                daemonManager = daemonManager,
-                onModeSelected = { mode ->
-                    selectedMode = mode
-                    startupPhase = StartupPhase.NEEDS_PERMISSIONS
-                },
-            )
-        }
-        StartupPhase.NEEDS_PERMISSIONS -> {
-            PermissionSetupScreen(
-                onAllGranted = {
-                    if (activationRepository.isActivated()) {
-                        startupPhase = StartupPhase.READY
-                    } else {
-                        startupPhase = StartupPhase.NEEDS_ACTIVATION
-                    }
-                },
-            )
-        }
-        StartupPhase.NEEDS_ACTIVATION -> {
-            ActivationScreen(
-                identityRepository = identityRepository,
-                activationRepository = activationRepository,
-                onActivated = { startupPhase = StartupPhase.READY },
-            )
         }
         StartupPhase.READY -> {
             MainScreen(permissionManager)

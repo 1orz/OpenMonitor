@@ -231,6 +231,13 @@
     <string name="agreement_scroll_hint">請閱讀至底部後繼續</string>
     <string name="agreement_accept">同意並繼續</string>
     <string name="agreement_accept_countdown">同意並繼續 (%1$ds)</string>
+    <string name="agreement_decline">拒絕並退出</string>
+
+    <!-- 引導步驟 -->
+    <string name="stepper_agreement">協議</string>
+    <string name="stepper_permissions">權限</string>
+    <string name="stepper_activation">啟用</string>
+    <string name="stepper_mode">模式</string>
 
     <!-- 加入群組 -->
     <string name="settings_group_community">社群</string>

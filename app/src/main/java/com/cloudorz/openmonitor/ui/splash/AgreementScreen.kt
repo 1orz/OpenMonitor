@@ -14,11 +14,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -127,7 +135,7 @@ suspend fun backgroundAgreementCheck(context: Context) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AgreementScreen(onAccepted: () -> Unit) {
+fun AgreementScreen(onAccepted: () -> Unit, onDeclined: () -> Unit) {
     val context = LocalContext.current
     val view = LocalView.current
 
@@ -168,10 +176,50 @@ fun AgreementScreen(onAccepted: () -> Unit) {
 
     val canAccept = hasReachedBottom && cooldownRemaining <= 0 && !isLoading
 
+    var languageMenuExpanded by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.agreement_title)) },
+                actions = {
+                    Box {
+                        IconButton(onClick = {
+                            view.hapticClick()
+                            languageMenuExpanded = true
+                        }) {
+                            Icon(
+                                imageVector = Icons.Filled.Language,
+                                contentDescription = "Language",
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = languageMenuExpanded,
+                            onDismissRequest = { languageMenuExpanded = false },
+                        ) {
+                            AgreementLocale.entries.forEach { locale ->
+                                DropdownMenuItem(
+                                    text = { Text(locale.label) },
+                                    onClick = {
+                                        view.hapticClick()
+                                        selectedLocale = locale
+                                        languageMenuExpanded = false
+                                    },
+                                    trailingIcon = if (selectedLocale == locale) {
+                                        {
+                                            Icon(
+                                                imageVector = Icons.Filled.Check,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(18.dp),
+                                            )
+                                        }
+                                    } else null,
+                                )
+                            }
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
                 ),
@@ -183,23 +231,7 @@ fun AgreementScreen(onAccepted: () -> Unit) {
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                AgreementLocale.entries.forEach { locale ->
-                    FilterChip(
-                        selected = selectedLocale == locale,
-                        onClick = {
-                            view.hapticClick()
-                            selectedLocale = locale
-                        },
-                        label = { Text(locale.label, style = MaterialTheme.typography.labelSmall) },
-                    )
-                }
-            }
+            SetupStepper(currentStep = 0, labels = setupStepperLabels())
 
             if (isLoading) {
                 Box(
@@ -249,28 +281,50 @@ fun AgreementScreen(onAccepted: () -> Unit) {
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                     }
-                    Button(
-                        onClick = {
-                            view.hapticClick()
-                            val data = agreementData ?: return@Button
-                            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                                .edit()
-                                .putInt(KEY_ACCEPTED_VERSION, data.version)
-                                .remove(KEY_PENDING_VERSION)
-                                .apply()
-                            onAccepted()
-                        },
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = canAccept,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(
-                            text = if (cooldownRemaining > 0) {
-                                stringResource(R.string.agreement_accept_countdown, cooldownRemaining)
-                            } else {
-                                stringResource(R.string.agreement_accept)
+                        OutlinedButton(
+                            onClick = {
+                                view.hapticClick()
+                                onDeclined()
                             },
-                            modifier = Modifier.padding(vertical = 4.dp),
-                        )
+                            modifier = Modifier.weight(0.35f),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            ),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.agreement_decline),
+                                modifier = Modifier.padding(vertical = 4.dp),
+                                style = MaterialTheme.typography.labelMedium,
+                            )
+                        }
+                        Button(
+                            onClick = {
+                                view.hapticClick()
+                                val data = agreementData ?: return@Button
+                                context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                                    .edit()
+                                    .putInt(KEY_ACCEPTED_VERSION, data.version)
+                                    .remove(KEY_PENDING_VERSION)
+                                    .apply()
+                                onAccepted()
+                            },
+                            modifier = Modifier.weight(0.65f),
+                            enabled = canAccept,
+                        ) {
+                            Text(
+                                text = if (cooldownRemaining > 0) {
+                                    stringResource(R.string.agreement_accept_countdown, cooldownRemaining)
+                                } else {
+                                    stringResource(R.string.agreement_accept)
+                                },
+                                modifier = Modifier.padding(vertical = 4.dp),
+                            )
+                        }
                     }
                 }
             }

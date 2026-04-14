@@ -231,6 +231,13 @@
     <string name="agreement_scroll_hint">続行するには最後までお読みください</string>
     <string name="agreement_accept">同意して続行</string>
     <string name="agreement_accept_countdown">同意して続行 (%1$ds)</string>
+    <string name="agreement_decline">拒否して終了</string>
+
+    <!-- セットアップステッパー -->
+    <string name="stepper_agreement">規約</string>
+    <string name="stepper_permissions">権限</string>
+    <string name="stepper_activation">認証</string>
+    <string name="stepper_mode">モード</string>
 
     <!-- グループに参加 -->
     <string name="settings_group_community">コミュニティ</string>
