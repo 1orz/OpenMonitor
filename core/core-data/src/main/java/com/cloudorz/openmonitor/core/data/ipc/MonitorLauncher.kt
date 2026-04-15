@@ -88,13 +88,27 @@ class MonitorLauncher @Inject constructor(
     }
 
     fun shutdown() {
+        // Drop the client-side view of the connection first so the UI flips
+        // to "not running" immediately — we don't want to wait for the kill
+        // command (if any) to land, and the file-backed shm has no death
+        // notification we could rely on.
+        monitorClient.disconnect()
+
         runCatching { Shizuku.unbindUserService(shizukuArgs(), shizukuConnection, true) }
+        // Synchronous exec (not submit) — we must ensure the old server is
+        // gone before the caller triggers a new launch, otherwise the fresh
+        // process sees the ashmem/file from the previous instance.
         runCatching {
             Shell.cmd(
+                "pkill -9 -f libopenmonitor-server 2>/dev/null; " +
                 "pkill -9 -f openmonitor-server 2>/dev/null; " +
-                "pkill -9 -f libopenmonitor-server 2>/dev/null"
-            ).submit()
+                "su -c 'pkill -9 -f libopenmonitor-server' 2>/dev/null; " +
+                "su -c 'pkill -9 -f openmonitor-server' 2>/dev/null"
+            ).exec()
         }
+        // Wipe the stale shared-memory file so a subsequent launch doesn't
+        // connect to ghost data before the new server has written anything.
+        runCatching { File(context.filesDir, "server/snapshot.shm").delete() }
     }
 
     private suspend fun launchViaLibsu(): Boolean {

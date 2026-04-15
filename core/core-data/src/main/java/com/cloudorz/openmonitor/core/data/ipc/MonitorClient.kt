@@ -177,6 +177,18 @@ class MonitorClient @Inject constructor() {
         disposeLocked()
     }
 
+    /**
+     * Drop any active connection and flip `connected` to false. Used on
+     * mode-switch so the UI stops reading from a stale (possibly dead) server
+     * before the new one is up. Binder paths also get here via
+     * [onServerDied] — this is the manual equivalent.
+     */
+    @Synchronized
+    fun disconnect() {
+        _connected.value = false
+        disposeLocked()
+    }
+
     // --- internals ---
 
     private fun startReader(buffer: ByteBuffer) {

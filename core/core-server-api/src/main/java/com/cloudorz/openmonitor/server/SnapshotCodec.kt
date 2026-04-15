@@ -47,6 +47,9 @@ object SnapshotCodec {
         return ServerSnapshot(
             seq = seq,
             timestampNs = buf.getLong(SnapshotLayout.OFFSET_TIMESTAMP_NS),
+            startTimeNs = buf.getLong(SnapshotLayout.OFFSET_START_TIME_NS),
+            launchMode = buf.getInt(SnapshotLayout.OFFSET_LAUNCH_MODE),
+            pid = buf.getInt(SnapshotLayout.OFFSET_PID),
             cpuLoadPct = cpuLoad,
             cpuFreqMhz = cpuFreq,
             cpuTempCx10 = buf.getInt(SnapshotLayout.OFFSET_CPU_TEMP_C_X10),

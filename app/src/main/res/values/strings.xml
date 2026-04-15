@@ -115,6 +115,16 @@
     <string name="settings_running">Running</string>
     <string name="settings_not_running">Not Running</string>
     <string name="settings_not_detected">Not Detected</string>
+    <string name="settings_server_launch_unknown">—</string>
+    <string name="settings_server_launch_root">ROOT</string>
+    <string name="settings_server_launch_shizuku">Shizuku</string>
+    <string name="settings_server_launch_adb">ADB</string>
+    <!-- "%1$s" = launch identity label, "%2$s" = formatted uptime, "%3$d" = pid -->
+    <string name="settings_server_running_detail">%1$s · up %2$s · pid %3$d</string>
+    <string name="settings_server_uptime_days">%1$dd %2$dh %3$dm</string>
+    <string name="settings_server_uptime_hours">%1$dh %2$dm %3$ds</string>
+    <string name="settings_server_uptime_minutes">%1$dm %2$ds</string>
+    <string name="settings_server_uptime_seconds">%1$ds</string>
     <string name="settings_sampling">Data Refresh Rate</string>
     <!-- Settings groups -->
     <string name="settings_group_system">System</string>

@@ -93,6 +93,8 @@ import com.cloudorz.openmonitor.ui.component.SettingsDropdownItem
 import com.cloudorz.openmonitor.ui.component.SettingsGroup
 import com.cloudorz.openmonitor.ui.component.SettingsNavigateItem
 import com.cloudorz.openmonitor.ui.component.SettingsSwitchItem
+import com.cloudorz.openmonitor.server.SnapshotLayout
+import androidx.compose.runtime.produceState
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.widget.Toast
@@ -595,9 +597,32 @@ private fun ServerStatusItem(
 ) {
     val view = LocalView.current
 
+    // Re-tick each second so the "up 12s" label advances live. No tick
+    // when not connected — nothing to update.
+    val now by produceState(initialValue = System.currentTimeMillis(), status.connected) {
+        if (!status.connected) {
+            value = System.currentTimeMillis()
+            return@produceState
+        }
+        while (true) {
+            value = System.currentTimeMillis()
+            kotlinx.coroutines.delay(1000)
+        }
+    }
+
     val summary = when {
         status.checking -> stringResource(R.string.settings_detecting)
-        status.checkedOnce && status.connected -> stringResource(R.string.settings_running)
+        status.checkedOnce && status.connected -> {
+            val launchLabel = launchModeLabel(status.launchMode)
+            val uptime = formatUptimeResource(
+                seconds = ((now - status.startTimeEpochMs) / 1000L).coerceAtLeast(0),
+            )
+            if (status.startTimeEpochMs > 0 && status.pid > 0) {
+                stringResource(R.string.settings_server_running_detail, launchLabel, uptime, status.pid)
+            } else {
+                stringResource(R.string.settings_running)
+            }
+        }
         status.checkedOnce -> stringResource(R.string.settings_not_running)
         else -> stringResource(R.string.settings_not_detected)
     }
@@ -810,15 +835,24 @@ private fun LanguageItem() {
     )
 }
 
-private fun formatUptime(seconds: Long): String {
-    val d = seconds / 86400
-    val h = (seconds % 86400) / 3600
-    val m = (seconds % 3600) / 60
-    val s = seconds % 60
+@Composable
+private fun formatUptimeResource(seconds: Long): String {
+    val d = (seconds / 86400).toInt()
+    val h = ((seconds % 86400) / 3600).toInt()
+    val m = ((seconds % 3600) / 60).toInt()
+    val s = (seconds % 60).toInt()
     return when {
-        d > 0 -> "${d}d ${h}h ${m}m"
-        h > 0 -> "${h}h ${m}m ${s}s"
-        m > 0 -> "${m}m ${s}s"
-        else -> "${s}s"
+        d > 0 -> stringResource(R.string.settings_server_uptime_days, d, h, m)
+        h > 0 -> stringResource(R.string.settings_server_uptime_hours, h, m, s)
+        m > 0 -> stringResource(R.string.settings_server_uptime_minutes, m, s)
+        else -> stringResource(R.string.settings_server_uptime_seconds, s)
     }
+}
+
+@Composable
+private fun launchModeLabel(code: Int): String = when (code) {
+    SnapshotLayout.LAUNCH_MODE_LIBSU_ROOT -> stringResource(R.string.settings_server_launch_root)
+    SnapshotLayout.LAUNCH_MODE_SHIZUKU -> stringResource(R.string.settings_server_launch_shizuku)
+    SnapshotLayout.LAUNCH_MODE_ADB -> stringResource(R.string.settings_server_launch_adb)
+    else -> stringResource(R.string.settings_server_launch_unknown)
 }

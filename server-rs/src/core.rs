@@ -42,6 +42,10 @@ pub fn run_server(mode: LaunchMode, config: ServerConfig) -> Result<(), ServerEr
     //    Libsu: file-backed shm so the app can mmap directly (avoids SELinux
     //           service_manager restrictions that block ServiceManager discovery).
     //    Shizuku: ashmem transferred via binder ParcelFileDescriptor.
+    //
+    //    The launch_mode value is written into the header so the app can
+    //    show "started via root/shizuku/adb" without any side channel.
+    let launch_mode_id = resolve_launch_mode(mode, &config);
     let shm = Arc::new(match mode {
         LaunchMode::Libsu => {
             let dir = config.data_dir.as_ref().ok_or_else(|| {
@@ -50,10 +54,10 @@ pub fn run_server(mode: LaunchMode, config: ServerConfig) -> Result<(), ServerEr
                     "data_dir required for libsu mode",
                 ))
             })?;
-            SharedSnapshot::create_file(&dir.join("server/snapshot.shm"))
+            SharedSnapshot::create_file(&dir.join("server/snapshot.shm"), launch_mode_id)
                 .map_err(ServerError::Shm)?
         }
-        LaunchMode::Shizuku => SharedSnapshot::create().map_err(ServerError::Shm)?,
+        LaunchMode::Shizuku => SharedSnapshot::create(launch_mode_id).map_err(ServerError::Shm)?,
     });
 
     // 3. Build service impl.
@@ -91,6 +95,29 @@ pub fn run_server(mode: LaunchMode, config: ServerConfig) -> Result<(), ServerEr
         log::info!("run_server: exit() was called — clean shutdown");
     }
     Ok(())
+}
+
+/// Map the internal `LaunchMode` + `mode_hint` to the on-wire `launch_mode`
+/// value stored in the shm header. We distinguish ADB from ROOT by the
+/// `--mode` cli arg so the app can tell whether the server was started via
+/// libsu (root) or by the user running the binary under `adb shell`.
+fn resolve_launch_mode(mode: LaunchMode, config: &ServerConfig) -> u32 {
+    match mode {
+        LaunchMode::Shizuku => crate::shm::LAUNCH_MODE_SHIZUKU,
+        LaunchMode::Libsu => match config.mode_hint.as_str() {
+            "adb" | "shell" => crate::shm::LAUNCH_MODE_ADB,
+            "root" => crate::shm::LAUNCH_MODE_LIBSU_ROOT,
+            _ => {
+                // Fall back to uid heuristic: 0 = root, otherwise treat as adb.
+                let uid = unsafe { libc::getuid() };
+                if uid == 0 {
+                    crate::shm::LAUNCH_MODE_LIBSU_ROOT
+                } else {
+                    crate::shm::LAUNCH_MODE_ADB
+                }
+            }
+        },
+    }
 }
 
 #[derive(Debug)]

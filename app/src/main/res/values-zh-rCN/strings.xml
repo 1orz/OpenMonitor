@@ -109,6 +109,15 @@
     <string name="settings_running">运行中</string>
     <string name="settings_not_running">未运行</string>
     <string name="settings_not_detected">未检测</string>
+    <string name="settings_server_launch_unknown">—</string>
+    <string name="settings_server_launch_root">ROOT</string>
+    <string name="settings_server_launch_shizuku">Shizuku</string>
+    <string name="settings_server_launch_adb">ADB</string>
+    <string name="settings_server_running_detail">%1$s · 运行 %2$s · pid %3$d</string>
+    <string name="settings_server_uptime_days">%1$d 天 %2$d 时 %3$d 分</string>
+    <string name="settings_server_uptime_hours">%1$d 时 %2$d 分 %3$d 秒</string>
+    <string name="settings_server_uptime_minutes">%1$d 分 %2$d 秒</string>
+    <string name="settings_server_uptime_seconds">%1$d 秒</string>
     <string name="settings_sampling">数据刷新频率</string>
     <string name="settings_group_system">系统</string>
     <string name="settings_group_appearance">外观</string>

@@ -28,8 +28,15 @@ pub const FPS_LAYER_LEN: usize = 64;
 pub const LAST_FOCUSED_PKG_LEN: usize = 128;
 
 pub const MAGIC: u32 = 0x4F4D4E54; // 'OMNT' in little-endian disk order
-pub const VERSION: u32 = 1;
+pub const VERSION: u32 = 2;
 pub const SIZE_BYTES: usize = 4096;
+
+/// Launch identity values written into the header. Kept as integers so the
+/// Kotlin reader can map to a friendly label without a string lookup.
+pub const LAUNCH_MODE_UNKNOWN: u32 = 0;
+pub const LAUNCH_MODE_LIBSU_ROOT: u32 = 1;
+pub const LAUNCH_MODE_SHIZUKU: u32 = 2;
+pub const LAUNCH_MODE_ADB: u32 = 3;
 
 #[repr(C)]
 pub struct SnapshotHeader {
@@ -37,6 +44,13 @@ pub struct SnapshotHeader {
     pub version: u32,
     pub seq: AtomicU64,
     pub timestamp_ns: u64,
+    /// Wall-clock (UNIX epoch) ns captured when the server initialized the
+    /// region. Constant for the lifetime of the server process — the app
+    /// uses it to display uptime and detect re-launches.
+    pub start_time_ns: u64,
+    pub launch_mode: u32,
+    /// Server process id — handy for `kill` and for distinguishing restarts.
+    pub pid: u32,
 }
 
 /// Fixed-size Snapshot. Total size is padded to 4096 bytes so the whole region
@@ -66,7 +80,7 @@ pub struct Snapshot {
     // Pad explicitly so total size is SIZE_BYTES. Computed as
     //   SIZE_BYTES - (offset_of!(screen_interactive) + 1)
     // Adjust if the struct grows; compile-time assert below catches mismatches.
-    pub _pad: [u8; SIZE_BYTES - 401],
+    pub _pad: [u8; SIZE_BYTES - 417],
 }
 
 /// Owned handle to the server-side shared region.
@@ -85,14 +99,14 @@ unsafe impl Send for SharedSnapshot {}
 unsafe impl Sync for SharedSnapshot {}
 
 impl SharedSnapshot {
-    pub fn create() -> io::Result<Self> {
+    pub fn create(launch_mode: u32) -> io::Result<Self> {
         let fd = create_ashmem("openmonitor-snapshot", SIZE_BYTES)?;
-        Self::from_fd(fd)
+        Self::from_fd(fd, launch_mode)
     }
 
     /// File-backed shared memory for the libsu path. The app mmaps the same
     /// file directly — no binder needed, no SELinux service_manager issues.
-    pub fn create_file(path: &std::path::Path) -> io::Result<Self> {
+    pub fn create_file(path: &std::path::Path, launch_mode: u32) -> io::Result<Self> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -106,20 +120,25 @@ impl SharedSnapshot {
         };
         unsafe { libc::fchmod(fd.as_raw_fd(), 0o666); }
         log::info!("shared memory file: {}", path.display());
-        Self::from_fd(fd)
+        Self::from_fd(fd, launch_mode)
     }
 
-    fn from_fd(fd: OwnedFd) -> io::Result<Self> {
+    fn from_fd(fd: OwnedFd, launch_mode: u32) -> io::Result<Self> {
         let ptr = mmap_rw(&fd, SIZE_BYTES)? as *mut Snapshot;
+        let start_time_ns = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos() as u64)
+            .unwrap_or(0);
+        let pid = unsafe { libc::getpid() } as u32;
         unsafe {
             ptr::write_bytes(ptr as *mut u8, 0, SIZE_BYTES);
             let base = ptr as *mut u8;
-            let magic_ptr = base.add(std::mem::offset_of!(Snapshot, header) +
-                std::mem::offset_of!(SnapshotHeader, magic)) as *mut u32;
-            let version_ptr = base.add(std::mem::offset_of!(Snapshot, header) +
-                std::mem::offset_of!(SnapshotHeader, version)) as *mut u32;
-            ptr::write(magic_ptr, MAGIC);
-            ptr::write(version_ptr, VERSION);
+            let hdr = std::mem::offset_of!(Snapshot, header);
+            ptr::write(base.add(hdr + std::mem::offset_of!(SnapshotHeader, magic)) as *mut u32, MAGIC);
+            ptr::write(base.add(hdr + std::mem::offset_of!(SnapshotHeader, version)) as *mut u32, VERSION);
+            ptr::write(base.add(hdr + std::mem::offset_of!(SnapshotHeader, start_time_ns)) as *mut u64, start_time_ns);
+            ptr::write(base.add(hdr + std::mem::offset_of!(SnapshotHeader, launch_mode)) as *mut u32, launch_mode);
+            ptr::write(base.add(hdr + std::mem::offset_of!(SnapshotHeader, pid)) as *mut u32, pid);
         }
         Ok(Self { fd, ptr })
     }
@@ -226,25 +245,28 @@ impl OwnedFdExt for OwnedFd {
 
 const _: () = {
     // Mirrored from SnapshotLayout.kt — CHANGE BOTH IF YOU CHANGE ONE.
-    assert!(std::mem::size_of::<SnapshotHeader>() == 24);
-    assert!(std::mem::offset_of!(Snapshot, cpu_load_pct) == 24);
-    assert!(std::mem::offset_of!(Snapshot, cpu_freq_mhz) == 88);
-    assert!(std::mem::offset_of!(Snapshot, cpu_temp_c_x10) == 152);
-    assert!(std::mem::offset_of!(Snapshot, gpu_freq_mhz) == 156);
-    assert!(std::mem::offset_of!(Snapshot, gpu_load_pct) == 160);
-    assert!(std::mem::offset_of!(Snapshot, mem_total_mb) == 164);
-    assert!(std::mem::offset_of!(Snapshot, mem_avail_mb) == 168);
-    assert!(std::mem::offset_of!(Snapshot, ddr_freq_mbps) == 172);
-    assert!(std::mem::offset_of!(Snapshot, battery_current_ma) == 176);
-    assert!(std::mem::offset_of!(Snapshot, battery_voltage_mv) == 180);
-    assert!(std::mem::offset_of!(Snapshot, battery_temp_c_x10) == 184);
-    assert!(std::mem::offset_of!(Snapshot, battery_capacity) == 188);
-    assert!(std::mem::offset_of!(Snapshot, battery_status) == 192);
-    assert!(std::mem::offset_of!(Snapshot, fps_x100) == 196);
-    assert!(std::mem::offset_of!(Snapshot, jank) == 200);
-    assert!(std::mem::offset_of!(Snapshot, big_jank) == 204);
-    assert!(std::mem::offset_of!(Snapshot, fps_layer) == 208);
-    assert!(std::mem::offset_of!(Snapshot, last_focused_pkg) == 272);
-    assert!(std::mem::offset_of!(Snapshot, screen_interactive) == 400);
+    assert!(std::mem::size_of::<SnapshotHeader>() == 40);
+    assert!(std::mem::offset_of!(SnapshotHeader, start_time_ns) == 24);
+    assert!(std::mem::offset_of!(SnapshotHeader, launch_mode) == 32);
+    assert!(std::mem::offset_of!(SnapshotHeader, pid) == 36);
+    assert!(std::mem::offset_of!(Snapshot, cpu_load_pct) == 40);
+    assert!(std::mem::offset_of!(Snapshot, cpu_freq_mhz) == 104);
+    assert!(std::mem::offset_of!(Snapshot, cpu_temp_c_x10) == 168);
+    assert!(std::mem::offset_of!(Snapshot, gpu_freq_mhz) == 172);
+    assert!(std::mem::offset_of!(Snapshot, gpu_load_pct) == 176);
+    assert!(std::mem::offset_of!(Snapshot, mem_total_mb) == 180);
+    assert!(std::mem::offset_of!(Snapshot, mem_avail_mb) == 184);
+    assert!(std::mem::offset_of!(Snapshot, ddr_freq_mbps) == 188);
+    assert!(std::mem::offset_of!(Snapshot, battery_current_ma) == 192);
+    assert!(std::mem::offset_of!(Snapshot, battery_voltage_mv) == 196);
+    assert!(std::mem::offset_of!(Snapshot, battery_temp_c_x10) == 200);
+    assert!(std::mem::offset_of!(Snapshot, battery_capacity) == 204);
+    assert!(std::mem::offset_of!(Snapshot, battery_status) == 208);
+    assert!(std::mem::offset_of!(Snapshot, fps_x100) == 212);
+    assert!(std::mem::offset_of!(Snapshot, jank) == 216);
+    assert!(std::mem::offset_of!(Snapshot, big_jank) == 220);
+    assert!(std::mem::offset_of!(Snapshot, fps_layer) == 224);
+    assert!(std::mem::offset_of!(Snapshot, last_focused_pkg) == 288);
+    assert!(std::mem::offset_of!(Snapshot, screen_interactive) == 416);
     assert!(std::mem::size_of::<Snapshot>() == SIZE_BYTES);
 };

@@ -12,6 +12,7 @@ import com.cloudorz.openmonitor.core.model.identity.DeviceIdentity
 import com.cloudorz.openmonitor.core.ui.HapticFeedbackManager
 import com.cloudorz.openmonitor.core.data.ipc.MonitorClient
 import com.cloudorz.openmonitor.core.data.ipc.MonitorLauncher
+import com.cloudorz.openmonitor.server.SnapshotLayout
 import com.cloudorz.openmonitor.core.ui.theme.ColorMode
 import com.cloudorz.openmonitor.data.repository.ThemeSettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -44,6 +45,12 @@ class UserViewModel @Inject constructor(
         val checking: Boolean = false,
         val connected: Boolean = false,
         val checkedOnce: Boolean = false,
+        /** UNIX epoch ms when the server initialized its shm. 0 = unknown. */
+        val startTimeEpochMs: Long = 0L,
+        /** One of [SnapshotLayout.LAUNCH_MODE_*]. */
+        val launchMode: Int = SnapshotLayout.LAUNCH_MODE_UNKNOWN,
+        /** Server process id, 0 = unknown. */
+        val pid: Int = 0,
     )
 
     companion object {
@@ -69,9 +76,41 @@ class UserViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             monitorClient.connected.collect { connected ->
-                _serverStatus.update { it.copy(connected = connected, checkedOnce = true) }
+                _serverStatus.update {
+                    if (connected) {
+                        it.copy(connected = true, checkedOnce = true)
+                    } else {
+                        // Drop captured server identity so the UI doesn't keep
+                        // showing the old pid / launch mode after a mode switch.
+                        it.copy(
+                            connected = false,
+                            checkedOnce = true,
+                            startTimeEpochMs = 0L,
+                            launchMode = SnapshotLayout.LAUNCH_MODE_UNKNOWN,
+                            pid = 0,
+                        )
+                    }
+                }
                 if (connected && screenVisible) startRefreshLoop()
                 if (!connected) stopRefreshLoop()
+            }
+        }
+        // Pull the identity fields out of the first snapshot we see — they
+        // are constant for the life of each server process, so one value is
+        // all we need (re-captured on reconnect).
+        viewModelScope.launch {
+            monitorClient.snapshots.collect { snap ->
+                val epochMs = snap.startTimeNs / 1_000_000L
+                val cur = _serverStatus.value
+                if (cur.startTimeEpochMs != epochMs || cur.pid != snap.pid) {
+                    _serverStatus.update {
+                        it.copy(
+                            startTimeEpochMs = epochMs,
+                            launchMode = snap.launchMode,
+                            pid = snap.pid,
+                        )
+                    }
+                }
             }
         }
     }
