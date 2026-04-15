@@ -10,5 +10,6 @@
 
 pub mod battery_props;
 pub mod display;
+pub mod foreground;
 pub mod sf_dump;
 pub mod task_stack;

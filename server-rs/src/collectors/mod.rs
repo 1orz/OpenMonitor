@@ -28,16 +28,28 @@ pub fn start_all(shm: Arc<SharedSnapshot>, rt: RuntimeHandle) {
         .expect("spawn sampler thread");
 }
 
-fn sampler_loop(shm: Arc<SharedSnapshot>, _rt: RuntimeHandle) {
+fn sampler_loop(shm: Arc<SharedSnapshot>, rt: RuntimeHandle) {
     let mut power = power::PowerReader::open();
     let mut cpu = cpu::CpuReader::open();
     let mut thermal = thermal::ThermalReader::open();
     let mut gpu = gpu::GpuReader::open();
     let mut mem = memory::MemoryReader::open();
     let mut fps = fps::FpsReader::open();
+    let focus_handle = fps.attach_focus();
 
     loop {
         let t0 = std::time::Instant::now();
+
+        // Update foreground package via binder dump (zero fork).
+        if let Some(pkg) = crate::events::foreground::get_focused_package() {
+            if let Ok(mut g) = focus_handle.lock() {
+                if g.as_str() != pkg {
+                    log::info!("focus → {pkg}");
+                    rt.notify_focus(&pkg);
+                    *g = pkg;
+                }
+            }
+        }
 
         let now_ns = now_monotonic_ns();
         let p = power.sample();
