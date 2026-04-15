@@ -68,11 +68,12 @@ fn parse_args<I: Iterator<Item = String>>(mut args: I) -> Args {
         }
     }
 
-    // ADB mode convenience: default data_dir to /data/local/tmp/openmonitor so
-    // the user only needs to pass `--mode adb` and the app will find the shm
-    // file at the known path. /data/local/tmp is the canonical shell-writable
-    // location; the MonitorLauncher ADB discovery watches the same path.
-    if data_dir.is_none() && (mode == "adb" || mode == "shell") {
+    // Shell-launched modes (ADB, Shizuku) default data_dir to the canonical
+    // shell-writable location. Shizuku's ShellUserService runs as uid 2000 /
+    // uid 0 — it has no write access to the app's private filesDir, so we
+    // use /data/local/tmp/openmonitor instead. The app-side launcher polls
+    // the resulting /data/local/tmp/openmonitor/server/snapshot.shm.
+    if data_dir.is_none() && (mode == "adb" || mode == "shell" || mode == "shizuku") {
         data_dir = Some(std::path::PathBuf::from("/data/local/tmp/openmonitor"));
     }
 

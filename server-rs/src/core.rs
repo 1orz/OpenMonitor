@@ -106,6 +106,7 @@ fn resolve_launch_mode(mode: LaunchMode, config: &ServerConfig) -> u32 {
         LaunchMode::Shizuku => crate::shm::LAUNCH_MODE_SHIZUKU,
         LaunchMode::Libsu => match config.mode_hint.as_str() {
             "adb" | "shell" => crate::shm::LAUNCH_MODE_ADB,
+            "shizuku" => crate::shm::LAUNCH_MODE_SHIZUKU,
             "root" => crate::shm::LAUNCH_MODE_LIBSU_ROOT,
             _ => {
                 // Fall back to uid heuristic: 0 = root, otherwise treat as adb.
