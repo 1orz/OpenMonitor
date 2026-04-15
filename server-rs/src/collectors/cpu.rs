@@ -31,7 +31,7 @@ impl CpuReader {
     pub fn open() -> Self {
         let stat = File::open("/proc/stat").ok();
         let mut freq_files = Vec::new();
-        for cpu in 0..super::super::shm::CPU_CORES_MAX {
+        for cpu in 0..crate::snapshot::CPU_CORES_MAX {
             let path = format!("/sys/devices/system/cpu/cpu{cpu}/cpufreq/scaling_cur_freq");
             freq_files.push(CachedSysFile::try_open(&path));
         }

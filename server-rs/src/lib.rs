@@ -1,25 +1,18 @@
 //! openmonitor-server library surface.
 //!
-//! This crate has two roles:
-//!  1. **bin target** (`src/main.rs`): standalone executable for the libsu
-//!     launch path — Rust binary exec'd by root shell.
-//!  2. **cdylib target** (this file): shared library for the Shizuku launch
-//!     path — Kotlin `RustEntry` shim calls `System.loadLibrary("openmonitor_server")`
-//!     and then `nativeMain()` / `nativeGetBinder()` via JNI.
+//! The crate is still exposed as a library so host-side unit tests can drive
+//! the frame codec and (once landed) APK signature parser without touching
+//! Android.
 //!
-//! Both paths converge on `core::run_server()` after launch-specific setup.
+//! Runtime entry is `core::run_server`.
 
-pub mod aidl_gen;
+pub mod apk_sign;
+pub mod auth;
 pub mod collectors;
 pub mod core;
-pub mod events;
+pub mod fg;
+pub mod fps;
+pub mod ipc;
 pub mod logging;
-pub mod service;
-pub mod shm;
-
-// Public JNI entry points, used only by the Shizuku shim.
-#[cfg(target_os = "android")]
-pub mod jni_entry;
-
-// Reverse content-provider binder push, used only by the libsu path.
-pub mod binder_push;
+pub mod snapshot;
+pub mod subproc;

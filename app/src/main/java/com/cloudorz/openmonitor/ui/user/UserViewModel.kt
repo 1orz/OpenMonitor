@@ -10,9 +10,8 @@ import com.cloudorz.openmonitor.core.model.identity.ActivationState
 import com.cloudorz.openmonitor.core.model.identity.DeviceFingerprint
 import com.cloudorz.openmonitor.core.model.identity.DeviceIdentity
 import com.cloudorz.openmonitor.core.ui.HapticFeedbackManager
-import com.cloudorz.openmonitor.core.data.ipc.MonitorClient
+import com.cloudorz.openmonitor.core.data.ipc.DaemonClient
 import com.cloudorz.openmonitor.core.data.ipc.MonitorLauncher
-import com.cloudorz.openmonitor.server.SnapshotLayout
 import com.cloudorz.openmonitor.core.ui.theme.ColorMode
 import com.cloudorz.openmonitor.data.repository.ThemeSettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -33,7 +32,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class UserViewModel @Inject constructor(
-    private val monitorClient: MonitorClient,
+    private val daemonClient: DaemonClient,
     private val monitorLauncher: MonitorLauncher,
     private val themeRepo: ThemeSettingsRepository,
     private val identityRepository: DeviceIdentityRepository,
@@ -45,12 +44,6 @@ class UserViewModel @Inject constructor(
         val checking: Boolean = false,
         val connected: Boolean = false,
         val checkedOnce: Boolean = false,
-        /** UNIX epoch ms when the server initialized its shm. 0 = unknown. */
-        val startTimeEpochMs: Long = 0L,
-        /** One of [SnapshotLayout.LAUNCH_MODE_*]. */
-        val launchMode: Int = SnapshotLayout.LAUNCH_MODE_UNKNOWN,
-        /** Server process id, 0 = unknown. */
-        val pid: Int = 0,
     )
 
     companion object {
@@ -75,49 +68,19 @@ class UserViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            monitorClient.connected.collect { connected ->
+            daemonClient.connected.collect { connected ->
                 _serverStatus.update {
-                    if (connected) {
-                        it.copy(connected = true, checkedOnce = true)
-                    } else {
-                        // Drop captured server identity so the UI doesn't keep
-                        // showing the old pid / launch mode after a mode switch.
-                        it.copy(
-                            connected = false,
-                            checkedOnce = true,
-                            startTimeEpochMs = 0L,
-                            launchMode = SnapshotLayout.LAUNCH_MODE_UNKNOWN,
-                            pid = 0,
-                        )
-                    }
+                    it.copy(connected = connected, checkedOnce = true)
                 }
                 if (connected && screenVisible) startRefreshLoop()
                 if (!connected) stopRefreshLoop()
-            }
-        }
-        // Pull the identity fields out of the first snapshot we see — they
-        // are constant for the life of each server process, so one value is
-        // all we need (re-captured on reconnect).
-        viewModelScope.launch {
-            monitorClient.snapshots.collect { snap ->
-                val epochMs = snap.startTimeNs / 1_000_000L
-                val cur = _serverStatus.value
-                if (cur.startTimeEpochMs != epochMs || cur.pid != snap.pid) {
-                    _serverStatus.update {
-                        it.copy(
-                            startTimeEpochMs = epochMs,
-                            launchMode = snap.launchMode,
-                            pid = snap.pid,
-                        )
-                    }
-                }
             }
         }
     }
 
     fun startObserving() {
         screenVisible = true
-        if (monitorClient.connected.value) startRefreshLoop()
+        if (daemonClient.connected.value) startRefreshLoop()
     }
 
     fun stopObserving() {
@@ -130,7 +93,7 @@ class UserViewModel @Inject constructor(
         refreshJob = viewModelScope.launch(Dispatchers.IO) {
             while (isActive) {
                 delay(1000)
-                _serverStatus.update { it.copy(connected = monitorClient.connected.value) }
+                _serverStatus.update { it.copy(connected = daemonClient.connected.value) }
             }
         }
     }
@@ -146,7 +109,7 @@ class UserViewModel @Inject constructor(
             monitorLauncher.ensureRunning()
             while (isActive) {
                 delay(3000)
-                if (monitorClient.connected.value) break
+                if (daemonClient.connected.value) break
                 monitorLauncher.ensureRunning()
             }
         }
@@ -167,7 +130,7 @@ class UserViewModel @Inject constructor(
             monitorLauncher.ensureRunning()
             delay(1000)
             _serverStatus.update {
-                it.copy(checking = false, connected = monitorClient.connected.value, checkedOnce = true)
+                it.copy(checking = false, connected = daemonClient.connected.value, checkedOnce = true)
             }
         }
     }
@@ -181,7 +144,7 @@ class UserViewModel @Inject constructor(
             monitorLauncher.ensureRunning()
             delay(1500)
             _serverStatus.update {
-                it.copy(checking = false, connected = monitorClient.connected.value, checkedOnce = true)
+                it.copy(checking = false, connected = daemonClient.connected.value, checkedOnce = true)
             }
         }
     }
@@ -203,7 +166,7 @@ class UserViewModel @Inject constructor(
                 }
             }
             delay(500)
-            val connected = monitorClient.connected.value
+            val connected = daemonClient.connected.value
             _serverStatus.update { it.copy(checking = false, connected = connected, checkedOnce = true) }
             onComplete(connected || newMode == PrivilegeMode.BASIC)
         }

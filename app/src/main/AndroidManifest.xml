@@ -126,18 +126,5 @@
             android:exported="true"
             tools:ignore="ExportedContentProvider,MissingClass" />
 
-        <!--
-            Reverse-binder bridge for the libsu launch path. The Rust server
-            runs as uid 0 / shell and calls provider.call("setBinder", ...)
-            with its IBinder packed in extras. BinderProvider.call filters
-            on caller uid (root/shell only) before handing the binder to
-            MonitorClient.
-        -->
-        <provider
-            android:name="com.cloudorz.openmonitor.core.data.ipc.BinderProvider"
-            android:authorities="${applicationId}.binderProvider"
-            android:exported="true"
-            tools:ignore="ExportedContentProvider" />
-
     </application>
 </manifest>

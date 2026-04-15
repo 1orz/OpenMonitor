@@ -61,7 +61,7 @@ import androidx.compose.animation.togetherWith
 import androidx.navigation3.ui.NavDisplay
 import com.cloudorz.openmonitor.core.common.PermissionManager
 import com.cloudorz.openmonitor.core.common.PrivilegeMode
-import com.cloudorz.openmonitor.core.data.ipc.MonitorClient
+import com.cloudorz.openmonitor.core.data.ipc.DaemonClient
 import com.cloudorz.openmonitor.core.data.ipc.MonitorLauncher
 import com.cloudorz.openmonitor.core.data.repository.ActivationRepository
 import com.cloudorz.openmonitor.core.data.repository.DeviceIdentityRepository
@@ -121,7 +121,7 @@ class MainActivity : AppCompatActivity() {
     lateinit var monitorLauncher: MonitorLauncher
 
     @Inject
-    lateinit var monitorClient: MonitorClient
+    lateinit var daemonClient: DaemonClient
 
     @Inject
     lateinit var identityRepository: DeviceIdentityRepository
@@ -148,7 +148,7 @@ class MainActivity : AppCompatActivity() {
             ) {
                 MonitorTheme(appSettings = themeState.appSettings) {
                     MonitorAppContent(
-                        permissionManager, monitorLauncher, monitorClient,
+                        permissionManager, monitorLauncher, daemonClient,
                         identityRepository, activationRepository,
                     )
                 }
@@ -172,7 +172,7 @@ private enum class StartupPhase {
 private fun MonitorAppContent(
     permissionManager: PermissionManager,
     monitorLauncher: MonitorLauncher,
-    monitorClient: MonitorClient,
+    daemonClient: DaemonClient,
     identityRepository: DeviceIdentityRepository,
     activationRepository: ActivationRepository,
 ) {
@@ -237,9 +237,9 @@ private fun MonitorAppContent(
                 startupStepResId = R.string.startup_deploying_daemon
                 monitorLauncher.ensureRunning()
                 startupStepResId = R.string.startup_connecting_daemon
-                // Wait briefly for shared memory connection to establish.
+                // Wait briefly for daemon socket connection to establish.
                 repeat(10) {
-                    if (monitorClient.connected.value) return@repeat
+                    if (daemonClient.connected.value) return@repeat
                     delay(300)
                 }
             }

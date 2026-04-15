@@ -1,6 +1,6 @@
 package com.cloudorz.openmonitor.core.data.datasource
 
-import com.cloudorz.openmonitor.core.data.ipc.MonitorClient
+import com.cloudorz.openmonitor.core.data.ipc.DaemonClient
 import com.cloudorz.openmonitor.core.data.ipc.MonitorSnapshotAdapter
 import com.cloudorz.openmonitor.core.model.fps.FpsData
 import kotlinx.coroutines.Dispatchers
@@ -10,11 +10,11 @@ import javax.inject.Singleton
 
 @Singleton
 class FpsDataSource @Inject constructor(
-    private val monitorClient: MonitorClient,
+    private val daemonClient: DaemonClient,
 ) {
     suspend fun getDaemonFps(): FpsData? = withContext(Dispatchers.IO) {
-        if (!monitorClient.connected.value) return@withContext null
-        val snap = monitorClient.snapshots.replayCache.firstOrNull() ?: return@withContext null
+        if (!daemonClient.connected.value) return@withContext null
+        val snap = daemonClient.snapshots.replayCache.firstOrNull() ?: return@withContext null
         MonitorSnapshotAdapter.toDomain(snap).fpsData
     }
 }

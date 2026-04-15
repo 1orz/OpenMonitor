@@ -1,21 +1,22 @@
-//! Standalone binary entry point for the libsu launch path.
+//! Standalone daemon binary. One of three launchers invokes it:
 //!
-//! Invocation:
-//!   $ /data/.../openmonitor-server --mode root --data-dir /data/.../files
+//!   root via libsu    :  su -c "$bin --mode root    --data-dir $filesDir --app-package $pkg"
+//!   Shizuku exec      :  shell -c "$bin --mode shizuku --data-dir $filesDir --app-package $pkg"
+//!   operator via adb  :  adb shell $bin --mode adb
 //!
-//! The libsu shell exec's this binary running as uid=0 (ROOT) or uid=2000
-//! (shell/Shizuku-exec). The binary self-daemonizes, publishes its binder to
-//! the App via ContentProvider.call, and enters the binder thread pool.
+//! The binary double-forks into the background, binds a UDS under
+//! `--data-dir/openmonitor.sock`, and serves length-prefixed JSON frames.
 
 use std::process::ExitCode;
+
+use openmonitor_server::core::{LaunchMode, ServerConfig};
 
 fn main() -> ExitCode {
     openmonitor_server::logging::init("openmonitor-server");
 
     let args = parse_args(std::env::args().skip(1));
 
-    // UID whitelist: we only accept exec as root (0) or shell (2000).
-    // A normal app process (uid ≥ 10000) has no business running this binary.
+    // UID whitelist: root (0) and shell (2000) are the only allowed launchers.
     let uid = unsafe { libc::getuid() };
     if uid != 0 && uid != 2000 {
         eprintln!("openmonitor-server: refused — uid {uid} not in [0, 2000]");
@@ -29,7 +30,7 @@ fn main() -> ExitCode {
         return ExitCode::from(3);
     }
 
-    match openmonitor_server::core::run_server(openmonitor_server::core::LaunchMode::Libsu, args.into_config()) {
+    match openmonitor_server::core::run_server(args.launch_mode(), args.into_config()) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             log::error!("server exited with error: {e}");
@@ -45,8 +46,21 @@ struct Args {
 }
 
 impl Args {
-    fn into_config(self) -> openmonitor_server::core::ServerConfig {
-        openmonitor_server::core::ServerConfig {
+    fn launch_mode(&self) -> LaunchMode {
+        match self.mode.as_str() {
+            "root" | "libsu" => LaunchMode::Libsu,
+            "shizuku" | "shell" => LaunchMode::Shizuku,
+            "adb" => LaunchMode::Adb,
+            _ => {
+                // Uid-based fallback: root → Libsu, shell → Adb.
+                let uid = unsafe { libc::getuid() };
+                if uid == 0 { LaunchMode::Libsu } else { LaunchMode::Adb }
+            }
+        }
+    }
+
+    fn into_config(self) -> ServerConfig {
+        ServerConfig {
             data_dir: self.data_dir,
             app_package: self.app_package,
             mode_hint: self.mode,
@@ -68,11 +82,8 @@ fn parse_args<I: Iterator<Item = String>>(mut args: I) -> Args {
         }
     }
 
-    // Shell-launched modes (ADB, Shizuku) default data_dir to the canonical
-    // shell-writable location. Shizuku's ShellUserService runs as uid 2000 /
-    // uid 0 — it has no write access to the app's private filesDir, so we
-    // use /data/local/tmp/openmonitor instead. The app-side launcher polls
-    // the resulting /data/local/tmp/openmonitor/server/snapshot.shm.
+    // Shell-launched modes default data_dir to /data/local/tmp/openmonitor —
+    // the app's filesDir isn't writable by uid 2000.
     if data_dir.is_none() && (mode == "adb" || mode == "shell" || mode == "shizuku") {
         data_dir = Some(std::path::PathBuf::from("/data/local/tmp/openmonitor"));
     }
@@ -80,13 +91,11 @@ fn parse_args<I: Iterator<Item = String>>(mut args: I) -> Args {
     Args { mode, data_dir, app_package }
 }
 
-/// Minimal POSIX daemonization: fork, setsid, redirect stdio to /dev/null (or
-/// $data_dir/server.log once available), chdir to /. We keep stderr open for
-/// Rust panics so they land somewhere grep-able.
+/// POSIX double-fork daemonize. Keeps stderr open so Rust panics still land
+/// somewhere grep-able (logcat covers the normal log path via `logging::init`).
 fn daemonize() -> std::io::Result<()> {
     use nix::unistd::{fork, setsid, ForkResult};
 
-    // First fork: parent exits, child continues.
     match unsafe { fork() }.map_err(io_err)? {
         ForkResult::Parent { .. } => std::process::exit(0),
         ForkResult::Child => {}
@@ -94,7 +103,6 @@ fn daemonize() -> std::io::Result<()> {
 
     setsid().map_err(io_err)?;
 
-    // Second fork: ensures we can never reacquire a controlling terminal.
     match unsafe { fork() }.map_err(io_err)? {
         ForkResult::Parent { .. } => std::process::exit(0),
         ForkResult::Child => {}
@@ -102,9 +110,6 @@ fn daemonize() -> std::io::Result<()> {
 
     std::env::set_current_dir("/").ok();
 
-    // Redirect stdin from /dev/null. Keep stdout/stderr pointing at whatever
-    // the caller (libsu shell) gave us — logcat via android_log still works
-    // independently.
     if let Ok(null) = std::fs::OpenOptions::new().read(true).open("/dev/null") {
         use std::os::unix::io::AsRawFd;
         unsafe { libc::dup2(null.as_raw_fd(), 0); }

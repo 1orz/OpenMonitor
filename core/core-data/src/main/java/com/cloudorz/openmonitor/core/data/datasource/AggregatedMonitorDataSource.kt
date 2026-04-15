@@ -6,7 +6,7 @@ import android.content.IntentFilter
 import android.os.BatteryManager
 import android.util.Log
 import com.cloudorz.openmonitor.core.common.PlatformDetector
-import com.cloudorz.openmonitor.core.data.ipc.MonitorClient
+import com.cloudorz.openmonitor.core.data.ipc.DaemonClient
 import com.cloudorz.openmonitor.core.data.ipc.MonitorSnapshotAdapter
 import com.cloudorz.openmonitor.core.data.util.MonitorParser
 import com.cloudorz.openmonitor.core.model.monitor.MonitorSnapshot
@@ -21,7 +21,7 @@ import javax.inject.Singleton
 class AggregatedMonitorDataSource @Inject constructor(
     private val platformDetector: PlatformDetector,
     private val thermalDataSource: ThermalDataSource,
-    private val monitorClient: MonitorClient,
+    private val daemonClient: DaemonClient,
     @param:ApplicationContext private val context: Context,
 ) {
     companion object {
@@ -40,8 +40,8 @@ class AggregatedMonitorDataSource @Inject constructor(
     @Volatile private var lastSnapshot: MonitorSnapshot? = null
 
     suspend fun collectSnapshot(): MonitorSnapshot {
-        if (monitorClient.connected.value) {
-            val snap = monitorClient.snapshots.replayCache.firstOrNull()
+        if (daemonClient.connected.value) {
+            val snap = daemonClient.snapshots.replayCache.firstOrNull()
             if (snap != null) {
                 val result = MonitorSnapshotAdapter.toDomain(snap)
                 val enriched = if (result.batteryCurrentMa == null || result.batteryCurrentMa == 0) {

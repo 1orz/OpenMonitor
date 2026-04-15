@@ -17,55 +17,36 @@ import javax.inject.Singleton
  * Brings up the privileged openmonitor-server binary. All three launch paths
  * now converge on the same contract: *something* exec's the binary with
  * enough privilege to open /dev/binder + read /proc + /sys, the binary
- * daemonizes and writes a 4 KB file-backed shared memory region, and the
- * app mmaps that file read-only.
+ * daemonizes and listens on an AF_UNIX socket, and the app connects via
+ * [DaemonClient].
  *
- *  - **ROOT (libsu)**: [Shell.cmd] exec's the packaged binary via su. shm
- *    lives in the app's private filesDir (server writes it as root, app
- *    reads it as its own uid — same fs permissions).
+ *  - **ROOT (libsu)**: [Shell.cmd] exec's the packaged binary via su. The
+ *    daemon binds its socket inside the app's private filesDir.
  *
  *  - **Shizuku**: [ShellExecutor.execute] routes to [ShizukuExecutor] which
  *    runs `sh -c <binary>` inside Shizuku's UserService process (uid 2000
- *    or uid 0 depending on Shizuku's install). shm lives at the shell path
- *    since Shizuku's process has no write access to the app's filesDir.
+ *    or uid 0 depending on Shizuku's install). `--data-dir` points to the
+ *    app's filesDir; the daemon falls back to `/data/local/tmp/openmonitor`
+ *    if it cannot bind there.
  *
- *  - **ADB**: the user starts the binary manually from a host shell. Same
- *    shm path as Shizuku.
- *
- * We used to have a Shizuku `bindUserService` path that returned an IBinder
- * from a JNI-backed RustEntry class. That never worked: rsbinder 0.6
- * implements the binder protocol in pure Rust and does not produce AIBinder
- * pointers, so the IBinder handed back through JNI was a null jobject and
- * Shizuku's starter died with `System.exit(1)`. The file-shm pattern
- * sidesteps the AIBinder interop problem entirely.
+ *  - **ADB**: the user starts the binary manually from a host shell. The
+ *    app skips exec and goes straight to socket discovery.
  */
 @Singleton
 class MonitorLauncher @Inject constructor(
     private val shellExecutor: ShellExecutor,
-    private val monitorClient: MonitorClient,
+    private val daemonClient: DaemonClient,
     @param:ApplicationContext private val context: Context,
 ) {
     companion object {
         private const val TAG = "MonitorLauncher"
         private const val SERVER_BIN = "libopenmonitor-server.so"
-        /**
-         * Shell-writable shm path used by ADB and Shizuku modes. Derived
-         * from `<data_dir>/server/snapshot.shm` with data_dir defaulting
-         * to /data/local/tmp/openmonitor in [server-rs/src/main.rs].
-         * The file is chmod'd 0644 and the parent dir 0755 so the
-         * untrusted_app can mmap it (SELinux allows untrusted_app →
-         * shell_data_file:file read on stock AOSP).
-         */
-        private const val SHELL_SHM_PATH = "/data/local/tmp/openmonitor/server/snapshot.shm"
         private const val DISCOVERY_ATTEMPTS = 10
         private const val DISCOVERY_DELAY_MS = 300L
     }
 
     val binaryPath: String
         get() = "${context.applicationInfo.nativeLibraryDir}/$SERVER_BIN"
-
-    /** Canonical file path the shell-launched server writes its shm to. */
-    val adbShmPath: String get() = SHELL_SHM_PATH
 
     /**
      * Full adb shell command the user runs on their host to launch the
@@ -76,25 +57,59 @@ class MonitorLauncher @Inject constructor(
         return "$binaryPath --mode adb --app-package $pkg"
     }
 
-    /** Ensure a privileged server is running. Idempotent. */
+    /** Ensure a privileged server is running and connected. Idempotent. */
     suspend fun ensureRunning(): Boolean = withContext(Dispatchers.IO) {
+        // Fast path: already connected (or can reconnect immediately).
+        if (daemonClient.connect()) return@withContext true
+
         when (shellExecutor.mode) {
             PrivilegeMode.ROOT -> launchViaLibsu()
             PrivilegeMode.SHIZUKU -> launchViaShizuku()
-            PrivilegeMode.ADB -> discoverShellShm("ADB")
+            PrivilegeMode.ADB -> pollConnect("ADB")
             PrivilegeMode.BASIC -> false
         }
     }
 
-    fun shutdown() {
-        // Drop the client-side view of the connection first so the UI flips
-        // to "not running" immediately — file-backed shm has no death
-        // notification we could rely on.
-        monitorClient.disconnect()
+    /**
+     * Shut down the daemon and clean up socket artifacts.
+     *
+     * This is a suspend function so callers must invoke it from a coroutine.
+     */
+    suspend fun shutdown() {
+        // Ask the daemon to exit gracefully (best-effort).
+        daemonClient.requestExit()
+        // Drop local connection so the UI flips to "not running" immediately.
+        daemonClient.disconnect()
 
-        // Synchronous exec (not submit): we must ensure the old server is
-        // gone before the caller triggers a new launch, otherwise the fresh
-        // process races against the stale file.
+        // Give the daemon a moment to exit on its own. The accept loop in
+        // server-rs polls exit_flag every ~200ms worst-case, so 500ms gives
+        // comfortable margin for graceful shutdown.
+        delay(500)
+
+        // pkill fallback — ensure the old server is gone before a new launch.
+        pkillDaemons()
+
+        // Wipe stale socket files and sentinel files so a subsequent launch
+        // doesn't briefly connect to a ghost socket.
+        val filesDir = context.filesDir.absolutePath
+        val fallbackDir = "/data/local/tmp/openmonitor"
+        listOf(
+            "$filesDir/openmonitor.sock",
+            "$filesDir/sock.path",
+            "$fallbackDir/openmonitor.sock",
+            "$fallbackDir/sock.path",
+        ).forEach { path ->
+            runCatching { File(path).delete() }
+        }
+    }
+
+    /**
+     * Kill any lingering daemon processes. Covers upgrade leftovers (v1 -> v2),
+     * keystore-rotation mismatches, and mode-switch stragglers. No-op if
+     * nothing matches. Called both from [shutdown] (post-graceful fallback)
+     * and before exec in [launchViaLibsu]/[launchViaShizuku].
+     */
+    private fun pkillDaemons() {
         runCatching {
             Shell.cmd(
                 "pkill -9 -f libopenmonitor-server 2>/dev/null; " +
@@ -103,22 +118,13 @@ class MonitorLauncher @Inject constructor(
                 "su -c 'pkill -9 -f openmonitor-server' 2>/dev/null"
             ).exec()
         }
-        // Wipe stale shm files so a subsequent launch doesn't briefly
-        // connect to ghost data before the new server writes anything.
-        runCatching { File(context.filesDir, "server/snapshot.shm").delete() }
-        runCatching { File(SHELL_SHM_PATH).delete() }
     }
 
     private suspend fun launchViaLibsu(): Boolean {
-        val shmFile = File(context.filesDir, "server/snapshot.shm")
-        // Fast path: server already running (e.g. survived app restart).
-        // Skipping the exec avoids the Rust side opening the shm file with
-        // O_TRUNC and racing the existing server's mmap.
-        if (shmFile.exists() && shmFile.length() > 0) {
-            XLog.tag(TAG).i("libsu: server already up, attaching to existing shm")
-            monitorClient.connectViaFile(shmFile)
-            return true
-        }
+        // Kill stale/legacy daemon before exec'ing a fresh one. We only reach
+        // here after the fast-path connect() in ensureRunning() already failed,
+        // so any surviving process is either incompatible or zombie.
+        pkillDaemons()
 
         val pkg = context.packageName
         val dataDir = context.filesDir.absolutePath
@@ -138,37 +144,29 @@ class MonitorLauncher @Inject constructor(
         }
         if (!launched) return false
 
-        return waitForShm(shmFile, "libsu")
+        return pollConnect("libsu")
     }
 
     /**
      * Shizuku mode — ask Shizuku's [ShellUserService] to exec our binary.
-     * The server daemonizes (double-fork → parent exits) so the IPC
+     * The server daemonizes (double-fork -> parent exits) so the IPC
      * executeCommand call returns immediately after the first fork; the
-     * surviving child runs under Shizuku's uid (2000 or 0) and writes
-     * the shm to [SHELL_SHM_PATH].
-     *
-     * Idempotent: if the shm is already present we skip the exec entirely
-     * so we never truncate-race an already-running server.
+     * surviving child runs under Shizuku's uid (2000 or 0) and binds its
+     * socket. `--data-dir` is set to the app's filesDir so the daemon
+     * prefers that location; it falls back to `/data/local/tmp/openmonitor`
+     * if it cannot bind there.
      */
     private suspend fun launchViaShizuku(): Boolean {
-        val shmFile = File(SHELL_SHM_PATH)
-        if (shmFile.exists() && shmFile.length() > 0) {
-            XLog.tag(TAG).i("Shizuku: server already up, attaching to existing shm")
-            monitorClient.connectViaFile(shmFile)
-            return true
-        }
+        // Kill stale/legacy daemon before exec'ing a fresh one (same rationale
+        // as launchViaLibsu — we only get here when connect() already failed).
+        pkillDaemons()
 
         val pkg = context.packageName
-        val cmd = "'$binaryPath' --mode shizuku --app-package '$pkg'"
+        val dataDir = context.filesDir.absolutePath
+        val cmd = "'$binaryPath' --mode shizuku --data-dir '$dataDir' --app-package '$pkg'"
         val result = try {
             shellExecutor.execute(cmd)
         } catch (e: Throwable) {
-            // The most common cause is CancellationException from the
-            // caller's scope (switchMode's withTimeoutOrNull, compose
-            // scope tear-down, etc.). The server itself may still have
-            // been started by Shizuku — the next retry will pick up the
-            // shm via the fast path above.
             XLog.tag(TAG).e("Shizuku exec threw: ${e.message}")
             return false
         }
@@ -177,26 +175,21 @@ class MonitorLauncher @Inject constructor(
             return false
         }
         XLog.tag(TAG).i("server launched via Shizuku shell")
-        return waitForShm(shmFile, "Shizuku")
+        return pollConnect("Shizuku")
     }
 
     /**
-     * ADB / post-launch polling. Shared by ADB (user-started) mode and the
-     * Shizuku/libsu paths after they kick off their exec.
+     * Poll [DaemonClient.connect] up to [DISCOVERY_ATTEMPTS] times, waiting
+     * [DISCOVERY_DELAY_MS] between each attempt. Returns true on first
+     * successful connection.
      */
-    private suspend fun discoverShellShm(label: String): Boolean =
-        waitForShm(File(SHELL_SHM_PATH), label)
-
-    private suspend fun waitForShm(shmFile: File, label: String): Boolean {
-        XLog.tag(TAG).i("$label: polling ${shmFile.absolutePath}")
+    private suspend fun pollConnect(label: String): Boolean {
+        XLog.tag(TAG).i("$label: polling daemon socket")
         repeat(DISCOVERY_ATTEMPTS) {
-            if (shmFile.exists() && shmFile.length() > 0) {
-                monitorClient.connectViaFile(shmFile)
-                return true
-            }
+            if (daemonClient.connect()) return true
             delay(DISCOVERY_DELAY_MS)
         }
-        XLog.tag(TAG).w("$label shm not found after ${DISCOVERY_ATTEMPTS * DISCOVERY_DELAY_MS}ms")
+        XLog.tag(TAG).w("$label: daemon not reachable after ${DISCOVERY_ATTEMPTS * DISCOVERY_DELAY_MS}ms")
         return false
     }
 }

@@ -1,33 +1,39 @@
-//! Shared server lifecycle: init → register service → enter binder loop.
+//! Shared server lifecycle: pick socket path → spawn sampler + fps + fg →
+//! serve IPC.
 //!
-//! The two launch paths (libsu binary, Shizuku UserService shim) both arrive
-//! here once they've done path-specific setup (UID check / JVM init).
+//! The old binder-based lifecycle (init rsbinder ProcessState, allocate
+//! ashmem, reverse-publish via ContentProvider) is gone. Every launch path
+//! (libsu / Shizuku / ADB) now arrives at the same `run_server` entry, which
+//! just binds a UDS and serves JSON frames.
 
 use std::path::PathBuf;
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
-use crate::aidl_gen::com::cloudorz::openmonitor::server::IMonitorService::IMonitorService;
-use crate::service::MonitorServiceImpl;
-use crate::shm::SharedSnapshot;
+use crate::auth::AuthConfig;
+use crate::ipc;
+use crate::snapshot::SnapshotStore;
 
-/// Which path brought us up. Affects how we publish the binder back to the App.
+/// Which path brought us up. Used only for telemetry and auth-mode decisions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LaunchMode {
-    /// libsu exec'd us directly. We reverse-push via ContentProvider.call.
+    /// libsu exec'd us as root.
     Libsu,
-    /// Shizuku UserService started us through app_process + JVM. Shizuku itself
-    /// collects our returned IBinder and forwards it to the App — nothing for
-    /// us to push.
+    /// Shizuku ShellUserService exec'd us as shell (uid 2000) or root.
     Shizuku,
+    /// Operator ran the binary by hand via `adb shell`. No cert pinning —
+    /// anyone on the device can connect (daemon wasn't our call).
+    Adb,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct ServerConfig {
-    /// App's private data dir (writable by root/shell), used for log files.
+    /// Directory for the UDS, log files, sentinel path file. App's private
+    /// `filesDir` when reachable, otherwise `/data/local/tmp/openmonitor`.
     pub data_dir: Option<PathBuf>,
-    /// App package for reverse provider resolution (libsu path).
+    /// App package (only set by the launcher; used for future reverse lookup).
     pub app_package: Option<String>,
-    /// Free-form string set by the launcher, used only for telemetry.
+    /// Free-form `--mode` value; resolved into `LaunchMode` before we get here.
     pub mode_hint: String,
 }
 
@@ -35,104 +41,53 @@ pub struct ServerConfig {
 pub fn run_server(mode: LaunchMode, config: ServerConfig) -> Result<(), ServerError> {
     log::info!("run_server mode={mode:?} config={config:?}");
 
-    // 1. Initialize the binder subsystem.
-    crate::service::init_binder();
+    // 1. Resolve the socket path.
+    let data_dir = config
+        .data_dir
+        .clone()
+        .unwrap_or_else(|| PathBuf::from("/data/local/tmp/openmonitor"));
+    let sock_path = ipc::socket_path_in(&data_dir);
 
-    // 2. Allocate the shared-memory Snapshot region.
-    //    Libsu: file-backed shm so the app can mmap directly (avoids SELinux
-    //           service_manager restrictions that block ServiceManager discovery).
-    //    Shizuku: ashmem transferred via binder ParcelFileDescriptor.
-    //
-    //    The launch_mode value is written into the header so the app can
-    //    show "started via root/shizuku/adb" without any side channel.
-    let launch_mode_id = resolve_launch_mode(mode, &config);
-    let shm = Arc::new(match mode {
-        LaunchMode::Libsu => {
-            let dir = config.data_dir.as_ref().ok_or_else(|| {
-                ServerError::Shm(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    "data_dir required for libsu mode",
-                ))
-            })?;
-            SharedSnapshot::create_file(&dir.join("server/snapshot.shm"), launch_mode_id)
-                .map_err(ServerError::Shm)?
-        }
-        LaunchMode::Shizuku => SharedSnapshot::create(launch_mode_id).map_err(ServerError::Shm)?,
-    });
-
-    // 3. Build service impl.
-    let service = MonitorServiceImpl::new(shm.clone());
-    let exit_flag = service.exit_flag();
-
-    // 4. Start the sampling threads (collectors loop every 500 ms).
-    crate::collectors::start_all(shm.clone(), service.runtime_handle());
-
-    // 5. Create the binder service object.
-    let binder: rsbinder::Strong<dyn IMonitorService> = service.into_binder();
-
-    // 6. Publish to the App.
-    match mode {
-        LaunchMode::Libsu => {
-            // libsu path: reverse push via ContentProvider.
-            crate::binder_push::publish_to_app(&binder, config.app_package.as_deref())
-                .map_err(ServerError::Binder)?;
-        }
-        LaunchMode::Shizuku => {
-            // Shizuku does the push for us — the binder is returned from JNI.
-            // Stash it for nativeGetBinder().
-            #[cfg(target_os = "android")]
-            crate::jni_entry::store_binder(binder.clone());
-        }
+    // 2. Announce the resolved path on stdout's first line so the launcher
+    //    (which captures ExecResult.stdout) can connect without guessing.
+    println!("openmonitor-server: socket={}", sock_path.display());
+    // Also drop a sentinel so a late-arriving client can discover the path.
+    if let Err(e) = std::fs::write(data_dir.join("sock.path"), format!("{}\n", sock_path.display())) {
+        log::warn!("failed to write sentinel sock.path: {e}");
     }
 
-    // Keep the binder alive by holding the Strong reference.
-    let _keep_alive = binder;
+    // 3. Build shared state.
+    let store = SnapshotStore::new();
+    let exit_flag: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
 
-    // 7. Join binder thread pool. Does not return until exit() is called.
-    crate::service::join_thread_pool();
+    // 4. Spawn collectors.
+    crate::collectors::start_sampler(store.clone(), exit_flag.clone());
+    crate::fps::start(store.clone(), exit_flag.clone());
+    crate::fg::start(store.clone(), exit_flag.clone());
 
-    if exit_flag.load(std::sync::atomic::Ordering::Acquire) {
-        log::info!("run_server: exit() was called — clean shutdown");
-    }
+    // 5. Build auth policy. ADB mode is explicitly permissive (no app to pin).
+    let auth = match mode {
+        LaunchMode::Adb => AuthConfig::permissive(),
+        _ => AuthConfig::from_build(),
+    };
+
+    // 6. Serve. Blocks until `exit_flag` trips.
+    ipc::serve(&sock_path, store, auth, exit_flag).map_err(ServerError::Ipc)?;
+
+    log::info!("run_server: clean shutdown");
     Ok(())
-}
-
-/// Map the internal `LaunchMode` + `mode_hint` to the on-wire `launch_mode`
-/// value stored in the shm header. We distinguish ADB from ROOT by the
-/// `--mode` cli arg so the app can tell whether the server was started via
-/// libsu (root) or by the user running the binary under `adb shell`.
-fn resolve_launch_mode(mode: LaunchMode, config: &ServerConfig) -> u32 {
-    match mode {
-        LaunchMode::Shizuku => crate::shm::LAUNCH_MODE_SHIZUKU,
-        LaunchMode::Libsu => match config.mode_hint.as_str() {
-            "adb" | "shell" => crate::shm::LAUNCH_MODE_ADB,
-            "shizuku" => crate::shm::LAUNCH_MODE_SHIZUKU,
-            "root" => crate::shm::LAUNCH_MODE_LIBSU_ROOT,
-            _ => {
-                // Fall back to uid heuristic: 0 = root, otherwise treat as adb.
-                let uid = unsafe { libc::getuid() };
-                if uid == 0 {
-                    crate::shm::LAUNCH_MODE_LIBSU_ROOT
-                } else {
-                    crate::shm::LAUNCH_MODE_ADB
-                }
-            }
-        },
-    }
 }
 
 #[derive(Debug)]
 pub enum ServerError {
-    Shm(std::io::Error),
-    Binder(std::io::Error),
+    Ipc(std::io::Error),
 }
 
 impl std::error::Error for ServerError {}
 impl std::fmt::Display for ServerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ServerError::Shm(e) => write!(f, "shared memory init failed: {e}"),
-            ServerError::Binder(e) => write!(f, "binder init failed: {e}"),
+            ServerError::Ipc(e) => write!(f, "ipc failed: {e}"),
         }
     }
 }

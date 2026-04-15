@@ -21,10 +21,38 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Set up Go
-        uses: actions/setup-go@v6
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          go-version: '1.23'
+          targets: aarch64-linux-android
+
+      - name: Install cargo-ndk
+        run: cargo install --locked cargo-ndk
+
+      - name: Expose Android NDK path
+        run: echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/$(ls $ANDROID_HOME/ndk/ | sort -V | tail -1)" >> $GITHUB_ENV
+
+      - name: Create debug keystore
+        run: |
+          mkdir -p ~/.android
+          if [ ! -f ~/.android/debug.keystore ]; then
+            keytool -genkeypair -v -keystore ~/.android/debug.keystore \
+              -storepass android -keypass android -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            server-rs/target/
+          key: cargo-${{ runner.os }}-${{ hashFiles('server-rs/Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
