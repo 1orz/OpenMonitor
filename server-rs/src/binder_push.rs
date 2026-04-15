@@ -2,56 +2,67 @@
 //!
 //! When the Rust server is exec'd as a bare root process, the App has no
 //! direct way to obtain its binder — there's no ServiceConnection, no Shizuku
-//! bridge. We borrow the BatteryRecorder trick:
+//! bridge.
 //!
-//!   1. Server: ServiceManager.getService("activity") → IActivityManager.
-//!   2. Server: am.getContentProviderExternal(
-//!         "<applicationId>.binderProvider", user=0, token=gen_uuid()
-//!      ) → IContentProvider.
-//!   3. Server: provider.call("setBinder", arg=null, extras=Bundle{
-//!         "binder" → <our IMonitorService binder>
-//!      }).
-//!   4. App: BinderProvider.call("setBinder", ...) sees the binder in extras
-//!      and hands it to MonitorClient.
-//!   5. Server: am.removeContentProviderExternal(...) to release the hold.
+//! **Strategy 1 (preferred): ServiceManager**
+//! Register the server binder in ServiceManager under a well-known name.
+//! The App polls `ServiceManager.getService("openmonitor.server")` after
+//! launching the root binary. This requires root/system UID (which we have)
+//! and an appropriate SELinux context.
 //!
-//! `getContentProviderExternal` requires SYSTEM / ROOT uid — exactly the uids
-//! we've asserted in `main.rs`.
+//! **Strategy 2 (fallback): ContentProvider.call**
+//! If ServiceManager registration fails (e.g. SELinux), fall back to
+//! `IActivityManager.getContentProviderExternal()` → `provider.call(setBinder)`.
+//! This requires hidden AIDL stubs from Phase 4.
 
 use crate::aidl_gen::com::cloudorz::openmonitor::server::IMonitorService::IMonitorService;
 
-/// Publish the service binder so the App picks it up through BinderProvider.
+/// Well-known service name in ServiceManager for the App to discover.
+pub const SERVICE_NAME: &str = "openmonitor.server";
+
+/// Publish the service binder so the App can discover it.
+///
+/// Tries ServiceManager.addService first (zero AIDL dependency).
+/// Falls back to ContentProvider push if available.
 pub fn publish_to_app(
-    _binder: &rsbinder::Strong<dyn IMonitorService>,
-    app_package: Option<&str>,
+    binder: &rsbinder::Strong<dyn IMonitorService>,
+    _app_package: Option<&str>,
 ) -> std::io::Result<()> {
-    let pkg = app_package.unwrap_or("com.cloudorz.openmonitor");
-    log::info!("binder_push: pushing to {pkg} via ContentProvider.call");
+    let service_binder = rsbinder::Interface::as_binder(binder.as_ref());
 
-    // TODO(Phase 6): actual rsbinder wiring.
+    // Strategy 1: Register in ServiceManager.
+    #[cfg(target_os = "android")]
+    {
+        match rsbinder::hub::add_service(SERVICE_NAME, service_binder.clone()) {
+            Ok(()) => {
+                log::info!("binder_push: registered as '{SERVICE_NAME}' in ServiceManager");
+                return Ok(());
+            }
+            Err(e) => {
+                // May fail due to SELinux policy on some vendor ROMs.
+                log::warn!(
+                    "binder_push: ServiceManager.addService failed: {e:?} — \
+                     App will need to use Shizuku path or Phase 4 ContentProvider fallback"
+                );
+            }
+        }
+    }
+
+    // Strategy 2: ContentProvider.call via IActivityManager (requires Phase 4 AIDL).
+    // TODO(Phase 4/6): implement once IActivityManager stubs are generated.
     //
-    // The flow requires IActivityManager hidden AIDL (Phase 4 extraction):
-    //
-    // let am: Strong<dyn IActivityManager> =
-    //     rsbinder::hub::get_service("activity").ok_or_else(|| ...)?;
-    // let token = new_ibinder_token();
+    // let am = rsbinder::hub::get_service("activity").ok_or_else(|| ...)?;
     // let holder = am.get_content_provider_external(
-    //     &format!("{pkg}.binderProvider"),
-    //     /* user */ 0,
-    //     &token,
-    // )?.ok_or_else(|| ...)?;
-    // let provider = holder.provider.ok_or_else(|| ...)?;
-    //
-    // let service_binder = rsbinder::Interface::as_binder(_binder.as_ref());
-    // let mut extras = Bundle::new();
-    // extras.put_binder("binder", &service_binder);
-    //
-    // provider.call("setBinder", /*arg=*/ None, Some(&extras))?;
-    // am.remove_content_provider_external(
-    //     &format!("{pkg}.binderProvider"),
-    //     &token,
+    //     &format!("{}.binderProvider", pkg), 0, &token,
     // )?;
+    // holder.provider.call("setBinder", null, Bundle { "binder" = service_binder })?;
+    // am.remove_content_provider_external(...)?;
 
-    log::warn!("binder_push::publish_to_app is stubbed — requires hidden AIDL (Phase 4/6)");
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = service_binder;
+        log::info!("binder_push: host mode — skipping publication");
+    }
+
     Ok(())
 }

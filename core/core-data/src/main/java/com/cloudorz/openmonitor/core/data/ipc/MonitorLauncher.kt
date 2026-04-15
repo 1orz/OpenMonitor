@@ -10,6 +10,7 @@ import com.elvishew.xlog.XLog
 import com.topjohnwu.superuser.Shell
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
 import javax.inject.Inject
@@ -45,6 +46,10 @@ class MonitorLauncher @Inject constructor(
             "com.cloudorz.openmonitor.server.RustEntry"
         private const val SHIZUKU_PROCESS_SUFFIX = ":server"
         private const val USER_SERVICE_VERSION = 1
+        // Must match binder_push::SERVICE_NAME in the Rust server.
+        private const val SERVICE_MANAGER_NAME = "openmonitor.server"
+        private const val DISCOVERY_ATTEMPTS = 10
+        private const val DISCOVERY_DELAY_MS = 300L
     }
 
     private val binaryPath: String
@@ -71,8 +76,10 @@ class MonitorLauncher @Inject constructor(
             PrivilegeMode.ROOT -> launchViaLibsu()
             PrivilegeMode.SHIZUKU -> launchViaShizuku()
             PrivilegeMode.ADB -> {
-                // ADB mode: user manually invokes the binary. Document and exit.
-                XLog.tag(TAG).i("ADB mode — awaiting manual server launch")
+                // ADB mode: user manually invokes the binary. Try to discover
+                // an already-running server via ServiceManager.
+                XLog.tag(TAG).i("ADB mode — attempting server discovery")
+                discoverBinder()
                 true
             }
             PrivilegeMode.BASIC -> false
@@ -89,12 +96,12 @@ class MonitorLauncher @Inject constructor(
         }
     }
 
-    private fun launchViaLibsu(): Boolean {
+    private suspend fun launchViaLibsu(): Boolean {
         val pkg = context.packageName
         val dataDir = context.filesDir.absolutePath
         // The root shell loses our process env. Pass every knob explicitly.
         val cmd = "'$binaryPath' --mode root --data-dir '$dataDir' --app-package '$pkg'"
-        return try {
+        val launched = try {
             val result = Shell.cmd(cmd).exec()
             if (result.isSuccess) {
                 XLog.tag(TAG).i("server launched via libsu: $binaryPath")
@@ -106,6 +113,48 @@ class MonitorLauncher @Inject constructor(
         } catch (e: Throwable) {
             XLog.tag(TAG).e("libsu launch threw: ${e.message}")
             false
+        }
+
+        if (!launched) return false
+
+        // The binary daemonizes and registers in ServiceManager asynchronously.
+        // Poll until the binder appears or we time out.
+        discoverBinder()
+        return true
+    }
+
+    /**
+     * Poll ServiceManager for the server binder. The server registers itself
+     * as [SERVICE_MANAGER_NAME] via `rsbinder::hub::add_service`.
+     */
+    private suspend fun discoverBinder() {
+        repeat(DISCOVERY_ATTEMPTS) {
+            val binder = getServiceBinder(SERVICE_MANAGER_NAME)
+            if (binder != null) {
+                XLog.tag(TAG).i("discovered server binder via ServiceManager")
+                monitorClient.onBinderReceived(binder)
+                return
+            }
+            delay(DISCOVERY_DELAY_MS)
+        }
+        XLog.tag(TAG).w(
+            "ServiceManager discovery timed out — server may use BinderProvider fallback"
+        )
+    }
+
+    /**
+     * Reflective ServiceManager.getService(name). Hidden API, but accessible
+     * to root/shell processes and apps with hidden-api bypass.
+     */
+    @Suppress("PrivateApi")
+    private fun getServiceBinder(name: String): IBinder? {
+        return try {
+            val sm = Class.forName("android.os.ServiceManager")
+            val method = sm.getMethod("getService", String::class.java)
+            method.invoke(null, name) as? IBinder
+        } catch (e: Throwable) {
+            // Expected to fail on first few attempts before server is ready.
+            null
         }
     }
 
