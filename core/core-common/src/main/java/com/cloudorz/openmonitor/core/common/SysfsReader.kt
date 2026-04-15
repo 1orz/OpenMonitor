@@ -3,6 +3,7 @@ package com.cloudorz.openmonitor.core.common
 import com.elvishew.xlog.XLog
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -16,7 +17,10 @@ import javax.inject.Inject
  * back to the [ShellExecutor] when direct access fails. This avoids unnecessary
  * root shell usage for publicly readable system files.
  *
- * Failed paths are cached to avoid repeated SELinux audit log spam.
+ * Failed `/sys/` paths are cached briefly to avoid repeated SELinux audit log
+ * spam. `/proc/` paths are never cached — they're almost always world-readable
+ * and transient read failures during mode transitions must not block hot-path
+ * pollers for any length of time.
  *
  * All operations are dispatched to [Dispatchers.IO].
  */
@@ -27,10 +31,9 @@ class SysfsReader @Inject constructor(
         private const val TAG = "SysfsReader"
     }
 
-    // Cache paths that failed to read — avoids repeated SELinux denials.
-    // Entries expire after 60s so mode changes eventually take effect.
     private val deniedPaths = ConcurrentHashMap<String, Long>()
-    private val denyTtlMs = 60_000L
+    private val denyTtlMs = 15_000L
+    private val lastMode = AtomicReference<PrivilegeMode?>(null)
 
     /**
      * Tries to read the file directly via [File.readText]; returns null on any failure.
@@ -55,23 +58,47 @@ class SysfsReader @Inject constructor(
      * - /proc/ paths: try direct first (usually world-readable), fall back to shell
      */
     private suspend fun readFileContent(path: String): String? {
-        val deniedAt = deniedPaths[path]
-        if (deniedAt != null && System.currentTimeMillis() - deniedAt < denyTtlMs) return null
+        val currentMode = executor.mode
+        val previous = lastMode.getAndSet(currentMode)
+        if (previous != null && previous != currentMode) {
+            // Mode changed: flush any stale denials cached under the old executor
+            // (e.g. shell-routed reads that failed mid-switch shouldn't keep
+            // blocking direct-I/O reads in the new mode).
+            deniedPaths.clear()
+        }
 
         val isSysfs = path.startsWith("/sys/")
-        val hasShell = executor.mode != PrivilegeMode.BASIC
+        val isProc = path.startsWith("/proc/")
 
+        if (isSysfs) {
+            val deniedAt = deniedPaths[path]
+            if (deniedAt != null && System.currentTimeMillis() - deniedAt < denyTtlMs) return null
+        }
+
+        val hasShell = currentMode != PrivilegeMode.BASIC
         val result = when {
             isSysfs && hasShell -> executor.readFile(path)
             else -> readFileDirect(path) ?: executor.readFile(path)
         }
 
-        if (result == null) {
-            deniedPaths[path] = System.currentTimeMillis()
-        } else {
-            deniedPaths.remove(path)
+        if (isSysfs) {
+            if (result == null) deniedPaths[path] = System.currentTimeMillis()
+            else deniedPaths.remove(path)
+        }
+        // /proc/ paths intentionally bypass the denial cache — transient
+        // failures (mode switch, shell hiccup) must not freeze polling.
+        if (!isSysfs && !isProc) {
+            // Other paths (unusual — e.g. /data/... in tests): use old behavior.
+            if (result == null) deniedPaths[path] = System.currentTimeMillis()
+            else deniedPaths.remove(path)
         }
         return result
+    }
+
+    /** Flush the denial cache. Called when external signals (mode change,
+     *  server restart) make previously-denied paths potentially readable. */
+    fun clearDeniedPaths() {
+        deniedPaths.clear()
     }
 
     /**

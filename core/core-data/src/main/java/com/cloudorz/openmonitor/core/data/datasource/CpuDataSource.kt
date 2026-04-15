@@ -1,5 +1,7 @@
 package com.cloudorz.openmonitor.core.data.datasource
 
+import android.os.Process
+import android.os.SystemClock
 import android.util.Log
 import com.cloudorz.openmonitor.core.common.CpuNativeInfo
 import com.cloudorz.openmonitor.core.common.SysfsReader
@@ -47,8 +49,11 @@ class CpuDataSource @Inject constructor(
 
     suspend fun getCpuLoad(): DoubleArray = withContext(Dispatchers.IO) {
         val stat1 = parseProcStat()
+        if (stat1.isEmpty()) return@withContext fallbackOwnProcessLoad()
+
         delay(100)
         val stat2 = parseProcStat()
+        if (stat2.isEmpty()) return@withContext fallbackOwnProcessLoad()
 
         val coreCount = stat1.size.coerceAtMost(stat2.size)
         DoubleArray(coreCount) { i ->
@@ -64,8 +69,17 @@ class CpuDataSource @Inject constructor(
     }
 
     private suspend fun parseProcStat(): List<LongArray> {
-        val lines = sysfsReader.readLines(procStatPath)
-        return lines
+        // Direct File I/O first — /proc/stat is world-readable on stock Android
+        // and this bypasses SysfsReader's denial cache entirely for this hot
+        // path. Shell fallback handles OEMs that lock it down in BASIC mode.
+        val raw = try {
+            File(procStatPath).readText()
+        } catch (e: Exception) {
+            Log.d("CpuDataSource", "/proc/stat direct read failed: ${e.message}")
+            sysfsReader.readLines(procStatPath).joinToString("\n")
+        }
+        if (raw.isBlank()) return emptyList()
+        return raw.lineSequence()
             .filter { it.startsWith("cpu") }
             .map { line ->
                 line.trim().split("\\s+".toRegex())
@@ -73,6 +87,28 @@ class CpuDataSource @Inject constructor(
                     .map { it.toLongOrNull() ?: 0L }
                     .toLongArray()
             }
+            .toList()
+    }
+
+    // Last-resort Android-API fallback when /proc/stat is completely denied
+    // (some hardened OEM builds). Uses own-process CPU time sampled over a
+    // short interval and fans the single aggregate figure out across all
+    // cores so the progress bars at least animate. This is an approximation:
+    // the returned percentages reflect *our* process's CPU, not the system's,
+    // and will stay near zero when the app is idle in the background.
+    private suspend fun fallbackOwnProcessLoad(): DoubleArray {
+        val coreCount = getCpuCoreCount().coerceAtLeast(1)
+        val tCpu1 = Process.getElapsedCpuTime()
+        val tWall1 = SystemClock.elapsedRealtime()
+        delay(150)
+        val tCpu2 = Process.getElapsedCpuTime()
+        val tWall2 = SystemClock.elapsedRealtime()
+        val wallDiff = (tWall2 - tWall1).coerceAtLeast(1)
+        val cpuDiff = (tCpu2 - tCpu1).coerceAtLeast(0)
+        val loadPercent = (cpuDiff.toDouble() / wallDiff / coreCount * 100.0).coerceIn(0.0, 100.0)
+        // Index 0 is the aggregate, 1..N are per-core; we have no per-core
+        // breakdown here so just replicate the aggregate.
+        return DoubleArray(coreCount + 1) { loadPercent }
     }
 
     suspend fun getClusterStatus(policyIndex: Int): CpuClusterStatus? = withContext(Dispatchers.IO) {
