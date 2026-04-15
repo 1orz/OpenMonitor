@@ -39,7 +39,22 @@ pub fn run_server(mode: LaunchMode, config: ServerConfig) -> Result<(), ServerEr
     crate::service::init_binder();
 
     // 2. Allocate the shared-memory Snapshot region.
-    let shm = Arc::new(SharedSnapshot::create().map_err(ServerError::Shm)?);
+    //    Libsu: file-backed shm so the app can mmap directly (avoids SELinux
+    //           service_manager restrictions that block ServiceManager discovery).
+    //    Shizuku: ashmem transferred via binder ParcelFileDescriptor.
+    let shm = Arc::new(match mode {
+        LaunchMode::Libsu => {
+            let dir = config.data_dir.as_ref().ok_or_else(|| {
+                ServerError::Shm(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "data_dir required for libsu mode",
+                ))
+            })?;
+            SharedSnapshot::create_file(&dir.join("server/snapshot.shm"))
+                .map_err(ServerError::Shm)?
+        }
+        LaunchMode::Shizuku => SharedSnapshot::create().map_err(ServerError::Shm)?,
+    });
 
     // 3. Build service impl.
     let service = MonitorServiceImpl::new(shm.clone());

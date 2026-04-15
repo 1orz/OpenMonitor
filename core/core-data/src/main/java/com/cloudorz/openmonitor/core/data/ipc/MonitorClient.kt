@@ -85,6 +85,41 @@ class MonitorClient @Inject constructor() {
     }
 
     /**
+     * Connect via file-backed shared memory (ROOT / libsu path).
+     * No binder required — the app mmaps the same file the server writes to.
+     */
+    @Synchronized
+    fun connectViaFile(shmFile: java.io.File) {
+        disposeLocked()
+        val buffer = mapShmFile(shmFile)
+        if (buffer == null) {
+            XLog.tag(TAG).e("connectViaFile: failed to mmap $shmFile")
+            return
+        }
+        XLog.tag(TAG).i("connected via file-backed shm: $shmFile")
+        mappedBuffer = buffer
+        _connected.value = true
+        startReader(buffer)
+    }
+
+    private fun mapShmFile(file: java.io.File): ByteBuffer? {
+        return try {
+            FileInputStream(file).use { fis ->
+                val channel: FileChannel = fis.channel
+                val buf = channel.map(
+                    FileChannel.MapMode.READ_ONLY,
+                    0L,
+                    SnapshotLayout.SIZE_BYTES.toLong(),
+                )
+                buf.order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            }
+        } catch (e: Throwable) {
+            XLog.tag(TAG).e("mapShmFile: ${e.message}")
+            null
+        }
+    }
+
+    /**
      * Entry point called by the launcher layer once a binder is available.
      * Safe to call repeatedly; replaces an existing binder atomically.
      */

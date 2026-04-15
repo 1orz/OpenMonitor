@@ -13,6 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -99,7 +100,6 @@ class MonitorLauncher @Inject constructor(
     private suspend fun launchViaLibsu(): Boolean {
         val pkg = context.packageName
         val dataDir = context.filesDir.absolutePath
-        // The root shell loses our process env. Pass every knob explicitly.
         val cmd = "'$binaryPath' --mode root --data-dir '$dataDir' --app-package '$pkg'"
         val launched = try {
             val result = Shell.cmd(cmd).exec()
@@ -117,10 +117,20 @@ class MonitorLauncher @Inject constructor(
 
         if (!launched) return false
 
-        // The binary daemonizes and registers in ServiceManager asynchronously.
-        // Poll until the binder appears or we time out.
-        discoverBinder()
-        return true
+        // The server creates a file-backed shared memory region that the app
+        // mmaps directly — no binder discovery needed, avoids SELinux
+        // service_manager restrictions on custom services.
+        val shmFile = File(context.filesDir, "server/snapshot.shm")
+        repeat(DISCOVERY_ATTEMPTS) {
+            if (shmFile.exists() && shmFile.length() > 0) {
+                monitorClient.connectViaFile(shmFile)
+                XLog.tag(TAG).i("connected via file-backed shm")
+                return true
+            }
+            delay(DISCOVERY_DELAY_MS)
+        }
+        XLog.tag(TAG).w("shared memory file not found after ${DISCOVERY_ATTEMPTS * DISCOVERY_DELAY_MS}ms")
+        return false
     }
 
     /**

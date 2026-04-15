@@ -87,13 +87,30 @@ unsafe impl Sync for SharedSnapshot {}
 impl SharedSnapshot {
     pub fn create() -> io::Result<Self> {
         let fd = create_ashmem("openmonitor-snapshot", SIZE_BYTES)?;
-        let ptr = mmap_rw(&fd, SIZE_BYTES)? as *mut Snapshot;
+        Self::from_fd(fd)
+    }
 
-        // Initialise header + body to a known empty state. We deliberately
-        // avoid forming `&(*ptr).header` then casting — that's UB per the
-        // invalid_reference_casting lint. Instead, compute raw pointers to
-        // the specific fields via byte-offset arithmetic on the mmap'd
-        // region, which has no aliasing reference yet.
+    /// File-backed shared memory for the libsu path. The app mmaps the same
+    /// file directly — no binder needed, no SELinux service_manager issues.
+    pub fn create_file(path: &std::path::Path) -> io::Result<Self> {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let file = std::fs::OpenOptions::new()
+            .read(true).write(true).create(true).truncate(true)
+            .open(path)?;
+        file.set_len(SIZE_BYTES as u64)?;
+        let fd = {
+            use std::os::unix::io::IntoRawFd;
+            unsafe { OwnedFd::from_raw_fd_checked(file.into_raw_fd())? }
+        };
+        unsafe { libc::fchmod(fd.as_raw_fd(), 0o666); }
+        log::info!("shared memory file: {}", path.display());
+        Self::from_fd(fd)
+    }
+
+    fn from_fd(fd: OwnedFd) -> io::Result<Self> {
+        let ptr = mmap_rw(&fd, SIZE_BYTES)? as *mut Snapshot;
         unsafe {
             ptr::write_bytes(ptr as *mut u8, 0, SIZE_BYTES);
             let base = ptr as *mut u8;
@@ -103,7 +120,6 @@ impl SharedSnapshot {
                 std::mem::offset_of!(SnapshotHeader, version)) as *mut u32;
             ptr::write(magic_ptr, MAGIC);
             ptr::write(version_ptr, VERSION);
-            // seq starts at 0 (stable, empty body). First writer will bump to 1 → 2.
         }
         Ok(Self { fd, ptr })
     }
