@@ -63,13 +63,15 @@ pub fn service_dump(service_name: &str, args: &[&str]) -> Option<String> {
     let str_args: Vec<String> = args.iter().map(|s| s.to_string()).collect();
     let wr_raw = wr.into_raw_fd();
     if let Err(e) = proxy.dump(wr_raw, &str_args) {
+        unsafe { libc::close(wr_raw); }
         log::warn!("service_dump({service_name}) failed: {e:?}");
         return None;
     }
+    // Close write end so read_to_end sees EOF once the service finishes writing.
+    unsafe { libc::close(wr_raw); }
 
     let mut out = Vec::new();
-    let mut f = unsafe { std::fs::File::from_raw_fd(rd.as_raw_fd()) };
-    std::mem::forget(rd);
+    let mut f = unsafe { std::fs::File::from_raw_fd(rd.into_raw_fd()) };
     std::io::Read::read_to_end(&mut f, &mut out).ok()?;
     Some(String::from_utf8_lossy(&out).into_owned())
 }
