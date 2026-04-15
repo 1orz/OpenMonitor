@@ -8,6 +8,8 @@ import android.util.Log
 import com.cloudorz.openmonitor.core.common.PlatformDetector
 import com.cloudorz.openmonitor.core.common.PrivilegeMode
 import com.cloudorz.openmonitor.core.common.ShellExecutor
+import com.cloudorz.openmonitor.core.data.ipc.MonitorClient
+import com.cloudorz.openmonitor.core.data.ipc.MonitorSnapshotAdapter
 import com.cloudorz.openmonitor.core.data.util.MonitorParser
 import com.cloudorz.openmonitor.core.model.monitor.MonitorSnapshot
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -23,6 +25,7 @@ class AggregatedMonitorDataSource @Inject constructor(
     private val platformDetector: PlatformDetector,
     private val daemonDataSource: DaemonDataSource,
     private val thermalDataSource: ThermalDataSource,
+    private val monitorClient: MonitorClient,
     @param:ApplicationContext private val context: Context,
 ) {
     companion object {
@@ -43,11 +46,28 @@ class AggregatedMonitorDataSource @Inject constructor(
     /** Last successful daemon snapshot — returned on transient failures to avoid UI flicker. */
     @Volatile private var lastDaemonSnapshot: MonitorSnapshot? = null
 
-    suspend fun collectSnapshot(): MonitorSnapshot = when (shellExecutor.mode) {
-        PrivilegeMode.ROOT,
-        PrivilegeMode.ADB,
-        PrivilegeMode.SHIZUKU -> collectFromDaemon()
-        PrivilegeMode.BASIC   -> collectBasic()
+    suspend fun collectSnapshot(): MonitorSnapshot {
+        // Prefer the new Rust server when connected (shared-memory path).
+        if (monitorClient.connected.value) {
+            val snap = monitorClient.snapshots.replayCache.firstOrNull()
+            if (snap != null) {
+                val result = MonitorSnapshotAdapter.toDomain(snap)
+                // Supplement battery current from Android API if server has no data.
+                val enriched = if (result.batteryCurrentMa == null || result.batteryCurrentMa == 0) {
+                    result.copy(batteryCurrentMa = getBatteryCurrentFromApi())
+                } else result
+                lastDaemonSnapshot = enriched
+                return enriched
+            }
+        }
+
+        // Fall back to old Go daemon or BASIC mode.
+        return when (shellExecutor.mode) {
+            PrivilegeMode.ROOT,
+            PrivilegeMode.ADB,
+            PrivilegeMode.SHIZUKU -> collectFromDaemon()
+            PrivilegeMode.BASIC   -> collectBasic()
+        }
     }
 
     /**

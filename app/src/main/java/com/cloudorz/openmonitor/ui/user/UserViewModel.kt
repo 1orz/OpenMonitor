@@ -14,6 +14,7 @@ import com.cloudorz.openmonitor.core.ui.HapticFeedbackManager
 import com.cloudorz.openmonitor.core.data.datasource.DaemonLauncher
 import com.cloudorz.openmonitor.core.data.datasource.DaemonManager
 import com.cloudorz.openmonitor.core.data.datasource.DaemonState
+import com.cloudorz.openmonitor.core.data.ipc.MonitorLauncher
 import com.cloudorz.openmonitor.core.ui.theme.ColorMode
 import com.cloudorz.openmonitor.data.repository.ThemeSettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -39,6 +40,7 @@ class UserViewModel @Inject constructor(
     private val daemonClient: DaemonClient,
     private val daemonManager: DaemonManager,
     private val daemonLauncher: DaemonLauncher,
+    private val monitorLauncher: MonitorLauncher,
     private val themeRepo: ThemeSettingsRepository,
     private val identityRepository: DeviceIdentityRepository,
     private val activationRepository: ActivationRepository,
@@ -134,6 +136,8 @@ class UserViewModel @Inject constructor(
     fun startAdbWatcher() {
         if (adbWatcherJob?.isActive == true) return
         adbWatcherJob = viewModelScope.launch(Dispatchers.IO) {
+            // Also attempt Rust server (fire-and-forget).
+            launch { monitorLauncher.ensureRunning() }
             while (isActive) {
                 delay(3000)
                 if (_daemonStatus.value.connected) break
@@ -158,6 +162,7 @@ class UserViewModel @Inject constructor(
         if (_daemonStatus.value.checking) return
         viewModelScope.launch {
             _daemonStatus.value = _daemonStatus.value.copy(checking = true)
+            launch { monitorLauncher.ensureRunning() }
             val state = withTimeoutOrNull(5_000L) { daemonManager.ensureRunning() }
             _daemonStatus.value = buildStatus(alive = state == DaemonState.RUNNING)
         }
@@ -167,6 +172,7 @@ class UserViewModel @Inject constructor(
         if (_daemonStatus.value.checking) return
         viewModelScope.launch {
             _daemonStatus.value = _daemonStatus.value.copy(checking = true)
+            launch { monitorLauncher.ensureRunning() }
             val state = withTimeoutOrNull(5_000L) { daemonManager.restart() }
             _daemonStatus.value = buildStatus(alive = state == DaemonState.RUNNING)
         }
@@ -252,9 +258,13 @@ class UserViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             _daemonStatus.update { it.copy(checking = true) }
+            // Shut down old Rust server before mode switch.
+            monitorLauncher.shutdown()
             val result = withTimeoutOrNull(SWITCH_TIMEOUT_MS) {
                 daemonManager.switchMode(oldMode, newMode, applyNewMode)
             } ?: DaemonState.FAILED
+            // Relaunch Rust server under new mode (fire-and-forget).
+            launch { monitorLauncher.ensureRunning() }
             val alive = result == DaemonState.RUNNING
             _daemonStatus.value = buildStatus(alive = alive)
             onComplete(result)

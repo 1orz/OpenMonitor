@@ -63,6 +63,7 @@ import com.cloudorz.openmonitor.core.common.PermissionManager
 import com.cloudorz.openmonitor.core.common.PrivilegeMode
 import com.cloudorz.openmonitor.core.data.datasource.DaemonManager
 import com.cloudorz.openmonitor.core.data.datasource.DaemonState
+import com.cloudorz.openmonitor.core.data.ipc.MonitorLauncher
 import com.cloudorz.openmonitor.core.data.repository.ActivationRepository
 import com.cloudorz.openmonitor.core.data.repository.DeviceIdentityRepository
 import com.cloudorz.openmonitor.ui.activation.ActivationScreen
@@ -121,6 +122,9 @@ class MainActivity : AppCompatActivity() {
     lateinit var daemonManager: DaemonManager
 
     @Inject
+    lateinit var monitorLauncher: MonitorLauncher
+
+    @Inject
     lateinit var identityRepository: DeviceIdentityRepository
 
     @Inject
@@ -145,7 +149,7 @@ class MainActivity : AppCompatActivity() {
             ) {
                 MonitorTheme(appSettings = themeState.appSettings) {
                     MonitorAppContent(
-                        permissionManager, daemonManager,
+                        permissionManager, daemonManager, monitorLauncher,
                         identityRepository, activationRepository,
                     )
                 }
@@ -169,6 +173,7 @@ private enum class StartupPhase {
 private fun MonitorAppContent(
     permissionManager: PermissionManager,
     daemonManager: DaemonManager,
+    monitorLauncher: MonitorLauncher,
     identityRepository: DeviceIdentityRepository,
     activationRepository: ActivationRepository,
 ) {
@@ -231,6 +236,8 @@ private fun MonitorAppContent(
             }
             if (selectedMode == PrivilegeMode.ROOT || selectedMode == PrivilegeMode.SHIZUKU) {
                 startupStepResId = R.string.startup_deploying_daemon
+                // Launch Rust server in parallel (fire-and-forget).
+                launch { monitorLauncher.ensureRunning() }
                 val result = daemonManager.ensureRunning()
                 if (result == DaemonState.FAILED) {
                     startupPhase = StartupPhase.NEEDS_GUIDE
@@ -240,6 +247,7 @@ private fun MonitorAppContent(
             }
             if (selectedMode == PrivilegeMode.ADB) {
                 startupStepResId = R.string.startup_connecting_daemon
+                launch { monitorLauncher.ensureRunning() }
                 daemonManager.ensureRunning()
             }
             startupStepResId = R.string.startup_almost_ready
@@ -340,6 +348,7 @@ private fun MonitorAppContent(
                 PermissionGuideScreen(
                     permissionManager = permissionManager,
                     daemonManager = daemonManager,
+                    monitorLauncher = monitorLauncher,
                     onModeSelected = { startupPhase = StartupPhase.READY },
                 )
             }
