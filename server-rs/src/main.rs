@@ -67,6 +67,15 @@ fn parse_args<I: Iterator<Item = String>>(mut args: I) -> Args {
             _ => eprintln!("openmonitor-server: ignoring unknown arg {a}"),
         }
     }
+
+    // ADB mode convenience: default data_dir to /data/local/tmp/openmonitor so
+    // the user only needs to pass `--mode adb` and the app will find the shm
+    // file at the known path. /data/local/tmp is the canonical shell-writable
+    // location; the MonitorLauncher ADB discovery watches the same path.
+    if data_dir.is_none() && (mode == "adb" || mode == "shell") {
+        data_dir = Some(std::path::PathBuf::from("/data/local/tmp/openmonitor"));
+    }
+
     Args { mode, data_dir, app_package }
 }
 

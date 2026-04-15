@@ -254,7 +254,7 @@ fun UserScreen(
 
         if (currentMode == PrivilegeMode.ADB && !serverStatus.connected) {
             AdbSetupCard(
-                binaryPath = "libopenmonitor-server.so",
+                adbCommand = viewModel.adbLaunchCommand(),
                 onCheck = { viewModel.checkServer() },
             )
         }
@@ -721,7 +721,7 @@ private fun modeDescription(mode: PrivilegeMode): String = when (mode) {
 
 @Composable
 private fun AdbSetupCard(
-    binaryPath: String,
+    adbCommand: String,
     onCheck: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -760,7 +760,6 @@ private fun AdbSetupCard(
             )
             Spacer(modifier = Modifier.height(8.dp))
 
-            val adbCommand = "adb shell $binaryPath"
             Text(
                 text = adbCommand,
                 style = MaterialTheme.typography.bodySmall.copy(

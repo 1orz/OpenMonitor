@@ -42,19 +42,40 @@ class MonitorLauncher @Inject constructor(
     companion object {
         private const val TAG = "MonitorLauncher"
         private const val SERVER_BIN = "libopenmonitor-server.so"
+        /**
+         * ADB-mode shared memory path. The Rust server's
+         * [SharedSnapshot::create_file] derives the path as
+         * `<data_dir>/server/snapshot.shm`; main.rs defaults `data_dir` to
+         * `/data/local/tmp/openmonitor` for `--mode adb`. /data/local/tmp is
+         * the canonical shell-writable location; the file is chmod'd 0644 so
+         * the untrusted_app can mmap it (SELinux allows untrusted_app →
+         * shell_data_file:file read on standard AOSP builds).
+         */
+        private const val ADB_SHM_PATH = "/data/local/tmp/openmonitor/server/snapshot.shm"
         // Must match com.cloudorz.openmonitor.server.RustEntry.
         private const val SHIZUKU_ENTRY_CLASS =
             "com.cloudorz.openmonitor.server.RustEntry"
         private const val SHIZUKU_PROCESS_SUFFIX = ":server"
         private const val USER_SERVICE_VERSION = 1
-        // Must match binder_push::SERVICE_NAME in the Rust server.
-        private const val SERVICE_MANAGER_NAME = "openmonitor.server"
         private const val DISCOVERY_ATTEMPTS = 10
         private const val DISCOVERY_DELAY_MS = 300L
     }
 
-    private val binaryPath: String
+    val binaryPath: String
         get() = "${context.applicationInfo.nativeLibraryDir}/$SERVER_BIN"
+
+    /** Canonical file path the --mode adb server writes its shm to. */
+    val adbShmPath: String get() = ADB_SHM_PATH
+
+    /**
+     * Full adb shell command the user runs on their host to launch the server
+     * in ADB mode. The `su` fallback is harmless on non-root devices and
+     * automatic on rooted ones — this way a single command works for both.
+     */
+    fun adbLaunchCommand(): String {
+        val pkg = context.packageName
+        return "$binaryPath --mode adb --app-package $pkg"
+    }
 
     private val shizukuConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -76,13 +97,7 @@ class MonitorLauncher @Inject constructor(
         when (shellExecutor.mode) {
             PrivilegeMode.ROOT -> launchViaLibsu()
             PrivilegeMode.SHIZUKU -> launchViaShizuku()
-            PrivilegeMode.ADB -> {
-                // ADB mode: user manually invokes the binary. Try to discover
-                // an already-running server via ServiceManager.
-                XLog.tag(TAG).i("ADB mode — attempting server discovery")
-                discoverBinder()
-                true
-            }
+            PrivilegeMode.ADB -> discoverAdbShm()
             PrivilegeMode.BASIC -> false
         }
     }
@@ -148,38 +163,24 @@ class MonitorLauncher @Inject constructor(
     }
 
     /**
-     * Poll ServiceManager for the server binder. The server registers itself
-     * as [SERVICE_MANAGER_NAME] via `rsbinder::hub::add_service`.
+     * ADB mode — the user starts the server manually from a host shell. We
+     * just poll the canonical shm path; when it appears (and is written to),
+     * map it via [MonitorClient.connectViaFile]. Same file-backed-shm path
+     * ROOT mode uses, just at a shell-writable location so the untrusted_app
+     * can still mmap it without hitting SELinux `service_manager` rules.
      */
-    private suspend fun discoverBinder() {
+    private suspend fun discoverAdbShm(): Boolean {
+        val shmFile = File(ADB_SHM_PATH)
+        XLog.tag(TAG).i("ADB mode — polling $ADB_SHM_PATH")
         repeat(DISCOVERY_ATTEMPTS) {
-            val binder = getServiceBinder(SERVICE_MANAGER_NAME)
-            if (binder != null) {
-                XLog.tag(TAG).i("discovered server binder via ServiceManager")
-                monitorClient.onBinderReceived(binder)
-                return
+            if (shmFile.exists() && shmFile.length() > 0) {
+                monitorClient.connectViaFile(shmFile)
+                return true
             }
             delay(DISCOVERY_DELAY_MS)
         }
-        XLog.tag(TAG).w(
-            "ServiceManager discovery timed out — server may use BinderProvider fallback"
-        )
-    }
-
-    /**
-     * Reflective ServiceManager.getService(name). Hidden API, but accessible
-     * to root/shell processes and apps with hidden-api bypass.
-     */
-    @Suppress("PrivateApi")
-    private fun getServiceBinder(name: String): IBinder? {
-        return try {
-            val sm = Class.forName("android.os.ServiceManager")
-            val method = sm.getMethod("getService", String::class.java)
-            method.invoke(null, name) as? IBinder
-        } catch (e: Throwable) {
-            // Expected to fail on first few attempts before server is ready.
-            null
-        }
+        XLog.tag(TAG).w("ADB shm not found after ${DISCOVERY_ATTEMPTS * DISCOVERY_DELAY_MS}ms — did the user run the adb command?")
+        return false
     }
 
     private fun launchViaShizuku(): Boolean {

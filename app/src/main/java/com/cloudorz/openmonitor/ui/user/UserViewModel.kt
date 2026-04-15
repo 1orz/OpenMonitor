@@ -157,6 +157,9 @@ class UserViewModel @Inject constructor(
         adbWatcherJob = null
     }
 
+    /** Runnable `adb shell ...` command the user pastes into their host terminal. */
+    fun adbLaunchCommand(): String = "adb shell ${monitorLauncher.adbLaunchCommand()}"
+
     fun checkServer() {
         if (_serverStatus.value.checking) return
         viewModelScope.launch {

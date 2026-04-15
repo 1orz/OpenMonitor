@@ -104,11 +104,20 @@ impl SharedSnapshot {
         Self::from_fd(fd, launch_mode)
     }
 
-    /// File-backed shared memory for the libsu path. The app mmaps the same
-    /// file directly — no binder needed, no SELinux service_manager issues.
+    /// File-backed shared memory for the libsu / ADB paths. The app mmaps the
+    /// same file directly — no binder needed, no SELinux service_manager
+    /// issues. For ADB mode the file lives at /data/local/tmp/openmonitor/
+    /// (shell_data_file-labeled); the parent dir needs mode 0755 so the
+    /// untrusted_app can traverse it, and the file itself 0644 so it can be
+    /// mmap'd read-only.
     pub fn create_file(path: &std::path::Path, launch_mode: u32) -> io::Result<Self> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
+            // chmod explicitly — our umask could have stripped the
+            // world-execute bit, making the dir untraversable for the app.
+            let c_parent = std::ffi::CString::new(parent.as_os_str().as_encoded_bytes())
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "bad parent path"))?;
+            unsafe { libc::chmod(c_parent.as_ptr(), 0o755); }
         }
         let file = std::fs::OpenOptions::new()
             .read(true).write(true).create(true).truncate(true)
@@ -118,7 +127,7 @@ impl SharedSnapshot {
             use std::os::unix::io::IntoRawFd;
             unsafe { OwnedFd::from_raw_fd_checked(file.into_raw_fd())? }
         };
-        unsafe { libc::fchmod(fd.as_raw_fd(), 0o666); }
+        unsafe { libc::fchmod(fd.as_raw_fd(), 0o644); }
         log::info!("shared memory file: {}", path.display());
         Self::from_fd(fd, launch_mode)
     }
