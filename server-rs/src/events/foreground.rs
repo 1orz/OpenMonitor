@@ -54,7 +54,8 @@ fn extract_pkg_from_record(line: &str) -> Option<String> {
 /// Equivalent to `dumpsys <service_name> [args...]` but without exec.
 #[cfg(target_os = "android")]
 pub fn service_dump(service_name: &str, args: &[&str]) -> Option<String> {
-    use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd};
+    use std::os::unix::io::IntoRawFd;
+    use std::time::Duration;
 
     let svc = rsbinder::hub::get_service(service_name)?;
     let proxy = svc.as_proxy()?;
@@ -67,13 +68,44 @@ pub fn service_dump(service_name: &str, args: &[&str]) -> Option<String> {
         log::warn!("service_dump({service_name}) failed: {e:?}");
         return None;
     }
-    // Close write end so read_to_end sees EOF once the service finishes writing.
     unsafe { libc::close(wr_raw); }
 
-    let mut out = Vec::new();
-    let mut f = unsafe { std::fs::File::from_raw_fd(rd.into_raw_fd()) };
-    std::io::Read::read_to_end(&mut f, &mut out).ok()?;
-    Some(String::from_utf8_lossy(&out).into_owned())
+    read_pipe_with_timeout(rd.into_raw_fd(), Duration::from_secs(3))
+}
+
+/// Read all data from a pipe fd with a deadline. The fd is always closed.
+#[cfg(target_os = "android")]
+fn read_pipe_with_timeout(fd: i32, timeout: std::time::Duration) -> Option<String> {
+    use std::time::Instant;
+
+    unsafe {
+        let flags = libc::fcntl(fd, libc::F_GETFL);
+        libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK);
+    }
+
+    let deadline = Instant::now() + timeout;
+    let mut out = Vec::with_capacity(4096);
+    let mut buf = [0u8; 8192];
+
+    loop {
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            log::warn!("pipe read timed out");
+            break;
+        }
+
+        let mut pfd = libc::pollfd { fd, events: libc::POLLIN, revents: 0 };
+        let ms = remaining.as_millis().min(i32::MAX as u128) as i32;
+        let ret = unsafe { libc::poll(&mut pfd, 1, ms) };
+        if ret <= 0 { break; }
+
+        let n = unsafe { libc::read(fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len()) };
+        if n <= 0 { break; }
+        out.extend_from_slice(&buf[..n as usize]);
+    }
+
+    unsafe { libc::close(fd); }
+    if out.is_empty() { None } else { Some(String::from_utf8_lossy(&out).into_owned()) }
 }
 
 #[cfg(not(target_os = "android"))]

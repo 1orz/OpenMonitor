@@ -37,19 +37,10 @@ fn sampler_loop(shm: Arc<SharedSnapshot>, rt: RuntimeHandle) {
     let mut fps = fps::FpsReader::open();
     let focus_handle = fps.attach_focus();
 
+    start_foreground_thread(focus_handle, rt.clone());
+
     loop {
         let t0 = std::time::Instant::now();
-
-        // Update foreground package via binder dump (zero fork).
-        if let Some(pkg) = crate::events::foreground::get_focused_package() {
-            if let Ok(mut g) = focus_handle.lock() {
-                if g.as_str() != pkg {
-                    log::info!("focus → {pkg}");
-                    rt.notify_focus(&pkg);
-                    *g = pkg;
-                }
-            }
-        }
 
         let now_ns = now_monotonic_ns();
         let p = power.sample();
@@ -117,4 +108,27 @@ fn copy_cstr(dst: &mut [u8], s: &str, cap: usize) {
     dst[..n].copy_from_slice(&bytes[..n]);
     if n < cap { dst[n] = 0; }
     for b in &mut dst[n + 1..] { *b = 0; }
+}
+
+/// Foreground detection on a dedicated thread — binder dumps can be slow and
+/// must not block the 500 ms sampler cadence.
+fn start_foreground_thread(
+    focus: Arc<std::sync::Mutex<String>>,
+    rt: RuntimeHandle,
+) {
+    thread::Builder::new()
+        .name("openmonitor-fg".into())
+        .spawn(move || loop {
+            if let Some(pkg) = crate::events::foreground::get_focused_package() {
+                if let Ok(mut g) = focus.lock() {
+                    if g.as_str() != pkg {
+                        log::info!("focus → {pkg}");
+                        rt.notify_focus(&pkg);
+                        *g = pkg;
+                    }
+                }
+            }
+            thread::sleep(Duration::from_secs(2));
+        })
+        .expect("spawn foreground thread");
 }

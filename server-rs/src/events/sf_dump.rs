@@ -74,31 +74,7 @@ pub fn parse_latency(text: &str) -> Vec<i64> {
 /// Returns None on host or if the service is unavailable.
 #[cfg(target_os = "android")]
 pub fn sf_dump(args: &[&str]) -> Option<String> {
-    use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd};
-
-    // Get SurfaceFlinger binder from ServiceManager
-    let sf = rsbinder::hub::get_service("SurfaceFlinger")?;
-    let proxy = sf.as_proxy()?;
-
-    // Create a pipe
-    let (rd, wr) = nix::unistd::pipe().ok()?;
-
-    // Dump to the write end — proxy.dump takes IntoRawFd
-    let str_args: Vec<String> = args.iter().map(|s| s.to_string()).collect();
-    let wr_raw = wr.into_raw_fd(); // transfers ownership
-    if let Err(e) = proxy.dump(wr_raw, &str_args) {
-        log::warn!("sf_dump failed: {e:?}");
-        // wr_raw was consumed by dump (IntoRawFd)
-        return None;
-    }
-    // wr_raw was consumed by dump — write end is now closed by proxy
-
-    // Read the pipe
-    let mut out = Vec::new();
-    let mut f = unsafe { std::fs::File::from_raw_fd(rd.as_raw_fd()) };
-    std::mem::forget(rd); // File now owns the fd
-    std::io::Read::read_to_end(&mut f, &mut out).ok()?;
-    Some(String::from_utf8_lossy(&out).into_owned())
+    crate::events::foreground::service_dump("SurfaceFlinger", args)
 }
 
 #[cfg(not(target_os = "android"))]
