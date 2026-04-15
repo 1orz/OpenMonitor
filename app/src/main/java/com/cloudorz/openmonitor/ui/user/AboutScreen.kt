@@ -81,6 +81,7 @@ fun AboutScreen(
     val context = LocalContext.current
     val view = LocalView.current
     val clipboardManager = context.getSystemService(ClipboardManager::class.java)
+    val copiedToastMessage = stringResource(R.string.about_copied)
 
     val identity = remember { viewModel.getCachedIdentity() }
     val activationState = remember { viewModel.getCachedActivationState() }
@@ -147,7 +148,7 @@ fun AboutScreen(
                 onCopy = {
                     view.hapticClick()
                     clipboardManager.setPrimaryClip(ClipData.newPlainText("UUID", identity.uuid))
-                    Toast.makeText(context, context.getString(R.string.about_copied), Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, copiedToastMessage, Toast.LENGTH_SHORT).show()
                 },
             )
             Spacer(Modifier.height(14.dp))
@@ -171,7 +172,7 @@ fun AboutScreen(
             onCopyAll = { text ->
                 view.hapticClick()
                 clipboardManager.setPrimaryClip(ClipData.newPlainText("Fingerprint", text))
-                Toast.makeText(context, context.getString(R.string.about_copied), Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, copiedToastMessage, Toast.LENGTH_SHORT).show()
             },
         )
 

@@ -303,6 +303,9 @@ fun UserScreen(
 
         // ── Community ──
         val communityContext = LocalContext.current
+        val qqGroupCopiedToast = stringResource(R.string.qq_group_copied)
+        val qqNotInstalledToast = stringResource(R.string.qq_not_installed)
+        val qqChannelCopiedToast = stringResource(R.string.qq_channel_copied)
         SettingsGroup(
             title = stringResource(R.string.settings_group_community),
             items = listOf(
@@ -332,7 +335,7 @@ fun UserScreen(
                                     onClick = {
                                         val clipboard = communityContext.getSystemService(ClipboardManager::class.java)
                                         clipboard?.setPrimaryClip(ClipData.newPlainText("Telegram", CommunityLinks.TELEGRAM_URL))
-                                        Toast.makeText(communityContext, communityContext.getString(R.string.qq_group_copied), Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(communityContext, qqGroupCopiedToast, Toast.LENGTH_SHORT).show()
                                     },
                                     modifier = Modifier.size(20.dp),
                                 ) {
@@ -360,7 +363,7 @@ fun UserScreen(
                                     Intent(Intent.ACTION_VIEW, CommunityLinks.QQ_GROUP_URL.toUri()),
                                 )
                             } catch (_: Exception) {
-                                Toast.makeText(communityContext, communityContext.getString(R.string.qq_not_installed), Toast.LENGTH_SHORT).show()
+                                Toast.makeText(communityContext, qqNotInstalledToast, Toast.LENGTH_SHORT).show()
                             }
                         }),
                         colors = ListItemDefaults.colors(
@@ -380,7 +383,7 @@ fun UserScreen(
                                     onClick = {
                                         val clipboard = communityContext.getSystemService(ClipboardManager::class.java)
                                         clipboard?.setPrimaryClip(ClipData.newPlainText("QQ Group", CommunityLinks.QQ_GROUP_NUMBER))
-                                        Toast.makeText(communityContext, communityContext.getString(R.string.qq_group_copied), Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(communityContext, qqGroupCopiedToast, Toast.LENGTH_SHORT).show()
                                     },
                                     modifier = Modifier.size(20.dp),
                                 ) {
@@ -412,7 +415,7 @@ fun UserScreen(
                             } catch (_: Exception) {
                                 val clipboard = communityContext.getSystemService(ClipboardManager::class.java)
                                 clipboard?.setPrimaryClip(ClipData.newPlainText("QQ Channel", qqChannelUrl))
-                                Toast.makeText(communityContext, communityContext.getString(R.string.qq_channel_copied), Toast.LENGTH_SHORT).show()
+                                Toast.makeText(communityContext, qqChannelCopiedToast, Toast.LENGTH_SHORT).show()
                             }
                         }),
                         colors = ListItemDefaults.colors(
@@ -432,7 +435,7 @@ fun UserScreen(
                                     onClick = {
                                         val clipboard = communityContext.getSystemService(ClipboardManager::class.java)
                                         clipboard?.setPrimaryClip(ClipData.newPlainText("QQ Channel", qqChannelId))
-                                        Toast.makeText(communityContext, communityContext.getString(R.string.qq_channel_copied), Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(communityContext, qqChannelCopiedToast, Toast.LENGTH_SHORT).show()
                                     },
                                     modifier = Modifier.size(20.dp),
                                 ) {

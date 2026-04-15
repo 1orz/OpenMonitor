@@ -77,6 +77,10 @@ fun ActivationScreen(
 
     val errorInvalidCode = stringResource(R.string.activation_invalid_code)
     val errorNetworkError = stringResource(R.string.activation_network_error)
+    val activationCopiedToast = stringResource(R.string.activation_copied)
+    val activationWrongDevice = stringResource(R.string.activation_wrong_device)
+    val activationRevoked = stringResource(R.string.activation_revoked)
+    val qqGroupCopiedToast = stringResource(R.string.qq_group_copied)
 
     Column(
         modifier = Modifier
@@ -150,7 +154,7 @@ fun ActivationScreen(
                     view.hapticClick()
                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                     clipboard.setPrimaryClip(ClipData.newPlainText("Device UUID", deviceUuid))
-                    Toast.makeText(context, context.getString(R.string.activation_copied), Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, activationCopiedToast, Toast.LENGTH_SHORT).show()
                 }) {
                     Icon(
                         imageVector = Icons.Filled.ContentCopy,
@@ -199,8 +203,8 @@ fun ActivationScreen(
                         onFailure = { e ->
                             isLoading = false
                             errorMessage = when {
-                                e.message?.contains("not bound") == true -> context.getString(R.string.activation_wrong_device)
-                                e.message?.contains("revoked") == true -> context.getString(R.string.activation_revoked)
+                                e.message?.contains("not bound") == true -> activationWrongDevice
+                                e.message?.contains("revoked") == true -> activationRevoked
                                 e.message?.contains("404") == true || e.message?.contains("invalid") == true -> errorInvalidCode
                                 else -> e.message ?: errorNetworkError
                             }
@@ -289,7 +293,7 @@ fun ActivationScreen(
                     modifier = Modifier.hapticClickable(onClick = {
                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                         clipboard.setPrimaryClip(ClipData.newPlainText("QQ Group", CommunityLinks.QQ_GROUP_NUMBER))
-                        Toast.makeText(context, context.getString(R.string.qq_group_copied), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, qqGroupCopiedToast, Toast.LENGTH_SHORT).show()
                         try {
                             val qqIntent = Intent(Intent.ACTION_VIEW, CommunityLinks.QQ_GROUP_URL.toUri())
                             qqIntent.setPackage("com.tencent.mobileqq")

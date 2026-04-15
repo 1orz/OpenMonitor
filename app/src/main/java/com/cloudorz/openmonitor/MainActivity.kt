@@ -216,7 +216,7 @@ private fun MonitorAppContent(
     }
 
     // ── Server launch (only in LAUNCHING phase) ──
-    val selectedMode = permissionManager.currentMode.value
+    val selectedMode by permissionManager.currentMode.collectAsStateWithLifecycle()
     LaunchedEffect(startupPhase) {
         if (startupPhase != StartupPhase.LAUNCHING) return@LaunchedEffect
         startupStepResId = R.string.startup_initializing
