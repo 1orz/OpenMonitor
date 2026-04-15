@@ -8,6 +8,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
+import com.cloudorz.openmonitor.ui.component.AppIcon
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -98,22 +99,7 @@ fun AboutScreen(
         Spacer(Modifier.height(24.dp))
 
         // ── App Header ──
-        // Adaptive icon foreground is 108dp with 72dp safe zone (66.7%).
-        // Scale image to 108/72 ratio so the content fills the box.
-        val iconSize = 72.dp
-        Box(
-            modifier = Modifier
-                .size(iconSize)
-                .clip(RoundedCornerShape(16.dp))
-                .background(Color(0xFF004787)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Image(
-                painter = painterResource(R.drawable.ic_launcher_foreground),
-                contentDescription = null,
-                modifier = Modifier.size(iconSize * 108f / 72f),
-            )
-        }
+        AppIcon(size = 72.dp)
 
         Spacer(Modifier.height(16.dp))
 

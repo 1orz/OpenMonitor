@@ -16,8 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Monitor
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -47,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import com.cloudorz.openmonitor.R
 import com.cloudorz.openmonitor.core.ui.hapticClick
 import androidx.compose.ui.platform.LocalView
+import com.cloudorz.openmonitor.ui.component.AppIcon
 import com.cloudorz.openmonitor.core.common.PermissionManager
 import com.cloudorz.openmonitor.core.common.PrivilegeMode
 import com.cloudorz.openmonitor.core.common.RootFrameworkDetector
@@ -148,12 +147,7 @@ fun PermissionGuideScreen(
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            Icon(
-                imageVector = Icons.Filled.Monitor,
-                contentDescription = null,
-                modifier = Modifier.size(72.dp),
-                tint = MaterialTheme.colorScheme.primary,
-            )
+            AppIcon(size = 72.dp)
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -193,9 +187,15 @@ fun PermissionGuideScreen(
                     }
                     val badgeLabel = stringResource(R.string.guide_badge_recommended)
 
-                    // ROOT card
+                    // ROOT card – show framework-specific icon when detected
+                    val rootIcon = when (rootResult.framework) {
+                        RootFrameworkDetector.Framework.MAGISK   -> R.drawable.ic_mode_magisk
+                        RootFrameworkDetector.Framework.KERNELSU -> R.drawable.ic_mode_kernelsu
+                        RootFrameworkDetector.Framework.APATCH   -> R.drawable.ic_mode_apatch
+                        null -> R.drawable.ic_mode_root
+                    }
                     DetectionCard(
-                        iconRes = R.drawable.ic_mode_root,
+                        iconRes = rootIcon,
                         title = stringResource(R.string.mode_root_title),
                         subtitle = buildRootSubtitle(rootResult),
                         tagText = stringResource(R.string.mode_root_tag),
