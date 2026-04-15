@@ -8,11 +8,12 @@
 // Output is under $OUT_DIR/aidl/ and gets `include!`d from src/aidl_gen.rs.
 
 fn main() {
-    // Skip stub generation when rsbinder-aidl is not available on the host
-    // (e.g. on a machine without the AOSP aidl tool). CI/dev hosts that
-    // actually build the server must have a working aidl — otherwise the
-    // stub files below are never generated and compilation will fail, which
-    // is the intended signal.
+    // Link libandroid for ASharedMemory_create (API 26+).
+    let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+    if target_os == "android" {
+        println!("cargo:rustc-link-lib=android");
+    }
+
     let own_aidl_dir = std::path::Path::new("aidl");
     let sys_aidl_dir = std::path::Path::new("aidl-system");
 
