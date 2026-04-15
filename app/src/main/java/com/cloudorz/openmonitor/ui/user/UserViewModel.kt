@@ -4,16 +4,13 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cloudorz.openmonitor.core.common.PrivilegeMode
-import com.cloudorz.openmonitor.core.data.datasource.DaemonClient
 import com.cloudorz.openmonitor.core.data.repository.ActivationRepository
 import com.cloudorz.openmonitor.core.data.repository.DeviceIdentityRepository
 import com.cloudorz.openmonitor.core.model.identity.ActivationState
 import com.cloudorz.openmonitor.core.model.identity.DeviceFingerprint
 import com.cloudorz.openmonitor.core.model.identity.DeviceIdentity
 import com.cloudorz.openmonitor.core.ui.HapticFeedbackManager
-import com.cloudorz.openmonitor.core.data.datasource.DaemonLauncher
-import com.cloudorz.openmonitor.core.data.datasource.DaemonManager
-import com.cloudorz.openmonitor.core.data.datasource.DaemonState
+import com.cloudorz.openmonitor.core.data.ipc.MonitorClient
 import com.cloudorz.openmonitor.core.data.ipc.MonitorLauncher
 import com.cloudorz.openmonitor.core.ui.theme.ColorMode
 import com.cloudorz.openmonitor.data.repository.ThemeSettingsRepository
@@ -29,17 +26,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
 import androidx.core.content.edit
 import javax.inject.Inject
 
 @HiltViewModel
 class UserViewModel @Inject constructor(
-    private val daemonClient: DaemonClient,
-    private val daemonManager: DaemonManager,
-    private val daemonLauncher: DaemonLauncher,
+    private val monitorClient: MonitorClient,
     private val monitorLauncher: MonitorLauncher,
     private val themeRepo: ThemeSettingsRepository,
     private val identityRepository: DeviceIdentityRepository,
@@ -47,17 +40,11 @@ class UserViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) : ViewModel() {
 
-    data class DaemonStatus(
+    data class ServerStatus(
         val checking: Boolean = false,
         val connected: Boolean = false,
-        val version: String? = null,
-        val currentCommit: String? = null,
-        val expectedCommit: String? = null,
-        val runner: String? = null,
-        val uptimeSeconds: Long? = null,
         val checkedOnce: Boolean = false,
     )
-
 
     companion object {
         const val KEY_DARK_MODE = "dark_mode"
@@ -66,8 +53,8 @@ class UserViewModel @Inject constructor(
 
     private val prefs = context.getSharedPreferences("monitor_settings", Context.MODE_PRIVATE)
 
-    private val _daemonStatus = MutableStateFlow(DaemonStatus())
-    val daemonStatus: StateFlow<DaemonStatus> = _daemonStatus.asStateFlow()
+    private val _serverStatus = MutableStateFlow(ServerStatus())
+    val serverStatus: StateFlow<ServerStatus> = _serverStatus.asStateFlow()
 
     private val _darkMode = MutableStateFlow(prefs.getInt(KEY_DARK_MODE, 0))
     val darkMode: StateFlow<Int> = _darkMode.asStateFlow()
@@ -75,33 +62,23 @@ class UserViewModel @Inject constructor(
     private val _hapticEnabled = MutableStateFlow(prefs.getBoolean("haptic_enabled", true))
     val hapticEnabled: StateFlow<Boolean> = _hapticEnabled.asStateFlow()
 
-    /** Daemon binary path for ADB instructions. */
-    val daemonBinaryPath: String get() = daemonLauncher.binaryPath
-
     private var refreshJob: Job? = null
     private var adbWatcherJob: Job? = null
     private var screenVisible = false
 
     init {
         viewModelScope.launch {
-            daemonManager.state.collect { state ->
-                if (state == DaemonState.RUNNING) {
-                    _daemonStatus.value = buildStatus(alive = true)
-                    sendLogLevel("debug")
-                    if (screenVisible) startRefreshLoop()
-                } else if (state == DaemonState.FAILED || state == DaemonState.NOT_NEEDED) {
-                    stopRefreshLoop()
-                    _daemonStatus.value = buildStatus(alive = false)
-                }
+            monitorClient.connected.collect { connected ->
+                _serverStatus.update { it.copy(connected = connected, checkedOnce = true) }
+                if (connected && screenVisible) startRefreshLoop()
+                if (!connected) stopRefreshLoop()
             }
         }
     }
 
     fun startObserving() {
         screenVisible = true
-        if (daemonManager.state.value == DaemonState.RUNNING) {
-            startRefreshLoop()
-        }
+        if (monitorClient.connected.value) startRefreshLoop()
     }
 
     fun stopObserving() {
@@ -114,15 +91,7 @@ class UserViewModel @Inject constructor(
         refreshJob = viewModelScope.launch(Dispatchers.IO) {
             while (isActive) {
                 delay(1000)
-                val info = fetchDaemonInfo()
-                _daemonStatus.update {
-                    it.copy(
-                        runner = info.runner,
-                        uptimeSeconds = info.uptimeSeconds,
-                        version = info.version ?: it.version,
-                        currentCommit = info.commit ?: it.currentCommit,
-                    )
-                }
+                _serverStatus.update { it.copy(connected = monitorClient.connected.value) }
             }
         }
     }
@@ -132,23 +101,14 @@ class UserViewModel @Inject constructor(
         refreshJob = null
     }
 
-    /** Silent background polling for ADB mode — checks daemon every 3s until connected. */
     fun startAdbWatcher() {
         if (adbWatcherJob?.isActive == true) return
         adbWatcherJob = viewModelScope.launch(Dispatchers.IO) {
-            // Also attempt Rust server (fire-and-forget).
-            launch { monitorLauncher.ensureRunning() }
+            monitorLauncher.ensureRunning()
             while (isActive) {
                 delay(3000)
-                if (_daemonStatus.value.connected) break
-                val alive = daemonClient.isAlive()
-                if (alive) {
-                    val state = withTimeoutOrNull(5_000L) { daemonManager.ensureRunning() }
-                    if (state == DaemonState.RUNNING) {
-                        _daemonStatus.value = buildStatus(alive = true)
-                        break
-                    }
-                }
+                if (monitorClient.connected.value) break
+                monitorLauncher.ensureRunning()
             }
         }
     }
@@ -158,37 +118,53 @@ class UserViewModel @Inject constructor(
         adbWatcherJob = null
     }
 
-    fun checkDaemon() {
-        if (_daemonStatus.value.checking) return
+    fun checkServer() {
+        if (_serverStatus.value.checking) return
         viewModelScope.launch {
-            _daemonStatus.value = _daemonStatus.value.copy(checking = true)
-            launch { monitorLauncher.ensureRunning() }
-            val state = withTimeoutOrNull(5_000L) { daemonManager.ensureRunning() }
-            _daemonStatus.value = buildStatus(alive = state == DaemonState.RUNNING)
+            _serverStatus.update { it.copy(checking = true) }
+            monitorLauncher.ensureRunning()
+            delay(1000)
+            _serverStatus.update {
+                it.copy(checking = false, connected = monitorClient.connected.value, checkedOnce = true)
+            }
         }
     }
 
-    fun restartDaemon() {
-        if (_daemonStatus.value.checking) return
+    fun restartServer() {
+        if (_serverStatus.value.checking) return
         viewModelScope.launch {
-            _daemonStatus.value = _daemonStatus.value.copy(checking = true)
-            launch { monitorLauncher.ensureRunning() }
-            val state = withTimeoutOrNull(5_000L) { daemonManager.restart() }
-            _daemonStatus.value = buildStatus(alive = state == DaemonState.RUNNING)
+            _serverStatus.update { it.copy(checking = true) }
+            monitorLauncher.shutdown()
+            delay(500)
+            monitorLauncher.ensureRunning()
+            delay(1500)
+            _serverStatus.update {
+                it.copy(checking = false, connected = monitorClient.connected.value, checkedOnce = true)
+            }
         }
     }
 
-    private suspend fun buildStatus(alive: Boolean): DaemonStatus {
-        val info = if (alive) withContext(Dispatchers.IO) { fetchDaemonInfo() } else null
-        return DaemonStatus(
-            connected = alive,
-            version = info?.version,
-            currentCommit = info?.commit,
-            expectedCommit = daemonLauncher.expectedCommit.ifEmpty { null },
-            runner = info?.runner,
-            uptimeSeconds = info?.uptimeSeconds,
-            checkedOnce = true,
-        )
+    fun switchMode(
+        oldMode: PrivilegeMode,
+        newMode: PrivilegeMode,
+        applyNewMode: () -> Unit,
+        onComplete: (Boolean) -> Unit,
+    ) {
+        viewModelScope.launch {
+            _serverStatus.update { it.copy(checking = true) }
+            monitorLauncher.shutdown()
+            delay(500)
+            applyNewMode()
+            if (newMode != PrivilegeMode.BASIC) {
+                withTimeoutOrNull(SWITCH_TIMEOUT_MS) {
+                    monitorLauncher.ensureRunning()
+                }
+            }
+            delay(500)
+            val connected = monitorClient.connected.value
+            _serverStatus.update { it.copy(checking = false, connected = connected, checkedOnce = true) }
+            onComplete(connected || newMode == PrivilegeMode.BASIC)
+        }
     }
 
     @Deprecated("Use setColorMode() instead")
@@ -196,8 +172,6 @@ class UserViewModel @Inject constructor(
         prefs.edit { putInt(KEY_DARK_MODE, mode) }
         _darkMode.value = mode
     }
-
-    // --- Theme settings ---
 
     private val _colorMode = MutableStateFlow(themeRepo.colorMode)
     val colorMode: StateFlow<Int> = _colorMode.asStateFlow()
@@ -213,7 +187,6 @@ class UserViewModel @Inject constructor(
 
     private val _pageScale = MutableStateFlow(themeRepo.pageScale)
     val pageScale: StateFlow<Float> = _pageScale.asStateFlow()
-
 
     fun setColorMode(mode: ColorMode) {
         themeRepo.colorMode = mode.value
@@ -240,61 +213,9 @@ class UserViewModel @Inject constructor(
         _pageScale.value = scale
     }
 
-
     fun setHapticEnabled(enabled: Boolean) {
         HapticFeedbackManager.setEnabled(context, enabled)
         _hapticEnabled.value = enabled
-    }
-
-
-    /**
-     * Switches privilege mode: stops daemon under old mode, restarts under new mode.
-     */
-    fun switchMode(
-        oldMode: PrivilegeMode,
-        newMode: PrivilegeMode,
-        applyNewMode: () -> Unit,
-        onComplete: (DaemonState) -> Unit,
-    ) {
-        viewModelScope.launch {
-            _daemonStatus.update { it.copy(checking = true) }
-            // Shut down old Rust server before mode switch.
-            monitorLauncher.shutdown()
-            val result = withTimeoutOrNull(SWITCH_TIMEOUT_MS) {
-                daemonManager.switchMode(oldMode, newMode, applyNewMode)
-            } ?: DaemonState.FAILED
-            // Relaunch Rust server under new mode (fire-and-forget).
-            launch { monitorLauncher.ensureRunning() }
-            val alive = result == DaemonState.RUNNING
-            _daemonStatus.value = buildStatus(alive = alive)
-            onComplete(result)
-        }
-    }
-
-    private fun sendLogLevel(level: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try { daemonClient.sendCommand("log-level\n$level") } catch (_: Exception) {}
-        }
-    }
-
-    data class DaemonInfo(
-        val version: String? = null,
-        val commit: String? = null,
-        val runner: String? = null,
-        val uptimeSeconds: Long? = null,
-    )
-
-    private fun fetchDaemonInfo(): DaemonInfo {
-        val raw = daemonClient.sendCommand("ping")?.trim() ?: return DaemonInfo()
-        return try {
-            val json = JSONObject(raw)
-            DaemonInfo(
-                version = json.optString("version", "").ifEmpty { null },
-                commit = json.optString("commit", "").ifEmpty { null },
-                runner = json.optString("runner", "").ifEmpty { null },
-                uptimeSeconds = json.optLong("uptime_s", -1).takeIf { it >= 0 },
-            )
-        } catch (_: Exception) { DaemonInfo() }
     }
 
     // ── Device Identity ──

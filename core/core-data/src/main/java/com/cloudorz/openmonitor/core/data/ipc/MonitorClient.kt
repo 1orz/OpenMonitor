@@ -29,8 +29,6 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Replaces [com.cloudorz.openmonitor.core.data.datasource.DaemonClient].
- *
  * Obtains an [IMonitorService] binder (delivered by Shizuku UserService
  * onServiceConnected, or by [BinderProvider.setBinder] in the libsu path),
  * maps the shared [ParcelFileDescriptor] backing the Snapshot region into

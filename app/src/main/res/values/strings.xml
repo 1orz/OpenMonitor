@@ -26,7 +26,7 @@
     <string name="mode_shizuku_pending">pending authorization</string>
     <string name="mode_shizuku_installed_not_running">Shizuku installed but not running</string>
     <string name="mode_shizuku_not_installed">Shizuku not installed</string>
-    <string name="mode_adb_subtitle">Manually start Daemon via ADB</string>
+    <string name="mode_adb_subtitle">Manually start server via ADB</string>
     <string name="mode_basic_subtitle">No permissions, limited to world-readable files</string>
     <string name="shizuku_wait_title">Waiting for Shizuku</string>
     <string name="shizuku_wait_desc">Tap [Allow] in the Shizuku authorization dialog.\n\nIf Shizuku is not running, please start it first and try again.</string>
@@ -79,7 +79,7 @@
     <string name="perm_start">Start Using</string>
     <string name="perm_grant_all_hint">Please grant all permissions above to continue</string>
 
-    <!-- Daemon -->
+    <!-- Server launch -->
     <string name="daemon_launching">Deploying monitor service…</string>
     <string name="daemon_launch_failed">Monitor service failed to start</string>
     <string name="daemon_retry">Retry</string>
@@ -146,8 +146,8 @@
     <string name="settings_version_match">Version Match</string>
     <string name="settings_version_mismatch">Version Mismatch</string>
     <string name="settings_version_format">Version %s</string>
-    <string name="settings_adb_setup">ADB Daemon Setup</string>
-    <string name="settings_adb_run_cmd">Run the following command in terminal to start Daemon:</string>
+    <string name="settings_adb_setup">ADB Server Setup</string>
+    <string name="settings_adb_run_cmd">Run the following command in terminal to start server:</string>
     <string name="settings_copy_command">Copy Command</string>
     <string name="settings_check_connection">Check Connection</string>
     <string name="settings_auto_detect_hint">Will auto-detect connection after start</string>
@@ -167,15 +167,15 @@
     <string name="log_copy_all">Copy all</string>
     <string name="log_clear">Clear</string>
     <string name="log_tab_app">App Log</string>
-    <string name="log_tab_daemon">Daemon Log</string>
+    <string name="log_tab_daemon">Server Log</string>
     <string name="log_realtime_logcat">Realtime (logcat)</string>
     <string name="log_realtime">Realtime</string>
     <string name="log_source">Source:</string>
     <string name="log_level">Level:</string>
     <string name="log_empty">No logs</string>
-    <string name="log_daemon_empty">No Daemon logs</string>
-    <string name="log_daemon_no_date">No daemon log for this date</string>
-    <string name="log_daemon_not_running">No daemon log (daemon not running)</string>
+    <string name="log_daemon_empty">No server logs</string>
+    <string name="log_daemon_no_date">No server log for this date</string>
+    <string name="log_daemon_not_running">No server log (server not running)</string>
     <string name="log_daemon_log_empty">Log is empty</string>
 
     <!-- Splash Screen -->
@@ -192,8 +192,8 @@
     <!-- Startup Loading Steps -->
     <string name="startup_initializing">Initializing…</string>
     <string name="startup_checking_shizuku">Checking Shizuku service…</string>
-    <string name="startup_deploying_daemon">Deploying monitor daemon…</string>
-    <string name="startup_connecting_daemon">Connecting to daemon…</string>
+    <string name="startup_deploying_daemon">Deploying monitor server…</string>
+    <string name="startup_connecting_daemon">Connecting to server…</string>
     <string name="startup_almost_ready">Almost ready…</string>
 
     <!-- Bottom Navigation -->
@@ -203,7 +203,7 @@
 
     <!-- Mode descriptions -->
     <string name="mode_root_description">Magisk / KernelSU, full Root access</string>
-    <string name="mode_adb_description">Manually start Daemon via ADB (FPS/process etc. available)</string>
+    <string name="mode_adb_description">Manually start server via ADB (FPS/process etc. available)</string>
     <string name="mode_shizuku_description">Obtain Shell permission via Shizuku (recommended)</string>
     <string name="mode_basic_description">No privileges, frame rate monitoring unavailable</string>
 

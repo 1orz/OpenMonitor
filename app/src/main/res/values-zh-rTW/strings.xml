@@ -25,7 +25,7 @@
     <string name="mode_shizuku_pending">待授權</string>
     <string name="mode_shizuku_installed_not_running">Shizuku 已安裝但未執行</string>
     <string name="mode_shizuku_not_installed">Shizuku 未安裝</string>
-    <string name="mode_adb_subtitle">透過 ADB 手動啟動 Daemon</string>
+    <string name="mode_adb_subtitle">透過 ADB 手動啟動服務</string>
     <string name="mode_basic_subtitle">無需權限，僅限世界可讀檔案</string>
     <string name="shizuku_wait_title">等待 Shizuku 授權</string>
     <string name="shizuku_wait_desc">請在彈出的 Shizuku 授權對話框中點擊【允許】。\n\n若 Shizuku 未執行，請先啟動 Shizuku 後重試。</string>
@@ -137,8 +137,8 @@
     <string name="settings_version_match">版本一致</string>
     <string name="settings_version_mismatch">版本不一致</string>
     <string name="settings_version_format">版本 %s</string>
-    <string name="settings_adb_setup">ADB Daemon 設定</string>
-    <string name="settings_adb_run_cmd">在電腦終端執行以下命令啟動 Daemon：</string>
+    <string name="settings_adb_setup">ADB 服務設定</string>
+    <string name="settings_adb_run_cmd">在電腦終端執行以下命令啟動服務：</string>
     <string name="settings_copy_command">複製命令</string>
     <string name="settings_check_connection">偵測連線</string>
     <string name="settings_auto_detect_hint">啟動後將自動偵測連線</string>
@@ -158,15 +158,15 @@
     <string name="log_copy_all">複製全部</string>
     <string name="log_clear">清除</string>
     <string name="log_tab_app">App 日誌</string>
-    <string name="log_tab_daemon">Daemon 日誌</string>
+    <string name="log_tab_daemon">服務端日誌</string>
     <string name="log_realtime_logcat">即時 (logcat)</string>
     <string name="log_realtime">即時</string>
     <string name="log_source">來源:</string>
     <string name="log_level">級別:</string>
     <string name="log_empty">暫無日誌</string>
-    <string name="log_daemon_empty">暫無 Daemon 日誌</string>
-    <string name="log_daemon_no_date">該日期暫無 daemon 日誌</string>
-    <string name="log_daemon_not_running">暫無 daemon 日誌（daemon 未執行）</string>
+    <string name="log_daemon_empty">暫無服務端日誌</string>
+    <string name="log_daemon_no_date">該日期暫無服務端日誌</string>
+    <string name="log_daemon_not_running">暫無服務端日誌（服務端未執行）</string>
     <string name="log_daemon_log_empty">日誌為空</string>
 
     <!-- 啟動頁 -->
@@ -183,8 +183,8 @@
     <!-- 啟動載入步驟 -->
     <string name="startup_initializing">正在初始化…</string>
     <string name="startup_checking_shizuku">正在檢查 Shizuku 服務…</string>
-    <string name="startup_deploying_daemon">正在部署監控守護進程…</string>
-    <string name="startup_connecting_daemon">正在連接守護進程…</string>
+    <string name="startup_deploying_daemon">正在部署監控服務…</string>
+    <string name="startup_connecting_daemon">正在連接監控服務…</string>
     <string name="startup_almost_ready">即將就緒…</string>
 
     <!-- 底部導覽 -->
@@ -194,7 +194,7 @@
 
     <!-- 模式描述 -->
     <string name="mode_root_description">Magisk / KernelSU，完整 Root 權限</string>
-    <string name="mode_adb_description">透過 ADB 手動啟動 Daemon（FPS/進程等可用）</string>
+    <string name="mode_adb_description">透過 ADB 手動啟動服務（FPS/進程等可用）</string>
     <string name="mode_shizuku_description">透過 Shizuku 取得 Shell 權限（推薦）</string>
     <string name="mode_basic_description">無特權，幀率監控等功能不可用</string>
 

@@ -19,9 +19,6 @@ import com.cloudorz.openmonitor.core.common.PermissionManager
 import com.cloudorz.openmonitor.core.common.PrivilegeMode
 import com.cloudorz.openmonitor.core.data.datasource.FpsDataSource
 import com.cloudorz.openmonitor.core.data.datasource.AggregatedMonitorDataSource
-import com.cloudorz.openmonitor.core.data.datasource.DaemonDataSource
-import com.cloudorz.openmonitor.core.data.datasource.DaemonLauncher
-import com.cloudorz.openmonitor.core.data.datasource.DaemonManager
 import com.cloudorz.openmonitor.core.data.datasource.BatteryDataSource
 import com.cloudorz.openmonitor.core.data.datasource.CpuDataSource
 import com.cloudorz.openmonitor.core.data.datasource.GpuDataSource
@@ -122,10 +119,6 @@ class FloatMonitorService : LifecycleService() {
     @Inject lateinit var appInfoResolver: AppInfoResolver
     @Inject lateinit var permissionManager: PermissionManager
     @Inject lateinit var aggregatedMonitorDataSource: AggregatedMonitorDataSource
-    @Inject lateinit var daemonLauncher: DaemonLauncher
-    @Inject lateinit var daemonDataSource: DaemonDataSource
-    @Inject lateinit var daemonManager: DaemonManager
-    @Inject lateinit var daemonClient: com.cloudorz.openmonitor.core.data.datasource.DaemonClient
     @Inject lateinit var fpsRecordingManager: com.cloudorz.openmonitor.core.data.datasource.FpsRecordingManager
     @Inject lateinit var batteryRecordDao: BatteryRecordDao
     @Inject lateinit var foregroundAppDataSource: ForegroundAppDataSource
@@ -582,11 +575,7 @@ class FloatMonitorService : LifecycleService() {
     }
 
     private fun notifyWatchdog(enable: Boolean) {
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                daemonClient.sendCommand(if (enable) "watchdog-start" else "watchdog-stop")
-            } catch (_: Exception) {}
-        }
+        // No-op: watchdog was Go daemon specific; Rust server uses linkToDeath.
     }
 
     private fun addMonitor(type: String) {

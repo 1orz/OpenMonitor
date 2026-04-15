@@ -51,8 +51,6 @@ import com.cloudorz.openmonitor.core.common.PermissionManager
 import com.cloudorz.openmonitor.core.common.PrivilegeMode
 import com.cloudorz.openmonitor.core.common.RootFrameworkDetector
 import com.cloudorz.openmonitor.core.common.ShizukuVariantDetector
-import com.cloudorz.openmonitor.core.data.datasource.DaemonManager
-import com.cloudorz.openmonitor.core.data.datasource.DaemonState
 import com.cloudorz.openmonitor.core.data.ipc.MonitorLauncher
 import kotlinx.coroutines.launch
 
@@ -61,7 +59,6 @@ private enum class GuideState { PROBING, DETECTED, LAUNCHING_DAEMON, DAEMON_FAIL
 @Composable
 fun PermissionGuideScreen(
     permissionManager: PermissionManager,
-    daemonManager: DaemonManager,
     monitorLauncher: MonitorLauncher,
     onModeSelected: (PrivilegeMode) -> Unit,
 ) {
@@ -86,25 +83,20 @@ fun PermissionGuideScreen(
         guideState = GuideState.DETECTED
     }
 
-    // Daemon launch step
+    // Server launch step
     if (guideState == GuideState.LAUNCHING_DAEMON) {
         LaunchedEffect(Unit) {
             val mode = selectedMode ?: return@LaunchedEffect
             permissionManager.setMode(mode)
-            // Launch Rust server in parallel (fire-and-forget).
-            launch { monitorLauncher.ensureRunning() }
-            val result = withTimeoutOrNull(5_000L) { daemonManager.ensureRunning() }
-                ?: DaemonState.FAILED
-            when {
-                result == DaemonState.RUNNING || result == DaemonState.NOT_NEEDED -> {
-                    onModeSelected(mode)
-                }
-                mode == PrivilegeMode.ADB && result == DaemonState.IDLE -> {
-                    onModeSelected(mode)
-                }
-                else -> {
-                    guideState = GuideState.DAEMON_FAILED
-                }
+            if (mode == PrivilegeMode.BASIC) {
+                onModeSelected(mode)
+                return@LaunchedEffect
+            }
+            val ok = withTimeoutOrNull(8_000L) { monitorLauncher.ensureRunning() }
+            if (ok != null) {
+                onModeSelected(mode)
+            } else {
+                guideState = GuideState.DAEMON_FAILED
             }
         }
     }

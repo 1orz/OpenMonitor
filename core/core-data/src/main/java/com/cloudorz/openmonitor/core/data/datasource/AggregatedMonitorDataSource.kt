@@ -6,8 +6,6 @@ import android.content.IntentFilter
 import android.os.BatteryManager
 import android.util.Log
 import com.cloudorz.openmonitor.core.common.PlatformDetector
-import com.cloudorz.openmonitor.core.common.PrivilegeMode
-import com.cloudorz.openmonitor.core.common.ShellExecutor
 import com.cloudorz.openmonitor.core.data.ipc.MonitorClient
 import com.cloudorz.openmonitor.core.data.ipc.MonitorSnapshotAdapter
 import com.cloudorz.openmonitor.core.data.util.MonitorParser
@@ -21,9 +19,7 @@ import javax.inject.Singleton
 
 @Singleton
 class AggregatedMonitorDataSource @Inject constructor(
-    private val shellExecutor: ShellExecutor,
     private val platformDetector: PlatformDetector,
-    private val daemonDataSource: DaemonDataSource,
     private val thermalDataSource: ThermalDataSource,
     private val monitorClient: MonitorClient,
     @param:ApplicationContext private val context: Context,
@@ -32,10 +28,8 @@ class AggregatedMonitorDataSource @Inject constructor(
         private const val TAG = "AggregatedMonitor"
     }
 
-    // CPU cross-cycle delta state (BASIC mode)
     @Volatile private var prevProcStat: LongArray? = null
 
-    // Cached GPU load sysfs path (BASIC mode)
     @Volatile private var gpuLoadPath: String? = null
     @Volatile private var gpuLoadPathResolved = false
 
@@ -43,66 +37,23 @@ class AggregatedMonitorDataSource @Inject constructor(
         context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
     }
 
-    /** Last successful daemon snapshot — returned on transient failures to avoid UI flicker. */
-    @Volatile private var lastDaemonSnapshot: MonitorSnapshot? = null
+    @Volatile private var lastSnapshot: MonitorSnapshot? = null
 
     suspend fun collectSnapshot(): MonitorSnapshot {
-        // Prefer the new Rust server when connected (shared-memory path).
         if (monitorClient.connected.value) {
             val snap = monitorClient.snapshots.replayCache.firstOrNull()
             if (snap != null) {
                 val result = MonitorSnapshotAdapter.toDomain(snap)
-                // Supplement battery current from Android API if server has no data.
                 val enriched = if (result.batteryCurrentMa == null || result.batteryCurrentMa == 0) {
                     result.copy(batteryCurrentMa = getBatteryCurrentFromApi())
                 } else result
-                lastDaemonSnapshot = enriched
+                lastSnapshot = enriched
                 return enriched
             }
         }
 
-        // Fall back to old Go daemon or BASIC mode.
-        return when (shellExecutor.mode) {
-            PrivilegeMode.ROOT,
-            PrivilegeMode.ADB,
-            PrivilegeMode.SHIZUKU -> collectFromDaemon()
-            PrivilegeMode.BASIC   -> collectBasic()
-        }
+        return collectBasic()
     }
-
-    /**
-     * ROOT / SHIZUKU / ADB: daemon is the sole data source.
-     * Android API supplements battery current (BatteryManager).
-     * On transient daemon failure, returns last cached snapshot to avoid UI flicker.
-     */
-    private suspend fun collectFromDaemon(): MonitorSnapshot = withContext(Dispatchers.IO) {
-        if (daemonDataSource.isAvailable()) {
-            val snap = daemonDataSource.collectSnapshot()
-            if (snap != null) {
-                val currentMa = snap.batteryCurrentMa.takeIf { it != null && it != 0 }
-                    ?: getBatteryCurrentFromApi()
-                val result = snap.copy(batteryCurrentMa = currentMa)
-                lastDaemonSnapshot = result
-                return@withContext result
-            }
-            Log.e(TAG, "collectFromDaemon: snapshot null")
-        } else {
-            Log.e(TAG, "collectFromDaemon: daemon NOT available")
-        }
-
-        // Daemon dead (3+ consecutive failures) — kill residual, DaemonManager will restart.
-        // Skip during mode switch/restart to avoid killing the newly launched daemon.
-        if (!daemonDataSource.suppressKillall && daemonDataSource.isDead()) {
-            shellExecutor.execute("killall monitor-daemon 2>/dev/null || true")
-            daemonDataSource.resetDeadState()
-            Log.e(TAG, "collectFromDaemon: daemon dead, killed residual")
-        }
-
-        // Transient failure → return last cached; never connected → empty default
-        lastDaemonSnapshot ?: MonitorSnapshot()
-    }
-
-    // ---- BASIC mode fallback ----
 
     private suspend fun collectBasic(): MonitorSnapshot = withContext(Dispatchers.IO) {
         val cpuLoad: Double? = try {
@@ -135,15 +86,11 @@ class AggregatedMonitorDataSource @Inject constructor(
         )
     }
 
-    // ---- CPU load (BASIC mode, cross-cycle delta) ----
-
     private fun parseCpuLoad(procStatText: String): Double {
         val (load, newValues) = MonitorParser.parseCpuLoad(procStatText, prevProcStat)
         prevProcStat = newValues
         return load
     }
-
-    // ---- Lazy resolvers ----
 
     private fun resolveGpuLoadPath() {
         if (gpuLoadPathResolved) return
@@ -155,21 +102,17 @@ class AggregatedMonitorDataSource @Inject constructor(
         gpuLoadPathResolved = true
     }
 
-    // ---- Android API fallbacks ----
-
     @Suppress("UnspecifiedRegisterReceiverFlag")
     private fun getBatteryCurrentFromApi(): Int? {
         val status = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_STATUS)
         val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
             status == BatteryManager.BATTERY_STATUS_FULL
 
-        // BatteryManager API
         val currentUa = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
         if (currentUa != Int.MIN_VALUE && currentUa != 0) {
             val ma = MonitorParser.normalizeCurrentToMa(currentUa.toLong())
             return MonitorParser.ensureCurrentSign(ma, isCharging)
         }
-        // Intent broadcast fallback
         return try {
             val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
             val raw = intent?.getIntExtra("current_now", 0) ?: 0

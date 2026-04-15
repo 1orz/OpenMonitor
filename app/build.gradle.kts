@@ -138,68 +138,6 @@ android {
     }
 }
 
-// ── Build monitor-daemon from Go source ─────────────────────────────────────
-// All project-level APIs (file(), fileTree(), providers.exec()) are resolved here
-// at configuration time, so the Exec task closure captures only plain Java types
-// (File, String, FileCollection) and stays configuration-cache compatible.
-
-val daemonSrcDir = file("${rootProject.projectDir}/monitor-daemon")
-val daemonCommitFile = file("src/main/assets/daemon/daemon-commit.txt")
-val daemonGoModExists = daemonSrcDir.resolve("go.mod").exists()
-
-val goExecutable: String = listOf(
-    System.getenv("GOROOT")?.let { "$it/bin/go" },
-    "/opt/homebrew/bin/go",
-    "/usr/local/go/bin/go",
-    "/usr/local/bin/go",
-    "/usr/bin/go",
-).firstOrNull { it != null && file(it).exists() } ?: "go"
-
-// --no-show-signature avoids GPG verification text polluting stdout
-val daemonHash: String = providers.exec {
-    workingDir = rootProject.projectDir
-    commandLine("git", "log", "-1", "--format=%h", "--no-show-signature", "--", "monitor-daemon")
-}.standardOutput.asText.map { it.trim() }.getOrElse("unknown")
-
-val daemonSourceFiles = fileTree(daemonSrcDir) { include("**/*.go", "go.mod", "go.sum") }
-
-daemonCommitFile.parentFile.mkdirs()
-daemonCommitFile.writeText(daemonHash)
-
-// Build daemon for both architectures
-data class DaemonTarget(val goArch: String, val abiDir: String, val extraEnv: Map<String, String> = emptyMap())
-val daemonTargets = listOf(
-    DaemonTarget("arm64", "arm64-v8a"),
-    DaemonTarget("arm", "armeabi-v7a", mapOf("GOARM" to "7", "GOOS" to "linux")),
-)
-
-val daemonTasks = daemonTargets.map { target ->
-    val outputFile = file("src/main/jniLibs/${target.abiDir}/libmonitor-daemon.so")
-    tasks.register<Exec>("buildDaemon_${target.abiDir}") {
-        group = "build"
-        description = "Compile monitor-daemon (Go → Android ${target.abiDir})"
-        enabled = daemonGoModExists
-
-        workingDir = daemonSrcDir
-        val appVersion = System.getenv("VERSION_NAME") ?: "0.0.1"
-        val ldflags = "-s -w -X monitor-daemon/collector.GitCommit=$daemonHash -X monitor-daemon/collector.Version=$appVersion"
-        commandLine = listOf(goExecutable, "build", "-ldflags", ldflags, "-o", outputFile.absolutePath, "./cmd/daemon")
-        environment("GOOS", target.extraEnv["GOOS"] ?: "android")
-        environment("GOARCH", target.goArch)
-        environment("CGO_ENABLED", "0")
-        target.extraEnv.filterKeys { it != "GOOS" }.forEach { (k, v) -> environment(k, v) }
-
-        inputs.files(daemonSourceFiles).withPathSensitivity(PathSensitivity.RELATIVE)
-        inputs.property("daemonHash", daemonHash)
-        outputs.file(outputFile)
-    }
-}
-
-tasks.named("preBuild") {
-    dependsOn(daemonTasks)
-}
-// ─────────────────────────────────────────────────────────────────────────────
-
 dependencies {
     implementation(project(":core:core-common"))
     implementation(project(":core:core-model"))

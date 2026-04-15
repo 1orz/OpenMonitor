@@ -4,8 +4,8 @@ enum class FpsMethod(
     val displayName: String,
     val description: String,
 ) {
-    DAEMON(
-        displayName = "Daemon",
-        description = "monitor-daemon direct connection, requires Root/Shizuku",
+    SERVER(
+        displayName = "Server",
+        description = "Privileged server via shared memory, requires Root/Shizuku",
     ),
 }

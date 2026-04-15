@@ -6,7 +6,6 @@ import androidx.lifecycle.viewModelScope
 import com.cloudorz.openmonitor.R
 import com.cloudorz.openmonitor.core.common.AppLogEntry
 import com.cloudorz.openmonitor.core.common.AppLogger
-import com.cloudorz.openmonitor.core.data.datasource.DaemonLauncher
 import com.elvishew.xlog.LogLevel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -25,7 +24,6 @@ import java.io.File
 import java.time.LocalDate
 import javax.inject.Inject
 
-/** Log level for both display filtering and storage filtering. */
 enum class LogLevelFilter(val char: Char, val label: String, val displayName: String, val priority: Int, val xlogLevel: Int) {
     VERBOSE('V', "V", "Verbose", 0, LogLevel.VERBOSE),
     DEBUG('D', "D", "Debug", 1, LogLevel.DEBUG),
@@ -47,30 +45,21 @@ enum class LogLevelFilter(val char: Char, val label: String, val displayName: St
 @HiltViewModel
 class LogViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
-    private val daemonLauncher: DaemonLauncher,
 ) : ViewModel() {
 
     companion object {
         private const val APP_LOG_POLL_INTERVAL_MS = 2_000L
-        private const val DAEMON_POLL_INTERVAL_MS = 3_000L
         private const val DATE_REFRESH_INTERVAL_MS = 60_000L
-        private const val DAEMON_TAIL_LINES = 300
         private const val APP_LOG_TAIL_LINES = 800
 
         private val XLOG_LINE_REGEX = Regex("""^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s+([VDIWEF])/(.+?):\s*(.*)$""")
     }
 
-    // ---- Raw data ----
-
     private val _rawAppLogs = MutableStateFlow<List<AppLogEntry>>(emptyList())
-    private val _rawDaemonLogs = MutableStateFlow<List<String>>(emptyList())
-
-    // ---- Pause ----
+    private val _rawServerLogs = MutableStateFlow<List<String>>(emptyList())
 
     private val _paused = MutableStateFlow(false)
     val paused: StateFlow<Boolean> = _paused.asStateFlow()
-
-    // ---- Display + storage filter ----
 
     private val _filterLevel = MutableStateFlow(
         LogLevelFilter.fromXLogLevel(AppLogger.minFileLevel),
@@ -82,12 +71,10 @@ class LogViewModel @Inject constructor(
         else logs.filter { levelPriority(it.level) >= level.priority }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val daemonLogs: StateFlow<List<String>> = combine(_rawDaemonLogs, _filterLevel) { lines, level ->
+    val daemonLogs: StateFlow<List<String>> = combine(_rawServerLogs, _filterLevel) { lines, level ->
         if (level == LogLevelFilter.VERBOSE) lines
         else lines.filter { parseDaemonLineLevel(it) >= level.priority }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-
-    // ---- Date selection ----
 
     private val _logDates = MutableStateFlow<List<String>>(emptyList())
     val logDates: StateFlow<List<String>> = _logDates.asStateFlow()
@@ -104,8 +91,8 @@ class LogViewModel @Inject constructor(
     private val _selectedDaemonDate = MutableStateFlow<String?>(null)
     val selectedDaemonDate: StateFlow<String?> = _selectedDaemonDate.asStateFlow()
 
-    private val daemonLogPath: String
-        get() = "${daemonLauncher.dataDir.absolutePath}/daemon.log"
+    private val serverLogDir: File
+        get() = context.filesDir.resolve("server")
 
     private var pollingJob: kotlinx.coroutines.Job? = null
 
@@ -126,8 +113,8 @@ class LogViewModel @Inject constructor(
             }
             launch {
                 while (isActive) {
-                    if (!_paused.value) fetchDaemonLogs()
-                    delay(DAEMON_POLL_INTERVAL_MS)
+                    if (!_paused.value) fetchServerLogs()
+                    delay(3_000L)
                 }
             }
         }
@@ -142,7 +129,7 @@ class LogViewModel @Inject constructor(
         _paused.value = !_paused.value
         if (!_paused.value) {
             viewModelScope.launch { fetchAppLogs() }
-            viewModelScope.launch { fetchDaemonLogs() }
+            viewModelScope.launch { fetchServerLogs() }
         }
     }
 
@@ -158,10 +145,8 @@ class LogViewModel @Inject constructor(
 
     fun selectDaemonDate(date: String?) {
         _selectedDaemonDate.value = date
-        viewModelScope.launch { fetchDaemonLogs() }
+        viewModelScope.launch { fetchServerLogs() }
     }
-
-    // ---- Level helpers ----
 
     private fun levelPriority(c: Char): Int = when (c) {
         'V' -> 0; 'D' -> 1; 'I' -> 2; 'W' -> 3; 'E', 'F' -> 4; else -> 0
@@ -175,15 +160,12 @@ class LogViewModel @Inject constructor(
         else -> 2
     }
 
-    // ---- App log loading (XLog file-based, no more logcat) ----
-
     private suspend fun refreshLogDates() = withContext(Dispatchers.IO) {
         _logDates.value = AppLogger.listLogFiles().map { it.name }
     }
 
     private suspend fun fetchAppLogs() = withContext(Dispatchers.IO) {
         val date = _selectedDate.value
-        // Real-time = today's XLog file; history = selected date's file
         val targetDate = date ?: LocalDate.now().toString()
         loadAppLogFile(targetDate)
     }
@@ -218,47 +200,50 @@ class LogViewModel @Inject constructor(
         return AppLogEntry(time, level, tag, message)
     }
 
-    // ---- Daemon log loading ----
-
-    private fun refreshDaemonLogDates() {
-        val files = daemonLauncher.listDaemonLogFiles()
-        _daemonLogDates.value = files
-            .filter { it.name != "daemon.log" }
-            .map { it.name.removePrefix("daemon-").removeSuffix(".log") }
-    }
-
-    private suspend fun fetchDaemonLogs() = withContext(Dispatchers.IO) {
-        refreshDaemonLogDates()
+    private suspend fun fetchServerLogs() = withContext(Dispatchers.IO) {
+        refreshServerLogDates()
         try {
             val selectedDate = _selectedDaemonDate.value
             val logFile = if (selectedDate != null) {
-                File(daemonLauncher.dataDir, "daemon-$selectedDate.log")
+                File(serverLogDir, "server-$selectedDate.log")
             } else {
-                File(daemonLogPath)
+                File(serverLogDir, "server.log")
             }
             if (!logFile.exists()) {
-                if (_rawDaemonLogs.value.isEmpty()) {
+                if (_rawServerLogs.value.isEmpty()) {
                     _daemonLogStatus.value = if (selectedDate != null) R.string.log_daemon_no_date
                     else R.string.log_daemon_not_running
                 }
                 return@withContext
             }
 
-            val lines = tailFile(logFile, DAEMON_TAIL_LINES)
+            val lines = tailFile(logFile, 300)
             if (lines.isNotEmpty()) {
-                _rawDaemonLogs.value = lines
+                _rawServerLogs.value = lines
                 _daemonLogStatus.value = null
-            } else if (_rawDaemonLogs.value.isEmpty()) {
+            } else if (_rawServerLogs.value.isEmpty()) {
                 _daemonLogStatus.value = R.string.log_daemon_log_empty
             }
         } catch (_: Exception) {
-            if (_rawDaemonLogs.value.isEmpty()) {
+            if (_rawServerLogs.value.isEmpty()) {
                 _daemonLogStatus.value = R.string.log_daemon_not_running
             }
         }
     }
 
-    /** Read last N lines from a file efficiently using RandomAccessFile. */
+    private fun refreshServerLogDates() {
+        val dir = serverLogDir
+        if (!dir.exists()) {
+            _daemonLogDates.value = emptyList()
+            return
+        }
+        _daemonLogDates.value = dir.listFiles()
+            ?.filter { it.name.startsWith("server-") && it.name.endsWith(".log") }
+            ?.map { it.name.removePrefix("server-").removeSuffix(".log") }
+            ?.sortedDescending()
+            ?: emptyList()
+    }
+
     private fun tailFile(file: File, maxLines: Int): List<String> {
         if (!file.exists() || file.length() == 0L) return emptyList()
         try {
@@ -290,8 +275,6 @@ class LogViewModel @Inject constructor(
         }
     }
 
-    // ---- Actions ----
-
     fun clearAppLogs() {
         viewModelScope.launch(Dispatchers.IO) {
             val date = _selectedDate.value
@@ -300,11 +283,9 @@ class LogViewModel @Inject constructor(
             val file = File(dir, targetDate)
             if (file.exists()) {
                 if (date != null) {
-                    // Historical file: delete it
                     file.delete()
                     refreshLogDates()
                 } else {
-                    // Today's file: truncate (don't delete — XLog will keep writing to it)
                     file.writeText("")
                 }
             }
@@ -313,25 +294,20 @@ class LogViewModel @Inject constructor(
     }
 
     fun refreshDaemonLogs() {
-        viewModelScope.launch { fetchDaemonLogs() }
+        viewModelScope.launch { fetchServerLogs() }
     }
 
     fun clearDaemonLogs() {
         viewModelScope.launch(Dispatchers.IO) {
             val selectedDate = _selectedDaemonDate.value
             if (selectedDate != null) {
-                // Historical archive: delete the file
-                val archiveFile = File(daemonLauncher.dataDir, "daemon-$selectedDate.log")
+                val archiveFile = File(serverLogDir, "server-$selectedDate.log")
                 archiveFile.delete()
-                refreshDaemonLogDates()
+                refreshServerLogDates()
             } else {
-                // Current daemon.log: use TCP command, fallback to direct truncation
-                val cleared = daemonLauncher.clearDaemonLog()
-                if (!cleared) {
-                    try { File(daemonLogPath).also { if (it.exists()) it.writeText("") } } catch (_: Exception) { }
-                }
+                try { File(serverLogDir, "server.log").also { if (it.exists()) it.writeText("") } } catch (_: Exception) { }
             }
-            _rawDaemonLogs.value = emptyList()
+            _rawServerLogs.value = emptyList()
             _daemonLogStatus.value = null
         }
     }

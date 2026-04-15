@@ -25,7 +25,7 @@
     <string name="mode_shizuku_pending">認証待ち</string>
     <string name="mode_shizuku_installed_not_running">Shizuku はインストール済みですが実行されていません</string>
     <string name="mode_shizuku_not_installed">Shizuku がインストールされていません</string>
-    <string name="mode_adb_subtitle">ADB経由でDaemonを手動起動</string>
+    <string name="mode_adb_subtitle">ADB経由でサーバーを手動起動</string>
     <string name="mode_basic_subtitle">権限不要、世界可読ファイルのみ</string>
     <string name="shizuku_wait_title">Shizuku の認証を待機中</string>
     <string name="shizuku_wait_desc">表示された Shizuku 認証ダイアログで【許可】をタップしてください。\n\nShizuku が実行されていない場合は、先に Shizuku を起動してください。</string>
@@ -137,8 +137,8 @@
     <string name="settings_version_match">バージョン一致</string>
     <string name="settings_version_mismatch">バージョン不一致</string>
     <string name="settings_version_format">バージョン %s</string>
-    <string name="settings_adb_setup">ADB Daemon 設定</string>
-    <string name="settings_adb_run_cmd">ターミナルで以下のコマンドを実行してDaemonを起動：</string>
+    <string name="settings_adb_setup">ADB サーバー設定</string>
+    <string name="settings_adb_run_cmd">ターミナルで以下のコマンドを実行してサーバーを起動：</string>
     <string name="settings_copy_command">コマンドをコピー</string>
     <string name="settings_check_connection">接続確認</string>
     <string name="settings_auto_detect_hint">起動後に自動で接続を検出します</string>
@@ -158,15 +158,15 @@
     <string name="log_copy_all">すべてコピー</string>
     <string name="log_clear">クリア</string>
     <string name="log_tab_app">アプリログ</string>
-    <string name="log_tab_daemon">Daemonログ</string>
+    <string name="log_tab_daemon">サーバーログ</string>
     <string name="log_realtime_logcat">リアルタイム (logcat)</string>
     <string name="log_realtime">リアルタイム</string>
     <string name="log_source">ソース:</string>
     <string name="log_level">レベル:</string>
     <string name="log_empty">ログなし</string>
-    <string name="log_daemon_empty">Daemonログなし</string>
-    <string name="log_daemon_no_date">この日付のdaemonログなし</string>
-    <string name="log_daemon_not_running">daemonログなし（daemon未実行）</string>
+    <string name="log_daemon_empty">サーバーログなし</string>
+    <string name="log_daemon_no_date">この日付のサーバーログなし</string>
+    <string name="log_daemon_not_running">サーバーログなし（サーバー未実行）</string>
     <string name="log_daemon_log_empty">ログが空です</string>
 
     <!-- スプラッシュ画面 -->
@@ -183,8 +183,8 @@
     <!-- 起動ステップ -->
     <string name="startup_initializing">初期化中…</string>
     <string name="startup_checking_shizuku">Shizukuサービスを確認中…</string>
-    <string name="startup_deploying_daemon">モニターデーモンを展開中…</string>
-    <string name="startup_connecting_daemon">デーモンに接続中…</string>
+    <string name="startup_deploying_daemon">モニターサーバーを展開中…</string>
+    <string name="startup_connecting_daemon">サーバーに接続中…</string>
     <string name="startup_almost_ready">まもなく準備完了…</string>
 
     <!-- ボトムナビゲーション -->
@@ -194,7 +194,7 @@
 
     <!-- モード説明 -->
     <string name="mode_root_description">Magisk / KernelSU、完全なRoot権限</string>
-    <string name="mode_adb_description">ADB経由でDaemonを手動起動（FPS/プロセス等利用可能）</string>
+    <string name="mode_adb_description">ADB経由でサーバーを手動起動（FPS/プロセス等利用可能）</string>
     <string name="mode_shizuku_description">Shizuku経由でShell権限を取得（推奨）</string>
     <string name="mode_basic_description">特権なし、フレームレート監視不可</string>
 

@@ -116,7 +116,7 @@ fun UserScreen(
     val coroutineScope = rememberCoroutineScope()
     var isDetecting by remember { mutableStateOf(false) }
     var shizukuStatus by remember { mutableStateOf(checkShizukuStatus()) }
-    val daemonStatus by viewModel.daemonStatus.collectAsState()
+    val serverStatus by viewModel.serverStatus.collectAsState()
     var showModeDropdown by remember { mutableStateOf(false) }
 
     DisposableEffect(viewModel) {
@@ -227,14 +227,13 @@ fun UserScreen(
                         },
                     )
                 }
-                // Daemon status (not shown in BASIC mode — daemon is not used)
                 if (currentMode != PrivilegeMode.BASIC) {
                     add {
-                        DaemonStatusItem(
-                            status = daemonStatus,
+                        ServerStatusItem(
+                            status = serverStatus,
                             canRestart = currentMode != PrivilegeMode.ADB,
-                            onCheck = { viewModel.checkDaemon() },
-                            onRestart = { viewModel.restartDaemon() },
+                            onCheck = { viewModel.checkServer() },
+                            onRestart = { viewModel.restartServer() },
                         )
                     }
                 }
@@ -251,11 +250,10 @@ fun UserScreen(
             }
         }
 
-        // ADB setup guide (hidden once daemon connects)
-        if (currentMode == PrivilegeMode.ADB && !daemonStatus.connected) {
+        if (currentMode == PrivilegeMode.ADB && !serverStatus.connected) {
             AdbSetupCard(
-                binaryPath = viewModel.daemonBinaryPath,
-                onCheck = { viewModel.checkDaemon() },
+                binaryPath = "libopenmonitor-server.so",
+                onCheck = { viewModel.checkServer() },
             )
         }
 
@@ -589,43 +587,17 @@ private fun ModeDropdownItem(
 }
 
 @Composable
-private fun DaemonStatusItem(
-    status: UserViewModel.DaemonStatus,
+private fun ServerStatusItem(
+    status: UserViewModel.ServerStatus,
     canRestart: Boolean,
     onCheck: () -> Unit,
     onRestart: () -> Unit,
 ) {
     val view = LocalView.current
-    var showVersionDialog by remember { mutableStateOf(false) }
-
-    val appBaseVersion = BuildConfig.VERSION_NAME.substringBefore("-")
-    val versionMatch = status.version != null && status.version == appBaseVersion
-    // Commit match is the authoritative check — DaemonLauncher uses it for upgrade decisions.
-    // Version string may diverge (daemon default "0.0.1" vs CI-set app version).
-    val commitMatch = status.expectedCommit != null &&
-        status.currentCommit != null &&
-        status.currentCommit.contains(status.expectedCommit)
-    val isMatch = commitMatch
-
-    if (showVersionDialog) {
-        VersionInfoDialog(
-            appVersion = BuildConfig.VERSION_NAME,
-            daemonVersion = status.version ?: "N/A",
-            expectedCommit = status.expectedCommit ?: "N/A",
-            currentCommit = status.currentCommit ?: "N/A",
-            versionMatch = versionMatch,
-            commitMatch = commitMatch,
-            onDismiss = { showVersionDialog = false },
-        )
-    }
 
     val summary = when {
         status.checking -> stringResource(R.string.settings_detecting)
-        status.checkedOnce && status.connected -> listOfNotNull(
-            stringResource(R.string.settings_running),
-            status.runner?.uppercase()?.ifEmpty { null },
-            status.uptimeSeconds?.let { formatUptime(it) }?.ifEmpty { null },
-        ).joinToString(" · ")
+        status.checkedOnce && status.connected -> stringResource(R.string.settings_running)
         status.checkedOnce -> stringResource(R.string.settings_not_running)
         else -> stringResource(R.string.settings_not_detected)
     }
@@ -641,24 +613,11 @@ private fun DaemonStatusItem(
         colors = ListItemDefaults.colors(
             containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
         ),
-        headlineContent = { Text("Daemon") },
+        headlineContent = { Text("Server") },
         supportingContent = { Text(summary, color = summaryColor) },
         leadingContent = { Icon(Icons.Outlined.Cable, contentDescription = null) },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (status.checkedOnce && status.connected) {
-                    IconButton(
-                        onClick = { view.hapticClick(); showVersionDialog = true },
-                        modifier = Modifier.size(32.dp),
-                    ) {
-                        Icon(
-                            imageVector = if (isMatch) Icons.Filled.CheckCircle else Icons.Filled.Warning,
-                            contentDescription = null,
-                            tint = if (isMatch) Color(0xFF4CAF50) else Color(0xFFFFA726),
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
-                }
                 if (canRestart || !status.connected) {
                     IconButton(
                         onClick = { view.hapticClick(); if (status.connected) onRestart() else onCheck() },
@@ -672,49 +631,6 @@ private fun DaemonStatusItem(
                         )
                     }
                 }
-            }
-        },
-    )
-}
-
-@Composable
-private fun VersionInfoDialog(
-    appVersion: String,
-    daemonVersion: String,
-    expectedCommit: String,
-    currentCommit: String,
-    versionMatch: Boolean,
-    commitMatch: Boolean,
-    onDismiss: () -> Unit,
-) {
-    val view = LocalView.current
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = { view.hapticClick(); onDismiss() }) { Text(stringResource(R.string.settings_confirm)) }
-        },
-        icon = {
-            Icon(
-                imageVector = if (commitMatch) Icons.Filled.CheckCircle else Icons.Filled.Warning,
-                contentDescription = null,
-                tint = if (commitMatch) Color(0xFF4CAF50) else Color(0xFFFFA726),
-                modifier = Modifier.size(32.dp),
-            )
-        },
-        title = {
-            Text(if (commitMatch) stringResource(R.string.settings_version_match) else stringResource(R.string.settings_version_mismatch))
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                // Primary: version comparison
-                VersionRow(label = "App:    ", value = appVersion)
-                VersionRow(label = "Daemon: ", value = daemonVersion,
-                    color = if (versionMatch) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error)
-                Spacer(modifier = Modifier.height(4.dp))
-                // Secondary: commit hash (developer detail)
-                VersionRow(label = "Expected: ", value = expectedCommit)
-                VersionRow(label = "Current:  ", value = currentCommit,
-                    color = if (commitMatch) MaterialTheme.colorScheme.onSurface else Color(0xFFFFA726))
             }
         },
     )
