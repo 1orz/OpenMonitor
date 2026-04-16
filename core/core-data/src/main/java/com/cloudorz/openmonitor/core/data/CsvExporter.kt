@@ -68,7 +68,7 @@ class CsvExporter @Inject constructor(
                 append(",CPU(%),CPU(℃)")
                 for (i in 0 until maxCores) append(",CPU${i}(%)")
                 for (i in 0 until maxCores) append(",CPU${i}(MHz)")
-                append(",GPU(%),GPU(MHz)")
+                append(",GPU(%),GPU(℃),GPU(MHz)")
                 append(",Battery(%),Battery(℃),Current(mA),Power(mW)")
             }
             writer.appendLine(header)
@@ -86,7 +86,7 @@ class CsvExporter @Inject constructor(
                     append(",${r.cpuLoad},${r.cpuTemp}")
                     for (i in 0 until maxCores) append(",${coreLoads.getOrElse(i) { "0" }}")
                     for (i in 0 until maxCores) append(",${coreFreqs.getOrElse(i) { "0" }}")
-                    append(",${r.gpuLoad},${r.gpuFreqMhz}")
+                    append(",${r.gpuLoad},${r.gpuTemp},${r.gpuFreqMhz}")
                     append(",${r.batteryCapacity},${r.batteryTemp},${r.batteryCurrentMa},${(r.powerW * 1000).toInt()}")
                 }
                 writer.appendLine(row)

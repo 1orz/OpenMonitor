@@ -26,7 +26,7 @@ import com.cloudorz.openmonitor.core.database.entity.PowerStatSessionEntity
         FpsFrameDataEntity::class,
         BatteryRecordEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 abstract class MonitorDatabase : RoomDatabase() {
@@ -36,6 +36,12 @@ abstract class MonitorDatabase : RoomDatabase() {
     abstract fun batteryRecordDao(): BatteryRecordDao
 
     companion object {
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE fps_frame_data ADD COLUMN gpuTemp REAL NOT NULL DEFAULT 0.0")
+            }
+        }
+
         val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(

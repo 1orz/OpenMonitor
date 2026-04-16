@@ -85,6 +85,10 @@
     <string name="fps_series_usage">使用率(%)</string>
     <string name="fps_series_jank">卡顿</string>
     <string name="fps_series_big_jank">严重卡顿</string>
+    <string name="fps_series_cpu_temp">CPU温度(\u00B0C)</string>
+    <string name="fps_series_gpu_temp">GPU温度(\u00B0C)</string>
+    <string name="fps_series_cpu_usage">CPU占用率(%)</string>
+    <string name="fps_series_gpu_usage">GPU利用率(%)</string>
     <!-- FPS Export -->
     <string name="fps_save_to_download">保存</string>
     <string name="fps_save_as_image">保存为图片</string>

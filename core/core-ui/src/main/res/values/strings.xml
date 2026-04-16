@@ -86,6 +86,10 @@
     <string name="fps_series_usage">Usage(%)</string>
     <string name="fps_series_jank">Jank</string>
     <string name="fps_series_big_jank">BigJank</string>
+    <string name="fps_series_cpu_temp">CPU Temp(\u00B0C)</string>
+    <string name="fps_series_gpu_temp">GPU Temp(\u00B0C)</string>
+    <string name="fps_series_cpu_usage">CPU Usage(%)</string>
+    <string name="fps_series_gpu_usage">GPU Usage(%)</string>
     <!-- FPS Export -->
     <string name="fps_save_to_download">Save</string>
     <string name="fps_save_as_image">Save as Image</string>

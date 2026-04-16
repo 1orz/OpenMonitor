@@ -1,6 +1,5 @@
 package com.cloudorz.openmonitor.feature.fps
 
-import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -124,6 +123,8 @@ import com.patrykandpatrick.vico.compose.cartesian.data.CartesianLayerRangeProvi
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import android.content.Context
+import androidx.core.content.edit
 import kotlin.math.sqrt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -136,6 +137,7 @@ private val PowerColor = Color(0xFF5C6BC0)
 private val BatteryColor = Color(0xFF66BB6A)
 private val CurrentColor = Color(0xFF29B6F6)
 private val BatTempColor = Color(0xFFFFA726)
+private val GpuTempColor = Color(0xFFEC407A)
 
 private val CoreColors = listOf(
     Color(0xFF42A5F5), Color(0xFFFF7043), Color(0xFF66BB6A),
@@ -149,6 +151,35 @@ private val ClusterColors = listOf(
 )
 
 private val LegendLabelKey = ExtraStore.Key<List<String>>()
+
+private const val CHART_PREFS = "fps_chart_prefs"
+
+@Composable
+private fun rememberPersistedVisibility(
+    prefKey: String,
+    allKeys: List<String>,
+): SnapshotStateMap<String, Boolean> {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences(CHART_PREFS, android.content.Context.MODE_PRIVATE) }
+    return remember(prefKey) {
+        mutableStateMapOf<String, Boolean>().apply {
+            val hidden = prefs.getStringSet("series_$prefKey", null)
+            if (hidden != null) {
+                allKeys.forEach { put(it, it !in hidden) }
+            }
+        }
+    }
+}
+
+private fun persistVisibility(
+    context: android.content.Context,
+    prefKey: String,
+    visibility: Map<String, Boolean>,
+) {
+    val prefs = context.getSharedPreferences(CHART_PREFS, android.content.Context.MODE_PRIVATE)
+    val hidden = visibility.filterValues { !it }.keys
+    prefs.edit { putStringSet("series_$prefKey", hidden) }
+}
 
 private enum class ChartSection(val labelRes: Int) {
     FPS_TEMP(R.string.fps_section_fps_temp),
@@ -298,14 +329,24 @@ private fun FpsSessionDetailContent(
 ) {
     val session = state.session
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()) }
+    val context = LocalContext.current
     val sectionVisibility = remember {
-        mutableStateMapOf<ChartSection, Boolean>().apply { ChartSection.entries.forEach { put(it, true) } }
+        val prefs = context.getSharedPreferences(CHART_PREFS, android.content.Context.MODE_PRIVATE)
+        val hidden = prefs.getStringSet("section_vis", null) ?: emptySet()
+        mutableStateMapOf<ChartSection, Boolean>().apply {
+            ChartSection.entries.forEach { put(it, it.name !in hidden) }
+        }
     }
 
     if (showSectionOptions) {
         SectionOptionsDialog(
             visibility = sectionVisibility,
-            onDismiss = onDismissSectionOptions,
+            onDismiss = {
+                onDismissSectionOptions()
+                val prefs = context.getSharedPreferences(CHART_PREFS, android.content.Context.MODE_PRIVATE)
+                val hidden = sectionVisibility.filterValues { !it }.keys.map { it.name }.toSet()
+                prefs.edit { putStringSet("section_vis", hidden) }
+            },
         )
     }
 
@@ -680,18 +721,25 @@ private fun ChartCard(
     allLabels: List<String>? = null,
     allColors: List<Color>? = null,
     seriesVisibility: SnapshotStateMap<String, Boolean>? = null,
+    prefKey: String? = null,
+    allKeys: List<String>? = null,
     content: @Composable () -> Unit,
 ) {
     val view = LocalView.current
+    val context = LocalContext.current
     @Suppress("AssignedValueIsNeverRead")
     var showSeriesDialog by remember { mutableStateOf(false) }
 
     if (showSeriesDialog && allLabels != null && allColors != null && seriesVisibility != null) {
         SeriesSelectDialog(
+            keys = allKeys ?: allLabels,
             labels = allLabels,
             colors = allColors,
             visibility = seriesVisibility,
-            onDismiss = { showSeriesDialog = false },
+            onDismiss = {
+                showSeriesDialog = false
+                if (prefKey != null) persistVisibility(context, prefKey, seriesVisibility)
+            },
         )
     }
 
@@ -729,6 +777,7 @@ private fun ChartCard(
 
 @Composable
 private fun SeriesSelectDialog(
+    keys: List<String>,
     labels: List<String>,
     colors: List<Color>,
     visibility: SnapshotStateMap<String, Boolean>,
@@ -740,19 +789,20 @@ private fun SeriesSelectDialog(
         title = { Text(stringResource(R.string.fps_chart_series_options)) },
         text = {
             Column {
-                val checkedCount = labels.count { visibility[it] != false }
-                labels.forEachIndexed { idx, label ->
-                    val checked = visibility[label] != false
+                val checkedCount = keys.count { visibility[it] != false }
+                keys.forEachIndexed { idx, key ->
+                    val label = labels[idx]
+                    val checked = visibility[key] != false
                     val isLast = checked && checkedCount == 1
                     Row(
                         Modifier
                             .fillMaxWidth()
-                            .hapticClickable { if (!isLast) visibility[label] = !checked },
+                            .hapticClickable { if (!isLast) visibility[key] = !checked },
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Checkbox(
                             checked = checked,
-                            onCheckedChange = { if (!isLast || it) visibility[label] = it },
+                            onCheckedChange = { if (!isLast || it) visibility[key] = it },
                         )
                         Spacer(Modifier.width(4.dp))
                         Box(
@@ -877,26 +927,35 @@ private fun FpsTempChart(records: List<FpsFrameRecord>) {
     val hasTemp = records.any { it.cpuTemp > 0.0 }
     val hasCpu = records.any { it.cpuLoad > 0.0 }
     val hasGpu = records.any { it.gpuLoad > 0.0 }
+    val hasGpuTemp = records.any { it.gpuTemp > 0.0 }
 
+    val cpuTempLabel = stringResource(R.string.fps_series_cpu_temp)
+    val cpuUsageLabel = stringResource(R.string.fps_series_cpu_usage)
+    val gpuUsageLabel = stringResource(R.string.fps_series_gpu_usage)
+    val gpuTempLabel = stringResource(R.string.fps_series_gpu_temp)
+
+    val allKeys = mutableListOf("FPS")
     val allLabels = mutableListOf("FPS")
     val allColors = mutableListOf(FpsColor)
-    if (hasTemp) { allLabels.add("TEMP(\u00B0C)"); allColors.add(TempColor) }
-    if (hasCpu) { allLabels.add("CPU(%)"); allColors.add(CpuColor) }
-    if (hasGpu) { allLabels.add("GPU(%)"); allColors.add(GpuColor) }
+    if (hasTemp) { allKeys.add("cpu_temp"); allLabels.add(cpuTempLabel); allColors.add(TempColor) }
+    if (hasCpu) { allKeys.add("cpu_usage"); allLabels.add(cpuUsageLabel); allColors.add(CpuColor) }
+    if (hasGpu) { allKeys.add("gpu_usage"); allLabels.add(gpuUsageLabel); allColors.add(GpuColor) }
+    if (hasGpuTemp) { allKeys.add("gpu_temp"); allLabels.add(gpuTempLabel); allColors.add(GpuTempColor) }
 
-    val seriesVis = remember { mutableStateMapOf<String, Boolean>() }
+    val seriesVis = rememberPersistedVisibility("fps_temp", allKeys)
 
     val visLabels = mutableListOf<String>()
     val visColors = mutableListOf<Color>()
     val visData = mutableListOf<List<Number>>()
     if (seriesVis["FPS"] != false) { visLabels.add("FPS"); visColors.add(FpsColor); visData.add(records.map { it.fps }) }
-    if (hasTemp && seriesVis["TEMP(\u00B0C)"] != false) { visLabels.add("TEMP(\u00B0C)"); visColors.add(TempColor); visData.add(records.map { it.cpuTemp }) }
-    if (hasCpu && seriesVis["CPU(%)"] != false) { visLabels.add("CPU(%)"); visColors.add(CpuColor); visData.add(records.map { it.cpuLoad }) }
-    if (hasGpu && seriesVis["GPU(%)"] != false) { visLabels.add("GPU(%)"); visColors.add(GpuColor); visData.add(records.map { it.gpuLoad }) }
+    if (hasTemp && seriesVis["cpu_temp"] != false) { visLabels.add(cpuTempLabel); visColors.add(TempColor); visData.add(records.map { it.cpuTemp }) }
+    if (hasCpu && seriesVis["cpu_usage"] != false) { visLabels.add(cpuUsageLabel); visColors.add(CpuColor); visData.add(records.map { it.cpuLoad }) }
+    if (hasGpu && seriesVis["gpu_usage"] != false) { visLabels.add(gpuUsageLabel); visColors.add(GpuColor); visData.add(records.map { it.gpuLoad }) }
+    if (hasGpuTemp && seriesVis["gpu_temp"] != false) { visLabels.add(gpuTempLabel); visColors.add(GpuTempColor); visData.add(records.map { it.gpuTemp }) }
 
     if (visData.isEmpty()) return
 
-    ChartCard("FPS", allLabels, allColors, seriesVis) {
+    ChartCard("FPS", allLabels = allLabels, allColors = allColors, seriesVisibility = seriesVis, prefKey = "fps_temp", allKeys = allKeys) {
         key(visLabels.joinToString()) {
             VicoLineChart(records, visData, visColors, visLabels)
         }
@@ -930,31 +989,36 @@ private fun CpuGpuUsageChart(records: List<FpsFrameRecord>, cpuClusters: List<Cp
     val maxCores = records.maxOfOrNull { it.cpuCoreLoads.size } ?: 0
     val clusters = if (maxCores > 0) cpuClusters.ifEmpty { fallbackClusters(maxCores) } else emptyList()
 
+    val cpuUsageLabel = stringResource(R.string.fps_series_cpu_usage)
+    val gpuUsageLabel = stringResource(R.string.fps_series_gpu_usage)
+
+    val allKeys = mutableListOf<String>()
     val allLabels = mutableListOf<String>()
     val allColors = mutableListOf<Color>()
-    if (hasTotal) { allLabels.add("CPU(%)"); allColors.add(CpuColor) }
-    if (hasGpu) { allLabels.add("GPU(%)"); allColors.add(GpuColor) }
+    if (hasTotal) { allKeys.add("cpu_total"); allLabels.add(cpuUsageLabel); allColors.add(CpuColor) }
+    if (hasGpu) { allKeys.add("gpu_total"); allLabels.add(gpuUsageLabel); allColors.add(GpuColor) }
     clusters.forEachIndexed { ci, info ->
-        allLabels.add(clusterLabel(ci, info))
+        val cl = clusterLabel(ci, info)
+        allKeys.add(cl)
+        allLabels.add(cl)
         allColors.add(ClusterColors[ci % ClusterColors.size])
     }
 
-    val seriesVis = remember { mutableStateMapOf<String, Boolean>() }
+    val seriesVis = rememberPersistedVisibility("cpu_gpu_usage", allKeys)
 
     val visLabels = mutableListOf<String>()
     val visColors = mutableListOf<Color>()
     val visData = mutableListOf<List<Number>>()
-    if (hasTotal && seriesVis["CPU(%)"] != false) {
-        visLabels.add("CPU(%)"); visColors.add(CpuColor); visData.add(records.map { it.cpuLoad })
+    if (hasTotal && seriesVis["cpu_total"] != false) {
+        visLabels.add(cpuUsageLabel); visColors.add(CpuColor); visData.add(records.map { it.cpuLoad })
     }
-    if (hasGpu && seriesVis["GPU(%)"] != false) {
-        visLabels.add("GPU(%)"); visColors.add(GpuColor); visData.add(records.map { it.gpuLoad })
+    if (hasGpu && seriesVis["gpu_total"] != false) {
+        visLabels.add(gpuUsageLabel); visColors.add(GpuColor); visData.add(records.map { it.gpuLoad })
     }
     clusters.forEachIndexed { ci, info ->
-        val label = allLabels[if (hasTotal) 1 else 0] // skip CPU+GPU offset
-        val actualLabel = clusterLabel(ci, info)
-        if (seriesVis[actualLabel] != false) {
-            visLabels.add(actualLabel); visColors.add(ClusterColors[ci % ClusterColors.size])
+        val cl = clusterLabel(ci, info)
+        if (seriesVis[cl] != false) {
+            visLabels.add(cl); visColors.add(ClusterColors[ci % ClusterColors.size])
             visData.add(records.map { r ->
                 info.coreIndices.map { r.cpuCoreLoads.getOrElse(it) { 0.0 } }.average()
             })
@@ -963,7 +1027,7 @@ private fun CpuGpuUsageChart(records: List<FpsFrameRecord>, cpuClusters: List<Cp
 
     if (visData.isEmpty()) return
 
-    ChartCard(stringResource(R.string.fps_chart_cpu_usage), allLabels, allColors, seriesVis) {
+    ChartCard(stringResource(R.string.fps_chart_cpu_usage), allLabels = allLabels, allColors = allColors, seriesVisibility = seriesVis, prefKey = "cpu_gpu_usage", allKeys = allKeys) {
         key(visLabels.joinToString()) {
             VicoLineChart(records, visData, visColors, visLabels, yAxisSuffix = "%", fixedMaxY = 100.0)
         }
@@ -987,7 +1051,7 @@ private fun CpuGpuFreqChart(records: List<FpsFrameRecord>, cpuClusters: List<Cpu
         allColors.add(ClusterColors[ci % ClusterColors.size])
     }
 
-    val seriesVis = remember { mutableStateMapOf<String, Boolean>() }
+    val seriesVis = rememberPersistedVisibility("cpu_gpu_freq", allLabels)
 
     val visLabels = mutableListOf<String>()
     val visColors = mutableListOf<Color>()
@@ -1005,7 +1069,7 @@ private fun CpuGpuFreqChart(records: List<FpsFrameRecord>, cpuClusters: List<Cpu
 
     if (visData.isEmpty()) return
 
-    ChartCard(stringResource(R.string.fps_chart_cpu_gpu_freq), allLabels, allColors, seriesVis) {
+    ChartCard(stringResource(R.string.fps_chart_cpu_gpu_freq), allLabels, allColors, seriesVis, prefKey = "cpu_gpu_freq") {
         key(visLabels.joinToString()) {
             VicoLineChart(records, visData, visColors, visLabels, yAxisSuffix = "MHz")
         }
@@ -1042,17 +1106,18 @@ private fun JankChart(records: List<FpsFrameRecord>) {
     val bigJankLabel = stringResource(R.string.fps_series_big_jank)
     val totalLabel = stringResource(R.string.fps_stat_total)
 
+    val allKeys = mutableListOf("jank")
     val allLabels = mutableListOf(jankLabel)
     val allColors = mutableListOf(ChartRed)
-    if (hasBig) { allLabels.add(bigJankLabel); allColors.add(Color(0xFFD32F2F)) }
+    if (hasBig) { allKeys.add("big_jank"); allLabels.add(bigJankLabel); allColors.add(Color(0xFFD32F2F)) }
 
-    val seriesVis = remember { mutableStateMapOf<String, Boolean>() }
+    val seriesVis = rememberPersistedVisibility("jank", allKeys)
 
     val visLabels = mutableListOf<String>()
     val visColors = mutableListOf<Color>()
     val visData = mutableListOf<List<Number>>()
-    if (seriesVis[jankLabel] != false) { visLabels.add(jankLabel); visColors.add(ChartRed); visData.add(jankDeltas) }
-    if (hasBig && seriesVis[bigJankLabel] != false) { visLabels.add(bigJankLabel); visColors.add(Color(0xFFD32F2F)); visData.add(bigJankDeltas) }
+    if (seriesVis["jank"] != false) { visLabels.add(jankLabel); visColors.add(ChartRed); visData.add(jankDeltas) }
+    if (hasBig && seriesVis["big_jank"] != false) { visLabels.add(bigJankLabel); visColors.add(Color(0xFFD32F2F)); visData.add(bigJankDeltas) }
 
     if (visData.isEmpty()) return
 
@@ -1062,7 +1127,7 @@ private fun JankChart(records: List<FpsFrameRecord>) {
 
     ChartCard(
         stringResource(R.string.fps_chart_jank) + "\n$subtitle",
-        allLabels, allColors, seriesVis,
+        allLabels = allLabels, allColors = allColors, seriesVisibility = seriesVis, prefKey = "jank", allKeys = allKeys,
     ) {
         key(visLabels.joinToString()) {
             VicoLineChart(records, visData, visColors, visLabels)
@@ -1082,21 +1147,22 @@ private fun PowerBatteryChart(records: List<FpsFrameRecord>) {
     val minLabel = stringResource(R.string.fps_stat_min)
     val avgLabel = stringResource(R.string.fps_stat_avg)
 
+    val allKeys = mutableListOf<String>()
     val allLabels = mutableListOf<String>()
     val allColors = mutableListOf<Color>()
-    if (hasPower) { allLabels.add(powerLabel); allColors.add(PowerColor) }
-    if (hasBattery) { allLabels.add(capacityLabel); allColors.add(BatteryColor) }
+    if (hasPower) { allKeys.add("power"); allLabels.add(powerLabel); allColors.add(PowerColor) }
+    if (hasBattery) { allKeys.add("capacity"); allLabels.add(capacityLabel); allColors.add(BatteryColor) }
 
-    val seriesVis = remember { mutableStateMapOf<String, Boolean>() }
+    val seriesVis = rememberPersistedVisibility("power_battery", allKeys)
 
     val visLabels = mutableListOf<String>()
     val visColors = mutableListOf<Color>()
     val visData = mutableListOf<List<Number>>()
-    if (hasPower && seriesVis[powerLabel] != false) {
+    if (hasPower && seriesVis["power"] != false) {
         visLabels.add(powerLabel); visColors.add(PowerColor)
         visData.add(records.map { kotlin.math.abs(it.powerW) })
     }
-    if (hasBattery && seriesVis[capacityLabel] != false) { visLabels.add(capacityLabel); visColors.add(BatteryColor); visData.add(records.map { it.batteryCapacity }) }
+    if (hasBattery && seriesVis["capacity"] != false) { visLabels.add(capacityLabel); visColors.add(BatteryColor); visData.add(records.map { it.batteryCapacity }) }
 
     if (visData.isEmpty()) return
 
@@ -1105,7 +1171,7 @@ private fun PowerBatteryChart(records: List<FpsFrameRecord>) {
         if (pws.isNotEmpty()) "$maxLabel: %.2fW  $minLabel: %.2fW  $avgLabel: %.2fW".format(pws.max(), pws.min(), pws.average()) else ""
     } else ""
 
-    ChartCard(stringResource(R.string.fps_chart_power) + if (subtitle.isNotEmpty()) "\n$subtitle" else "", allLabels, allColors, seriesVis) {
+    ChartCard(stringResource(R.string.fps_chart_power) + if (subtitle.isNotEmpty()) "\n$subtitle" else "", allLabels = allLabels, allColors = allColors, seriesVisibility = seriesVis, prefKey = "power_battery", allKeys = allKeys) {
         key(visLabels.joinToString()) {
             VicoLineChart(records, visData, visColors, visLabels)
         }
@@ -1131,25 +1197,31 @@ private fun BatteryCurrentChart(records: List<FpsFrameRecord>) {
 private fun TemperatureChart(records: List<FpsFrameRecord>) {
     val hasCpu = records.any { it.cpuTemp > 0.0 }
     val hasBat = records.any { it.batteryTemp > 0.0 }
-    if (!hasCpu && !hasBat) return
+    val hasGpu = records.any { it.gpuTemp > 0.0 }
+    if (!hasCpu && !hasBat && !hasGpu) return
 
+    val cpuTempLabel = stringResource(R.string.fps_series_cpu_temp)
+    val gpuTempLabel = stringResource(R.string.fps_series_gpu_temp)
     val batTempLabel = stringResource(R.string.fps_series_bat_temp)
     val maxLabel = stringResource(R.string.fps_stat_max)
     val minLabel = stringResource(R.string.fps_stat_min)
     val avgLabel = stringResource(R.string.fps_stat_avg)
 
+    val allKeys = mutableListOf<String>()
     val allLabels = mutableListOf<String>()
     val allColors = mutableListOf<Color>()
-    if (hasCpu) { allLabels.add("CPU(\u00B0C)"); allColors.add(TempColor) }
-    if (hasBat) { allLabels.add(batTempLabel); allColors.add(BatTempColor) }
+    if (hasCpu) { allKeys.add("cpu_temp"); allLabels.add(cpuTempLabel); allColors.add(TempColor) }
+    if (hasGpu) { allKeys.add("gpu_temp"); allLabels.add(gpuTempLabel); allColors.add(GpuTempColor) }
+    if (hasBat) { allKeys.add("bat_temp"); allLabels.add(batTempLabel); allColors.add(BatTempColor) }
 
-    val seriesVis = remember { mutableStateMapOf<String, Boolean>() }
+    val seriesVis = rememberPersistedVisibility("temperature", allKeys)
 
     val visLabels = mutableListOf<String>()
     val visColors = mutableListOf<Color>()
     val visData = mutableListOf<List<Number>>()
-    if (hasCpu && seriesVis["CPU(\u00B0C)"] != false) { visLabels.add("CPU(\u00B0C)"); visColors.add(TempColor); visData.add(records.map { it.cpuTemp }) }
-    if (hasBat && seriesVis[batTempLabel] != false) { visLabels.add(batTempLabel); visColors.add(BatTempColor); visData.add(records.map { it.batteryTemp }) }
+    if (hasCpu && seriesVis["cpu_temp"] != false) { visLabels.add(cpuTempLabel); visColors.add(TempColor); visData.add(records.map { it.cpuTemp }) }
+    if (hasGpu && seriesVis["gpu_temp"] != false) { visLabels.add(gpuTempLabel); visColors.add(GpuTempColor); visData.add(records.map { it.gpuTemp }) }
+    if (hasBat && seriesVis["bat_temp"] != false) { visLabels.add(batTempLabel); visColors.add(BatTempColor); visData.add(records.map { it.batteryTemp }) }
 
     if (visData.isEmpty()) return
 
@@ -1160,7 +1232,7 @@ private fun TemperatureChart(records: List<FpsFrameRecord>) {
 
     ChartCard(
         stringResource(R.string.fps_chart_temperature) + if (subtitle.isNotEmpty()) "\n$subtitle" else "",
-        allLabels, allColors, seriesVis,
+        allLabels = allLabels, allColors = allColors, seriesVisibility = seriesVis, prefKey = "temperature", allKeys = allKeys,
     ) {
         key(visLabels.joinToString()) {
             VicoLineChart(records, visData, visColors, visLabels, yAxisSuffix = "\u00B0C")

@@ -30,6 +30,7 @@ data class FpsFrameDataEntity(
     val cpuLoad: Double = 0.0,
     val cpuTemp: Double = 0.0,
     val gpuLoad: Double = 0.0,
+    val gpuTemp: Double = 0.0,
     val gpuFreqMhz: Int = 0,
     val batteryCapacity: Int = 0,
     val batteryCurrentMa: Int = 0,

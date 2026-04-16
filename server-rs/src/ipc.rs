@@ -35,7 +35,7 @@ use crate::snapshot::{SnapshotData, SnapshotStore};
 pub const PROTOCOL_VERSION: u32 = 3;
 pub const DEFAULT_PORT: u16 = 9876;
 
-pub const MAX_FRAME_BYTES: usize = 1 * 1024 * 1024;
+pub const MAX_FRAME_BYTES: usize = 1024 * 1024;
 pub const MIN_SUBSCRIBE_INTERVAL_MS: u32 = 100;
 pub const DEFAULT_SUBSCRIBE_INTERVAL_MS: u32 = 500;
 
@@ -227,6 +227,7 @@ enum ClientCmd {
 #[serde(tag = "type", rename_all = "snake_case")]
 enum ServerFrame {
     AuthOk { version: u32 },
+    #[allow(dead_code)]
     AuthFail { reason: String },
     Pong,
     Error { code: i32, msg: String },

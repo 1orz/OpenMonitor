@@ -68,7 +68,12 @@ class RootFrameworkDetector @Inject constructor(
         for (pkg in candidates) {
             try {
                 val info = context.packageManager.getPackageInfo(pkg, 0)
-                val ver = info.versionName ?: info.longVersionCode.toString()
+                @Suppress("DEPRECATION")
+                val ver = info.versionName ?: if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                    info.longVersionCode.toString()
+                } else {
+                    info.versionCode.toString()
+                }
                 XLog.tag(TAG).d("detectMagisk: found $pkg v$ver")
                 return ver to pkg
             } catch (_: PackageManager.NameNotFoundException) {}

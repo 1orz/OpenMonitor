@@ -51,6 +51,7 @@ class FpsRecordingManager @Inject constructor(
     private val batteryDataSource: BatteryDataSource,
     private val cpuDataSource: CpuDataSource,
     private val gpuDataSource: GpuDataSource,
+    private val thermalDataSource: ThermalDataSource,
     @param:ApplicationContext private val context: Context,
 ) {
     companion object {
@@ -137,6 +138,7 @@ class FpsRecordingManager @Inject constructor(
                     val snapshot = try { aggregatedMonitorDataSource.collectSnapshot() } catch (e: CancellationException) { throw e } catch (_: Exception) { null }
                     val battery = try { batteryDataSource.getBatteryStatus() } catch (e: CancellationException) { throw e } catch (_: Exception) { null }
                     val gpuInfo = try { gpuDataSource.getGpuInfo() } catch (e: CancellationException) { throw e } catch (_: Exception) { null }
+                    val gpuTemp = try { thermalDataSource.getGpuTemperature() } catch (e: CancellationException) { throw e } catch (_: Exception) { null }
 
                     // Per-core frequencies
                     val coreCount = try { cpuDataSource.getCpuCoreCount() } catch (e: CancellationException) { throw e } catch (_: Exception) { 0 }
@@ -180,6 +182,7 @@ class FpsRecordingManager @Inject constructor(
                             cpuLoad = snapshot?.cpuLoadPercent ?: 0.0,
                             cpuTemp = snapshot?.cpuTempCelsius ?: 0.0,
                             gpuLoad = snapshot?.gpuLoadPercent ?: gpuInfo?.loadPercent ?: 0.0,
+                            gpuTemp = gpuTemp ?: 0.0,
                             gpuFreqMhz = snapshot?.gpuFreqMhz ?: gpuInfo?.currentFreqMHz?.toInt() ?: 0,
                             batteryCapacity = battery?.capacity ?: 0,
                             batteryCurrentMa = battery?.currentMa ?: 0,

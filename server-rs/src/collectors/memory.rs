@@ -80,7 +80,7 @@ fn read_meminfo(file: Option<&mut File>, buf: &mut [u8]) -> (i64, i64) {
     (total, avail)
 }
 
-fn strip_prefix_kb<'a>(line: &'a str, prefix: &str) -> Option<i64> {
+fn strip_prefix_kb(line: &str, prefix: &str) -> Option<i64> {
     let rest = line.strip_prefix(prefix)?.trim();
     let num: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
     num.parse().ok()

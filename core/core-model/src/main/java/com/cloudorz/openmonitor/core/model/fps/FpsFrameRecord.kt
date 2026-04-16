@@ -10,6 +10,7 @@ data class FpsFrameRecord(
     val cpuLoad: Double,
     val cpuTemp: Double,
     val gpuLoad: Double,
+    val gpuTemp: Double,
     val gpuFreqMhz: Int,
     val batteryCapacity: Int,
     val batteryCurrentMa: Int,
