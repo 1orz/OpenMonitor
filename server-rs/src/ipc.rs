@@ -1,19 +1,12 @@
-//! AF_UNIX listener + wire protocol.
+//! TCP listener + wire protocol.
 //!
 //! Wire format — length-prefixed JSON frames:
 //!
 //!   [u32 BE payload_len] [payload_len bytes UTF-8 JSON]
 //!
-//! Maximum frame size is [`MAX_FRAME_BYTES`]. Larger frames from a peer are
-//! treated as fatal (the connection is torn down) to prevent a
-//! malicious / corrupted peer from driving the daemon OOM.
-//!
-//! Handshake: immediately after `accept()` the server runs auth and emits
+//! Handshake: immediately after `accept()` the server emits
 //!
 //!   { "type": "auth_ok",   "version": N }
-//!   { "type": "auth_fail", "reason": "..." }
-//!
-//! On `auth_fail` the server writes the frame, `shutdown(WRITE)`s and closes.
 //!
 //! After a successful handshake the client may send:
 //!
@@ -27,16 +20,9 @@
 //!   { "type": "pong" }
 //!   { "type": "snapshot", ...SnapshotData fields... }
 //!   { "type": "error", "code": N, "msg": "..." }
-//!
-//! Each accepted connection owns one std thread (the handler). The subscribe
-//! loop is driven from the same thread so the connection's read/write paths
-//! stay single-threaded and lock-free.
 
 use std::io::{self, Read, Write};
-use std::os::unix::fs::PermissionsExt;
-use std::os::unix::io::AsRawFd;
-use std::os::unix::net::{UnixListener, UnixStream};
-use std::path::{Path, PathBuf};
+use std::net::{TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::thread;
@@ -44,44 +30,42 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
-use crate::auth::{verify_peer, AuthConfig, AuthResult};
 use crate::snapshot::{SnapshotData, SnapshotStore};
 
-/// Bumped whenever the wire format changes in a way clients must observe.
 pub const PROTOCOL_VERSION: u32 = 3;
+pub const DEFAULT_PORT: u16 = 9876;
 
 pub const MAX_FRAME_BYTES: usize = 1 * 1024 * 1024;
 pub const MIN_SUBSCRIBE_INTERVAL_MS: u32 = 100;
 pub const DEFAULT_SUBSCRIBE_INTERVAL_MS: u32 = 500;
 
-/// Bind an AF_UNIX socket at `path`, accept connections until `exit_flag`
-/// flips. Each connection is authenticated and dispatched on its own thread.
-///
-/// The returned result only covers startup — once bind/listen succeeds the
-/// function loops until `exit_flag` is observed.
+/// Bind TCP on localhost, accept connections until `exit_flag` flips.
 pub fn serve(
-    path: &Path,
+    port: u16,
     store: SnapshotStore,
-    auth: AuthConfig,
     exit_flag: Arc<AtomicBool>,
-) -> io::Result<()> {
-    let listener = bind_socket(path)?;
-    log::info!("ipc: listening on {}", path.display());
+) -> io::Result<u16> {
+    let listener = TcpListener::bind(format!("127.0.0.1:{port}"))?;
+    let actual_port = listener.local_addr()?.port();
+    log::info!("ipc: listening on 127.0.0.1:{actual_port}");
 
-    // Non-blocking so the accept loop observes `exit_flag` promptly.
     listener.set_nonblocking(true)?;
 
     let next_conn_id = Arc::new(AtomicU64::new(1));
 
     while !exit_flag.load(Ordering::Acquire) {
         match listener.accept() {
-            Ok((stream, _addr)) => {
+            Ok((stream, addr)) => {
+                if !addr.ip().is_loopback() {
+                    log::warn!("ipc: rejected non-localhost connection from {addr}");
+                    continue;
+                }
                 let id = next_conn_id.fetch_add(1, Ordering::Relaxed);
                 let store = store.clone();
                 let exit = exit_flag.clone();
                 thread::Builder::new()
                     .name(format!("om-conn-{id}"))
-                    .spawn(move || handle_connection(id, stream, store, auth, exit))
+                    .spawn(move || handle_connection(id, stream, store, exit))
                     .ok();
             }
             Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
@@ -95,68 +79,26 @@ pub fn serve(
     }
 
     log::info!("ipc: exit flag set, stopping listener");
-    // Best-effort unlink so we don't leave a dead socket around.
-    let _ = std::fs::remove_file(path);
-    Ok(())
-}
-
-/// Bind a UDS at `path`. If the directory doesn't exist, create it 0755.
-/// Pre-existing dead sockets at `path` are removed so we don't fail on
-/// EADDRINUSE after a kill-9.
-fn bind_socket(path: &Path) -> io::Result<UnixListener> {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-        // Explicit chmod — umask might have stripped world-execute, which
-        // would leave the path untraversable for the app-uid client.
-        let c_parent = std::ffi::CString::new(parent.as_os_str().as_encoded_bytes())
-            .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "bad parent path"))?;
-        unsafe { libc::chmod(c_parent.as_ptr(), 0o755); }
-    }
-    // Remove any stale socket so bind() doesn't EADDRINUSE.
-    let _ = std::fs::remove_file(path);
-
-    let listener = UnixListener::bind(path)?;
-    // 0666 so a non-root app-uid client can connect-and-write. SELinux will
-    // still gate the actual access (app_data_file vs shell_data_file etc.);
-    // this just removes DAC as a concern.
-    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o666))?;
-    Ok(listener)
+    Ok(actual_port)
 }
 
 // ---- per-connection handler ------------------------------------------------
 
 fn handle_connection(
     id: u64,
-    mut stream: UnixStream,
+    mut stream: TcpStream,
     store: SnapshotStore,
-    auth: AuthConfig,
     exit_flag: Arc<AtomicBool>,
 ) {
-    log::info!("conn#{id}: accepted fd={}", stream.as_raw_fd());
+    log::info!("conn#{id}: accepted from {:?}", stream.peer_addr());
 
-    // 1. Auth.
-    let auth_outcome = verify_peer(stream.as_raw_fd(), &auth);
-    match auth_outcome {
-        AuthResult::Allow { uid, pid, pkg } => {
-            log::info!("conn#{id}: auth_ok uid={uid} pid={pid} pkg={pkg:?}");
-            if let Err(e) = write_json(&mut stream, &ServerFrame::AuthOk { version: PROTOCOL_VERSION }) {
-                log::warn!("conn#{id}: write auth_ok failed: {e}");
-                return;
-            }
-        }
-        AuthResult::Deny(reason) => {
-            log::warn!("conn#{id}: auth_fail {reason}");
-            let _ = write_json(&mut stream, &ServerFrame::AuthFail { reason: reason.clone() });
-            let _ = stream.shutdown(std::net::Shutdown::Both);
-            return;
-        }
+    if let Err(e) = write_json(&mut stream, &ServerFrame::AuthOk { version: PROTOCOL_VERSION }) {
+        log::warn!("conn#{id}: write auth_ok failed: {e}");
+        return;
     }
 
-    // 2. Command loop.
     let mut subscribe_interval: Option<u32> = None;
-    // Reading has a short SO_RCVTIMEO so the thread can interleave reads and
-    // snapshot pushes when a subscription is active.
-    set_read_timeout(&stream, Duration::from_millis(50));
+    let _ = stream.set_read_timeout(Some(Duration::from_millis(50)));
 
     let mut next_push = std::time::Instant::now();
 
@@ -165,8 +107,6 @@ fn handle_connection(
             break;
         }
 
-        // Try to read one frame. If we time out, fall through to the
-        // subscribe-push branch.
         match read_frame(&mut stream) {
             Ok(Some(payload)) => {
                 let cmd: ClientCmd = match serde_json::from_slice(&payload) {
@@ -217,7 +157,6 @@ fn handle_connection(
             }
         }
 
-        // Push snapshot on schedule.
         if let Some(iv_ms) = subscribe_interval {
             let now = std::time::Instant::now();
             if now >= next_push {
@@ -234,13 +173,9 @@ fn handle_connection(
     log::info!("conn#{id}: done");
 }
 
-fn set_read_timeout(stream: &UnixStream, dur: Duration) {
-    let _ = stream.set_read_timeout(Some(dur));
-}
-
 // ---- framing ---------------------------------------------------------------
 
-fn read_frame(stream: &mut UnixStream) -> io::Result<Option<Vec<u8>>> {
+fn read_frame(stream: &mut TcpStream) -> io::Result<Option<Vec<u8>>> {
     let mut len_buf = [0u8; 4];
     match stream.read_exact(&mut len_buf) {
         Ok(()) => {}
@@ -259,7 +194,7 @@ fn read_frame(stream: &mut UnixStream) -> io::Result<Option<Vec<u8>>> {
     Ok(Some(buf))
 }
 
-fn write_frame(stream: &mut UnixStream, payload: &[u8]) -> io::Result<()> {
+fn write_frame(stream: &mut TcpStream, payload: &[u8]) -> io::Result<()> {
     if payload.len() > MAX_FRAME_BYTES {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "outbound frame too large"));
     }
@@ -269,7 +204,7 @@ fn write_frame(stream: &mut UnixStream, payload: &[u8]) -> io::Result<()> {
     stream.flush()
 }
 
-fn write_json<T: Serialize>(stream: &mut UnixStream, value: &T) -> io::Result<()> {
+fn write_json<T: Serialize>(stream: &mut TcpStream, value: &T) -> io::Result<()> {
     let bytes = serde_json::to_vec(value).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
     write_frame(stream, &bytes)
 }
@@ -297,9 +232,6 @@ enum ServerFrame {
     Error { code: i32, msg: String },
 }
 
-/// Snapshot wrapper that tags the frame with `"type":"snapshot"` and flattens
-/// the [`SnapshotData`] fields alongside. The Kotlin side deserializes the
-/// flat shape directly.
 #[derive(Debug, Serialize)]
 struct SnapshotFrame<'a> {
     #[serde(rename = "type")]
@@ -317,12 +249,4 @@ impl<'a> From<&'a SnapshotData> for SnapshotFrame<'a> {
 #[repr(i32)]
 enum ErrorCode {
     BadRequest = 400,
-}
-
-// ---- helpers for callers ---------------------------------------------------
-
-/// Resolve the socket path given a data_dir. Callers use this to announce the
-/// final path on stdout so launchers can connect without guessing.
-pub fn socket_path_in(data_dir: &Path) -> PathBuf {
-    data_dir.join("openmonitor.sock")
 }

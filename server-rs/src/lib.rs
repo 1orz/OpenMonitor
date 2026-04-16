@@ -10,7 +10,6 @@ pub mod apk_sign;
 pub mod auth;
 pub mod collectors;
 pub mod core;
-pub mod fg;
 pub mod fps;
 pub mod ipc;
 pub mod logging;

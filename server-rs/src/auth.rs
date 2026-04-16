@@ -220,8 +220,9 @@ fn resolve_package_to_apk(pkg: &str) -> Result<PathBuf, AuthError> {
             }
         }
 
-        // Randomised layout: /data/app/~~<random>~~/<pkg>-<random>/base.apk
-        if top_name.starts_with("~~") && top_name.ends_with("~~") {
+        // Randomised layout: /data/app/~~<hash>/<pkg>-<random>/base.apk
+        // The hash suffix varies by Android version (e.g. "~~abc~~" or "~~abc==").
+        if top_name.starts_with("~~") {
             if let Ok(inner_entries) = std::fs::read_dir(top.path()) {
                 for inner in inner_entries {
                     let inner = match inner {

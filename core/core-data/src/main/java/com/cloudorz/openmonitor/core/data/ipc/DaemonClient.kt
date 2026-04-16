@@ -1,8 +1,6 @@
 package com.cloudorz.openmonitor.core.data.ipc
 
 import android.content.Context
-import android.net.LocalSocket
-import android.net.LocalSocketAddress
 import com.cloudorz.openmonitor.server.ServerSnapshot
 import com.elvishew.xlog.XLog
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -25,17 +23,18 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.io.DataInputStream
 import java.io.DataOutputStream
-import java.io.File
 import java.io.IOException
+import java.net.InetSocketAddress
+import java.net.Socket
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * AF_UNIX client for the Rust openmonitor-server daemon.
+ * TCP client for the Rust openmonitor-server daemon on localhost:9876.
  *
  * Wire protocol: `[u32 big-endian payload_len] [payload_len bytes UTF-8 JSON]`.
- * After connect, the server writes an `auth_ok` or `auth_fail` frame; then the
- * client sends `subscribe` and reads snapshot frames in a loop.
+ * After connect, the server writes an `auth_ok` frame; then the client sends
+ * `subscribe` and reads snapshot frames in a loop.
  */
 @Singleton
 class DaemonClient @Inject constructor(
@@ -47,12 +46,13 @@ class DaemonClient @Inject constructor(
         const val PROTOCOL_VERSION = 3
         private const val MAX_FRAME_BYTES = 1 * 1024 * 1024
         private const val SUBSCRIBE_INTERVAL_MS = 500
-        private const val CONNECT_TIMEOUT_MS = 3000
+        private const val CONNECT_TIMEOUT_MS = 2000
+        private const val SERVER_PORT = 9876
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var readerJob: Job? = null
-    private var socket: LocalSocket? = null
+    private var socket: Socket? = null
     private var dataIn: DataInputStream? = null
     private var dataOut: DataOutputStream? = null
 
@@ -67,95 +67,70 @@ class DaemonClient @Inject constructor(
     private val _connected = MutableStateFlow(false)
     val connected: StateFlow<Boolean> = _connected.asStateFlow()
 
-    /**
-     * Try all candidate paths in order. Returns true if one connected + auth'd.
-     *
-     * If no explicit [candidatePaths] are given, the default discovery order is:
-     * 1. `$filesDir/openmonitor.sock`
-     * 2. content of `$filesDir/sock.path`
-     * 3. content of `/data/local/tmp/openmonitor/sock.path`
-     * 4. `/data/local/tmp/openmonitor/openmonitor.sock`
-     */
-    suspend fun connect(candidatePaths: List<String> = defaultCandidatePaths()): Boolean {
+    /** Try to connect to the server on localhost. Returns true on success. */
+    suspend fun connect(): Boolean {
         disconnect()
 
-        for (path in candidatePaths) {
-            XLog.tag(TAG).i("trying socket path: $path")
-            try {
-                val sock = LocalSocket()
-                sock.connect(LocalSocketAddress(path, LocalSocketAddress.Namespace.FILESYSTEM))
-                // LocalSocket doesn't expose a connect timeout directly;
-                // the underlying unix connect() on SOCK_STREAM returns
-                // immediately for filesystem sockets (no TCP handshake).
+        XLog.tag(TAG).i("connecting to 127.0.0.1:$SERVER_PORT")
+        try {
+            val sock = Socket()
+            sock.connect(InetSocketAddress("127.0.0.1", SERVER_PORT), CONNECT_TIMEOUT_MS)
 
-                val din = DataInputStream(sock.inputStream)
-                val dout = DataOutputStream(sock.outputStream)
+            val din = DataInputStream(sock.inputStream)
+            val dout = DataOutputStream(sock.outputStream)
 
-                // Server writes first: auth_ok or auth_fail
-                val authPayload = readFrame(din)
-                if (authPayload == null) {
-                    XLog.tag(TAG).w("$path: server closed before auth frame")
-                    runCatching { sock.close() }
-                    continue
-                }
-
-                val element = try {
-                    json.parseToJsonElement(authPayload)
-                } catch (e: Exception) {
-                    XLog.tag(TAG).w("$path: failed to parse auth frame: ${e.message}")
-                    runCatching { sock.close() }
-                    continue
-                }
-
-                val type = element.jsonObject["type"]?.jsonPrimitive?.content
-                when (type) {
-                    "auth_ok" -> {
-                        val frame = json.decodeFromJsonElement(ServerFrame.AuthOk.serializer(), element)
-                        if (frame.version != PROTOCOL_VERSION) {
-                            XLog.tag(TAG).w(
-                                "$path: version mismatch server=${frame.version} " +
-                                    "client=$PROTOCOL_VERSION"
-                            )
-                        }
-                        XLog.tag(TAG).i("connected to $path (server v${frame.version})")
-                    }
-
-                    "auth_fail" -> {
-                        val frame = json.decodeFromJsonElement(ServerFrame.AuthFail.serializer(), element)
-                        XLog.tag(TAG).w("$path: auth_fail reason=${frame.reason}")
-                        runCatching { sock.close() }
-                        continue
-                    }
-
-                    else -> {
-                        XLog.tag(TAG).w("$path: unexpected first frame type: $type")
-                        runCatching { sock.close() }
-                        continue
-                    }
-                }
-
-                // Commit connection state
-                socket = sock
-                dataIn = din
-                dataOut = dout
-                _connected.value = true
-
-                // Subscribe and start reader
-                sendCmd("""{"cmd":"subscribe","interval_ms":$SUBSCRIBE_INTERVAL_MS}""")
-                startReader()
-                return true
-            } catch (e: IOException) {
-                XLog.tag(TAG).d("$path: connect failed: ${e.message}")
-            } catch (e: Exception) {
-                XLog.tag(TAG).w("$path: unexpected error: ${e.message}")
+            val authPayload = readFrame(din)
+            if (authPayload == null) {
+                XLog.tag(TAG).w("server closed before auth frame")
+                runCatching { sock.close() }
+                return false
             }
-        }
 
-        XLog.tag(TAG).w("all candidate paths exhausted, connect failed")
+            val element = try {
+                json.parseToJsonElement(authPayload)
+            } catch (e: Exception) {
+                XLog.tag(TAG).w("failed to parse auth frame: ${e.message}")
+                runCatching { sock.close() }
+                return false
+            }
+
+            when (val type = element.jsonObject["type"]?.jsonPrimitive?.content) {
+                "auth_ok" -> {
+                    val frame = json.decodeFromJsonElement(ServerFrame.AuthOk.serializer(), element)
+                    if (frame.version != PROTOCOL_VERSION) {
+                        XLog.tag(TAG).w("version mismatch server=${frame.version} client=$PROTOCOL_VERSION")
+                    }
+                    XLog.tag(TAG).i("connected to 127.0.0.1:$SERVER_PORT (server v${frame.version})")
+                }
+                "auth_fail" -> {
+                    val frame = json.decodeFromJsonElement(ServerFrame.AuthFail.serializer(), element)
+                    XLog.tag(TAG).w("auth_fail reason=${frame.reason}")
+                    runCatching { sock.close() }
+                    return false
+                }
+                else -> {
+                    XLog.tag(TAG).w("unexpected first frame type: $type")
+                    runCatching { sock.close() }
+                    return false
+                }
+            }
+
+            socket = sock
+            dataIn = din
+            dataOut = dout
+            _connected.value = true
+
+            sendCmd("""{"cmd":"subscribe","interval_ms":$SUBSCRIBE_INTERVAL_MS}""")
+            startReader()
+            return true
+        } catch (e: IOException) {
+            XLog.tag(TAG).d("connect failed: ${e.message}")
+        } catch (e: Exception) {
+            XLog.tag(TAG).w("unexpected error: ${e.message}")
+        }
         return false
     }
 
-    /** Send `{"cmd":"exit"}` to ask the daemon to shut itself down. Best-effort. */
     fun requestExit() {
         try {
             sendCmd("""{"cmd":"exit"}""")
@@ -164,7 +139,6 @@ class DaemonClient @Inject constructor(
         }
     }
 
-    /** Drop the current connection without exit'ing the server. Used on mode switch. */
     @Synchronized
     fun disconnect() {
         _connected.value = false
@@ -177,26 +151,6 @@ class DaemonClient @Inject constructor(
     }
 
     // -- internals ----------------------------------------------------------------
-
-    private fun defaultCandidatePaths(): List<String> {
-        val filesDir = context.filesDir.absolutePath
-        val fallbackDir = "/data/local/tmp/openmonitor"
-        return buildList {
-            add("$filesDir/openmonitor.sock")
-            readSockPathFile("$filesDir/sock.path")?.let { add(it) }
-            readSockPathFile("$fallbackDir/sock.path")?.let { add(it) }
-            add("$fallbackDir/openmonitor.sock")
-        }
-    }
-
-    private fun readSockPathFile(path: String): String? {
-        return try {
-            val f = File(path)
-            if (f.exists()) f.readText().trim().takeIf { it.isNotEmpty() } else null
-        } catch (_: Exception) {
-            null
-        }
-    }
 
     @Synchronized
     private fun sendCmd(jsonStr: String) {
@@ -259,19 +213,8 @@ class DaemonClient @Inject constructor(
                             XLog.tag(TAG).w("server error ${frame.code}: ${frame.msg}")
                         }
 
-                        "auth_ok" -> {
-                            XLog.tag(TAG).d("unexpected auth_ok in reader loop")
-                        }
-
-                        "auth_fail" -> {
-                            val frame = json.decodeFromJsonElement(
-                                ServerFrame.AuthFail.serializer(), element
-                            )
-                            XLog.tag(TAG).w("unexpected auth_fail in reader loop: ${frame.reason}")
-                        }
-
                         else -> {
-                            XLog.tag(TAG).w("unknown frame type: $type")
+                            XLog.tag(TAG).d("ignoring frame type: $type")
                         }
                     }
                 }
@@ -288,7 +231,6 @@ class DaemonClient @Inject constructor(
 
 // =============================================================================
 // Wire-protocol types for non-snapshot frames (kotlinx.serialization)
-// Snapshot frames are decoded directly to ServerSnapshot from SnapshotLayout.kt.
 // =============================================================================
 
 @Serializable

@@ -33,45 +33,46 @@ pub fn run(argv: &[&str], timeout: Duration) -> (Vec<u8>, bool) {
         }
     };
 
+    // Drain stdout on a background thread to avoid pipe-buffer deadlock.
+    // dumpsys output can exceed the 64 KB kernel pipe buffer, blocking the
+    // child's write() if nobody reads the other end.
+    let stdout = child.stdout.take();
+    let reader = std::thread::spawn(move || {
+        let mut buf = Vec::new();
+        if let Some(mut pipe) = stdout {
+            let _ = pipe.read_to_end(&mut buf);
+        }
+        buf
+    });
+
     let deadline = Instant::now() + timeout;
     let poll_interval = Duration::from_millis(50);
 
-    // Poll for exit until timeout.
     loop {
         match child.try_wait() {
             Ok(Some(status)) => {
-                // Process exited normally — drain stdout.
-                let mut buf = Vec::new();
-                if let Some(mut stdout) = child.stdout.take() {
-                    let _ = stdout.read_to_end(&mut buf);
-                }
+                let buf = reader.join().unwrap_or_default();
                 return (buf, status.success());
             }
             Ok(None) => {
-                // Still running.
                 if Instant::now() >= deadline {
-                    break; // timeout
+                    break;
                 }
                 std::thread::sleep(poll_interval.min(deadline.saturating_duration_since(Instant::now())));
             }
             Err(e) => {
                 log::warn!("subproc: try_wait error for {:?}: {}", argv, e);
                 let _ = child.kill();
-                return (Vec::new(), false);
+                let buf = reader.join().unwrap_or_default();
+                return (buf, false);
             }
         }
     }
 
-    // Timeout reached — kill the process.
     log::warn!("subproc: timeout ({:?}) reached for {:?}, sending SIGKILL", timeout, argv);
-    let _ = child.kill(); // sends SIGKILL on Unix
-    let _ = child.wait(); // reap zombie
-
-    // Drain whatever stdout was buffered.
-    let mut buf = Vec::new();
-    if let Some(mut stdout) = child.stdout.take() {
-        let _ = stdout.read_to_end(&mut buf);
-    }
+    let _ = child.kill();
+    let _ = child.wait();
+    let buf = reader.join().unwrap_or_default();
     (buf, false)
 }
 

@@ -153,6 +153,10 @@ fn sample(state: &mut State, store: &SnapshotStore) {
         return;
     }
 
+    store.update(|d| {
+        d.focus.pkg = pkg.clone();
+    });
+
     let counts = match parse_timestats(&pkg) {
         Some(c) => c,
         None => {

@@ -8,8 +8,9 @@ import com.topjohnwu.superuser.Shell
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -45,6 +46,8 @@ class MonitorLauncher @Inject constructor(
         private const val DISCOVERY_DELAY_MS = 300L
     }
 
+    private val launchMutex = Mutex()
+
     val binaryPath: String
         get() = "${context.applicationInfo.nativeLibraryDir}/$SERVER_BIN"
 
@@ -62,45 +65,24 @@ class MonitorLauncher @Inject constructor(
         // Fast path: already connected (or can reconnect immediately).
         if (daemonClient.connect()) return@withContext true
 
-        when (shellExecutor.mode) {
-            PrivilegeMode.ROOT -> launchViaLibsu()
-            PrivilegeMode.SHIZUKU -> launchViaShizuku()
-            PrivilegeMode.ADB -> pollConnect("ADB")
-            PrivilegeMode.BASIC -> false
+        launchMutex.withLock {
+            // Re-check after acquiring the lock — another coroutine may have launched.
+            if (daemonClient.connect()) return@withContext true
+
+            when (shellExecutor.mode) {
+                PrivilegeMode.ROOT -> launchViaLibsu()
+                PrivilegeMode.SHIZUKU -> launchViaShizuku()
+                PrivilegeMode.ADB -> pollConnect("ADB")
+                PrivilegeMode.BASIC -> false
+            }
         }
     }
 
-    /**
-     * Shut down the daemon and clean up socket artifacts.
-     *
-     * This is a suspend function so callers must invoke it from a coroutine.
-     */
     suspend fun shutdown() {
-        // Ask the daemon to exit gracefully (best-effort).
         daemonClient.requestExit()
-        // Drop local connection so the UI flips to "not running" immediately.
         daemonClient.disconnect()
-
-        // Give the daemon a moment to exit on its own. The accept loop in
-        // server-rs polls exit_flag every ~200ms worst-case, so 500ms gives
-        // comfortable margin for graceful shutdown.
         delay(500)
-
-        // pkill fallback — ensure the old server is gone before a new launch.
         pkillDaemons()
-
-        // Wipe stale socket files and sentinel files so a subsequent launch
-        // doesn't briefly connect to a ghost socket.
-        val filesDir = context.filesDir.absolutePath
-        val fallbackDir = "/data/local/tmp/openmonitor"
-        listOf(
-            "$filesDir/openmonitor.sock",
-            "$filesDir/sock.path",
-            "$fallbackDir/openmonitor.sock",
-            "$fallbackDir/sock.path",
-        ).forEach { path ->
-            runCatching { File(path).delete() }
-        }
     }
 
     /**
