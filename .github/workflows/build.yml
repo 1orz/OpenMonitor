@@ -54,6 +54,12 @@ jobs:
           key: cargo-${{ runner.os }}-${{ hashFiles('server-rs/Cargo.lock') }}
           restore-keys: cargo-${{ runner.os }}-
 
+      - name: Configure API keys
+        run: |
+          echo "api.hmac.key=${{ secrets.API_HMAC_KEY }}" >> local.properties
+          echo "api.ec.public.key=${{ secrets.API_EC_PUBLIC_KEY }}" >> local.properties
+          echo "activation.ed25519.public.key=${{ secrets.ACTIVATION_PUBLIC_KEY }}" >> local.properties
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
         with:
@@ -65,8 +71,20 @@ jobs:
       - name: Lint
         run: ./gradlew :app:lintDebug
 
-      - name: Upload debug APKs
+      - name: Upload debug APK (arm64-v8a)
         uses: actions/upload-artifact@v7
         with:
-          name: debug-apks
-          path: app/build/outputs/apk/debug/*.apk
+          name: debug-apk-arm64-v8a
+          path: app/build/outputs/apk/debug/*arm64-v8a*.apk
+
+      - name: Upload debug APK (armeabi-v7a)
+        uses: actions/upload-artifact@v7
+        with:
+          name: debug-apk-armeabi-v7a
+          path: app/build/outputs/apk/debug/*armeabi-v7a*.apk
+
+      - name: Upload debug APK (universal)
+        uses: actions/upload-artifact@v7
+        with:
+          name: debug-apk-universal
+          path: app/build/outputs/apk/debug/*universal*.apk
