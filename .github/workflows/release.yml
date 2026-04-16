@@ -1,8 +1,8 @@
 name: Release
 
 on:
-  push:
-    tags: [ 'v*' ]
+  repository_dispatch:
+    types: [ release ]
 
 jobs:
   release:
@@ -11,35 +11,38 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Parse version from tag
+      - name: Extract version info
         id: version
         run: |
-          TAG="${GITHUB_REF#refs/tags/v}"
+          TAG="${{ github.event.client_payload.tag }}"
+          # Strip leading 'v' for version parsing
+          VER="${TAG#v}"
 
-          # v1.0.0-beta.1 → IS_BETA=true, BASE=1.0.0
-          # v1.0.0         → IS_BETA=false, BASE=1.0.0
-          if [[ "$TAG" == *"-beta"* ]]; then
+          if [[ "$VER" == *"-beta"* ]]; then
             IS_BETA=true
-            BASE_VERSION="${TAG%%-*}"
+            BASE_VERSION="${VER%%-*}"
           else
             IS_BETA=false
-            BASE_VERSION="$TAG"
+            BASE_VERSION="$VER"
           fi
 
           IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE_VERSION"
           MAJOR=${MAJOR:-0}; MINOR=${MINOR:-0}; PATCH=${PATCH:-0}
           CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
 
-          echo "VERSION_NAME=$TAG" >> "$GITHUB_OUTPUT"
+          echo "VERSION_NAME=$VER" >> "$GITHUB_OUTPUT"
           echo "VERSION_CODE=$CODE" >> "$GITHUB_OUTPUT"
-          echo "TAG=v$TAG" >> "$GITHUB_OUTPUT"
+          echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
           echo "IS_BETA=$IS_BETA" >> "$GITHUB_OUTPUT"
-          echo "Parsed: v$TAG → versionCode=$CODE, beta=$IS_BETA"
+          echo "Parsed: $TAG → versionCode=$CODE, beta=$IS_BETA"
+
+      - name: Checkout source repo
+        uses: actions/checkout@v6
+        with:
+          repository: 1orz/OpenMonitor-src
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+          ref: ${{ github.event.client_payload.tag }}
+          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5

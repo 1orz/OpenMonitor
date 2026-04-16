@@ -1,18 +1,26 @@
 name: Build
 
 on:
-  pull_request:
-    branches: [ main ]
+  repository_dispatch:
+    types: [ build ]
   workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch or commit to build from source repo'
+        required: false
+        default: 'main'
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout source repo
         uses: actions/checkout@v6
         with:
+          repository: 1orz/OpenMonitor-src
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+          ref: ${{ github.event.client_payload.ref || inputs.ref || 'main' }}
           fetch-depth: 0
 
       - name: Set up JDK 17
