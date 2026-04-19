@@ -125,3 +125,18 @@ jobs:
           prerelease: true
           generate_release_notes: true
           files: release-artifacts/*.apk
+
+      - name: Notify Telegram
+        if: success()
+        continue-on-error: true
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: "-1003901540451"
+          TELEGRAM_THREAD_ID: "7"
+          TELEGRAM_CHAT_USER: "OpenMonitor"
+          VERSION_NAME: ${{ steps.version.outputs.VERSION_NAME }}
+          VERSION_CODE: ${{ steps.version.outputs.VERSION_CODE }}
+          TAG: ${{ steps.version.outputs.TAG }}
+          CHANNEL: alpha
+          APK_DIR: release-artifacts
+        run: bash scripts/telegram-notify-release.sh
