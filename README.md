@@ -262,14 +262,14 @@ Hardware-backed device security verification:
 ├──────────┴──────────┴─────────────────────┴──────────────────┤
 │  core-ui   │  core-data  │  core-model  │   core-common      │
 ├────────────┼─────────────┼──────────────┼────────────────────┤
-│            │core-database│core-server-api│                   │
+│            │core-database│core-daemon-api│                   │
 ├────────────┴─────────────┴──────────────┴────────────────────┤
-│               server-rs (Rust privileged daemon)             │
+│              daemon-rust (Rust privileged daemon)            │
 │      AF_UNIX IPC · sysfs polling · SurfaceFlinger FPS       │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### Rust Privileged Daemon (`server-rs`)
+### Rust Privileged Daemon (`daemon-rust`)
 
 A lightweight Rust binary that runs with elevated privileges to collect system data inaccessible to normal apps:
 
@@ -302,7 +302,7 @@ A lightweight Rust binary that runs with elevated privileges to collect system d
 | Charts | Vico | 3.1.0 |
 | Theming | Material Kolor | 4.1.1 |
 | Analytics | Firebase Analytics | BOM 34.12.0 |
-| Daemon | Rust (server-rs) | Edition 2021 |
+| Daemon | Rust (daemon-rust) | Edition 2021 |
 | Native | cpuinfo + Vulkan Info | arm64-v8a |
 | Markdown | multiplatform-markdown-renderer | 0.40.2 |
 

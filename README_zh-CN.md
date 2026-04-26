@@ -262,14 +262,14 @@ OpenMonitor 会自适应设备可用的权限，并优雅降级：
 ├──────────┴──────────┴─────────────────────┴──────────────────┤
 │  core-ui   │  core-data  │  core-model  │   core-common      │
 ├────────────┼─────────────┼──────────────┼────────────────────┤
-│            │core-database│core-server-api│                   │
+│            │core-database│core-daemon-api│                   │
 ├────────────┴─────────────┴──────────────┴────────────────────┤
-│               server-rs (Rust 特权守护进程)                    │
+│              daemon-rust (Rust 特权守护进程)                   │
 │      AF_UNIX IPC · sysfs 轮询 · SurfaceFlinger FPS          │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### Rust 特权守护进程 (`server-rs`)
+### Rust 特权守护进程 (`daemon-rust`)
 
 轻量级 Rust 二进制文件，以提升的权限运行，采集普通应用无法访问的系统数据：
 
@@ -302,7 +302,7 @@ OpenMonitor 会自适应设备可用的权限，并优雅降级：
 | 图表 | Vico | 3.1.0 |
 | 主题 | Material Kolor | 4.1.1 |
 | 分析 | Firebase Analytics | BOM 34.12.0 |
-| 守护进程 | Rust (server-rs) | Edition 2021 |
+| 守护进程 | Rust (daemon-rust) | Edition 2021 |
 | 原生 | cpuinfo + Vulkan Info | arm64-v8a |
 | Markdown | multiplatform-markdown-renderer | 0.40.2 |
 

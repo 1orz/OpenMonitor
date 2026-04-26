@@ -62,8 +62,8 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-            server-rs/target/
-          key: cargo-${{ runner.os }}-${{ hashFiles('server-rs/Cargo.lock') }}
+            daemon-rust/target/
+          key: cargo-${{ runner.os }}-${{ hashFiles('daemon-rust/Cargo.lock') }}
           restore-keys: cargo-${{ runner.os }}-
 
       - name: Decode keystore
