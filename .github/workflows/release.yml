@@ -83,6 +83,7 @@ jobs:
           echo "api.hmac.key=${{ secrets.API_HMAC_KEY }}" >> local.properties
           echo "api.ec.public.key=${{ secrets.API_EC_PUBLIC_KEY }}" >> local.properties
           echo "activation.ed25519.public.key=${{ secrets.ACTIVATION_PUBLIC_KEY }}" >> local.properties
+          echo "daemon.handshake.key=${{ secrets.DAEMON_HANDSHAKE_KEY }}" >> local.properties
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
