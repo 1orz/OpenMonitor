@@ -40,6 +40,7 @@ CPU、GPU、バッテリー、FPS、温度、メモリ、プロセスのリア�
 - FPS 録画、ジャンク検出、セッション再生、画像/CSV エクスポート
 - 900 以上の SoC データベース内蔵、Vulkan・OpenGL の完全な列挙
 - ハードウェアベースのキーアテステーションとデバイス整合性検証
+- セルラーネットワーク解析 — RAT 別の信号、RRC / NAS / IMS シグナリングのキャプチャ、modem 側イベント、PCAP エクスポート
 - Material 3 ダイナミックテーマ（システム / ライト / ダーク / AMOLED）
 - Rust ベースの特権デーモンによる高性能・低オーバーヘッドのデータ収集
 - 英語、簡体字中国語、繁体字中国語、日本語に対応
@@ -57,6 +58,7 @@ CPU、GPU、バッテリー、FPS、温度、メモリ、プロセスのリア�
   - [FPS 録画](#fps-録画)
   - [プロセスマネージャー](#プロセスマネージャー)
   - [ハードウェア情報](#ハードウェア情報)
+  - [セルラーネットワーク](#セルラーネットワーク)
   - [フローティングモニター](#フローティングモニター)
   - [キーアテステーション](#キーアテステーション)
   - [クイック設定タイル・ウィジェット](#クイック設定タイルウィジェット)
@@ -207,6 +209,51 @@ OpenMonitor はデバイスの利用可能な権限に適応し、適切にフ�
 - キューファミリーとフラグ・タイムスタンプビット
 - デバイスおよびインスタンスの拡張リスト
 
+### セルラーネットワーク
+
+セルラー無線を深く検査する機能で、RF 状態 / 生シグナリング / modem イベントをカバーします。画面上部に SIM スロットセレクタ（デュアル SIM 端末で切り替え可能）、下に 4 つのサブタブ：
+
+**Device（デバイス）** — RF と modem の状態スナップショット
+
+- **DIAG セッションカード** — modem 直結 DIAG ブリッジ（AF_QIPCRTR / QMI）の到達性。デーモンがオフラインなら自動で折りたたまれ、公開 Telephony API にフォールバック
+- **サービングネットワーク** — オペレータ、PLMN、MCC/MNC、現在の RAT（NR5G / LTE / WCDMA / GSM）、LTE CA アクティブフラグ、NR5G ARFCN
+- **サービングセル（modem 側）** — LTE Global Cell ID、ECI、TAC、PCI、UE 状態、NR5G NCI、PCI、ARFCN
+- **RF バンド / チャネル** — 各 RAT のアクティブなバンドとチャネル
+- **Rx チェイン** — Rx0…Rx3 のフェーズ分割、Tx チェインの in-traffic / idle 状態。公開 API では取得不可で、modem DIAG 経由のみ
+- **バンド能力** — サポート LTE バンドのビットマスク、完全なサポートバンドリスト、NR5G FR1 バンド
+- **Modem アイデンティティ** — Baseband バージョン、Operating Mode、VoLTE / VT / Wi-Fi Calling の状態
+- **フィールド可用性診断** — 各フィールドに「利用可能 / ロック / 非対応」チップが付き、タップすると現在の権限モードで解除できない理由が表示されます
+
+**Network（ネットワーク）** — RAT 別サービング + 隣接セル
+
+ページは現在 SIM のサービング RAT に合わせて適応し、**実際にアタッチしている RAT のみ**を表示（NR / LTE / GSM / WCDMA / TD-SCDMA）— 固定の複数タブカルーセルではありません：
+
+- **サービングセル構成** — PCI / EARFCN / NRARFCN / UARFCN / ARFCN、バンド、帯域幅（MHz）、CQI、各 RAT の識別子（TAC / ECI / NCI / LAC / CI / BSIC / PSC）
+- **リアルタイム信号** — RSRP / RSRQ / RSSI / SINR（LTE）、SS-RSRP / SS-RSRQ / SS-SINR / CSI-RSRP（NR5G）のライブトレンドチャート
+- **隣接セル** — PCI と信号強度付きの検出隣接セル棒グラフ
+- **キャリアアグリゲーションマトリクス** — コンポーネントキャリアごとの役割（PCC / SCC）、状態（Activated / Deactivated）、DL/UL 帯域幅、UL チャネル
+- **NR 周波数レンジ** — バケットラベル（Low / Mid / High / mmWave）と NSA / SA 状態
+
+**Signaling（シグナリング）** — 生プロトコルトレース
+
+modem からの RRC / NR-RRC / NAS / NR-NAS / IMS シグナリングをライブキャプチャ：
+
+- **ストリームビュー** — メソッド名、方向（UL / DL）、RAT、バイト長を表示するスクロール可能なフレームリスト。ピンアンカー型のオートスクロール（手動で戻すとフォローが一時停止）
+- **フィルターチップ** — プロトコルファミリー（IMS / RRC / 5G-RRC / NAS / 5G-NAS / その他）+ 方向 + あいまい検索（メソッド / IE / hex）
+- **詳細シート** — チャネル、方向、RAT、Log Code、PCI、EARFCN/ARFCN、完全な PDU バイト。デコーダが配線済みの箇所は ASN.1 ツリービュー、IMS の SIP メッセージは完全なヘッダ付きで描画
+- **PCAP 録画** — **Record** をタップして開始、もう一度タップして停止すると `.pcap` を共有 / パスをコピーでき、Wireshark にそのまま渡せます
+- **複数選択エクスポート** — 長押しで選択モードに入り、複数行を構造化 JSON アーカイブとして一括出力
+
+**Events（イベント）** — Modem 側状態ログ
+
+- アタッチ / デタッチ / ハンドオーバー / セル再選択 / 通話確立 / IMS 登録のライブエントリ
+- 結果チップ：成功 / 失敗 / 進行中
+- イベントごとの詳細シート：タイムスタンプ、RAT、カテゴリ、種別、構造化ペイロード
+
+> **権限カバレッジ**：Telephony API データ（PCI、EARFCN、RSRP/RSRQ、サービングセルの基本情報）はどの端末でも動作します。Modem 直結 DIAG（Rx チェイン、バンドビットマスク、Baseband、生シグナリング、modem イベント）は現状 **Qualcomm Snapdragon** 端末の **ROOT** または **Shizuku** モードのみ対応。Device タブのフィールド可用性パネルで、現在のモードで解除されるフィールドが明示されます。
+>
+> **必要な権限**：初回アクセス時に**電話状態**と**位置情報**を要求します。これらがないと OS がセル ID と信号強度をマスクするため、root でも復元できません。
+
 ### フローティングモニター
 
 常に最前面に表示される監視オーバーレイ：
@@ -256,16 +303,19 @@ OpenMonitor はデバイスの利用可能な権限に適応し、適切にフ�
 ├──────────┬──────────┬──────────┬──────────┬──────────────────┤
 │ feature- │ feature- │ feature- │ feature- │    feature-      │
 │ overview │ battery  │   fps    │ process  │    hardware      │
-├──────────┼──────────┼──────────┴──────────┼──────────────────┤
-│ feature- │ feature- │    feature-key-     │     service      │
-│  float   │   cpu    │    attestation      │                  │
-├──────────┴──────────┴─────────────────────┴──────────────────┤
+├──────────┼──────────┼──────────┼──────────┼──────────────────┤
+│ feature- │ feature- │ feature- │ feature- │    feature-      │
+│  float   │   cpu    │  signal  │signaling │     events       │
+├──────────┴──────────┴──────────┴──────────┼──────────────────┤
+│         feature-key-attestation           │     service      │
+├───────────────────────────────────────────┴──────────────────┤
 │  core-ui   │  core-data  │  core-model  │   core-common      │
 ├────────────┼─────────────┼──────────────┼────────────────────┤
 │            │core-database│core-daemon-api│                   │
 ├────────────┴─────────────┴──────────────┴────────────────────┤
 │             daemon-rust（Rust 特権デーモン）                    │
-│      AF_UNIX IPC · sysfs ポーリング · SurfaceFlinger FPS     │
+│  AF_UNIX IPC · sysfs ポーリング · SurfaceFlinger FPS · DIAG  │
+│  QMI / AF_QIPCRTR · RRC / NAS PDU キャプチャ · PCAP ライタ     │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -276,6 +326,7 @@ OpenMonitor はデバイスの利用可能な権限に適応し、適切にフ�
 - **ダブルフォーク デーモン化** — AF_UNIX ソケット IPC
 - **長さプレフィクス JSON** ワイヤプロトコル
 - **マルチスレッドサンプリング** — CPU 周波数/負荷、温度ゾーン、GPU 状態、バッテリー電流/電力、SurfaceFlinger FPS
+- **Modem DIAG ブリッジ** — AF_QIPCRTR / QMI サービス（信号・セル用 NAS、デバイス情報用 DMS）が Cellular Network の Device タブを支え、RRC / NAS / IMS PDU キャプチャと PCAP ライタが Signaling / Events タブを駆動（Qualcomm Snapdragon のみ）
 - **APK v2 証明書ピニング** — クライアント認証
 - **起動モード** — ROOT (libsu)、Shizuku (UserService)、ADB (CLI)
 

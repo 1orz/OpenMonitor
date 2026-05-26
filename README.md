@@ -40,6 +40,7 @@ Real-time CPU, GPU, battery, FPS, thermal, memory, and process monitoring — wi
 - FPS recording with jank detection, session playback, and image/CSV export
 - Complete hardware specs with 900+ SoC database, Vulkan & OpenGL enumeration
 - Hardware-backed key attestation and device integrity verification
+- Cellular network analysis — per-RAT signal, RRC/NAS/IMS signaling capture, modem-side events, PCAP export
 - Material 3 dynamic theming with System / Light / Dark / AMOLED modes
 - Rust-based privileged daemon for high-performance, low-overhead data collection
 - Localized in English, Simplified Chinese, Traditional Chinese, and Japanese
@@ -57,6 +58,7 @@ Real-time CPU, GPU, battery, FPS, thermal, memory, and process monitoring — wi
   - [FPS Recording](#fps-recording)
   - [Process Manager](#process-manager)
   - [Hardware Info](#hardware-info)
+  - [Cellular Network](#cellular-network)
   - [Float Overlay](#float-overlay)
   - [Key Attestation](#key-attestation)
   - [Quick Settings Tile & Widget](#quick-settings-tile--widget)
@@ -207,6 +209,51 @@ Comprehensive device hardware specifications:
 - Queue families with flags and timestamp bits
 - Full device and instance extension lists
 
+### Cellular Network
+
+Deep cellular-radio inspection covering RF state, raw signaling, and modem events. A single screen with a SIM-slot selector in the toolbar and four sub-tabs:
+
+**Device** — RF and modem snapshot
+
+- **DIAG session card** — reachability of the modem-direct DIAG bridge (AF_QIPCRTR / QMI). Auto-folds when the daemon is offline; falls back to the public Telephony API.
+- **Serving network** — operator name, PLMN, MCC/MNC, RAT mode (NR5G / LTE / WCDMA / GSM), LTE CA active flag, NR5G ARFCN
+- **Serving cell (modem)** — LTE Global Cell ID, ECI, TAC, PCI, UE state; NR5G NCI, PCI, ARFCN
+- **RF band / channel** — active band and channel per RAT
+- **Rx chains** — per-chain split (Rx0…Rx3) with phase and Tx state (in-traffic / idle) — only exposed via modem DIAG
+- **Band capabilities** — supported LTE band bitmask, full supported bands list, NR5G FR1 bands
+- **Modem identity** — baseband version, operating mode, VoLTE / VT / Wi-Fi Calling state
+- **Field availability diagnostics** — every field shows an "Available / Locked / Unsupported" chip with one-tap explanation, so it's clear which fields the current privilege mode unlocks
+
+**Network** — Per-RAT serving cell + neighbors
+
+The page adapts to the active SIM's serving RAT, showing **only** the RAT it's actually attached to (NR / LTE / GSM / WCDMA / TD-SCDMA), not a fixed multi-tab carousel:
+
+- **Serving cell config** — PCI / EARFCN / NRARFCN / UARFCN / ARFCN, band, bandwidth (MHz), CQI, and per-RAT identifiers (TAC / ECI / NCI / LAC / CI / BSIC / PSC)
+- **Real-time signal** — live trend chart of RSRP / RSRQ / RSSI / SINR (LTE) and SS-RSRP / SS-RSRQ / SS-SINR / CSI-RSRP (NR5G)
+- **Neighbor cells** — bar chart of detected neighbors with PCI and signal strength
+- **Carrier aggregation matrix** — per-component-carrier role (PCC / SCC), state (Activated / Deactivated), DL/UL bandwidth, UL channel
+- **NR frequency range** — bucket label (Low / Mid / High / mmWave) plus NSA / SA state
+
+**Signaling** — Raw protocol trace
+
+Live capture of RRC / NR-RRC / NAS / NR-NAS / IMS signaling from the modem:
+
+- **Stream view** — scrollable list of frames with method name, direction (UL / DL), RAT, byte length; pin-anchored auto-scroll (manually scrolling back pauses the follow)
+- **Filter chips** — protocol-family bucket (IMS / RRC / 5G-RRC / NAS / 5G-NAS / Other) + direction + fuzzy search (method / IE / hex)
+- **Detail sheet** — channel, direction, RAT, log code, PCI, EARFCN/ARFCN, full PDU bytes. ASN.1 tree view where the decoder is wired; SIP messages rendered with full headers.
+- **PCAP recording** — tap **Record**, drive the device, tap again to stop and share/copy the resulting `.pcap` for Wireshark
+- **Multi-select export** — long-press to enter selection mode, batch-export rows as a structured JSON archive
+
+**Events** — Modem-side state log
+
+- Live entries for attach / detach / handover / cell reselection / call setup / IMS registration
+- Outcome chips: Success / Failure / In progress
+- Per-event detail sheet: timestamp, RAT, category, kind, structured payload
+
+> **Privilege coverage.** Telephony-API data (PCI, EARFCN, RSRP/RSRQ, serving cell basics) works on any device. Modem-direct DIAG — Rx chains, per-band bitmasks, baseband version, raw signaling, modem events — currently targets **Qualcomm Snapdragon** devices in **ROOT** or **Shizuku** mode. The Device tab makes per-field coverage explicit.
+
+> **Permissions.** First entry prompts for **Phone State** and **Location** — without them, the OS redacts cell IDs and signal strength regardless of root status.
+
 ### Float Overlay
 
 Always-on-top monitoring overlay:
@@ -256,16 +303,19 @@ Hardware-backed device security verification:
 ├──────────┬──────────┬──────────┬──────────┬──────────────────┤
 │ feature- │ feature- │ feature- │ feature- │    feature-      │
 │ overview │ battery  │   fps    │ process  │    hardware      │
-├──────────┼──────────┼──────────┴──────────┼──────────────────┤
-│ feature- │ feature- │    feature-key-     │     service      │
-│  float   │   cpu    │    attestation      │                  │
-├──────────┴──────────┴─────────────────────┴──────────────────┤
+├──────────┼──────────┼──────────┼──────────┼──────────────────┤
+│ feature- │ feature- │ feature- │ feature- │    feature-      │
+│  float   │   cpu    │  signal  │signaling │     events       │
+├──────────┴──────────┴──────────┴──────────┼──────────────────┤
+│         feature-key-attestation           │     service      │
+├───────────────────────────────────────────┴──────────────────┤
 │  core-ui   │  core-data  │  core-model  │   core-common      │
 ├────────────┼─────────────┼──────────────┼────────────────────┤
 │            │core-database│core-daemon-api│                   │
 ├────────────┴─────────────┴──────────────┴────────────────────┤
 │              daemon-rust (Rust privileged daemon)            │
-│      AF_UNIX IPC · sysfs polling · SurfaceFlinger FPS       │
+│  AF_UNIX IPC · sysfs polling · SurfaceFlinger FPS · DIAG     │
+│  QMI / AF_QIPCRTR · RRC / NAS PDU capture · PCAP writer      │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -276,6 +326,7 @@ A lightweight Rust binary that runs with elevated privileges to collect system d
 - **Double-fork daemonization** with AF_UNIX socket IPC
 - **Length-prefixed JSON** wire protocol
 - **Multi-threaded sampling** — CPU freq/load, thermal zones, GPU state, battery current/power, FPS via SurfaceFlinger
+- **Modem DIAG bridge** — AF_QIPCRTR / QMI services (NAS for signal & cell, DMS for device info) feed the Cellular Network Device tab; RRC / NAS / IMS PDU capture with PCAP writer powers the Signaling and Events tabs (Qualcomm Snapdragon only)
 - **APK v2 certificate pinning** for client authentication
 - **Launch modes** — ROOT (libsu), Shizuku (UserService), ADB (CLI)
 

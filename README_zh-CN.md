@@ -4,7 +4,7 @@
 
 # OpenMonitor
 
-**基于 Jetpack Compose & Material 3 的强大开源 Android 系统监控工具**
+**基于 Jetpack Compose & Material 3 强大的 Android 系统监控工具**
 
 实时监控 CPU、GPU、电池、帧率、温度、内存和进程 — 支持 ROOT、Shizuku 和 ADB 模式。
 
@@ -39,9 +39,9 @@
 - 快捷设置磁贴和桌面小组件，一键访问
 - 帧率录制，支持卡顿检测、会话回放、图片/CSV 导出
 - 完整硬件参数，内置 900+ SoC 数据库，Vulkan 和 OpenGL 枚举
-- 硬件级密钥认证和设备完整性验证
+- 蜂窝网络分析 — 多 RAT 信号、RRC / NAS / IMS 信令抓取、modem 事件、PCAP 导出
+- 基于硬件的密钥认证与设备完整性校验
 - Material 3 动态主题，支持跟随系统 / 浅色 / 深色 / AMOLED 四种模式
-- Rust 特权守护进程，高性能低开销数据采集
 - 支持英语、简体中文、繁体中文、日语四种语言
 
 ---
@@ -57,12 +57,9 @@
   - [帧率录制](#帧率录制)
   - [进程管理](#进程管理)
   - [硬件信息](#硬件信息)
+  - [蜂窝网络](#蜂窝网络)
   - [悬浮窗监控](#悬浮窗监控)
-  - [密钥认证](#密钥认证)
   - [快捷磁贴与桌面小组件](#快捷磁贴与桌面小组件)
-- [架构](#架构)
-- [技术栈](#技术栈)
-- [从源码构建](#从源码构建)
 - [隐私政策](#隐私政策)
 - [参与贡献](#参与贡献)
 - [许可证](#许可证)
@@ -207,6 +204,51 @@ OpenMonitor 会自适应设备可用的权限，并优雅降级：
 - 队列族及标志位和时间戳位数
 - 完整的设备和实例扩展列表
 
+### 蜂窝网络
+
+针对蜂窝射频的深度检视，覆盖信号、原始信令和 modem 事件。页面顶部带 SIM 卡选择器（双卡机型可切槽位），下方四个子标签：
+
+**Device（设备）** — 射频与 modem 状态快照
+
+- **DIAG 会话卡** — 显示 modem 直采链路（AF_QIPCRTR / QMI）是否就绪；守护进程离线时自动折叠，回退到公开 Telephony API
+- **服务网络** — 运营商、PLMN、MCC/MNC、当前 RAT（NR5G / LTE / WCDMA / GSM）、LTE CA 是否激活、NR5G ARFCN
+- **服务小区（modem 侧）** — LTE Global Cell ID、ECI、TAC、PCI、UE 状态；NR5G NCI、PCI、ARFCN
+- **RF 频段 / 信道** — 每个 RAT 当前激活的频段和信道
+- **Rx 接收链** — Rx0…Rx3 分通道相位拆分、Tx 通道在网状态（in-traffic / idle），公开 API 拿不到，只能走 modem DIAG
+- **频段能力** — 支持的 LTE 频段位图、完整支持频段列表、NR5G FR1 频段
+- **Modem 标识** — Baseband 版本、Operating Mode、VoLTE / 视频通话 / Wi-Fi Calling 开关状态
+- **字段可用性诊断** — 每个字段挂一个「可用 / 锁定 / 不支持」徽章，点开会解释当前权限模式下为什么解锁不了，决策清晰
+
+**Network（网络）** — 按 RAT 自适应的服务 / 邻区视图
+
+页面会跟随当前 SIM 的服务 RAT 自适应切换，**只**显示真实附着的那个 RAT（NR / LTE / GSM / WCDMA / TD-SCDMA），不像传统应用那样硬塞多个固定标签：
+
+- **服务小区配置** — PCI / EARFCN / NRARFCN / UARFCN / ARFCN、频段、带宽（MHz）、CQI，以及各 RAT 标识符（TAC / ECI / NCI / LAC / CI / BSIC / PSC）
+- **实时信号** — RSRP / RSRQ / RSSI / SINR（LTE）以及 SS-RSRP / SS-RSRQ / SS-SINR / CSI-RSRP（NR5G）实时趋势曲线
+- **邻区列表** — 检测到的邻区柱状图，附 PCI 和信号强度
+- **载波聚合矩阵** — 每个 CC 的角色（PCC / SCC）、状态（已激活 / 已去激活）、上下行带宽、上行信道
+- **NR 频段桶 + NSA 状态** — Low / Mid / High / mmWave 分类，NSA / SA 状态
+
+**Signaling（信令）** — 原始协议抓取
+
+实时抓取 modem 侧 RRC / NR-RRC / NAS / NR-NAS / IMS 信令：
+
+- **流式列表** — 可滚动消息列表，显示方法名、方向（UL / DL）、RAT、字节长度；自动滚到底，手动上滑会暂停跟随，停止滚动后再恢复
+- **筛选条** — 协议族（IMS / RRC / 5G-RRC / NAS / 5G-NAS / 其他）+ 方向 + 模糊搜索（方法名 / IE / 十六进制）
+- **详情面板** — Channel、方向、RAT、Log Code、PCI、EARFCN/ARFCN、完整 PDU 字节；接入 ASN.1 解码器的报文展开为字段树，IMS 的 SIP 报文渲染完整头部
+- **PCAP 录制** — 点「录制」开始抓包，再点停止后生成 `.pcap` 可分享或复制路径，直接拖进 Wireshark 打开
+- **批量导出** — 长按进入多选模式，可把所选报文打包导出为结构化 JSON
+
+**Events（事件）** — Modem 侧状态机日志
+
+- 实时记录 attach / detach / 切换 / 小区重选 / 通话建立 / IMS 注册等事件
+- 结果芯片：成功 / 失败 / 进行中
+- 每条事件详情：时间戳、RAT、类别、类型、结构化负载
+
+> **权限覆盖说明**：Telephony API 数据（PCI、EARFCN、RSRP/RSRQ、服务小区基本信息）任何机型都能拿。Modem 直采 DIAG（Rx 链路、频段位图、Baseband、原始信令、modem 事件）目前**仅高通骁龙平台 + ROOT 或 Shizuku 模式**下可用，Device 标签的「字段可用性」面板会显式标出哪些字段在当前模式下能解锁。
+>
+> **必需权限**：首次进入会要电话状态和位置权限，没有的话系统会脱敏小区 ID 和信号强度，root 也救不回来。
+
 ### 悬浮窗监控
 
 始终置顶的悬浮监控覆盖层：
@@ -217,126 +259,19 @@ OpenMonitor 会自适应设备可用的权限，并优雅降级：
 
 悬浮窗在所有应用上方保持可见，非常适合游戏或跑分时使用。
 
-### 密钥认证
-
-基于硬件的设备安全验证：
-
-- **信任横幅** — 清晰显示证书链是否受信任
-- **启动状态** — 已验证 / 自签名 / 失败状态，附引导加载程序锁定状态（颜色编码图标）
-- **认证信息** — 认证版本、安全级别（TEE / StrongBox / 软件）、Keymaster 版本、挑战值、唯一标识
-- **吊销列表** — 设备证书吊销状态，支持网络获取，显示条目数和缓存过期时间
-- **证书链** — 逐证书详情，包括主体、颁发者、有效期和吊销状态及原因
-- **授权列表** — 逐字段展示，带 HW/SW 标签区分硬件或软件级别
-- **选项菜单：**
-  - 切换「使用 Attest Key」/「使用 StrongBox」/「Shizuku 模式」
-  - 重置持久化 Attest Key
-  - 保存证书链为 `.p7b` 文件
-  - 从文件加载证书链
-
 ### 快捷磁贴与桌面小组件
 
 **快捷设置磁贴**
+
 - 在快捷设置面板中添加 "Monitor" 磁贴
 - 点击即可开关悬浮监控覆盖层
 - 显示激活/未激活状态
 
 **桌面小组件**
+
 - 展示三项关键指标：CPU 负载 %、CPU 温度、内存使用率 %
 - 自动刷新；点击任意指标即可打开 OpenMonitor
 - 轻量级 — 直接读取 `/proc/stat`、`/sys/class/thermal/`、`/proc/meminfo`
-
----
-
-## 架构
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│                           app                                │
-│    MainActivity · Splash · Agreement · Settings · Nav3       │
-├──────────┬──────────┬──────────┬──────────┬──────────────────┤
-│ feature- │ feature- │ feature- │ feature- │    feature-      │
-│ overview │ battery  │   fps    │ process  │    hardware      │
-├──────────┼──────────┼──────────┴──────────┼──────────────────┤
-│ feature- │ feature- │    feature-key-     │     service      │
-│  float   │   cpu    │    attestation      │                  │
-├──────────┴──────────┴─────────────────────┴──────────────────┤
-│  core-ui   │  core-data  │  core-model  │   core-common      │
-├────────────┼─────────────┼──────────────┼────────────────────┤
-│            │core-database│core-daemon-api│                   │
-├────────────┴─────────────┴──────────────┴────────────────────┤
-│              daemon-rust (Rust 特权守护进程)                   │
-│      AF_UNIX IPC · sysfs 轮询 · SurfaceFlinger FPS          │
-└──────────────────────────────────────────────────────────────┘
-```
-
-### Rust 特权守护进程 (`daemon-rust`)
-
-轻量级 Rust 二进制文件，以提升的权限运行，采集普通应用无法访问的系统数据：
-
-- **双 fork 守护进程化** — AF_UNIX 套接字 IPC
-- **长度前缀 JSON** 通信协议
-- **多线程采样** — CPU 频率/负载、温度区域、GPU 状态、电池电流/功率、SurfaceFlinger 帧率
-- **APK v2 证书锁定** — 客户端身份认证
-- **启动模式** — ROOT (libsu)、Shizuku (UserService)、ADB (CLI)
-
-### 原生层
-
-- **cpuinfo-bridge** — [cpuinfo](https://github.com/pytorch/cpuinfo) 的 JNI 桥接，获取详细 CPU 拓扑和缓存信息
-- **vulkan-info** — 通过 JNI 枚举 Vulkan 能力
-
----
-
-## 技术栈
-
-| 类别 | 技术 | 版本 |
-|:-----|:-----|:-----|
-| 语言 | Kotlin | 2.3 |
-| UI | Jetpack Compose + Material 3 | BOM 2026.03 |
-| 导航 | Navigation3 (runtime + ui) | 1.1.0 |
-| 依赖注入 | Dagger Hilt | 2.59.2 |
-| 数据库 | Room | 2.8.4 |
-| 异步 | Kotlin Coroutines | 1.10.2 |
-| Root 访问 | libsu | 6.0.0 |
-| 权限 | Shizuku API | 13.1.5 |
-| 后台 | WorkManager | 2.11.2 |
-| 图表 | Vico | 3.1.0 |
-| 主题 | Material Kolor | 4.1.1 |
-| 分析 | Firebase Analytics | BOM 34.12.0 |
-| 守护进程 | Rust (daemon-rust) | Edition 2021 |
-| 原生 | cpuinfo + Vulkan Info | arm64-v8a |
-| Markdown | multiplatform-markdown-renderer | 0.40.2 |
-
----
-
-## 从源码构建
-
-### 前置条件
-
-- JDK 17+
-- Android SDK，compile SDK 36
-- CMake 3.22.1（Gradle 自动安装）
-- NDK（用于原生 cpuinfo 和 Vulkan 模块）
-
-### 构建
-
-```bash
-git clone https://github.com/1orz/OpenMonitor-src.git
-cd OpenMonitor-src
-./gradlew assembleDebug
-```
-
-APK 将生成在 `app/build/outputs/apk/debug/`。
-
-### aarch64 Linux（Termux）
-
-在 ARM64 Linux 设备上构建：
-
-```bash
-bash scripts/setup-aarch64-build-env.sh
-./gradlew assembleDebug
-```
-
-安装脚本会自动处理所有平台特定的工具链适配（aapt2、CMake、NDK wrapper）。
 
 ---
 
@@ -345,9 +280,6 @@ bash scripts/setup-aarch64-build-env.sh
 - **所有监控数据保存在设备本地** — 不上传系统指标
 - **Firebase Analytics** 为可选且匿名
 - **所有操作为只读** — OpenMonitor 不会修改你的系统
-- **完全开源** — 你可以审查每一行代码
-
-详见完整的 [隐私政策](https://om.cloudorz.com/)。
 
 ---
 
