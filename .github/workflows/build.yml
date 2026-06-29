@@ -46,7 +46,7 @@ jobs:
         run: echo "$KEYSTORE_BASE64" | base64 -d > $GITHUB_WORKSPACE/release.jks
 
       - name: Cache Cargo
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/bin/
