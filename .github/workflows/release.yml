@@ -86,7 +86,7 @@ jobs:
           echo "daemon.handshake.key=${{ secrets.DAEMON_HANDSHAKE_KEY }}" >> local.properties
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@v6.2.0
         with:
           cache-encryption-key: ${{ secrets.GRADLE_CACHE_KEY }}
 
